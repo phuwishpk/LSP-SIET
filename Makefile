@@ -26,13 +26,12 @@ env-check:  ## Verify .env exists (copy from .env.example if missing)
 up: env-check  ## Build images and start the entire stack in detached mode
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build
 	@echo ""
-	@echo "✓ Stack is up. Open:"
-	@echo "  - http://localhost:8502  Open Notebook (Streamlit)"
-	@echo "  - http://localhost:3000  Open Notebook (Next.js)"
-	@echo "  - http://localhost:3001  My AI Quiz"
-	@echo "  - http://localhost:3002  AI Roadmap Generator"
-	@echo "  - http://localhost:8090  PocketBase admin"
-	@echo "  - http://localhost:5055  Open Notebook REST API"
+	@echo "Stack is up. Open http://localhost (browser will prompt for admin / 123)"
+	@echo "  - http://localhost/           Open Notebook (Next.js)"
+	@echo "  - http://localhost/quiz/      My AI Quiz"
+	@echo "  - http://localhost/roadmap/  AI Roadmap Generator"
+	@echo "  - http://localhost/api/docs  FastAPI docs"
+	@echo "  - http://localhost/pb/_/      PocketBase admin"
 
 build: env-check  ## Build all images without starting
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) build

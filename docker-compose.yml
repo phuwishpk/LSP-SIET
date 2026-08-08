@@ -1,25 +1,45 @@
 # =============================================================================
 # KMITL AI Workspace – unified docker-compose
 #
-# Runs the three repos in one stack:
-#   - open-notebook        (FastAPI + Streamlit + Next.js + SurrealDB + Redis)
-#   - My-ai-quiz           (Next.js standalone)
-#   - ai-roadmap-generator (Next.js + PocketBase)
+# Single entry point: http://localhost/ (Basic Auth: admin / 123)
 #
-# Usage (one command):
+# Routing:
+#   /           → open-notebook Next.js frontend (port 8502)
+#   /api/*     → FastAPI backend (port 5055)
+#   /docs/*    → FastAPI Swagger docs (port 5055)
+#   /streamlit → Streamlit UI (port 8502)
+#   /quiz/*    → My-ai-quiz (port 3000)
+#   /roadmap/* → ai-roadmap-generator (port 3000)
+#   /pb/*      → PocketBase admin (port 8090)
+#
+# Usage:
 #   cp .env.example .env   # fill in API keys / passwords
 #   make up                # or: docker compose up -d --build
 #
-# Open the services at:
-#   - http://localhost:8502  open-notebook Streamlit UI
-#   - http://localhost:5055  open-notebook REST API docs (/docs)
-#   - http://localhost:3000  open-notebook Next.js frontend
-#   - http://localhost:3001  My-ai-quiz
-#   - http://localhost:3002  ai-roadmap-generator
-#   - http://localhost:8090  ai-roadmap-generator PocketBase admin
 # =============================================================================
 
+networks:
+  kmitlai_default:
+    name: kmitlai_default
+    driver: bridge
+
 services:
+  # ---------------------------------------------------------------------------
+  # Traefik v3 – single-port reverse proxy + Basic Auth gate
+  # ---------------------------------------------------------------------------
+  traefik:
+    image: traefik:v3.0
+    container_name: kmitl_traefik
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
+      - ./docker/traefik/dynamic:/etc/traefik/dynamic:ro
+    networks:
+      - kmitlai_default
+    restart: unless-stopped
+
   # ---------------------------------------------------------------------------
   # open-notebook infra: SurrealDB + Redis
   # ---------------------------------------------------------------------------
@@ -27,27 +47,22 @@ services:
     image: surrealdb/surrealdb:v2
     command: start --log info --user ${SURREAL_USER:-root} --pass ${SURREAL_PASSWORD:-root} rocksdb:/mydata/mydatabase.db
     user: root
-    ports:
-      - "8000:8000"
     volumes:
       - ./open-notebook/surreal_data:/mydata
     environment:
       - SURREAL_EXPERIMENTAL_GRAPHQL=true
     restart: unless-stopped
-    # SurrealDB v2 is a distroless image (no wget/curl/shell), so the
-    # built-in healthcheck doesn't work. open-notebook's `_wait_for_database()`
-    # already retries the connection on startup, so we rely on that.
     healthcheck:
       disable: true
 
   redis:
     image: redis:7-alpine
-    ports:
-      - "6379:6379"
     volumes:
       - ./open-notebook/redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
+    networks:
+      - kmitlai_default
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
@@ -57,7 +72,6 @@ services:
 
   # ---------------------------------------------------------------------------
   # open-notebook (FastAPI + Streamlit + Next.js under supervisord)
-  # Build context = workspace root so the Dockerfile can COPY open-notebook/
   # ---------------------------------------------------------------------------
   open_notebook_api:
     build:
@@ -65,14 +79,8 @@ services:
       dockerfile: docker/open-notebook/Dockerfile
     image: kmitlai/open-notebook:local
     container_name: kmitl_open_notebook_api
-    ports:
-      - "5055:5055"  # FastAPI REST API
-      - "8502:8502"  # Streamlit UI
-      - "3000:3000"  # Next.js frontend
     environment:
       - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
-      # JWT signing secret. If unset we fall back to OPEN_NOTEBOOK_ENCRYPTION_KEY,
-      # but a dedicated value lets you rotate it without re-encrypting API keys.
       - JWT_SECRET=${JWT_SECRET:-}
       - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
       - SURREAL_URL=ws://surrealdb:8000/rpc
@@ -85,24 +93,38 @@ services:
       - no_proxy=surrealdb,redis,localhost,127.0.0.1,::1
       - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=${OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB:-2048}
       - TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
-      # External URLs the dashboard uses to deep-link into the standalone apps
-      - NEXT_PUBLIC_MY_AI_QUIZ_URL=http://localhost:3001
-      - NEXT_PUBLIC_AI_ROADMAP_URL=http://localhost:3002
+      # Relative paths behind Traefik
+      - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
+      - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
+      - NEXT_PUBLIC_API_URL=/api
+      # Internal service URLs (container-to-container)
+      - INTERNAL_API_URL=http://localhost:5055
     volumes:
       - ./open-notebook/notebook_data:/app/data
       - ./open-notebook/prompts:/app/prompts
+    networks:
+      - kmitlai_default
     depends_on:
       surrealdb:
         condition: service_started
       redis:
         condition: service_healthy
     restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:5055/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=kmitlai_default"
+
+      # Next.js frontend → /
+      - "traefik.http.routers.open-notebook.rule=PathPrefix(`/`)"
+      - "traefik.http.routers.open-notebook.entrypoints=web"
+      - "traefik.http.routers.open-notebook.middlewares=gate-auth"
+      - "traefik.http.services.open-notebook.loadbalancer.server.port=8502"
+
+      # FastAPI → /api and /docs
+      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`)"
+      - "traefik.http.routers.api.entrypoints=web"
+      - "traefik.http.routers.api.middlewares=gate-auth"
+      - "traefik.http.services.api.loadbalancer.server.port=5055"
 
   # ---------------------------------------------------------------------------
   # My-ai-quiz (Next.js) – talks to open_notebook_api for AI features
@@ -113,21 +135,23 @@ services:
       dockerfile: Dockerfile
     image: kmitlai/my-ai-quiz:local
     container_name: kmitl_my_ai_quiz
-    ports:
-      - "3001:3000"
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:5055
-      # When set, My-ai-quiz forwards quizzes to the workspace API so they
-      # are persisted under the signed-in user. When empty, the local
-      # /api/generate-quiz route is used.
+      - NEXT_PUBLIC_API_URL=/api
       - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
       - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
       - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
       - NODE_ENV=production
-    depends_on:
-      open_notebook_api:
-        condition: service_healthy
+    networks:
+      - kmitlai_default
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=kmitlai_default"
+      - "traefik.http.routers.quiz.rule=PathPrefix(`/quiz`)"
+      - "traefik.http.routers.quiz.entrypoints=web"
+      - "traefik.http.routers.quiz.middlewares=gate-auth,quiz-stripprefix"
+      - "traefik.http.services.quiz.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.quiz-stripprefix.stripprefix.prefixes=/quiz"
 
   # ---------------------------------------------------------------------------
   # ai-roadmap-generator infra: PocketBase
@@ -135,11 +159,19 @@ services:
   ai_roadmap_pocketbase:
     image: ghcr.io/muchobien/pocketbase:latest
     container_name: kmitl_ai_roadmap_pocketbase
-    ports:
-      - "8090:8090"
     volumes:
       - ./ai-roadmap-generator/pb_data:/pb_data
+    networks:
+      - kmitlai_default
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=kmitlai_default"
+      - "traefik.http.routers.pb.rule=PathPrefix(`/pb`)"
+      - "traefik.http.routers.pb.entrypoints=web"
+      - "traefik.http.routers.pb.middlewares=gate-auth,pb-stripprefix"
+      - "traefik.http.services.pb.loadbalancer.server.port=8090"
+      - "traefik.http.middlewares.pb-stripprefix.stripprefix.prefixes=/pb"
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:8090/api/health"]
       interval: 30s
@@ -156,18 +188,21 @@ services:
       dockerfile: Dockerfile
     image: kmitlai/ai-roadmap-generator:local
     container_name: kmitl_ai_roadmap_generator
-    ports:
-      - "3002:3000"
     environment:
-      - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+      - NEXT_PUBLIC_POCKETBASE_URL=/pb
       - POCKETBASE_URL=http://ai_roadmap_pocketbase:8090
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
       - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
       - NODE_ENV=production
-    depends_on:
-      ai_roadmap_pocketbase:
-        condition: service_healthy
-      open_notebook_api:
-        condition: service_healthy
+    networks:
+      - kmitlai_default
     restart: unless-stopped
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=kmitlai_default"
+      - "traefik.http.routers.roadmap.rule=PathPrefix(`/roadmap`)"
+      - "traefik.http.routers.roadmap.entrypoints=web"
+      - "traefik.http.routers.roadmap.middlewares=gate-auth,roadmap-stripprefix"
+      - "traefik.http.services.roadmap.loadbalancer.server.port=3000"
+      - "traefik.http.middlewares.roadmap-stripprefix.stripprefix.prefixes=/roadmap"

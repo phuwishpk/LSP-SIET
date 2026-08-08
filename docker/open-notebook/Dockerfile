@@ -8,9 +8,9 @@
 #     open-notebook/                <- Python app + frontend source
 #     docker/open-notebook/         <- this Dockerfile + supervisord.conf + wait-for-api.sh
 #
-# Multi-stage build that produces a single image running both the FastAPI
-# backend (port 5055), the Streamlit UI (port 8502) and the Next.js
-# frontend (port 3000) under supervisord.
+# Multi-stage build that produces a single image running the FastAPI
+# backend (port 5055), Streamlit UI (port 8502), and Next.js
+# frontend (port 8502) under supervisord.
 # =============================================================================
 
 # ---- Build stage ----
@@ -102,7 +102,11 @@ COPY --from=builder /app/frontend/.next/static /app/frontend/.next/static
 COPY --from=builder /app/frontend/public /app/frontend/public
 COPY --from=builder /app/frontend/start-server.js /app/frontend/start-server.js
 
-EXPOSE 8502 5055 3000
+# Streamlit config: baseUrlPath=/streamlit for Traefik StripPrefix
+RUN mkdir -p /app/streamlit && \
+    printf '[server]\nbaseUrlPath = "/streamlit"\nheadless = true\n' > /app/streamlit/config.toml
+
+EXPOSE 8502 5055
 
 RUN mkdir -p /app/data /var/log/supervisor
 
