@@ -1,0 +1,105 @@
+# Dynamic Traefik config — ทุก router/middleware อยู่ที่เดียวกัน
+# ใช้ร่วมกับ static config (traefik.yml) ที่ใช้ file provider
+
+http:
+  middlewares:
+    gate-auth:
+      basicAuth:
+        users:
+          - "admin:$apr1$U2/0MoNt$G2jEA5.imbQxH0xtDsnCN."
+        removeHeader: true
+
+    # PocketBase UI อยู่ที่ /_/ — rewrite /pb → /_/
+    # regex ^/pb/?(.*) แทนด้วย /_/$1  ทำให้ /pb → /_/, /pb/_/ → /_/_/
+    # (เลวร้าย — ต้องใช้ 2 routers แยก)
+    pb-rewrite-pb-only:
+      replacePathRegex:
+        regex: "^/pb$"
+        replacement: "/_/"
+
+    pb-rewrite-pb-prefix:
+      replacePathRegex:
+        regex: "^/pb/(.*)"
+        replacement: "/${1}"
+
+    # Redirect /pb → /pb/_/ (ไม่ใช้แล้ว — ใช้ pb-rewrite-pb-only แทน)
+
+  routers:
+    # ----- FastAPI backend: /api + /docs + /openapi.json -----
+    api:
+      rule: "PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`)"
+      entrypoints: web
+      middlewares:
+        - gate-auth
+      service: api-svc
+
+    # ----- Next.js frontend (root) — จับทุกอย่างที่ไม่ใช่ specific routes -----
+    open-notebook:
+      rule: "PathPrefix(`/`)"
+      entrypoints: web
+      middlewares:
+        - gate-auth
+      priority: 1
+      service: open-notebook-svc
+
+    # ----- My AI Quiz (Next.js handles basePath=/quiz) -----
+    quiz:
+      rule: "PathPrefix(`/quiz`)"
+      entrypoints: web
+      middlewares:
+        - gate-auth
+      service: quiz-svc
+
+    # ----- AI Roadmap Generator (Next.js handles basePath=/roadmap) -----
+    roadmap:
+      rule: "PathPrefix(`/roadmap`)"
+      entrypoints: web
+      middlewares:
+        - gate-auth
+      service: roadmap-svc
+
+    # ----- PocketBase — rewrite /pb → /_/ -----
+    pb-only:
+      rule: "Path(`/pb`)"
+      entrypoints: web
+      middlewares:
+        - gate-auth
+        - pb-rewrite-pb-only
+      priority: 200
+      service: pb-svc
+
+    # ----- PocketBase — rewrite /pb/* → /* -----
+    pb:
+      rule: "PathPrefix(`/pb/`)"
+      entrypoints: web
+      middlewares:
+        - gate-auth
+        - pb-rewrite-pb-prefix
+      priority: 100
+      service: pb-svc
+
+  services:
+    api-svc:
+      loadBalancer:
+        servers:
+          - url: "http://kmitl_open_notebook_api:5055"
+
+    open-notebook-svc:
+      loadBalancer:
+        servers:
+          - url: "http://kmitl_open_notebook_api:8502"
+
+    quiz-svc:
+      loadBalancer:
+        servers:
+          - url: "http://kmitl_my_ai_quiz:3000"
+
+    roadmap-svc:
+      loadBalancer:
+        servers:
+          - url: "http://kmitl_ai_roadmap_generator:3000"
+
+    pb-svc:
+      loadBalancer:
+        servers:
+          - url: "http://kmitl_ai_roadmap_pocketbase:8090"

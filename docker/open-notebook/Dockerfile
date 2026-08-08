@@ -48,10 +48,8 @@ ENV TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
 RUN mkdir -p /app/tiktoken-cache && \
     .venv/bin/python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
 
-# Copy the rest of the open-notebook source
-COPY open-notebook/ /app/
-
-# Build the embedded Next.js frontend
+# Install frontend dependencies before copying application source so ordinary
+# source edits do not invalidate the expensive npm ci layer.
 WORKDIR /app/frontend
 ARG NPM_REGISTRY=https://registry.npmjs.org/
 COPY open-notebook/frontend/package.json open-notebook/frontend/package-lock.json ./
@@ -66,7 +64,12 @@ RUN i=0; until npm ci; do \
       if [ "$i" -ge 5 ]; then echo "npm ci failed after $i attempts"; exit 1; fi; \
       echo "npm ci failed (attempt $i); retrying in 15s"; sleep 15; \
     done
-COPY open-notebook/frontend/ ./
+
+# Copy the application only after both dependency layers are ready.
+WORKDIR /app
+COPY open-notebook/ /app/
+
+WORKDIR /app/frontend
 RUN npm run build
 
 WORKDIR /app

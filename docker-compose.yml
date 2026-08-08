@@ -20,20 +20,18 @@
 
 networks:
   kmitlai_default:
-    name: kmitlai_default
     driver: bridge
 
 services:
   # ---------------------------------------------------------------------------
-  # Traefik v3 – single-port reverse proxy + Basic Auth gate
+  # Traefik v2.11 – single-port reverse proxy + Basic Auth gate
   # ---------------------------------------------------------------------------
   traefik:
-    image: traefik:v3.0
+    image: traefik:v2.11
     container_name: kmitl_traefik
     ports:
       - "80:80"
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ./docker/traefik/traefik.yml:/etc/traefik/traefik.yml:ro
       - ./docker/traefik/dynamic:/etc/traefik/dynamic:ro
     networks:
@@ -51,6 +49,8 @@ services:
       - ./open-notebook/surreal_data:/mydata
     environment:
       - SURREAL_EXPERIMENTAL_GRAPHQL=true
+    networks:
+      - kmitlai_default
     restart: unless-stopped
     healthcheck:
       disable: true
@@ -96,7 +96,10 @@ services:
       # Relative paths behind Traefik
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
       - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
-      - NEXT_PUBLIC_API_URL=/api
+      # Browser requests stay on localhost:3000 and Next.js proxies /api to
+      # FastAPI. This avoids exposing a container-only address to the browser.
+      - NEXT_PUBLIC_API_URL=http://localhost:3000
+      - API_URL=http://localhost:3000
       # Internal service URLs (container-to-container)
       - INTERNAL_API_URL=http://localhost:5055
     volumes:
@@ -110,21 +113,15 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    # Exposed directly on host for local development:
+    #   http://localhost:3000  → Next.js frontend (login, dashboard, features)
+    #   http://localhost:5055  → FastAPI backend (debug/docs access)
+    # Traefik is intentionally NOT routing this service so the dev port stays stable.
+    ports:
+      - "3000:8502"
+      - "5055:5055"
     labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=kmitlai_default"
-
-      # Next.js frontend → /
-      - "traefik.http.routers.open-notebook.rule=PathPrefix(`/`)"
-      - "traefik.http.routers.open-notebook.entrypoints=web"
-      - "traefik.http.routers.open-notebook.middlewares=gate-auth"
-      - "traefik.http.services.open-notebook.loadbalancer.server.port=8502"
-
-      # FastAPI → /api and /docs
-      - "traefik.http.routers.api.rule=PathPrefix(`/api`) || PathPrefix(`/docs`) || PathPrefix(`/openapi.json`)"
-      - "traefik.http.routers.api.entrypoints=web"
-      - "traefik.http.routers.api.middlewares=gate-auth"
-      - "traefik.http.services.api.loadbalancer.server.port=5055"
+      - "traefik.enable=false"
 
   # ---------------------------------------------------------------------------
   # My-ai-quiz (Next.js) – talks to open_notebook_api for AI features
@@ -143,6 +140,8 @@ services:
       - NODE_ENV=production
     networks:
       - kmitlai_default
+    ports:
+      - "3001:3000"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
@@ -197,6 +196,8 @@ services:
       - NODE_ENV=production
     networks:
       - kmitlai_default
+    ports:
+      - "3002:3000"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"

@@ -1,6 +1,0 @@
-http:
-  middlewares:
-    gate-auth:
-      basicAuth:
-        users:
-          - "admin:$apr1$U2/0MoNt$G2jEA5.imbQxH0xtDsnCN."

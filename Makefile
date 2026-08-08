@@ -8,6 +8,8 @@
 COMPOSE       ?= docker compose
 COMPOSE_FILE  ?= -f docker-compose.yml
 ENV_FILE      ?= .env
+PROJECT_NAME  ?= kmitlai
+COMPOSE       += -p $(PROJECT_NAME)
 
 .PHONY: help up down logs build rebuild restart ps clean nuke env-check
 
