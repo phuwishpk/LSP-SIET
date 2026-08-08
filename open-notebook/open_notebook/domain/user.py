@@ -214,6 +214,21 @@ async def touch_last_login(user_id: str) -> None:
         logger.warning(f"Failed to update last_login_at for {user_id}: {exc}")
 
 
+async def update_password(user_id: str, password: str) -> None:
+    """Replace a user's password hash (used by deterministic local admin seeding)."""
+    now = datetime.now(timezone.utc).isoformat()
+    password_hash = hash_password(password)
+    async with db_connection() as connection:
+        await connection.query(
+            "UPDATE $id SET password_hash = $password_hash, updated_at = $now",
+            {
+                "id": ensure_record_id(user_id),
+                "password_hash": password_hash,
+                "now": now,
+            },
+        )
+
+
 async def _query(query_str: str, vars: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
     async with db_connection() as connection:
         result = parse_record_ids(await connection.query(query_str, vars))

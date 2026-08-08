@@ -45,7 +45,7 @@ export function RegisterForm() {
   }
 
   if (authRequired === false) {
-    router.replace('/dashboard')
+    router.replace('/notebooks')
     return null
   }
 

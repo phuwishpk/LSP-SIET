@@ -54,7 +54,7 @@ export function LoginForm() {
     if (!hasHydrated) return
     if (authRequired !== null) {
       if (!authRequired && isAuthenticated) {
-        router.push('/dashboard')
+        router.push('/notebooks')
       } else {
         setIsCheckingAuth(false)
       }
@@ -62,7 +62,7 @@ export function LoginForm() {
     }
     checkAuthRequired()
       .then((required) => {
-        if (!required) router.push('/dashboard')
+        if (!required) router.push('/notebooks')
       })
       .catch(() => {
         // Error already captured in the store

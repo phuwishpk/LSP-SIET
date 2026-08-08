@@ -49,6 +49,47 @@ export async function POST(req: Request) {
       return Response.json({ error: 'Question count must be between 1 and 10' }, { status: 400 });
     }
 
+    const workspaceApiUrl = process.env.OPEN_NOTEBOOK_API_URL;
+    const authorization = req.headers.get('authorization');
+    if (workspaceApiUrl && authorization) {
+      const workspaceResponse = await fetch(
+        `${workspaceApiUrl.replace(/\/$/, '')}/api/features/quiz/generate`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: authorization,
+          },
+          body: JSON.stringify({
+            topic,
+            question_count: count,
+            language: 'th',
+          }),
+        }
+      );
+      const workspaceData = await workspaceResponse.json();
+      if (!workspaceResponse.ok) {
+        return Response.json(
+          { error: workspaceData?.detail || 'Open Notebook RAG request failed' },
+          { status: workspaceResponse.status }
+        );
+      }
+      const quiz = (workspaceData?.session?.questions ?? []).map((question: {
+        id: number;
+        question: string;
+        options: { text: string }[];
+        correct_answer: string;
+        explanation: string;
+      }) => ({
+        id: question.id,
+        question: question.question,
+        options: question.options.map((option) => option.text),
+        correctAnswer: question.correct_answer,
+        explanation: question.explanation,
+      }));
+      return Response.json({ quiz });
+    }
+
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {

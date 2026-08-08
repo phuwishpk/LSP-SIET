@@ -196,7 +196,7 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Podcast profile migration encountered errors: {e}")
         # Non-fatal: profiles can be migrated manually via UI
 
-    # Seed a default workspace user (admin / 123) on first startup so the
+    # Seed a default workspace user on startup so the
     # login form has working credentials out of the box. Set
     # WORKSPACE_SEED_ADMIN=false to disable.
     try:
@@ -204,6 +204,8 @@ async def lifespan(app: FastAPI):
             UserAlreadyExists,
             create as create_user,
             get_by_username,
+            update_password,
+            verify_password,
         )
 
         seed_enabled = os.getenv("WORKSPACE_SEED_ADMIN", "true").lower() not in {
@@ -212,8 +214,8 @@ async def lifespan(app: FastAPI):
             "no",
         }
         if seed_enabled and jwt_auth_enabled():
-            seed_username = os.getenv("WORKSPACE_SEED_ADMIN_USERNAME", "admin")
-            seed_password = os.getenv("WORKSPACE_SEED_ADMIN_PASSWORD", "123")
+            seed_username = os.getenv("WORKSPACE_SEED_ADMIN_USERNAME", "admin1")
+            seed_password = os.getenv("WORKSPACE_SEED_ADMIN_PASSWORD", "admin1")
             existing = await get_by_username(seed_username)
             if existing is None:
                 try:
@@ -229,6 +231,9 @@ async def lifespan(app: FastAPI):
                     pass
                 except Exception as exc:
                     logger.warning(f"Failed to seed default user: {exc}")
+            elif existing.id and not verify_password(seed_password, existing.password_hash):
+                await update_password(existing.id, seed_password)
+                logger.success(f"Updated seeded workspace user '{seed_username}'")
     except Exception as exc:
         logger.debug(f"Skipping default user seed: {exc}")
 

@@ -71,18 +71,14 @@ export default function QuizPage() {
     setShowResult(false);
 
     try {
-      // Prefer the workspace API (open-notebook) when a JWT is present so
-      // quizzes are scoped to the signed-in user. Fall back to the local
-      // /api/generate-quiz route for anonymous usage.
-      const apiBase = process.env.NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL;
-      const endpoint = apiBase
-        ? `${apiBase.replace(/\/$/, '')}/api/features/quiz/generate`
-        : '/api/generate-quiz';
+      // The local route is a server-side bridge to Open Notebook. Keeping the
+      // internal container URL off the browser avoids Docker DNS/CORS issues.
+      const endpoint = '/quiz/api/generate-quiz';
 
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
       };
-      if (token && apiBase) {
+      if (token) {
         headers['Authorization'] = `Bearer ${token}`;
       }
 
@@ -106,21 +102,7 @@ export default function QuizPage() {
         throw new Error(detail);
       }
 
-      const list: Question[] = apiBase
-        ? ((data?.session?.questions ?? []).map((q: {
-            id: number;
-            question: string;
-            options: { text: string; is_correct: boolean }[];
-            correct_answer: string;
-            explanation: string;
-          }) => ({
-            id: q.id,
-            question: q.question,
-            options: q.options.map((opt) => opt.text),
-            correctAnswer: q.correct_answer,
-            explanation: q.explanation,
-          })))
-        : (data.quiz ?? []);
+      const list: Question[] = data.quiz ?? [];
 
       if (Array.isArray(list) && list.length > 0) {
         setQuestions(list);

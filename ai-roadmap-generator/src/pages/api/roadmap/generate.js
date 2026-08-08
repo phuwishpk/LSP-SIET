@@ -265,6 +265,76 @@ export default async function handler(req, res) {
       message: "bad request params"
     })
   }
+
+  // Authenticated requests are generated and persisted by Open Notebook so
+  // Roadmap shares the same model registry, RAG corpus and per-user storage.
+  const workspaceApiUrl = process.env.OPEN_NOTEBOOK_API_URL;
+  if (workspaceApiUrl && token) {
+    try {
+      const workspaceResponse = await fetch(
+        `${workspaceApiUrl.replace(/\/$/, "")}/api/features/roadmap/generate`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            title,
+            description: pdfContext
+              ? `${title}\n\nUploaded document context:\n${pdfContext}`
+              : title,
+            language: "th",
+            node_count: 15,
+          }),
+        }
+      );
+      const workspaceData = await workspaceResponse.json();
+      if (!workspaceResponse.ok) {
+        return res.status(workspaceResponse.status).json({
+          ok: false,
+          message: workspaceData?.detail || "Open Notebook RAG request failed",
+        });
+      }
+
+      const session = workspaceData.session;
+      const nodes = session?.nodes || [];
+      const parentByTarget = new Map(
+        (session?.edges || []).map(edge => [String(edge.target), String(edge.source)])
+      );
+      const numericIdByNode = new Map(nodes.map((node, index) => [String(node.id), index]));
+      const roadmap = nodes.map((node, index) => {
+        const parentNode = parentByTarget.get(String(node.id));
+        return {
+          id: index,
+          level: index === 0 ? 0 : 1,
+          parent: index === 0 ? 0 : (numericIdByNode.get(parentNode) ?? 0),
+          title: node.label,
+          description: node.description || "",
+        };
+      });
+      const code = String(session.id || `rag-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, "-");
+      const record = {
+        code,
+        title: session.title || title,
+        data: JSON.stringify(roadmap),
+        roadmap,
+        created: session.created,
+      };
+      cacheData.put(`roadmap/local/${code}`, record);
+      return res.status(200).json({
+        ok: true,
+        code,
+        data: record,
+        warning: pdfWarning,
+      });
+    } catch (error) {
+      return res.status(502).json({
+        ok: false,
+        message: `Open Notebook RAG is unavailable: ${error?.message || error}`,
+      });
+    }
+  }
   let isFinished = false
   const hasPocketbaseConfig = Boolean(POCKETBASE_URL && POCKETBASE_ADMIN_EMAIL && POCKETBASE_ADMIN_PASSWORD);
   let cats = {

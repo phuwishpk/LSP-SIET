@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
@@ -157,24 +156,11 @@ export default function SearchPage() {
   }, [searchParams])
 
   return (
-    <AppShell>
-      <div className="flex-1 overflow-y-auto p-4 md:p-6">
-        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">{t('searchPage.askAndSearch')}</h1>
+    <main className="min-h-screen bg-background overflow-y-auto">
+      <div className="w-full max-w-4xl mx-auto p-4 md:p-8">
+        <h1 className="text-xl md:text-2xl font-bold mb-4 md:mb-6">{t('searchPage.askYourKb')}</h1>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'ask' | 'search')} className="w-full space-y-6">
-          <div className="space-y-2">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{t('searchPage.chooseAMode')}</p>
-            <TabsList aria-label={t('common.accessibility.searchKB')} className="w-full max-w-xl">
-              <TabsTrigger value="ask">
-                <MessageCircleQuestion className="h-4 w-4" />
-                {t('searchPage.askBeta')}
-              </TabsTrigger>
-              <TabsTrigger value="search">
-                <Search className="h-4 w-4" />
-                {t('searchPage.search')}
-              </TabsTrigger>
-            </TabsList>
-          </div>
+        <Tabs value="ask" className="w-full space-y-6">
 
           <TabsContent value="ask" className="mt-6">
             <Card>
@@ -495,6 +481,6 @@ export default function SearchPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </AppShell>
+    </main>
   )
 }

@@ -35,7 +35,11 @@ from open_notebook.exceptions import (
     InvalidInputError,
 )
 from open_notebook.domain.features import QuizSession, RoadmapSession
+from open_notebook.domain.notebook import text_search
 from open_notebook.utils.text_utils import extract_text_content
+
+
+MAX_RAG_CONTEXT_CHARS = 12_000
 
 
 # ---------------------------------------------------------------------------
@@ -91,6 +95,37 @@ def _hash_prompt(payload: Dict[str, Any]) -> str:
     """Stable content hash for cache-key derivation."""
     encoded = json.dumps(payload, sort_keys=True, default=str)
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
+
+
+async def _retrieve_rag_context(query: str) -> str:
+    """Retrieve relevant Open Notebook source/note snippets for every feature."""
+    try:
+        results = await text_search(
+            keyword=query,
+            results=8,
+            source=True,
+            note=True,
+        )
+    except Exception as exc:
+        # Empty/new workspaces must still be able to generate features.
+        logger.warning(f"RAG retrieval skipped for {query!r}: {exc}")
+        return ""
+
+    chunks: List[str] = []
+    for index, result in enumerate(results or [], start=1):
+        if not isinstance(result, dict):
+            continue
+        title = str(result.get("title") or f"Knowledge item {index}")
+        raw_matches = result.get("matches") or []
+        if isinstance(raw_matches, str):
+            raw_matches = [raw_matches]
+        content = "\n".join(str(match) for match in raw_matches if match)
+        if not content:
+            content = str(result.get("content") or result.get("text") or "")
+        if content.strip():
+            chunks.append(f"[Open Notebook: {title}]\n{content.strip()}")
+
+    return "\n\n".join(chunks)[:MAX_RAG_CONTEXT_CHARS]
 
 
 async def _extract_json(raw: str) -> Dict[str, Any]:
@@ -320,11 +355,13 @@ async def generate_quiz(
     if question_count < 1 or question_count > 20:
         raise InvalidInputError("question_count must be between 1 and 20")
 
+    rag_context = await _retrieve_rag_context(topic)
     cache_key_payload = {
         "topic": topic.lower(),
         "n": question_count,
         "lang": language,
         "model": model_id or "default",
+        "rag": _hash_prompt({"context": rag_context}) if rag_context else "none",
     }
     prompt_hash = _hash_prompt(cache_key_payload)
     cache_key = f"features:quiz:{owner_id}:{prompt_hash}"
@@ -358,6 +395,13 @@ async def generate_quiz(
         "Each question must have 4 options, exactly one correct, and a short "
         "explanation citing the rationale. Mark the correct option with "
         "is_correct: true and repeat its text in correct_answer."
+        + (
+            "\n\nUse the following retrieved Open Notebook knowledge as the "
+            "primary factual context. Do not invent facts that conflict with it:\n\n"
+            + rag_context
+            if rag_context
+            else ""
+        )
     )
 
     raw = await _invoke_chat(
@@ -431,11 +475,13 @@ async def generate_roadmap(
     if node_count < 3 or node_count > 50:
         raise InvalidInputError("node_count must be between 3 and 50")
 
+    rag_context = await _retrieve_rag_context(description)
     cache_key_payload = {
         "desc": description.lower(),
         "n": node_count,
         "lang": language,
         "model": model_id or "default",
+        "rag": _hash_prompt({"context": rag_context}) if rag_context else "none",
     }
     prompt_hash = _hash_prompt(cache_key_payload)
     cache_key = f"features:roadmap:{owner_id}:{prompt_hash}"
@@ -471,6 +517,13 @@ async def generate_roadmap(
         f"Output language code: {language}. "
         "Suggested node categories: planning, design, development, testing, "
         "deployment, launch. Make sure edges form a directed acyclic graph."
+        + (
+            "\n\nUse the following retrieved Open Notebook knowledge as the "
+            "primary factual context and ground the roadmap in it:\n\n"
+            + rag_context
+            if rag_context
+            else ""
+        )
     )
 
     raw = await _invoke_chat(

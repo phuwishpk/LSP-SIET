@@ -31,10 +31,10 @@ const APP_CARDS: AppCard[] = [
     description:
       'Research assistant with notebooks, sources, notes, podcasts and the AI chat workspace.',
     icon: BookOpen,
-    href: '/notebooks',
+    href: '/search?mode=ask',
     external: false,
     gradient: 'from-blue-500/15 to-cyan-500/15',
-    cta: 'Open workspace',
+    cta: 'Ask a question',
   },
   {
     id: 'quiz',
