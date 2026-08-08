@@ -1,0 +1,173 @@
+# =============================================================================
+# KMITL AI Workspace – unified docker-compose
+#
+# Runs the three repos in one stack:
+#   - open-notebook        (FastAPI + Streamlit + Next.js + SurrealDB + Redis)
+#   - My-ai-quiz           (Next.js standalone)
+#   - ai-roadmap-generator (Next.js + PocketBase)
+#
+# Usage (one command):
+#   cp .env.example .env   # fill in API keys / passwords
+#   make up                # or: docker compose up -d --build
+#
+# Open the services at:
+#   - http://localhost:8502  open-notebook Streamlit UI
+#   - http://localhost:5055  open-notebook REST API docs (/docs)
+#   - http://localhost:3000  open-notebook Next.js frontend
+#   - http://localhost:3001  My-ai-quiz
+#   - http://localhost:3002  ai-roadmap-generator
+#   - http://localhost:8090  ai-roadmap-generator PocketBase admin
+# =============================================================================
+
+services:
+  # ---------------------------------------------------------------------------
+  # open-notebook infra: SurrealDB + Redis
+  # ---------------------------------------------------------------------------
+  surrealdb:
+    image: surrealdb/surrealdb:v2
+    command: start --log info --user ${SURREAL_USER:-root} --pass ${SURREAL_PASSWORD:-root} rocksdb:/mydata/mydatabase.db
+    user: root
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./open-notebook/surreal_data:/mydata
+    environment:
+      - SURREAL_EXPERIMENTAL_GRAPHQL=true
+    restart: unless-stopped
+    # SurrealDB v2 is a distroless image (no wget/curl/shell), so the
+    # built-in healthcheck doesn't work. open-notebook's `_wait_for_database()`
+    # already retries the connection on startup, so we rely on that.
+    healthcheck:
+      disable: true
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./open-notebook/redis_data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # open-notebook (FastAPI + Streamlit + Next.js under supervisord)
+  # Build context = workspace root so the Dockerfile can COPY open-notebook/
+  # ---------------------------------------------------------------------------
+  open_notebook_api:
+    build:
+      context: .
+      dockerfile: docker/open-notebook/Dockerfile
+    image: kmitlai/open-notebook:local
+    container_name: kmitl_open_notebook_api
+    ports:
+      - "5055:5055"  # FastAPI REST API
+      - "8502:8502"  # Streamlit UI
+      - "3000:3000"  # Next.js frontend
+    environment:
+      - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
+      # JWT signing secret. If unset we fall back to OPEN_NOTEBOOK_ENCRYPTION_KEY,
+      # but a dedicated value lets you rotate it without re-encrypting API keys.
+      - JWT_SECRET=${JWT_SECRET:-}
+      - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
+      - SURREAL_URL=ws://surrealdb:8000/rpc
+      - SURREAL_USER=${SURREAL_USER:-root}
+      - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
+      - SURREAL_NAMESPACE=open_notebook
+      - SURREAL_DATABASE=open_notebook
+      - REDIS_URL=redis://redis:6379/0
+      - NO_PROXY=surrealdb,redis,localhost,127.0.0.1,::1
+      - no_proxy=surrealdb,redis,localhost,127.0.0.1,::1
+      - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=${OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB:-2048}
+      - TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
+      # External URLs the dashboard uses to deep-link into the standalone apps
+      - NEXT_PUBLIC_MY_AI_QUIZ_URL=http://localhost:3001
+      - NEXT_PUBLIC_AI_ROADMAP_URL=http://localhost:3002
+    volumes:
+      - ./open-notebook/notebook_data:/app/data
+      - ./open-notebook/prompts:/app/prompts
+    depends_on:
+      surrealdb:
+        condition: service_started
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:5055/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ---------------------------------------------------------------------------
+  # My-ai-quiz (Next.js) – talks to open_notebook_api for AI features
+  # ---------------------------------------------------------------------------
+  my_ai_quiz:
+    build:
+      context: ./My-ai-quiz
+      dockerfile: Dockerfile
+    image: kmitlai/my-ai-quiz:local
+    container_name: kmitl_my_ai_quiz
+    ports:
+      - "3001:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:5055
+      # When set, My-ai-quiz forwards quizzes to the workspace API so they
+      # are persisted under the signed-in user. When empty, the local
+      # /api/generate-quiz route is used.
+      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
+      - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
+      - NODE_ENV=production
+    depends_on:
+      open_notebook_api:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # ai-roadmap-generator infra: PocketBase
+  # ---------------------------------------------------------------------------
+  ai_roadmap_pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: kmitl_ai_roadmap_pocketbase
+    ports:
+      - "8090:8090"
+    volumes:
+      - ./ai-roadmap-generator/pb_data:/pb_data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # ai-roadmap-generator (Next.js)
+  # ---------------------------------------------------------------------------
+  ai_roadmap_generator:
+    build:
+      context: ./ai-roadmap-generator
+      dockerfile: Dockerfile
+    image: kmitlai/ai-roadmap-generator:local
+    container_name: kmitl_ai_roadmap_generator
+    ports:
+      - "3002:3000"
+    environment:
+      - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+      - POCKETBASE_URL=http://ai_roadmap_pocketbase:8090
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
+      - NODE_ENV=production
+    depends_on:
+      ai_roadmap_pocketbase:
+        condition: service_healthy
+      open_notebook_api:
+        condition: service_healthy
+    restart: unless-stopped

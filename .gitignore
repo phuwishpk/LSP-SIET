@@ -1,0 +1,36 @@
+.env
+.env.local
+.env.*.local
+
+# Docker volumes – never check these in
+**/notebook_data/
+**/surreal_data/
+**/redis_data/
+**/pb_data/
+**/.uploads/
+
+# Next.js build artefacts
+**/.next/
+**/node_modules/
+
+# Python virtualenvs (uv)
+**/.venv/
+**/venv/
+
+# Traefik / TLS
+docker/traefik/acme.json
+**/*.pem
+**/*.key
+**/*.crt
+
+# OS / IDE metadata
+.DS_Store
+Thumbs.db
+
+# Logs
+**/*.log
+logs/
+
+# Build outputs (other)
+**/dist/
+**/build/
