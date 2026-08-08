@@ -1,0 +1,58 @@
+-- Migration 19: AI Feature Modules (Quiz + Roadmap)
+-- Adds persistent storage for AI-generated content from
+-- My-ai-quiz and ai-roadmap-generator, integrated into Open Notebook.
+
+-- =============================================================================
+-- quiz_session: stores AI-generated multiple-choice quizzes
+-- =============================================================================
+DEFINE TABLE IF NOT EXISTS quiz_session SCHEMAFULL;
+
+DEFINE FIELD IF NOT EXISTS owner_id        ON TABLE quiz_session TYPE string;
+DEFINE FIELD IF NOT EXISTS topic           ON TABLE quiz_session TYPE string;
+DEFINE FIELD IF NOT EXISTS language        ON TABLE quiz_session TYPE string DEFAULT "th";
+DEFINE FIELD IF NOT EXISTS question_count  ON TABLE quiz_session TYPE int;
+DEFINE FIELD IF NOT EXISTS questions       ON TABLE quiz_session TYPE array<object>;
+DEFINE FIELD IF NOT EXISTS notebook_id     ON TABLE quiz_session TYPE option<record<notebook>>;
+DEFINE FIELD IF NOT EXISTS model_id        ON TABLE quiz_session TYPE option<record<model>>;
+DEFINE FIELD IF NOT EXISTS prompt_hash     ON TABLE quiz_session TYPE string;
+DEFINE FIELD IF NOT EXISTS created_at      ON TABLE quiz_session TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at      ON TABLE quiz_session TYPE datetime DEFAULT time::now();
+
+-- Indexing for per-user queries (multi-user isolation)
+DEFINE INDEX IF NOT EXISTS idx_quiz_owner
+    ON TABLE quiz_session
+    FIELDS owner_id
+    CONCURRENTLY;
+
+DEFINE INDEX IF NOT EXISTS idx_quiz_owner_created
+    ON TABLE quiz_session
+    FIELDS owner_id, created_at
+    CONCURRENTLY;
+
+-- =============================================================================
+-- roadmap_session: stores AI-generated project roadmaps (nodes + edges)
+-- =============================================================================
+DEFINE TABLE IF NOT EXISTS roadmap_session SCHEMAFULL;
+
+DEFINE FIELD IF NOT EXISTS owner_id      ON TABLE roadmap_session TYPE string;
+DEFINE FIELD IF NOT EXISTS title         ON TABLE roadmap_session TYPE string;
+DEFINE FIELD IF NOT EXISTS description   ON TABLE roadmap_session TYPE string;
+DEFINE FIELD IF NOT EXISTS language      ON TABLE roadmap_session TYPE string DEFAULT "th";
+DEFINE FIELD IF NOT EXISTS node_count    ON TABLE roadmap_session TYPE int;
+DEFINE FIELD IF NOT EXISTS nodes         ON TABLE roadmap_session TYPE array<object>;
+DEFINE FIELD IF NOT EXISTS edges         ON TABLE roadmap_session TYPE array<object>;
+DEFINE FIELD IF NOT EXISTS notebook_id   ON TABLE roadmap_session TYPE option<record<notebook>>;
+DEFINE FIELD IF NOT EXISTS model_id      ON TABLE roadmap_session TYPE option<record<model>>;
+DEFINE FIELD IF NOT EXISTS prompt_hash   ON TABLE roadmap_session TYPE string;
+DEFINE FIELD IF NOT EXISTS created_at    ON TABLE roadmap_session TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at    ON TABLE roadmap_session TYPE datetime DEFAULT time::now();
+
+DEFINE INDEX IF NOT EXISTS idx_roadmap_owner
+    ON TABLE roadmap_session
+    FIELDS owner_id
+    CONCURRENTLY;
+
+DEFINE INDEX IF NOT EXISTS idx_roadmap_owner_created
+    ON TABLE roadmap_session
+    FIELDS owner_id, created_at
+    CONCURRENTLY;

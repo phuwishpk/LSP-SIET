@@ -1,0 +1,23 @@
+-- Migration 20: User accounts for the multi-app workspace
+-- Adds persistent storage for username/password accounts so the
+-- open-notebook API can issue JWTs and propagate an `owner_id` to
+-- downstream apps (My-ai-quiz, ai-roadmap-generator).
+
+-- =============================================================================
+-- user: stores registered accounts
+-- =============================================================================
+DEFINE TABLE IF NOT EXISTS user SCHEMAFULL;
+
+DEFINE FIELD IF NOT EXISTS username       ON TABLE user TYPE string;
+DEFINE FIELD IF NOT EXISTS password_hash  ON TABLE user TYPE string;
+DEFINE FIELD IF NOT EXISTS display_name   ON TABLE user TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS created_at     ON TABLE user TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated_at     ON TABLE user TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS last_login_at  ON TABLE user TYPE option<datetime>;
+
+-- Username must be unique (case-insensitive lookup is done in Python)
+DEFINE INDEX IF NOT EXISTS idx_user_username
+    ON TABLE user
+    FIELDS username
+    UNIQUE
+    CONCURRENTLY;

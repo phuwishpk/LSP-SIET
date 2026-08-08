@@ -1,0 +1,7 @@
+.baseFlow {
+  width: 100vw !important;
+  height: calc(100vh - 173px) !important;
+  margin-top: 173px;
+  background: #171717;
+}
+

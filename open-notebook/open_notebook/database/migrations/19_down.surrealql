@@ -1,0 +1,10 @@
+-- Migration 19 down: drop AI feature modules tables
+-- WARNING: dropping these tables will delete all generated quizzes and roadmaps.
+
+REMOVE INDEX IF EXISTS idx_quiz_owner ON TABLE quiz_session;
+REMOVE INDEX IF EXISTS idx_quiz_owner_created ON TABLE quiz_session;
+REMOVE TABLE IF EXISTS quiz_session;
+
+REMOVE INDEX IF EXISTS idx_roadmap_owner ON TABLE roadmap_session;
+REMOVE INDEX IF EXISTS idx_roadmap_owner_created ON TABLE roadmap_session;
+REMOVE TABLE IF EXISTS roadmap_session;
