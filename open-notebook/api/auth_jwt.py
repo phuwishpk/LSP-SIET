@@ -135,7 +135,7 @@ def _credentials_from_request(
     return None
 
 
-def _resolve_user_from_token(token: str) -> Optional[User]:
+async def _resolve_user_from_token(token: str) -> Optional[User]:
     try:
         payload = decode_access_token(token)
     except jwt.ExpiredSignatureError:
@@ -147,7 +147,7 @@ def _resolve_user_from_token(token: str) -> Optional[User]:
     subject = payload.get("sub")
     if not subject:
         return None
-    return get_by_id(subject)
+    return await get_by_id(subject)
 
 
 def set_request_owner(request: Request, owner_id: str) -> None:
@@ -167,7 +167,7 @@ async def get_current_user(
             detail="Missing access token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    user = _resolve_user_from_token(token)
+    user = await _resolve_user_from_token(token)
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -186,7 +186,7 @@ async def optional_current_user(
     token = _credentials_from_request(credentials, request)
     if not token:
         return None
-    user = _resolve_user_from_token(token)
+    user = await _resolve_user_from_token(token)
     if user is not None:
         set_request_owner(request, user.id or "")
     return user
