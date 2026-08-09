@@ -1,5 +1,6 @@
 
 REMOVE FUNCTION IF EXISTS fn::vector_search;
+REMOVE FUNCTION IF EXISTS fn::vector_search_in_notebook;
 
 DEFINE FUNCTION IF NOT EXISTS fn::vector_search($query: array<float>, $match_count: int, $sources: bool, $show_notes: bool, $min_similarity: float) {
     let $source_embedding_search = 

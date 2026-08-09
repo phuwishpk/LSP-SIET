@@ -52,10 +52,26 @@ export interface StrategyData {
 }
 
 export interface AskStreamEvent {
-  type: 'strategy' | 'answer' | 'final_answer' | 'complete' | 'error'
+  type: 'strategy' | 'answer' | 'final_answer' | 'complete' | 'error' | 'resolved_notebooks'
   reasoning?: string
   searches?: Array<{ term: string; instructions: string }>
   content?: string
   final_answer?: string
   message?: string
+  // notebook-ask extended types
+  resolved?: NotebookContextBlock[]
+  failed_refs?: string[]
+  global_fallback_used?: boolean
+  out_of_rag?: boolean
+  notebook_id?: string
+  notebook_name?: string
+  chunk_count?: number
+  total_chars?: number
+}
+
+export interface NotebookContextBlock {
+  notebook_id: string
+  notebook_name: string
+  chunk_count: number
+  total_chars: number
 }

@@ -64,3 +64,85 @@ DEFINE FUNCTION IF NOT EXISTS fn::vector_search($query: array<float>, $match_cou
     group by id, parent_id, title ORDER BY similarity DESC LIMIT $match_count);
 
 };
+
+REMOVE FUNCTION IF EXISTS fn::vector_search_in_notebook;
+
+DEFINE FUNCTION IF NOT EXISTS fn::vector_search_in_notebook(
+    $query: array<float>,
+    $match_count: int,
+    $sources: bool,
+    $show_notes: bool,
+    $min_similarity: float,
+    $notebook_id: record<notebook>
+) {
+    -- Sources: follow reference.out = $notebook_id to find sources in this notebook
+    let $source_ids = (
+        SELECT in as sid FROM reference
+        WHERE out = $notebook_id
+    );
+    let $source_id_set = array::slice(array::sort::uniq([$source_ids.sid]), 0, 1000);
+
+    let $source_embedding_search = IF $sources AND array::len($source_id_set) > 0 {(
+        SELECT
+            source.id as id,
+            source.title as title,
+            content,
+            source.id as parent_id,
+            vector::similarity::cosine(embedding, $query) as similarity
+        FROM source_embedding
+        WHERE embedding != none
+            AND array::len(embedding) = array::len($query)
+            AND vector::similarity::cosine(embedding, $query) >= $min_similarity
+            AND source.id IN $source_id_set
+        ORDER BY similarity DESC
+        LIMIT $match_count
+    )} ELSE { [] };
+
+    let $source_insight_search = IF $sources AND array::len($source_id_set) > 0 {(
+        SELECT
+            id,
+            insight_type + ' - ' + (source.title OR '') as title,
+            content,
+            source.id as parent_id,
+            vector::similarity::cosine(embedding, $query) as similarity
+        FROM source_insight
+        WHERE embedding != none
+            AND array::len(embedding) = array::len($query)
+            AND vector::similarity::cosine(embedding, $query) >= $min_similarity
+            AND source.id IN $source_id_set
+        ORDER BY similarity DESC
+        LIMIT $match_count
+    )} ELSE { [] };
+
+    -- Notes: follow artifact.out = $notebook_id to find notes in this notebook
+    let $note_search = IF $show_notes {(
+        SELECT
+            id,
+            title,
+            content,
+            id as parent_id,
+            vector::similarity::cosine(embedding, $query) as similarity
+        FROM note
+        WHERE embedding != none
+            AND array::len(embedding) = array::len($query)
+            AND vector::similarity::cosine(embedding, $query) >= $min_similarity
+            AND (SELECT VALUE id FROM artifact WHERE out = $notebook_id AND in = note.id) != []
+        ORDER BY similarity DESC
+        LIMIT $match_count
+    )} ELSE { [] };
+
+    let $all_results = array::union(
+        array::union($source_embedding_search, $source_insight_search),
+        $note_search
+    );
+
+    RETURN (
+        SELECT id, parent_id, title, math::max(similarity) as similarity,
+        array::flatten(content) as matches
+        FROM $all_results
+        WHERE id IS NOT NONE
+        GROUP BY id, parent_id, title
+        ORDER BY similarity DESC
+        LIMIT $match_count
+    );
+};

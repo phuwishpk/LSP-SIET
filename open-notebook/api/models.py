@@ -820,3 +820,66 @@ class RoadmapSessionSummary(BaseModel):
 class RoadmapGenerateResponse(BaseModel):
     session: RoadmapSessionResponse
     cached: bool = False
+
+
+# ---------------------------------------------------------------------------
+# Notebook-Ask models
+# ---------------------------------------------------------------------------
+
+
+class NotebookAskRequest(BaseModel):
+    """Request payload for the notebook-scoped Ask endpoint."""
+
+    question: str = Field(..., min_length=1, max_length=2000)
+    notebook_refs: List[str] = Field(
+        default_factory=list,
+        description=(
+            "List of notebook references. Each entry is either a record ID "
+            "(e.g. 'notebook:abc123') or a @slug string (e.g. '@my-research'). "
+            "Maximum 3 notebooks are accepted."
+        ),
+    )
+    language: str = Field("th", description="BCP-47 language code")
+    strategy_model: Optional[str] = Field(
+        None, description="Model ID for query-strategy (query-planning) step"
+    )
+    answer_model: Optional[str] = Field(
+        None, description="Model ID for per-chunk answering step"
+    )
+    final_answer_model: Optional[str] = Field(
+        None, description="Model ID for final answer generation"
+    )
+
+
+class NotebookContextBlockPayload(BaseModel):
+    """One notebook's RAG block, echoed back to the UI."""
+
+    notebook_id: str
+    notebook_name: str
+    chunk_count: int
+    total_chars: int
+
+
+class NotebookAskResolvedResponse(BaseModel):
+    """Metadata about which notebooks were resolved."""
+
+    resolved: List[NotebookContextBlockPayload] = Field(
+        default_factory=list,
+        description="Notebooks that yielded RAG chunks",
+    )
+    failed_refs: List[str] = Field(
+        default_factory=list,
+        description="References that could not be resolved",
+    )
+    global_fallback_used: bool = Field(
+        False,
+        description="True when the global knowledge-base fallback was used",
+    )
+    out_of_rag: bool = Field(
+        False,
+        description=(
+            "True when no RAG chunks were found anywhere – the answer "
+            "will come from the LLM's own knowledge with an (out of RAG source) label."
+        ),
+    )
+

@@ -15,13 +15,16 @@ import { Badge } from '@/components/ui/badge'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Search, ChevronDown, AlertCircle, Settings, Save, MessageCircleQuestion } from 'lucide-react'
 import { useSearch } from '@/lib/hooks/use-search'
-import { useAsk } from '@/lib/hooks/use-ask'
+import { useAsk, useNotebookAsk } from '@/lib/hooks/use-ask'
 import { useModelDefaults, useModels } from '@/lib/hooks/use-models'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { StreamingResponse } from '@/components/search/StreamingResponse'
 import { AdvancedModelsDialog } from '@/components/search/AdvancedModelsDialog'
 import { SaveToNotebooksDialog } from '@/components/search/SaveToNotebooksDialog'
+import { NotebookScopePicker } from '@/components/search/NotebookScopePicker'
+import { AskResultStream } from '@/components/search/AskResultStream'
+import { NotebookResponse } from '@/lib/types/api'
 
 export default function SearchPage() {
   const { t } = useTranslation()
@@ -59,9 +62,16 @@ export default function SearchPage() {
   // Hooks
   const searchMutation = useSearch()
   const ask = useAsk()
+  const notebookAsk = useNotebookAsk()
   const { data: modelDefaults, isLoading: modelsLoading } = useModelDefaults()
   const { data: availableModels } = useModels()
   const { openModal } = useModalManager()
+
+  // Notebook-scoped Ask state
+  const [selectedNotebooks, setSelectedNotebooks] = useState<NotebookResponse[]>([])
+  const [notebookAskActive, setNotebookAskActive] = useState(false)
+  // Combined final answer for Save-to-Notebooks dialog (works in both modes)
+  const [finalAnswerForSave, setFinalAnswerForSave] = useState<string | null>(null)
 
   const modelNameById = useMemo(() => {
     if (!availableModels) {
@@ -109,8 +119,14 @@ export default function SearchPage() {
       finalAnswer: modelDefaults.default_chat_model
     }
 
-    ask.sendAsk(askQuestion, models)
-  }, [askQuestion, modelDefaults, customModels, ask])
+    if (notebookAskActive && selectedNotebooks.length > 0) {
+      // Notebook-scoped ask
+      notebookAsk.sendAsk(askQuestion, models, selectedNotebooks.map(nb => nb.id))
+    } else {
+      // Global ask (existing behaviour)
+      ask.sendAsk(askQuestion, models)
+    }
+  }, [askQuestion, modelDefaults, customModels, ask, notebookAskActive, selectedNotebooks, notebookAsk])
 
   // Auto-trigger search/ask when arriving with URL params
   useEffect(() => {
@@ -182,16 +198,41 @@ export default function SearchPage() {
                     onChange={(e) => setAskQuestion(e.target.value)}
                     onKeyDown={(e) => {
                       // Submit on Cmd/Ctrl+Enter
-                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !ask.isStreaming && askQuestion.trim()) {
+                      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter' && !ask.isStreaming && !notebookAsk.isStreaming && askQuestion.trim()) {
                         e.preventDefault()
                         handleAsk()
                       }
                     }}
-                    disabled={ask.isStreaming}
+                    disabled={ask.isStreaming || notebookAsk.isStreaming}
                     rows={3}
                     aria-label={t('common.accessibility.enterQuestion')}
                   />
                   <p className="text-xs text-muted-foreground">{t('searchPage.pressToSubmit')}</p>
+                </div>
+
+                {/* Notebook Scope Picker */}
+                <div className="rounded-md border p-3 bg-card">
+                  <NotebookScopePicker
+                    value={selectedNotebooks}
+                    onChange={setSelectedNotebooks}
+                    questionText={askQuestion}
+                    onQuestionChange={setAskQuestion}
+                    disabled={ask.isStreaming || notebookAsk.isStreaming}
+                  />
+                  {selectedNotebooks.length > 0 && (
+                    <div className="mt-2">
+                      <Button
+                        variant={notebookAskActive ? 'default' : 'outline'}
+                        size="sm"
+                        className="text-xs h-7"
+                        onClick={() => setNotebookAskActive(v => !v)}
+                        disabled={ask.isStreaming || notebookAsk.isStreaming}
+                      >
+                        <MessageCircleQuestion className="h-3 w-3 mr-1" />
+                        {notebookAskActive ? 'Notebook-scoped Ask active' : 'Use global Ask (no notebook scope)'}
+                      </Button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Models Display */}
@@ -232,12 +273,12 @@ export default function SearchPage() {
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2">
-                      <Button
-                        onClick={handleAsk}
-                        disabled={ask.isStreaming || !askQuestion.trim()}
-                        className="w-full"
-                      >
-                        {ask.isStreaming ? (
+                    <Button
+                      onClick={handleAsk}
+                      disabled={ask.isStreaming || notebookAsk.isStreaming || !askQuestion.trim()}
+                      className="w-full"
+                    >
+                        {ask.isStreaming || notebookAsk.isStreaming ? (
                           <>
                             <LoadingSpinner size="sm" className="mr-2" />
                             {t('searchPage.processing')}
@@ -247,7 +288,7 @@ export default function SearchPage() {
                         )}
                       </Button>
 
-                      {ask.finalAnswer && (
+                      {((!notebookAskActive && ask.finalAnswer) || (notebookAskActive && finalAnswerForSave)) && (
                         <Button
                           variant="outline"
                           onClick={() => setShowSaveDialog(true)}
@@ -261,13 +302,30 @@ export default function SearchPage() {
                   </>
                 )}
 
-                {/* Streaming Response */}
-                <StreamingResponse
-                  isStreaming={ask.isStreaming}
-                  strategy={ask.strategy}
-                  answers={ask.answers}
-                  finalAnswer={ask.finalAnswer}
-                />
+                {/* Streaming Response – global mode */}
+                {!notebookAskActive && (
+                  <StreamingResponse
+                    isStreaming={ask.isStreaming}
+                    strategy={ask.strategy}
+                    answers={ask.answers}
+                    finalAnswer={ask.finalAnswer}
+                  />
+                )}
+
+                {/* Streaming Response – notebook-scoped mode */}
+                {notebookAskActive && (
+                  <AskResultStream
+                    question={askQuestion}
+                    notebookIds={selectedNotebooks.map(nb => nb.id)}
+                    strategyModel={customModels?.strategy || modelDefaults?.default_chat_model || ''}
+                    answerModel={customModels?.answer || modelDefaults?.default_chat_model || ''}
+                    finalAnswerModel={customModels?.finalAnswer || modelDefaults?.default_chat_model || ''}
+                    onComplete={(answer) => {
+                      setFinalAnswerForSave(answer)
+                      setShowSaveDialog(true)
+                    }}
+                  />
+                )}
 
                 {/* Advanced Models Dialog */}
                 <AdvancedModelsDialog
@@ -282,12 +340,12 @@ export default function SearchPage() {
                 />
 
                 {/* Save to Notebooks Dialog */}
-                {ask.finalAnswer && (
+                {((!notebookAskActive && ask.finalAnswer) || (notebookAskActive && finalAnswerForSave)) && (
                   <SaveToNotebooksDialog
                     open={showSaveDialog}
                     onOpenChange={setShowSaveDialog}
                     question={askQuestion}
-                    answer={ask.finalAnswer}
+                    answer={notebookAskActive ? (finalAnswerForSave || '') : (ask.finalAnswer || '')}
                   />
                 )}
               </CardContent>

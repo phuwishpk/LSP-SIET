@@ -784,3 +784,65 @@ async def vector_search(
         logger.error(f"Error performing vector search: {str(e)}")
         logger.exception(e)
         raise DatabaseOperationError(e)
+
+
+async def vector_search_in_notebook(
+    keyword: str,
+    notebook_id: str,
+    results: int = 8,
+    source: bool = True,
+    note: bool = True,
+    minimum_score: float = 0.2,
+) -> List[Dict[str, Any]]:
+    """
+    Perform vector search scoped to a single notebook.
+
+    Resolves the notebook's sources via the reference table and notes via the
+    artifact table so that only content belonging to that notebook is searched.
+
+    Args:
+        keyword:      The search query text (will be embedded on the fly).
+        notebook_id:  SurrealDB record ID string for the notebook.
+        results:      Maximum number of results per notebook.
+        source:       Include source chunks.
+        note:         Include note content.
+        minimum_score: Minimum cosine similarity threshold (0-1).
+
+    Returns:
+        List of result dicts with keys: id, title, parent_id, similarity, matches.
+    """
+    if not keyword:
+        raise InvalidInputError("Search keyword cannot be empty")
+    if not notebook_id:
+        raise InvalidInputError("Notebook ID cannot be empty")
+    try:
+        from open_notebook.utils.embedding import generate_embedding
+
+        embed = await generate_embedding(keyword)
+        search_results = await repo_query(
+            """
+            SELECT * FROM fn::vector_search_in_notebook(
+                $embed,
+                $results,
+                $sources,
+                $show_notes,
+                $min_similarity,
+                $notebook_id
+            );
+            """,
+            {
+                "embed": embed,
+                "results": results,
+                "sources": source,
+                "show_notes": note,
+                "min_similarity": minimum_score,
+                "notebook_id": ensure_record_id(notebook_id),
+            },
+        )
+        return search_results or []
+    except Exception as e:
+        logger.error(
+            f"Error performing notebook-scoped vector search for {notebook_id}: {str(e)}"
+        )
+        logger.exception(e)
+        raise DatabaseOperationError(e)
