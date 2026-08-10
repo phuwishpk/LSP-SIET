@@ -46,6 +46,12 @@ class CacheMetrics:
     answer_cache_semantic_low_rejected: int = 0  # tracked for tuning
     answer_cache_total_entry_hits: int = 0     # sum of hit_count increments
     answer_cache_max_entry_hits: int = 0       # hottest cached question
+    # ── Phase 4: intent-validator outcomes ────────────────────────────────────
+    answer_cache_intent_validations: int = 0
+    answer_cache_intent_passes: int = 0
+    answer_cache_intent_fails: int = 0
+    answer_cache_intent_validation_latency_ms: int = 0
+    answer_cache_quality_failures_by_source: Dict[str, int] = field(default_factory=dict)
 
     def _get_prefix_stats(self, prefix: str) -> Dict[str, int]:
         if prefix not in self.by_prefix:
@@ -135,9 +141,24 @@ class CacheMetrics:
             self.answer_cache_sets += 1
             self.sets += 1
 
-    def record_answer_quality_failure(self) -> None:
+    def record_answer_quality_failure(self, source: str = "unknown") -> None:
         with self._lock:
             self.answer_cache_quality_failures += 1
+            key = source if source in {
+                "exact", "semantic_high", "semantic_mid_via_intent_validation", "fresh"
+            } else "unknown"
+            self.answer_cache_quality_failures_by_source[key] = (
+                self.answer_cache_quality_failures_by_source.get(key, 0) + 1
+            )
+
+    def record_intent_validation(self, passed: bool, latency_ms: int) -> None:
+        with self._lock:
+            self.answer_cache_intent_validations += 1
+            if passed:
+                self.answer_cache_intent_passes += 1
+            else:
+                self.answer_cache_intent_fails += 1
+            self.answer_cache_intent_validation_latency_ms += max(0, int(latency_ms))
 
     def record_answer_similarity(self, similarity: float) -> None:
         """Track the cosine similarity of every semantic lookup for histograms."""
@@ -247,6 +268,21 @@ class CacheMetrics:
                     "total_entry_hits": self.answer_cache_total_entry_hits,
                     "max_entry_hits": self.answer_cache_max_entry_hits,
                     "similarity_distribution": distribution,
+                    # Phase 4 additions
+                    "intent_validations_total": self.answer_cache_intent_validations,
+                    "intent_validations_passed": self.answer_cache_intent_passes,
+                    "intent_validations_failed": self.answer_cache_intent_fails,
+                    "intent_validation_avg_latency_ms": round(
+                        self.answer_cache_intent_validation_latency_ms
+                        / self.answer_cache_intent_validations,
+                        2,
+                    ) if self.answer_cache_intent_validations else 0,
+                    "tokens_saved_by_intent_validation": (
+                        self.answer_cache_intent_passes * 350
+                    ),
+                    "quality_failures_by_source": dict(
+                        self.answer_cache_quality_failures_by_source
+                    ),
                 },
             }
 
@@ -270,6 +306,11 @@ class CacheMetrics:
             self.answer_cache_semantic_low_rejected = 0
             self.answer_cache_total_entry_hits = 0
             self.answer_cache_max_entry_hits = 0
+            self.answer_cache_intent_validations = 0
+            self.answer_cache_intent_passes = 0
+            self.answer_cache_intent_fails = 0
+            self.answer_cache_intent_validation_latency_ms = 0
+            self.answer_cache_quality_failures_by_source.clear()
             self.last_reset = datetime.now(timezone.utc)
             self.by_prefix.clear()
 

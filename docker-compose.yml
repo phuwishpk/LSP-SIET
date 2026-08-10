@@ -95,6 +95,9 @@ services:
       - NO_PROXY=surrealdb,redis,localhost,127.0.0.1,::1
       - no_proxy=surrealdb,redis,localhost,127.0.0.1,::1
       - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=${OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB:-2048}
+      # Gemini validation calls currently take 6-9s in this deployment.
+      # Keep the library default at 1500ms, but allow Phase 4 to complete here.
+      - OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS=${OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS:-10000}
       - TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
       # Relative paths behind Traefik
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz

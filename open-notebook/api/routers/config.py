@@ -228,13 +228,13 @@ async def reset_redis_metrics():
         return {"message": "Failed to reset metrics", "error": str(e)[:100]}
 
 
-# ── Phase 1-3: answer-cache analytics ────────────────────────────────────
+# ── Phase 1-4: answer-cache analytics ────────────────────────────────────
 
 
 @router.get("/config/answer-cache/analytics")
 async def get_answer_cache_analytics():
     """
-    Phase 1-3: Answer-cache analytics.
+    Phase 1-4: Answer-cache analytics.
 
     Reports hit rate, estimated tokens saved, average cosine similarity, and
     the configuration that controls the cache thresholds. Phase 3 adds the
@@ -268,6 +268,19 @@ async def get_answer_cache_analytics():
             "total_entry_hits": answer.get("total_entry_hits", 0),
             "max_entry_hits": answer.get("max_entry_hits", 0),
             "similarity_distribution": answer.get("similarity_distribution", {}),
+            # Phase 4: cheap semantic-mid intent validation
+            "intent_validations_total": answer.get("intent_validations_total", 0),
+            "intent_validations_passed": answer.get("intent_validations_passed", 0),
+            "intent_validations_failed": answer.get("intent_validations_failed", 0),
+            "intent_validation_avg_latency_ms": answer.get(
+                "intent_validation_avg_latency_ms", 0
+            ),
+            "tokens_saved_by_intent_validation": answer.get(
+                "tokens_saved_by_intent_validation", 0
+            ),
+            "quality_failures_by_source": answer.get(
+                "quality_failures_by_source", {}
+            ),
             "config": {
                 "ttl_seconds": int(
                     __import__(
@@ -299,6 +312,18 @@ async def get_answer_cache_analytics():
                         fromlist=["ANSWER_CACHE_MAX_ENTRIES"],
                     ).ANSWER_CACHE_MAX_ENTRIES
                 ),
+                "intent_validation_enabled": __import__(
+                    "open_notebook.config",
+                    fromlist=["ANSWER_CACHE_INTENT_VALIDATOR_ENABLED"],
+                ).ANSWER_CACHE_INTENT_VALIDATOR_ENABLED,
+                "intent_timeout_ms": __import__(
+                    "open_notebook.config",
+                    fromlist=["ANSWER_CACHE_INTENT_TIMEOUT_MS"],
+                ).ANSWER_CACHE_INTENT_TIMEOUT_MS,
+                "intent_min_similarity": __import__(
+                    "open_notebook.config",
+                    fromlist=["ANSWER_CACHE_INTENT_MIN_SIMILARITY"],
+                ).ANSWER_CACHE_INTENT_MIN_SIMILARITY,
             },
         }
     except Exception as e:
@@ -307,7 +332,7 @@ async def get_answer_cache_analytics():
 
 
 @router.post("/config/answer-cache/report-quality-failure")
-async def report_answer_cache_quality_failure():
+async def report_answer_cache_quality_failure(request: Request):
     """
     Phase 1: User-reported endpoint when a cached answer looks wrong.
 
@@ -317,8 +342,13 @@ async def report_answer_cache_quality_failure():
     try:
         from open_notebook.cache.metrics import cache_metrics
 
-        cache_metrics.record_answer_quality_failure()
-        return {"message": "Quality failure recorded"}
+        try:
+            body = await request.json()
+        except Exception:
+            body = {}
+        source = str(body.get("source") or "unknown") if isinstance(body, dict) else "unknown"
+        cache_metrics.record_answer_quality_failure(source)
+        return {"message": "Quality failure recorded", "source": source}
     except Exception as e:
         logger.warning(f"Failed to record quality failure: {e}")
         return {"message": "Failed to record", "error": str(e)[:100]}

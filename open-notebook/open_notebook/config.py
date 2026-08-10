@@ -34,3 +34,15 @@ EMBEDDING_CACHE_TTL = int(os.environ.get("OPEN_NOTEBOOK_EMBEDDING_CACHE_TTL", "7
 NOTEBOOK_CACHE_TTL = int(os.environ.get("OPEN_NOTEBOOK_NOTEBOOK_CACHE_TTL", "600"))
 # Provider availability cache TTL (5 minutes)
 PROVIDER_CACHE_TTL = int(os.environ.get("OPEN_NOTEBOOK_PROVIDER_CACHE_TTL", "300"))
+
+# Phase 4 answer-cache intent validation. Mid-band semantic candidates are
+# reused only after a tiny language-model validation call succeeds.
+ANSWER_CACHE_INTENT_VALIDATOR_ENABLED = os.environ.get(
+    "OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_VALIDATION", "1"
+).strip().lower() in {"1", "true", "yes", "on"}
+ANSWER_CACHE_INTENT_TIMEOUT_MS = int(
+    os.environ.get("OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS", "1500")
+)
+ANSWER_CACHE_INTENT_MIN_SIMILARITY = float(
+    os.environ.get("OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_MIN_SIM", "0.92")
+)

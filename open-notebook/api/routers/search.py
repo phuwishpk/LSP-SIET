@@ -23,6 +23,8 @@ from open_notebook.cache.answer_cache import (
     set_cached_answer,
 )
 from open_notebook.cache.metrics import cache_metrics
+from open_notebook.cache.intent_validator import validate_intent_match
+from open_notebook.config import ANSWER_CACHE_INTENT_MIN_SIMILARITY
 from open_notebook.domain.notebook import text_search, vector_search
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
 from open_notebook.features.service import (
@@ -335,20 +337,44 @@ async def _stream_notebook_ask_response(
             yield f"data: {json.dumps({'type': 'complete', 'final_answer': cached_answer, 'cached': True, 'elapsed_ms': elapsed, 'cache_match': cache_match})}\n\n"
             return
 
-        # Phase 3: semantic_mid matches must pass intent validation before
-        # being reused. Phase 4 will wire the small-model validator here;
-        # for now we surface the candidate and fall through to a fresh
-        # answer so the user still gets a response.
+        # Phase 4: semantic-mid candidates use one tiny intent-validation call.
+        # Any timeout, provider error, missing legacy metadata, or mismatch
+        # safely falls through to a fresh answer.
         if (
             cache_match is not None
             and cache_match.get("match_type") == "semantic_mid"
             and cache_match.get("intent_validation_required")
+            and float(cache_match.get("similarity", 0))
+            >= ANSWER_CACHE_INTENT_MIN_SIMILARITY
         ):
-            logger.info(
-                "Phase 3: semantic_mid candidate surfaced; "
-                "Phase 4 will add intent validation. Falling through to "
-                "fresh answer."
+            intent_matches = await validate_intent_match(
+                new_question=question,
+                cached_question=str(cache_match.get("candidate_question") or ""),
+                cached_intent=cache_match.get("candidate_intent"),
+                cached_entities=cache_match.get("candidate_entities") or {},
+                model_id=str(answer_model.id),
             )
+            if intent_matches is True:
+                candidate_answer = str(cache_match.get("candidate_answer") or "")
+                if candidate_answer:
+                    similarity = float(cache_match.get("similarity", 0.0))
+                    tokens_saved = int(375 * max(0.5, min(1.0, similarity)))
+                    cache_match.update(
+                        {
+                            "match_type": "semantic_mid_via_intent_validation",
+                            "intent_validation_required": False,
+                            "intent_validation_passed": True,
+                            "tokens_saved": tokens_saved,
+                        }
+                    )
+                    cache_metrics.record_answer_hit("semantic_mid", tokens_saved)
+                    yield f"data: {json.dumps({'type': 'cache_match', **cache_match})}\n\n"
+                    yield f"data: {json.dumps({'type': 'final_answer', 'content': candidate_answer, 'cached': True, 'intent_validated': True})}\n\n"
+                    elapsed = int((time.time() - start_time) * 1000)
+                    yield f"data: {json.dumps({'type': 'complete', 'final_answer': candidate_answer, 'cached': True, 'intent_validated': True, 'elapsed_ms': elapsed, 'cache_match': cache_match})}\n\n"
+                    return
+            cache_metrics.record_answer_miss("intent_validation_failed")
+            logger.info("Semantic-mid intent validation did not pass; generating fresh answer")
 
         if resolved_notebooks.out_of_rag:
             # No RAG at all – call the final-answer model directly with a
@@ -377,6 +403,7 @@ async def _stream_notebook_ask_response(
                     "out_of_rag": True,
                     "final_model_id": str(final_answer_model.id),
                 },
+                model_id=str(final_answer_model.id),
             )
             elapsed = int((time.time() - start_time) * 1000)
             yield f"data: {json.dumps({'type': 'complete', 'final_answer': direct_answer, 'elapsed_ms': elapsed})}\n\n"
@@ -437,6 +464,7 @@ async def _stream_notebook_ask_response(
                     "out_of_rag": bool(resolved_notebooks.out_of_rag),
                     "final_model_id": str(final_answer_model.id),
                 },
+                model_id=str(answer_model.id),
             )
             completion_data["elapsed_ms"] = int((time.time() - start_time) * 1000)
         yield f"data: {json.dumps(completion_data)}\n\n"
@@ -623,4 +651,3 @@ async def ask_with_notebooks(
     except Exception as e:
         logger.error(f"Error in notebook-ask endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ask operation failed: {str(e)}")
-

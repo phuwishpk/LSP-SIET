@@ -133,6 +133,41 @@ Redis is included in `docker-compose.yml` with:
 - **N+1 invalidation risk**: `invalidate_source_cache()` queries DB for notebook relations to cascade invalidation — consider batching if many sources change at once
 - **No distributed invalidation**: In multi-instance deployments, cache invalidation is local only; consider Redis pub/sub or external invalidation for horizontal scaling
 
+## Phase 4: Intent-Validated Semantic Reuse
+
+Notebook answers use a three-tier decision tree:
+
+1. **High (`>= 0.97`)** — reuse the cached answer immediately.
+2. **Mid (`0.92–0.97`)** — send the two short questions plus cached
+   intent/entities to the configured answer model and request a JSON yes/no
+   decision. Reuse only when validation explicitly returns true.
+3. **Low (`< 0.92`)** — treat as a miss and generate a fresh answer.
+
+The validator normally emits only a tiny JSON response, so its cost is much
+lower than rerunning retrieval and the complete answer graph. New cache entries
+are automatically enriched with a compact intent label and answer-changing
+entities (years, versions, people, quantities, negation, and locations).
+
+Configuration:
+
+- `OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_VALIDATION` (default `1`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS` (default `1500`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_MIN_SIM` (default `0.92`)
+
+Monitoring fields exposed by `/api/config/answer-cache/analytics`:
+
+- `intent_validations_total`, `intent_validations_passed`,
+  `intent_validations_failed`
+- `intent_validation_avg_latency_ms`
+- `tokens_saved_by_intent_validation`
+- `quality_failures_by_source`
+
+Failure behavior is deliberately conservative. A timeout, provider error,
+disabled validator, malformed JSON, unusual Unicode, unavailable model, or a
+legacy entry without intent metadata always falls through to a fresh answer;
+it never crashes the user request. Quality-failure reports distinguish exact,
+semantic-high, intent-validated semantic-mid, and fresh answers.
+
 ## How to Add New Cache Target
 
 1. Add TTL constant to `open_notebook/config.py`

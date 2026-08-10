@@ -330,8 +330,6 @@ async def get_cached_answer(
         # Phase 4 will replace this with intent-validated reuse. For now
         # we surface the candidate without returning the answer so the
         # caller can decide whether to validate or fall through.
-        kind = "semantic_mid"
-        cache_metrics.record_answer_hit(kind, 0)  # count but no savings yet
         match = {
             "match_type": "semantic_mid",
             "similarity": similarity,
@@ -372,6 +370,7 @@ async def set_cached_answer(
     intent: Optional[str] = None,
     entities: Optional[Dict[str, Any]] = None,
     quality_score: Optional[float] = None,
+    model_id: Optional[str] = None,
 ) -> None:
     """
     Store an answer for free exact hits and low-cost semantic hits.
@@ -394,6 +393,27 @@ async def set_cached_answer(
     if not answer:
         return
     normalized = _normalize_question(question)
+    query_embedding: Optional[List[float]] = embedding
+    if query_embedding is None:
+        try:
+            query_embedding = await generate_embedding(normalized)
+        except Exception as exc:
+            # Exact caching remains useful even if semantic indexing is down.
+            logger.warning(f"Semantic answer cache store skipped: {exc}")
+
+    # Phase 4: enrich new entries automatically. Extraction is best-effort;
+    # an unavailable/slow model must never prevent the answer from being cached.
+    if model_id and (intent is None or entities is None):
+        from open_notebook.cache.intent_validator import _extract_intent_and_entities
+
+        extracted_intent, extracted_entities = await _extract_intent_and_entities(
+            question, model_id
+        )
+        if intent is None and extracted_intent:
+            intent = extracted_intent
+        if entities is None:
+            entities = extracted_entities
+
     scope = _hash(f"{context_key}:{_normalize_language_tag(language)}")
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(seconds=ANSWER_CACHE_TTL)
@@ -422,10 +442,7 @@ async def set_cached_answer(
     )
     cache_metrics.record_answer_set()
 
-    try:
-        query_embedding = embedding or await generate_embedding(normalized)
-    except Exception as exc:
-        logger.warning(f"Semantic answer cache store skipped: {exc}")
+    if query_embedding is None:
         return
 
     index_key = f"answer:semantic:{scope}"
