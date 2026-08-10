@@ -166,6 +166,9 @@ async def get_redis_status():
     Get Redis cache status.
 
     Returns availability and health information for the Redis cache layer.
+    Phase 1: includes answer-cache specific analytics (hit rate, tokens
+    saved, similarity stats) so dashboards and tests can verify the cache
+    is working.
     """
     try:
         from open_notebook.cache.redis_client import redis_client
@@ -173,6 +176,7 @@ async def get_redis_status():
 
         health = await redis_client.health_check()
         metrics = cache_service.get_metrics()
+        answer_cache = metrics.get("answer_cache", {}) or {}
 
         return {
             "available": health.get("available", False),
@@ -187,6 +191,18 @@ async def get_redis_status():
                 "invalidations": metrics.get("invalidations", 0),
                 "total_requests": metrics.get("total_requests", 0),
             },
+            "answer_cache": {
+                "hit_rate": answer_cache.get("hit_rate", 0),
+                "exact_hits": answer_cache.get("exact_hits", 0),
+                "semantic_hits": answer_cache.get("semantic_hits", 0),
+                "misses": answer_cache.get("misses", 0),
+                "sets": answer_cache.get("sets", 0),
+                "tokens_saved_estimated": answer_cache.get(
+                    "tokens_saved_estimated", 0
+                ),
+                "quality_failures": answer_cache.get("quality_failures", 0),
+                "avg_similarity": answer_cache.get("avg_similarity", 0),
+            },
         }
     except Exception as e:
         logger.warning(f"Redis status check failed: {e}")
@@ -195,6 +211,7 @@ async def get_redis_status():
             "configured": False,
             "error": str(e)[:100],
             "cache": {},
+            "answer_cache": {},
         }
 
 
@@ -209,3 +226,90 @@ async def reset_redis_metrics():
     except Exception as e:
         logger.warning(f"Failed to reset cache metrics: {e}")
         return {"message": "Failed to reset metrics", "error": str(e)[:100]}
+
+
+# ── Phase 1: answer-cache analytics ───────────────────────────────────────
+
+
+@router.get("/config/answer-cache/analytics")
+async def get_answer_cache_analytics():
+    """
+    Phase 1: Answer-cache analytics.
+
+    Reports hit rate, estimated tokens saved, average cosine similarity, and
+    the configuration that controls the cache thresholds. The frontend
+    dashboard (and CI smoke tests) consume this endpoint to verify the
+    token-saving system is working.
+    """
+    try:
+        from open_notebook.cache.metrics import cache_metrics
+        from open_notebook.cache.redis_client import redis_client
+
+        health = await redis_client.health_check()
+        summary = cache_metrics.get_summary()
+        answer = summary.get("answer_cache", {}) or {}
+
+        return {
+            "redis_available": health.get("available", False),
+            "hit_rate": answer.get("hit_rate", 0),
+            "exact_hits": answer.get("exact_hits", 0),
+            "semantic_hits": answer.get("semantic_hits", 0),
+            "misses": answer.get("misses", 0),
+            "sets": answer.get("sets", 0),
+            "tokens_saved_estimated": answer.get("tokens_saved_estimated", 0),
+            "quality_failures": answer.get("quality_failures", 0),
+            "avg_similarity": answer.get("avg_similarity", 0),
+            "config": {
+                "ttl_seconds": int(
+                    __import__(
+                        "open_notebook.cache.answer_cache",
+                        fromlist=["ANSWER_CACHE_TTL"],
+                    ).ANSWER_CACHE_TTL
+                ),
+                "semantic_threshold": float(
+                    __import__(
+                        "open_notebook.cache.answer_cache",
+                        fromlist=["ANSWER_CACHE_THRESHOLD"],
+                    ).ANSWER_CACHE_THRESHOLD
+                ),
+                "high_threshold": float(
+                    __import__(
+                        "open_notebook.cache.answer_cache",
+                        fromlist=["ANSWER_CACHE_HIGH_THRESHOLD"],
+                    ).ANSWER_CACHE_HIGH_THRESHOLD
+                ),
+                "mid_threshold": float(
+                    __import__(
+                        "open_notebook.cache.answer_cache",
+                        fromlist=["ANSWER_CACHE_MID_THRESHOLD"],
+                    ).ANSWER_CACHE_MID_THRESHOLD
+                ),
+                "max_entries": int(
+                    __import__(
+                        "open_notebook.cache.answer_cache",
+                        fromlist=["ANSWER_CACHE_MAX_ENTRIES"],
+                    ).ANSWER_CACHE_MAX_ENTRIES
+                ),
+            },
+        }
+    except Exception as e:
+        logger.warning(f"Answer cache analytics failed: {e}")
+        return {"redis_available": False, "error": str(e)[:200]}
+
+
+@router.post("/config/answer-cache/report-quality-failure")
+async def report_answer_cache_quality_failure():
+    """
+    Phase 1: User-reported endpoint when a cached answer looks wrong.
+
+    The frontend can call this when the user clicks "this cached answer is
+    incorrect" so we can later tune thresholds against real feedback.
+    """
+    try:
+        from open_notebook.cache.metrics import cache_metrics
+
+        cache_metrics.record_answer_quality_failure()
+        return {"message": "Quality failure recorded"}
+    except Exception as e:
+        logger.warning(f"Failed to record quality failure: {e}")
+        return {"message": "Failed to record", "error": str(e)[:100]}

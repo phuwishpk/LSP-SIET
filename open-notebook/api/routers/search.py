@@ -1,4 +1,5 @@
 import json
+import time
 from typing import Any, AsyncGenerator, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
@@ -21,6 +22,7 @@ from open_notebook.cache.answer_cache import (
     get_cached_answer,
     set_cached_answer,
 )
+from open_notebook.cache.metrics import cache_metrics
 from open_notebook.domain.notebook import text_search, vector_search
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
 from open_notebook.features.service import (
@@ -286,6 +288,8 @@ async def _stream_notebook_ask_response(
     context_key: str,
     cached_answer: Optional[str] = None,
     question_embedding: Optional[List[float]] = None,
+    cache_match: Optional[Dict[str, Any]] = None,
+    start_time: Optional[float] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream the notebook-scoped Ask response as SSE.
@@ -293,7 +297,13 @@ async def _stream_notebook_ask_response(
     Emits the same event types as the global ``stream_ask_response`` but adds:
     - ``resolved_notebooks`` (once, first event) – UI chips for which notebooks were used
     - ``out_of_rag`` (once) – when no RAG was found, the UI shows a disclaimer chip
+    - ``cache_match`` (once) – Phase 1: tells the client whether the answer was served
+      from cache (exact/semantic/miss), and how many tokens we estimate we saved.
+    - ``cache_stats`` (in the final ``complete`` event) – same metrics plus the
+      total elapsed time so the dashboard can display per-request latency.
     """
+    if start_time is None:
+        start_time = time.time()
     try:
         # Always emit resolved notebook metadata first so the UI can show chips
         resolved_payload = NotebookAskResolvedResponse(
@@ -312,9 +322,17 @@ async def _stream_notebook_ask_response(
         )
         yield f"data: {json.dumps({'type': 'resolved_notebooks', **resolved_payload.model_dump()})}\n\n"
 
+        # Phase 1: announce whether the answer will come from cache
+        if cache_match is not None:
+            yield f"data: {json.dumps({'type': 'cache_match', **cache_match})}\n\n"
+
         if cached_answer is not None:
             yield f"data: {json.dumps({'type': 'final_answer', 'content': cached_answer, 'cached': True})}\n\n"
-            yield f"data: {json.dumps({'type': 'complete', 'final_answer': cached_answer, 'cached': True})}\n\n"
+            elapsed = int((time.time() - start_time) * 1000)
+            cache_metrics.record_answer_similarity(
+                float(cache_match.get("similarity", 0.0)) if cache_match else 0.0
+            )
+            yield f"data: {json.dumps({'type': 'complete', 'final_answer': cached_answer, 'cached': True, 'elapsed_ms': elapsed, 'cache_match': cache_match})}\n\n"
             return
 
         if resolved_notebooks.out_of_rag:
@@ -334,9 +352,19 @@ async def _stream_notebook_ask_response(
 
             yield f"data: {json.dumps({'type': 'final_answer', 'content': direct_answer, 'out_of_rag': True})}\n\n"
             await set_cached_answer(
-                question, direct_answer, context_key, language, question_embedding
+                question,
+                direct_answer,
+                context_key,
+                language,
+                question_embedding,
+                scope_metadata={
+                    "tenant_id": owner_id,
+                    "out_of_rag": True,
+                    "final_model_id": str(final_answer_model.id),
+                },
             )
-            yield f"data: {json.dumps({'type': 'complete', 'final_answer': direct_answer})}\n\n"
+            elapsed = int((time.time() - start_time) * 1000)
+            yield f"data: {json.dumps({'type': 'complete', 'final_answer': direct_answer, 'elapsed_ms': elapsed})}\n\n"
             return
 
         # Build the weighted-per-notebook prompt
@@ -384,8 +412,18 @@ async def _stream_notebook_ask_response(
         completion_data = {"type": "complete", "final_answer": final_answer}
         if final_answer:
             await set_cached_answer(
-                question, final_answer, context_key, language, question_embedding
+                question,
+                final_answer,
+                context_key,
+                language,
+                question_embedding,
+                scope_metadata={
+                    "tenant_id": owner_id,
+                    "out_of_rag": bool(resolved_notebooks.out_of_rag),
+                    "final_model_id": str(final_answer_model.id),
+                },
             )
+            completion_data["elapsed_ms"] = int((time.time() - start_time) * 1000)
         yield f"data: {json.dumps(completion_data)}\n\n"
 
     except Exception as e:
@@ -496,8 +534,16 @@ async def ask_with_notebooks(
         # Shared across users only when the selected notebook content is the
         # same. Exact repeats use no AI call; similar questions use one cheap
         # embedding comparison and skip the language-model graph on a hit.
-        context_key = context_fingerprint(resolved)
-        cached_answer, question_embedding, _cache_match = await get_cached_answer(
+        # Phase 1: pass tenant_id (owner_id) and prompt_version into the
+        # fingerprint so Phase 2/4 invalidations will be a no-op upgrade.
+        context_key = context_fingerprint(
+            resolved,
+            language=payload.language,
+            knowledge_version=None,  # wired in by Phase 2
+            tenant_id=effective_owner,
+            prompt_version="v1",
+        )
+        cached_answer, question_embedding, cache_match = await get_cached_answer(
             payload.question, context_key, payload.language
         )
 
@@ -546,6 +592,8 @@ async def ask_with_notebooks(
                 context_key=context_key,
                 cached_answer=cached_answer,
                 question_embedding=question_embedding,
+                cache_match=cache_match,
+                start_time=time.time(),
             ),
             media_type="text/event-stream",
             headers={
