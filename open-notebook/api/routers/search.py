@@ -335,6 +335,21 @@ async def _stream_notebook_ask_response(
             yield f"data: {json.dumps({'type': 'complete', 'final_answer': cached_answer, 'cached': True, 'elapsed_ms': elapsed, 'cache_match': cache_match})}\n\n"
             return
 
+        # Phase 3: semantic_mid matches must pass intent validation before
+        # being reused. Phase 4 will wire the small-model validator here;
+        # for now we surface the candidate and fall through to a fresh
+        # answer so the user still gets a response.
+        if (
+            cache_match is not None
+            and cache_match.get("match_type") == "semantic_mid"
+            and cache_match.get("intent_validation_required")
+        ):
+            logger.info(
+                "Phase 3: semantic_mid candidate surfaced; "
+                "Phase 4 will add intent validation. Falling through to "
+                "fresh answer."
+            )
+
         if resolved_notebooks.out_of_rag:
             # No RAG at all – call the final-answer model directly with a
             # "(out of RAG source)" label appended to the prompt.
@@ -539,7 +554,7 @@ async def ask_with_notebooks(
         context_key = context_fingerprint(
             resolved,
             language=payload.language,
-            knowledge_version=None,  # wired in by Phase 2
+            knowledge_version=getattr(resolved, "knowledge_version", None),
             tenant_id=effective_owner,
             prompt_version="v1",
         )

@@ -1,0 +1,6 @@
+-- Migration 21 rollback: remove knowledge_version field and helpers.
+REMOVE FUNCTION IF EXISTS fn::compute_notebook_knowledge_version;
+REMOVE FUNCTION IF EXISTS fn::bump_source_knowledge_version;
+REMOVE FUNCTION IF EXISTS fn::bump_notebook_knowledge_version;
+REMOVE FIELD IF EXISTS knowledge_version ON TABLE source;
+REMOVE FIELD IF EXISTS knowledge_version ON TABLE notebook;

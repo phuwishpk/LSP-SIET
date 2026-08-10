@@ -831,6 +831,20 @@ async def update_source(source_id: str, source_update: SourceUpdate):
 
         await source.save()
 
+        # Phase 2: title/topic changes don't affect retrievable content, but
+        # we still bump so any cached answer that referenced the source by
+        # version is correctly invalidated.
+        try:
+            from open_notebook.cache.invalidation import (
+                invalidate_after_source_change,
+            )
+
+            await invalidate_after_source_change(source_id, clear_cache=False)
+        except Exception as exc:
+            logger.warning(
+                f"Phase 2: knowledge_version bump failed for source {source_id}: {exc}"
+            )
+
         embedded_chunks = await source.get_embedded_chunks()
         return SourceResponse(
             id=source.id or "",
@@ -923,6 +937,20 @@ async def retry_source_processing(source_id: str):
             # Import command modules to ensure they're registered
             import commands.source_commands  # noqa: F401
 
+            # Phase 2: retry is effectively a reprocess. Bump the source
+            # version BEFORE submitting the job so the background command
+            # can't write back a cached answer with the old version.
+            try:
+                from open_notebook.cache.invalidation import (
+                    invalidate_after_source_change,
+                )
+
+                await invalidate_after_source_change(source_id, clear_cache=True)
+            except Exception as exc:
+                logger.warning(
+                    f"Phase 2: pre-retry version bump failed: {exc}"
+                )
+
             # Submit new command for background processing
             command_input = SourceProcessingInput(
                 source_id=str(source.id),
@@ -995,6 +1023,20 @@ async def delete_source(source_id: str):
         source = await Source.get(source_id)
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
+
+        # Phase 2: bump every notebook that references this source BEFORE
+        # the actual delete so the answer cache fingerprint is already
+        # stale by the time the delete commits.
+        try:
+            from open_notebook.cache.invalidation import (
+                invalidate_after_source_change,
+            )
+
+            await invalidate_after_source_change(source_id, clear_cache=True)
+        except Exception as exc:
+            logger.warning(
+                f"Phase 2: pre-delete version bump failed for {source_id}: {exc}"
+            )
 
         await source.delete()
 

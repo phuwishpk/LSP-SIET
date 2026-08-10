@@ -20,6 +20,10 @@ class Notebook(ObjectModel):
     description: str
     archived: Optional[bool] = False
     last_viewed_at: Optional[datetime] = None
+    # Phase 2: monotonic version bumped whenever the notebook's content
+    # (own fields, notes, or referenced sources) changes. Used by the
+    # answer cache to invalidate stale answers automatically.
+    knowledge_version: Optional[int] = 1
 
     @field_validator("name")
     @classmethod
@@ -365,6 +369,10 @@ class Source(ObjectModel):
     command: Optional[Union[str, RecordID]] = Field(
         default=None, description="Link to surreal-commands processing job"
     )
+    # Phase 2: knowledge version. Bumped on every content-changing operation
+    # (full_text update, reprocess, delete) so the answer cache can detect
+    # stale entries without manual invalidation.
+    knowledge_version: Optional[int] = 1
 
     @field_validator("command", mode="before")
     @classmethod

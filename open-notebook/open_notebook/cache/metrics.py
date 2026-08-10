@@ -40,12 +40,44 @@ class CacheMetrics:
     answer_cache_quality_failures: int = 0
     answer_cache_similarity_sum: float = 0.0
     answer_cache_similarity_samples: int = 0
+    # ── Phase 3: 3-tier semantic + distribution histogram ─────────────────────
+    answer_cache_semantic_high_hits: int = 0   # similarity ≥ HIGH
+    answer_cache_semantic_mid_hits: int = 0    # MID ≤ similarity < HIGH
+    answer_cache_semantic_low_rejected: int = 0  # tracked for tuning
+    answer_cache_total_entry_hits: int = 0     # sum of hit_count increments
+    answer_cache_max_entry_hits: int = 0       # hottest cached question
 
     def _get_prefix_stats(self, prefix: str) -> Dict[str, int]:
         if prefix not in self.by_prefix:
             self.by_prefix[prefix] = {"hits": 0, "misses": 0, "sets": 0, "invalidations": 0}
         return self.by_prefix[prefix]
 
+    # ── Phase 3: similarity histogram buckets ─────────────────────────────────
+    SIMILARITY_BUCKETS = (
+        "0.00-0.70",
+        "0.70-0.85",
+        "0.85-0.92",
+        "0.92-0.94",
+        "0.94-0.97",
+        "0.97-1.00",
+    )
+
+    @staticmethod
+    def _bucket_for(similarity: float) -> str:
+        s = float(similarity)
+        if s < 0.70:
+            return "0.00-0.70"
+        if s < 0.85:
+            return "0.70-0.85"
+        if s < 0.92:
+            return "0.85-0.92"
+        if s < 0.94:
+            return "0.92-0.94"
+        if s < 0.97:
+            return "0.94-0.97"
+        return "0.97-1.00"
+
+    # ── Generic cache counters (used by CacheService) ─────────────────────────
     def record_hit(self, prefix: str = "") -> None:
         with self._lock:
             self.hits += 1
@@ -74,22 +106,26 @@ class CacheMetrics:
         with self._lock:
             self.errors += 1
 
-    # ── Phase 1: answer-cache methods ─────────────────────────────────────────
     def record_answer_hit(self, kind: str, tokens_saved: int = 0) -> None:
-        """kind: 'exact' | 'semantic'."""
+        """kind: 'exact' | 'semantic' | 'semantic_high' | 'semantic_mid'."""
         with self._lock:
             if kind == "exact":
                 self.answer_cache_exact_hits += 1
+            elif kind == "semantic_high":
+                self.answer_cache_semantic_high_hits += 1
+                self.answer_cache_semantic_hits += 1
+            elif kind == "semantic_mid":
+                self.answer_cache_semantic_mid_hits += 1
+                self.answer_cache_semantic_hits += 1
             elif kind == "semantic":
+                # Backward compatibility: treat plain 'semantic' as the
+                # combined counter. Phase 3 callers should prefer the
+                # _high/_mid split so we can analyze the distribution.
                 self.answer_cache_semantic_hits += 1
             self.hits += 1
             self.answer_cache_tokens_saved += int(tokens_saved or 0)
 
     def record_answer_miss(self, reason: str = "miss") -> None:
-        """
-        reason is just a debug tag (e.g. 'miss', 'below_threshold',
-        'embedding_error'); we keep it out of the public counter for now.
-        """
         with self._lock:
             self.answer_cache_misses += 1
             self.misses += 1
@@ -108,6 +144,50 @@ class CacheMetrics:
         with self._lock:
             self.answer_cache_similarity_sum += float(similarity)
             self.answer_cache_similarity_samples += 1
+
+    def record_answer_entry_hit(self, hit_count: int) -> None:
+        """
+        Phase 3: record that an existing cache entry has been re-used.
+        Tracks the global "total entry hits" counter plus the running
+        max so the dashboard can show the hottest cached question.
+        """
+        with self._lock:
+            self.answer_cache_total_entry_hits += 1
+            if hit_count > self.answer_cache_max_entry_hits:
+                self.answer_cache_max_entry_hits = hit_count
+
+    def record_semantic_low_rejected(self) -> None:
+        with self._lock:
+            self.answer_cache_semantic_low_rejected += 1
+
+    def _similarity_distribution_unlocked(self) -> Dict[str, int]:
+        """Internal: read bucket counts WITHOUT acquiring ``self._lock``.
+
+        MUST be called while the caller already holds ``self._lock``.
+        Splitting this out of :meth:`similarity_distribution` prevents a
+        recursive-lock hang (Python ``threading.Lock`` is non-reentrant).
+        """
+        base = {bucket: 0 for bucket in self.SIMILARITY_BUCKETS}
+        for k, v in self.by_prefix.items():
+            if k.startswith("answer_cache:sim:"):
+                bucket = k.split(":", 2)[2]
+                if bucket in base:
+                    base[bucket] += v.get("hits", 0)
+        return base
+
+    @property
+    def similarity_distribution(self) -> Dict[str, int]:
+        """Snapshot of the similarity histogram (Phase 3)."""
+        with self._lock:
+            return self._similarity_distribution_unlocked()
+
+    def _record_similarity_internal(self, similarity: float) -> None:
+        """Internal: increment the per-bucket hit counter (used by tests)."""
+        bucket = self._bucket_for(similarity)
+        key = f"answer_cache:sim:{bucket}"
+        if key not in self.by_prefix:
+            self.by_prefix[key] = {"hits": 0, "misses": 0, "sets": 0, "invalidations": 0}
+        self.by_prefix[key]["hits"] += 1
 
     @property
     def hit_rate(self) -> float:
@@ -137,6 +217,9 @@ class CacheMetrics:
         with self._lock:
             total = self.hits + self.misses
             hit_rate = self.hits / total if total > 0 else 0.0
+            # Call the unlocked helper so we do not re-acquire the lock
+            # and deadlock (threading.Lock is non-reentrant).
+            distribution = self._similarity_distribution_unlocked()
             return {
                 "hits": self.hits,
                 "misses": self.misses,
@@ -157,6 +240,13 @@ class CacheMetrics:
                     "quality_failures": self.answer_cache_quality_failures,
                     "hit_rate": round(self.answer_cache_hit_rate, 4),
                     "avg_similarity": round(self.answer_cache_avg_similarity, 4),
+                    # Phase 3 additions
+                    "semantic_high_hits": self.answer_cache_semantic_high_hits,
+                    "semantic_mid_hits": self.answer_cache_semantic_mid_hits,
+                    "semantic_low_rejected": self.answer_cache_semantic_low_rejected,
+                    "total_entry_hits": self.answer_cache_total_entry_hits,
+                    "max_entry_hits": self.answer_cache_max_entry_hits,
+                    "similarity_distribution": distribution,
                 },
             }
 
@@ -175,6 +265,11 @@ class CacheMetrics:
             self.answer_cache_quality_failures = 0
             self.answer_cache_similarity_sum = 0.0
             self.answer_cache_similarity_samples = 0
+            self.answer_cache_semantic_high_hits = 0
+            self.answer_cache_semantic_mid_hits = 0
+            self.answer_cache_semantic_low_rejected = 0
+            self.answer_cache_total_entry_hits = 0
+            self.answer_cache_max_entry_hits = 0
             self.last_reset = datetime.now(timezone.utc)
             self.by_prefix.clear()
 

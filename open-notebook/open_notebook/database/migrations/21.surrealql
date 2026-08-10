@@ -1,0 +1,77 @@
+-- Migration 21: Knowledge version tracking for answer-cache invalidation.
+--
+-- Phase 2 of the token-saving plan. Each notebook and source gets a
+-- monotonically increasing `knowledge_version` so the answer cache can be
+-- scoped to the version of the underlying data. When a source's content
+-- changes, its version is bumped; the cache key includes the version, so
+-- stale entries naturally expire (no manual invalidation needed).
+--
+-- Conventions:
+--   - Default value is 1 for existing rows (set via DEFAULT ... ON CREATE).
+--   - Bumping is done via the helper functions below; the API layer
+--     (cache/invalidation.py) calls them on every CRUD that affects
+--     retrievable content.
+--   - The composite fingerprint used by the answer cache is built by
+--     `fn::compute_notebook_knowledge_version(notebook_id)` which returns
+--     the notebook's own version summed with the max version of its
+--     sources. This guarantees that any embedded source edit propagates
+--     to the cache key without the caller having to track every source.
+
+-- =============================================================================
+-- 1. notebook + source gain a knowledge_version field
+-- =============================================================================
+DEFINE FIELD IF NOT EXISTS knowledge_version ON notebook TYPE int DEFAULT 1;
+DEFINE FIELD IF NOT EXISTS knowledge_version ON source  TYPE int DEFAULT 1;
+
+-- Backfill: existing rows may not have the field yet. We use a simple
+-- UPDATE so the column is populated for every record, even if the table
+-- was created before this migration.
+UPDATE notebook SET knowledge_version = 1 WHERE knowledge_version = NONE;
+UPDATE source  SET knowledge_version = 1 WHERE knowledge_version = NONE;
+
+-- =============================================================================
+-- 2. Bump helpers (idempotent + atomic)
+-- =============================================================================
+
+-- Bump a single notebook. Returns the NEW version.
+DEFINE FUNCTION IF NOT EXISTS fn::bump_notebook_knowledge_version(
+    $notebook_id: record<notebook>
+) -> int {
+    UPDATE $notebook_id SET knowledge_version = knowledge_version + 1;
+    LET $new = (SELECT knowledge_version FROM $notebook_id)[0].knowledge_version;
+    RETURN $new;
+};
+
+-- Bump a single source. Returns the NEW version.
+DEFINE FUNCTION IF NOT EXISTS fn::bump_source_knowledge_version(
+    $source_id: record<source>
+) -> int {
+    UPDATE $source_id SET knowledge_version = knowledge_version + 1;
+    LET $new = (SELECT knowledge_version FROM $source_id)[0].knowledge_version;
+    LET $notebooks = (
+        SELECT VALUE out FROM reference WHERE in = $source_id
+    );
+    FOR $nb IN $notebooks {
+        UPDATE type::thing('notebook', record::id($nb).id)
+            SET knowledge_version = knowledge_version + 1;
+    };
+    RETURN $new;
+};
+
+-- Composite version for a notebook + all its sources. This is the value
+-- the answer cache should include in its fingerprint.
+DEFINE FUNCTION IF NOT EXISTS fn::compute_notebook_knowledge_version(
+    $notebook_id: record<notebook>
+) -> int {
+    LET $nb = (SELECT knowledge_version FROM $notebook_id)[0].knowledge_version;
+    LET $src = (
+        SELECT math::max(knowledge_version) AS v
+        FROM source
+        WHERE id IN (
+            SELECT VALUE in FROM reference WHERE out = $notebook_id
+        )
+        GROUP ALL
+    );
+    LET $src_v = IF $src = [] THEN 0 ELSE $src[0].v END;
+    RETURN $nb + $src_v;
+};

@@ -277,6 +277,20 @@ async def update_notebook(notebook_id: str, notebook_update: NotebookUpdate):
 
         await notebook.save()
 
+        # Phase 2: any field change to a notebook prompts users to ask
+        # questions about potentially different content. Bump the version
+        # so the answer cache fingerprint shifts.
+        try:
+            from open_notebook.cache.invalidation import (
+                invalidate_after_notebook_change,
+            )
+
+            await invalidate_after_notebook_change(notebook_id, clear_cache=True)
+        except Exception as exc:
+            logger.warning(
+                f"Phase 2: notebook version bump failed for {notebook_id}: {exc}"
+            )
+
         # Query with counts after update
         query = """
             SELECT *,
@@ -350,6 +364,22 @@ async def add_source_to_notebook(notebook_id: str, source_id: str):
                 },
             )
 
+        # Phase 2: adding a source changes the notebook's effective
+        # retrievable content, so bump the knowledge version on both
+        # sides.
+        try:
+            from open_notebook.cache.invalidation import (
+                invalidate_after_source_change,
+            )
+
+            await invalidate_after_source_change(
+                source_id, extra_notebook_ids=[notebook_id], clear_cache=True
+            )
+        except Exception as exc:
+            logger.warning(
+                f"Phase 2: link-source bump failed: {exc}"
+            )
+
         return {"message": "Source linked to notebook successfully"}
     except HTTPException:
         raise
@@ -379,6 +409,20 @@ async def remove_source_from_notebook(notebook_id: str, source_id: str):
                 "source_id": ensure_record_id(source_id),
             },
         )
+
+        # Phase 2: removing a source changes the notebook's retrievable
+        # content. Bump the notebook version so the answer cache can
+        # detect that cached answers are stale.
+        try:
+            from open_notebook.cache.invalidation import (
+                invalidate_after_notebook_change,
+            )
+
+            await invalidate_after_notebook_change(notebook_id, clear_cache=True)
+        except Exception as exc:
+            logger.warning(
+                f"Phase 2: unlink-source bump failed: {exc}"
+            )
 
         return {"message": "Source removed from notebook successfully"}
     except HTTPException:
@@ -411,6 +455,19 @@ async def delete_notebook(
     """
     try:
         notebook = await Notebook.get(notebook_id)
+
+        # Phase 2: wipe the answer cache entries that referenced this
+        # notebook before the underlying data is removed.
+        try:
+            from open_notebook.cache.invalidation import (
+                invalidate_after_notebook_change,
+            )
+
+            await invalidate_after_notebook_change(notebook_id, clear_cache=True)
+        except Exception as exc:
+            logger.warning(
+                f"Phase 2: pre-delete notebook bump failed: {exc}"
+            )
 
         result = await notebook.delete(
             delete_exclusive_sources=delete_exclusive_sources

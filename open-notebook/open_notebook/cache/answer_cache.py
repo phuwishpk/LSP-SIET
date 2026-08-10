@@ -89,19 +89,32 @@ def context_fingerprint(
     - knowledge_version (so a doc edit invalidates answers automatically)
     - prompt_version (so a prompt change invalidates old cached answers)
     - language (so answers are not reused across locales)
+
+    Each notebook block carries its own knowledge_version (see
+    NotebookContextBlock.knowledge_version). We mix the aggregate version
+    with the per-block versions so that a per-source edit bubbles up to
+    the cache key even if the rollup function is bypassed.
     """
     parts: List[str] = [
         f"tenant={tenant_id or 'default'}",
         f"lang={_normalize_language_tag(language)}",
         f"prompt={_normalize_language_tag(prompt_version)}",
     ]
-    notebook_ids = sorted(str(block.notebook_id) for block in resolved_notebooks.resolved)
-    # A global search has no notebook boundary, so include its retrieved context
-    # to prevent answers leaking between unrelated result sets.
-    if not notebook_ids:
-        notebook_ids = [str(chunk) for chunk in resolved_notebooks.global_fallback_chunks]
-    parts.extend(f"nb={nb_id}" for nb_id in notebook_ids)
+    notebook_versions: List[str] = []
+    for block in resolved_notebooks.resolved:
+        nb_id = str(block.notebook_id)
+        nb_kv = getattr(block, "knowledge_version", 0) or 0
+        notebook_versions.append(f"nb={nb_id}:kv={nb_kv}")
+    notebook_versions.sort()
+    if not notebook_versions:
+        # A global search has no notebook boundary, so include its retrieved
+        # context to prevent answers leaking between unrelated result sets.
+        notebook_versions = [
+            f"g={str(chunk)}" for chunk in resolved_notebooks.global_fallback_chunks
+        ]
+    parts.extend(notebook_versions)
     parts.append(f"out_of_rag={resolved_notebooks.out_of_rag}")
+    # Aggregate version is the secondary key used for a quick prefix match.
     if knowledge_version is not None:
         parts.append(f"kv={knowledge_version}")
     return _hash("|".join(parts))
@@ -157,6 +170,7 @@ def _empty_match() -> CacheMatch:
         "match_type": "miss",
         "similarity": 0.0,
         "tokens_saved": 0,
+        "hit_count": 0,
         "cached_question": None,
         "created_at": None,
         "expires_at": None,
@@ -171,6 +185,44 @@ def _entry_metadata(entry: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+def _classify_semantic(similarity: float) -> str:
+    """
+    Phase 3: split a cosine similarity into one of:
+      - "high"      : ≥ ANSWER_CACHE_HIGH_THRESHOLD  → reuse answer
+      - "mid"       : MID ≤ similarity < HIGH        → reuse if intent matches
+      - "low"       : similarity < MID               → miss
+    """
+    if similarity >= ANSWER_CACHE_HIGH_THRESHOLD:
+        return "high"
+    if similarity >= ANSWER_CACHE_MID_THRESHOLD:
+        return "mid"
+    return "low"
+
+
+async def _increment_entry_hit_count(scope: str, normalized: str) -> int:
+    """
+    Phase 3: bump the hit_count of an exact-key cache entry. The hit_count
+    is stored inside the JSON blob under the ``hit_count`` key, so we
+    fetch, mutate, and write back. The window is small (only exact-key
+    entries get tracked here); semantic entries are tracked via the
+    entry's own hit_count field in the index below.
+    """
+    exact_key = f"answer:exact:{scope}:{_hash(normalized)}"
+    entry = await cache_service.get_json(exact_key)
+    if not isinstance(entry, dict):
+        return 0
+    current = int(entry.get("hit_count", 0) or 0) + 1
+    entry["hit_count"] = current
+    # Refresh created_at only on first hit (we don't want it to drift);
+    # we do bump last_hit_at so the dashboard can show recency.
+    entry["last_hit_at"] = datetime.now(timezone.utc).isoformat()
+    # Preserve original TTL by re-reading and reusing it; default to our
+    # constant if the original was unset.
+    ttl = ANSWER_CACHE_TTL
+    await cache_service.set_json(exact_key, entry, ttl=ttl)
+    return current
+
+
 async def get_cached_answer(
     question: str,
     context_key: str,
@@ -183,20 +235,36 @@ async def get_cached_answer(
     The match descriptor replaces the previous "exact"|"semantic"|"miss"
     string token so callers can record similarity, tokens_saved, and entry
     timestamps without re-querying Redis.
+
+    Phase 3 changes:
+    - The semantic lookup returns ``match_type="semantic_high"`` for
+      similarities ≥ ANSWER_CACHE_HIGH_THRESHOLD (auto-use) and
+      ``"semantic_mid"`` for similarities in [MID, HIGH) (must pass
+      intent validation before use, see Phase 4).
+    - Each hit increments the entry's ``hit_count`` so the dashboard can
+      rank the hottest cached questions.
+    - Every lookup records the similarity into a histogram bucket.
     """
     normalized = _normalize_question(question)
     scope = _hash(f"{context_key}:{_normalize_language_tag(language)}")
     exact_key = f"answer:exact:{scope}:{_hash(normalized)}"
     exact = await cache_service.get_json(exact_key)
     if isinstance(exact, dict) and exact.get("answer"):
+        hit_count = await _increment_entry_hit_count(scope, normalized)
+        cache_metrics.record_answer_entry_hit(hit_count)
         match: CacheMatch = {
             "match_type": "exact",
             "similarity": 1.0,
             "tokens_saved": _estimate_tokens_saved("exact", 1.0),
+            "hit_count": hit_count,
             **_entry_metadata(exact),
         }
-        logger.info(f"Answer cache exact HIT scope={scope[:12]}")
+        logger.info(
+            f"Answer cache exact HIT scope={scope[:12]} hit_count={hit_count}"
+        )
         cache_metrics.record_answer_hit("exact", match["tokens_saved"])
+        cache_metrics.record_answer_similarity(1.0)
+        cache_metrics._record_similarity_internal(1.0)
         return str(exact["answer"]), None, match
 
     entries = await cache_service.get_json(f"answer:semantic:{scope}") or []
@@ -220,24 +288,76 @@ async def get_cached_answer(
         default=(0.0, None),
         key=lambda item: item[0],
     )
-    if best[1] is not None and best[0] >= ANSWER_CACHE_THRESHOLD:
-        kind = "semantic"
+    similarity = float(best[0]) if best[1] is not None else 0.0
+    cache_metrics.record_answer_similarity(similarity)
+    cache_metrics._record_similarity_internal(similarity)
+
+    classification = _classify_semantic(similarity) if best[1] is not None else "low"
+    if classification == "high":
+        kind = "semantic_high"
+        hit_count = int((best[1] or {}).get("hit_count", 0) or 0) + 1
+        # Best-effort: persist hit_count back into the semantic index.
+        try:
+            for entry in entries:
+                if entry is best[1]:
+                    entry["hit_count"] = hit_count
+                    entry["last_hit_at"] = datetime.now(timezone.utc).isoformat()
+                    break
+            await cache_service.set_json(
+                f"answer:semantic:{scope}",
+                entries[-ANSWER_CACHE_MAX_ENTRIES:],
+                ttl=ANSWER_CACHE_TTL,
+            )
+        except Exception as exc:
+            logger.debug(f"Failed to persist hit_count: {exc}")
+        cache_metrics.record_answer_entry_hit(hit_count)
         match = {
-            "match_type": kind,
-            "similarity": float(best[0]),
-            "tokens_saved": _estimate_tokens_saved(kind, float(best[0])),
+            "match_type": "semantic_high",
+            "similarity": similarity,
+            "tokens_saved": _estimate_tokens_saved("semantic", similarity),
+            "hit_count": hit_count,
+            "intent_validation_required": False,
             **_entry_metadata(best[1]),
         }
         logger.info(
-            f"Answer cache semantic HIT scope={scope[:12]} "
-            f"similarity={best[0]:.4f}"
+            f"Answer cache semantic HIGH HIT scope={scope[:12]} "
+            f"similarity={similarity:.4f} hit_count={hit_count}"
         )
         cache_metrics.record_answer_hit(kind, match["tokens_saved"])
         return str(best[1]["answer"]), embedding, match
 
+    if classification == "mid":
+        # Phase 4 will replace this with intent-validated reuse. For now
+        # we surface the candidate without returning the answer so the
+        # caller can decide whether to validate or fall through.
+        kind = "semantic_mid"
+        cache_metrics.record_answer_hit(kind, 0)  # count but no savings yet
+        match = {
+            "match_type": "semantic_mid",
+            "similarity": similarity,
+            "tokens_saved": 0,
+            "intent_validation_required": True,
+            "candidate_answer": str(best[1]["answer"]),
+            "candidate_question": str(
+                best[1].get("normalized_question") or best[1].get("question")
+            ),
+            "candidate_intent": best[1].get("intent"),
+            "candidate_entities": best[1].get("entities"),
+            "hit_count": int((best[1] or {}).get("hit_count", 0) or 0),
+            **_entry_metadata(best[1]),
+        }
+        logger.info(
+            f"Answer cache semantic MID (validation needed) "
+            f"scope={scope[:12]} similarity={similarity:.4f}"
+        )
+        # Do NOT return the answer — caller must validate.
+        return None, embedding, match
+
+    # classification == "low"
     cache_metrics.record_answer_miss("below_threshold")
+    cache_metrics.record_semantic_low_rejected()
     miss = _empty_match()
-    miss["similarity"] = float(best[0]) if best[1] is not None else 0.0
+    miss["similarity"] = similarity
     return None, embedding, miss
 
 
@@ -248,6 +368,10 @@ async def set_cached_answer(
     language: str,
     embedding: Optional[List[float]] = None,
     scope_metadata: Optional[Dict[str, Any]] = None,
+    *,
+    intent: Optional[str] = None,
+    entities: Optional[Dict[str, Any]] = None,
+    quality_score: Optional[float] = None,
 ) -> None:
     """
     Store an answer for free exact hits and low-cost semantic hits.
@@ -258,6 +382,14 @@ async def set_cached_answer(
     - Merge scope_metadata (tenant_id, knowledge_version, prompt_version,
       intent, entities, quality_score) so later phases can use them without
       changing the public signature.
+
+    Phase 3 expansion:
+    - Accept intent, entities, and quality_score as separate parameters
+      so callers (especially Phase 4 intent-validated hits) can stamp
+      them in. These are stored in BOTH the exact-key entry and the
+      semantic index entry, so semantic-mid lookups can compare against
+      the new question without an extra Redis round trip.
+    - Initialize hit_count=0 and last_hit_at=created_at.
     """
     if not answer:
         return
@@ -271,7 +403,15 @@ async def set_cached_answer(
         "answer": answer,
         "created_at": now.isoformat(),
         "expires_at": expires_at.isoformat(),
+        "hit_count": 0,
+        "last_hit_at": now.isoformat(),
     }
+    if intent is not None:
+        metadata["intent"] = intent
+    if entities is not None:
+        metadata["entities"] = entities
+    if quality_score is not None:
+        metadata["quality_score"] = float(quality_score)
     if scope_metadata:
         metadata.update(scope_metadata)
 
@@ -293,9 +433,25 @@ async def set_cached_answer(
     if not isinstance(entries, list):
         entries = []
     # Cap size: keep the most recent ANSWER_CACHE_MAX_ENTRIES entries.
-    entries = [entry for entry in entries if entry.get("normalized_question") != normalized]
+    entries = [
+        entry
+        for entry in entries
+        if entry.get("normalized_question") != normalized
+    ]
     metadata["embedding"] = query_embedding
     entries.append(metadata)
     await cache_service.set_json(
         index_key, entries[-ANSWER_CACHE_MAX_ENTRIES:], ttl=ANSWER_CACHE_TTL
     )
+
+
+async def get_cache_analytics(scope: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Phase 3: read-only snapshot of cache analytics.
+
+    Returns the in-memory metrics plus a small sample of the most-hit
+    cache entries (best-effort) so the dashboard can show "top cached
+    questions" without scanning all of Redis.
+    """
+    summary = cache_metrics.get_summary()
+    return summary.get("answer_cache", {})

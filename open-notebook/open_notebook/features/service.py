@@ -600,6 +600,10 @@ class NotebookContextBlock(BaseModel):
     notebook_name: str
     chunks: List[str]      # individual matched snippets
     total_chars: int
+    # Phase 2: composite knowledge_version for the notebook + its sources.
+    # The answer cache includes this in its fingerprint so that any doc
+    # edit automatically scopes the cache to the current version.
+    knowledge_version: int = 0
 
 
 class ResolvedNotebooks(BaseModel):
@@ -610,6 +614,10 @@ class ResolvedNotebooks(BaseModel):
     global_fallback_used: bool = False
     global_fallback_chunks: List[str] = []
     out_of_rag: bool = False            # True when no RAG whatsoever
+    # Phase 2: rollup knowledge version used by the answer cache
+    # fingerprint. Defaults to 0 so older callers (and tests) keep
+    # working without changes.
+    knowledge_version: int = 0
 
 
 async def _resolve_notebook_refs(
@@ -861,12 +869,23 @@ async def notebook_ask(
         chunks = _results_to_chunks(results)
         if chunks:
             any_hit = True
+        # Phase 2: compute the composite knowledge version for this notebook
+        # so the answer cache can scope appropriately.
+        try:
+            from open_notebook.cache.invalidation import (
+                compute_notebook_knowledge_version,
+            )
+
+            nb_kv = await compute_notebook_knowledge_version(str(nb.id))
+        except Exception:
+            nb_kv = int(getattr(nb, "knowledge_version", 0) or 0)
         resolved_blocks.append(
             NotebookContextBlock(
                 notebook_id=str(nb.id),
                 notebook_name=nb.name,
                 chunks=chunks,
                 total_chars=sum(len(c) for c in chunks),
+                knowledge_version=nb_kv,
             )
         )
 
@@ -890,11 +909,20 @@ async def notebook_ask(
     # 4. out_of_rag flag
     out_of_rag = not any_hit and not global_chunks
 
+    # Phase 2: rollup knowledge version for the whole scope. We pick the
+    # max version of any contributing notebook so a single doc edit
+    # propagates to the answer cache fingerprint.
+    if resolved_blocks:
+        scope_kv = max((b.knowledge_version for b in resolved_blocks), default=0)
+    else:
+        scope_kv = 0
+
     return ResolvedNotebooks(
         resolved=resolved_blocks,
         failed_refs=failed_refs,
         global_fallback_used=global_fallback_used,
         global_fallback_chunks=global_chunks,
         out_of_rag=out_of_rag,
+        knowledge_version=scope_kv,
     )
 
