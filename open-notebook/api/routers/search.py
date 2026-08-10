@@ -16,6 +16,11 @@ from api.models import (
     SearchResponse,
 )
 from open_notebook.ai.models import Model, model_manager
+from open_notebook.cache.answer_cache import (
+    context_fingerprint,
+    get_cached_answer,
+    set_cached_answer,
+)
 from open_notebook.domain.notebook import text_search, vector_search
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
 from open_notebook.features.service import (
@@ -277,6 +282,10 @@ async def _stream_notebook_ask_response(
     final_answer_model: Model,
     resolved_notebooks,        # ResolvedNotebooks from notebook_ask()
     owner_id: str,
+    language: str,
+    context_key: str,
+    cached_answer: Optional[str] = None,
+    question_embedding: Optional[List[float]] = None,
 ) -> AsyncGenerator[str, None]:
     """
     Stream the notebook-scoped Ask response as SSE.
@@ -303,13 +312,18 @@ async def _stream_notebook_ask_response(
         )
         yield f"data: {json.dumps({'type': 'resolved_notebooks', **resolved_payload.model_dump()})}\n\n"
 
+        if cached_answer is not None:
+            yield f"data: {json.dumps({'type': 'final_answer', 'content': cached_answer, 'cached': True})}\n\n"
+            yield f"data: {json.dumps({'type': 'complete', 'final_answer': cached_answer, 'cached': True})}\n\n"
+            return
+
         if resolved_notebooks.out_of_rag:
             # No RAG at all – call the final-answer model directly with a
             # "(out of RAG source)" label appended to the prompt.
             try:
                 direct_answer = await _invoke_direct_answer(
                     question=question,
-                    language="th",   # TODO: accept language from request
+                    language=language,
                     owner_id=owner_id,
                     model_id=final_answer_model.id,
                 )
@@ -319,6 +333,9 @@ async def _stream_notebook_ask_response(
                 return
 
             yield f"data: {json.dumps({'type': 'final_answer', 'content': direct_answer, 'out_of_rag': True})}\n\n"
+            await set_cached_answer(
+                question, direct_answer, context_key, language, question_embedding
+            )
             yield f"data: {json.dumps({'type': 'complete', 'final_answer': direct_answer})}\n\n"
             return
 
@@ -327,7 +344,7 @@ async def _stream_notebook_ask_response(
             question=question,
             resolved_notebooks=resolved_notebooks.resolved,
             global_chunks=resolved_notebooks.global_fallback_chunks,
-            language="th",
+            language=language,
             include_original=False,
         )
 
@@ -365,6 +382,10 @@ async def _stream_notebook_ask_response(
                 yield f"data: {json.dumps(final_data)}\n\n"
 
         completion_data = {"type": "complete", "final_answer": final_answer}
+        if final_answer:
+            await set_cached_answer(
+                question, final_answer, context_key, language, question_embedding
+            )
         yield f"data: {json.dumps(completion_data)}\n\n"
 
     except Exception as e:
@@ -472,6 +493,14 @@ async def ask_with_notebooks(
             final_model_id=payload.final_answer_model,
         )
 
+        # Shared across users only when the selected notebook content is the
+        # same. Exact repeats use no AI call; similar questions use one cheap
+        # embedding comparison and skip the language-model graph on a hit.
+        context_key = context_fingerprint(resolved)
+        cached_answer, question_embedding, _cache_match = await get_cached_answer(
+            payload.question, context_key, payload.language
+        )
+
         # ── Model resolution ──────────────────────────────────────────────────
         # At this point we know we need a model (not out_of_rag → direct answer).
         # Resolve explicit overrides first, then fall back to defaults.
@@ -513,6 +542,10 @@ async def ask_with_notebooks(
                 final_answer_model=resolved_models["final"],
                 resolved_notebooks=resolved,
                 owner_id=effective_owner,
+                language=payload.language,
+                context_key=context_key,
+                cached_answer=cached_answer,
+                question_embedding=question_embedding,
             ),
             media_type="text/event-stream",
             headers={
@@ -527,5 +560,4 @@ async def ask_with_notebooks(
     except Exception as e:
         logger.error(f"Error in notebook-ask endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ask operation failed: {str(e)}")
-
 
