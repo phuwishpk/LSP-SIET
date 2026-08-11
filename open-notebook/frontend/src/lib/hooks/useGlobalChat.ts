@@ -169,6 +169,18 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       return { sources: [], notes: [] }
     }
 
+    // Get auth credentials from localStorage
+    let authToken = ''
+    let ownerId = ''
+    const authStorage = window.localStorage.getItem('auth-storage')
+    if (authStorage) {
+      try {
+        const { state } = JSON.parse(authStorage)
+        authToken = state?.token || ''
+        ownerId = state?.user?.id || ''
+      } catch {}
+    }
+
     const context_config: { sources: Record<string, string>, notes: Record<string, string> } = {
       sources: {},
       notes: {}
@@ -196,7 +208,11 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
 
     const response = await fetch('/api/chat/context', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+        'X-Owner-Id': ownerId,
+      },
       body: JSON.stringify({
         notebook_id: params.notebookId,
         context_config

@@ -53,6 +53,8 @@ interface ChatPanelProps {
   notebookContextStats?: NotebookContextStats
   // Notebook ID for saving notes
   notebookId?: string
+  // RAG context status - passed from AskChatView to show RAG badge
+  hasRagContext?: boolean
 }
 
 export function ChatPanel({
@@ -72,7 +74,8 @@ export function ChatPanel({
   title,
   contextType = 'source',
   notebookContextStats,
-  notebookId
+  notebookId,
+  hasRagContext,
 }: ChatPanelProps) {
   const { t } = useTranslation()
   const chatInputId = useId()
@@ -83,13 +86,16 @@ export function ChatPanel({
   const { openModal } = useModalManager()
 
   const handleReferenceClick = (type: string, id: string) => {
+    // Handle external URLs
+    if (type === 'url') {
+      window.open(id, '_blank', 'noopener,noreferrer')
+      return
+    }
+
     const modalType = type === 'source_insight' ? 'insight' : type as 'source' | 'note' | 'insight'
 
     try {
       openModal(modalType, id)
-      // Note: The modal system uses URL parameters and doesn't throw errors for missing items.
-      // The modal component itself will handle displaying "not found" states.
-      // This try-catch is here for future enhancements or unexpected errors.
     } catch {
       toast.error(t('common.noResults'))
     }
@@ -237,6 +243,16 @@ export function ChatPanel({
             <div ref={messagesEndRef} />
           </div>
         </ScrollArea>
+
+        {/* RAG Status Indicator */}
+        {hasRagContext && (
+          <div className="border-t px-4 py-2 bg-green-50 dark:bg-green-950/20">
+            <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
+              <FileText className="h-3 w-3" />
+              <span>RAG: กำลังค้นหาจาก notebook ที่เลือก</span>
+            </div>
+          </div>
+        )}
 
         {/* Context Indicators */}
         {contextIndicators && (

@@ -109,6 +109,7 @@ export function AskChatView({
             onUpdateSession={(sessionId, title) => chat.updateSession(sessionId, { title })}
             onDeleteSession={chat.deleteSession}
             loadingSessions={chat.loadingSessions}
+            hasRagContext={scopeActive && !!notebookId && !!sources?.length}
           />
         </div>
       </div>

@@ -1,7 +1,7 @@
 import React from 'react'
 import { FileText, Lightbulb, FileEdit } from 'lucide-react'
 
-export type ReferenceType = 'source' | 'note' | 'source_insight'
+export type ReferenceType = 'source' | 'note' | 'source_insight' | 'url'
 
 export interface ParsedReference {
   type: ReferenceType
@@ -39,22 +39,19 @@ export interface ReferenceData {
  * - [note:a], [note:b] → multiple references
  * - [note:a, note:b] → comma-separated references (edge case from LLM)
  * - Mixed: [source:x, note:y, source_insight:z]
+ * - [url:https://example.com] → external URL reference
+ * - https://example.com → plain URL
  *
  * @param text - Text containing references
  * @returns Array of parsed references
  */
 export function parseSourceReferences(text: string): ParsedReference[] {
-  // Match pattern: (source_insight|insight|note|source):alphanumeric_id
-  // This handles references both inside and outside brackets.
-  // `insight:` is accepted as an alias for `source_insight` — some models emit the
-  // short form — and normalized below so all downstream rendering (icon, link,
-  // click handler) treats it identically. Keep `source_insight` first in the
-  // alternation so it wins over the `insight` alias.
-  const pattern = /(source_insight|insight|note|source):([a-zA-Z0-9_]+)/g
   const matches: ParsedReference[] = []
 
+  // Pattern 1: (source_insight|insight|note|source):alphanumeric_id
+  const docPattern = /(source_insight|insight|note|source):([a-zA-Z0-9_]+)/g
   let match
-  while ((match = pattern.exec(text)) !== null) {
+  while ((match = docPattern.exec(text)) !== null) {
     const rawType = match[1]
     const type = (rawType === 'insight' ? 'source_insight' : rawType) as ReferenceType
     const id = match[2]
@@ -64,8 +61,44 @@ export function parseSourceReferences(text: string): ParsedReference[] {
       id,
       originalText: match[0],
       startIndex: match.index,
-      endIndex: pattern.lastIndex
+      endIndex: docPattern.lastIndex
     })
+  }
+
+  // Pattern 2: [url:https://...] or plain URLs
+  // Match [url:https://...] format
+  const urlBracketedPattern = /\[url:([^\]]+)\]/g
+  while ((match = urlBracketedPattern.exec(text)) !== null) {
+    const url = match[1]
+    matches.push({
+      type: 'url',
+      id: url,
+      originalText: match[0],
+      startIndex: match.index,
+      endIndex: urlBracketedPattern.lastIndex
+    })
+  }
+
+  // Pattern 3: Plain URLs not already captured in [url:...] brackets
+  // Look for http/https URLs that aren't inside brackets already captured
+  const urlPattern = /(?<![\[])https?:\/\/[^\s\]\"'<>]+/g
+  while ((match = urlPattern.exec(text)) !== null) {
+    const url = match[0]
+    // Skip if this URL is already inside a [url:...] bracket we already captured
+    const alreadyCaptured = matches.some(m =>
+      m.type === 'url' &&
+      text.substring(Math.max(0, m.startIndex - 5), m.startIndex) === '[url:' &&
+      m.startIndex <= match!.index && m.endIndex >= match!.index + url.length
+    )
+    if (!alreadyCaptured) {
+      matches.push({
+        type: 'url',
+        id: url,
+        originalText: match[0],
+        startIndex: match.index,
+        endIndex: urlPattern.lastIndex
+      })
+    }
   }
 
   return matches
@@ -170,15 +203,13 @@ export function convertSourceReferences(
  * - With bold: [**source:abc**] → [**source:abc**](#ref-source-abc)
  * - After commas: [source:a, note:b] → each converted separately
  * - Nested: [**source:a**, [source_insight:b]] → both converted
- *
- * Uses greedy matching to catch all references regardless of surrounding context.
+ * - URL references: [url:https://...] or plain https://... → clickable links
  *
  * @param text - Original text with references
  * @returns Text with references converted to markdown links
  */
 export function convertReferencesToMarkdownLinks(text: string): string {
-  // Step 1: Find ALL references using simple greedy pattern.
-  // `insight:` is accepted as an alias for `source_insight` and normalized below.
+  // Step 1: Find ALL document references
   const refPattern = /(source_insight|insight|note|source):([a-zA-Z0-9_]+)/g
   const references: Array<{ type: string; id: string; index: number; length: number }> = []
 
@@ -186,81 +217,75 @@ export function convertReferencesToMarkdownLinks(text: string): string {
   while ((match = refPattern.exec(text)) !== null) {
     const rawType = match[1]
     const id = match[2]
-
-    // Validate the reference
     const validTypes = ['source', 'source_insight', 'insight', 'note']
-    if (!validTypes.includes(rawType) || !id || id.length === 0 || id.length > 100) {
-      continue // Skip invalid references
-    }
-
-    // Normalize the `insight` alias so the href/display use the canonical type
+    if (!validTypes.includes(rawType) || !id || id.length === 0 || id.length > 100) continue
     const type = rawType === 'insight' ? 'source_insight' : rawType
+    references.push({ type, id, index: match.index, length: match[0].length })
+  }
 
-    references.push({
-      type,
-      id,
-      index: match.index,
-      length: match[0].length
-    })
+  // Step 2: Find URL references
+  const urlBracketedPattern = /\[url:([^\]]+)\]/g
+  while ((match = urlBracketedPattern.exec(text)) !== null) {
+    references.push({ type: 'url', id: match[1], index: match.index, length: match[0].length })
+  }
+
+  // Plain URLs (not already captured)
+  const urlPattern = /(?<![\[])https?:\/\/[^\s\]\"'<>]+/g
+  while ((match = urlPattern.exec(text)) !== null) {
+    const alreadyCaptured = references.some(r =>
+      r.type === 'url' && match!.index >= r.index && match!.index + match![0].length <= r.index + r.length
+    )
+    if (!alreadyCaptured) {
+      references.push({ type: 'url', id: match[0], index: match.index, length: match[0].length })
+    }
   }
 
   // If no references found, return original text
   if (references.length === 0) return text
 
-  // Step 2: Process references from end to start (to preserve indices)
+  // Step 3: Process references from end to start (to preserve indices)
   let result = text
   for (let i = references.length - 1; i >= 0; i--) {
     const ref = references[i]
     const refStart = ref.index
     const refEnd = refStart + ref.length
-    const refText = `${ref.type}:${ref.id}`
 
-    // Step 3: Analyze context around the reference
-    // Look back up to 50 chars for opening brackets/bold markers
-    const contextBefore = result.substring(Math.max(0, refStart - 50), refStart)
-    // Look ahead up to 50 chars for closing brackets/bold markers
-    const contextAfter = result.substring(refEnd, Math.min(result.length, refEnd + 50))
+    if (ref.type === 'url') {
+      // For URLs, create a proper markdown link
+      const urlMarkdown = `[${ref.id}](${ref.id})`
+      result = result.substring(0, refStart) + urlMarkdown + result.substring(refEnd)
+    } else {
+      // Document reference processing
+      const refText = `${ref.type}:${ref.id}`
+      const contextBefore = result.substring(Math.max(0, refStart - 50), refStart)
+      const contextAfter = result.substring(refEnd, Math.min(result.length, refEnd + 50))
 
-    // Determine display text by checking immediate surroundings
-    let displayText = refText
-    let replaceStart = refStart
-    let replaceEnd = refEnd
+      let displayText = refText
+      let replaceStart = refStart
+      let replaceEnd = refEnd
 
-    // Check for double brackets [[ref]]
-    if (contextBefore.endsWith('[[') && contextAfter.startsWith(']]')) {
-      displayText = `[[${refText}]]`
-      replaceStart = refStart - 2
-      replaceEnd = refEnd + 2
-    }
-    // Check for single brackets [ref]
-    else if (contextBefore.endsWith('[') && contextAfter.startsWith(']')) {
-      displayText = `[${refText}]`
-      replaceStart = refStart - 1
-      replaceEnd = refEnd + 1
-    }
-    // Check for bold with brackets [**ref**]
-    else if (contextBefore.endsWith('[**') && contextAfter.startsWith('**]')) {
-      displayText = `[**${refText}**]`
-      replaceStart = refStart - 3
-      replaceEnd = refEnd + 3
-    }
-    // Check for just bold **ref**
-    else if (contextBefore.endsWith('**') && contextAfter.startsWith('**')) {
-      displayText = `**${refText}**`
-      replaceStart = refStart - 2
-      replaceEnd = refEnd + 2
-    }
-    // Plain reference (no brackets)
-    else {
-      displayText = refText
-    }
+      if (contextBefore.endsWith('[[') && contextAfter.startsWith(']]')) {
+        displayText = `[[${refText}]]`
+        replaceStart = refStart - 2
+        replaceEnd = refEnd + 2
+      } else if (contextBefore.endsWith('[') && contextAfter.startsWith(']')) {
+        displayText = `[${refText}]`
+        replaceStart = refStart - 1
+        replaceEnd = refEnd + 1
+      } else if (contextBefore.endsWith('[**') && contextAfter.startsWith('**]')) {
+        displayText = `[**${refText}**]`
+        replaceStart = refStart - 3
+        replaceEnd = refEnd + 3
+      } else if (contextBefore.endsWith('**') && contextAfter.startsWith('**')) {
+        displayText = `**${refText}**`
+        replaceStart = refStart - 2
+        replaceEnd = refEnd + 2
+      }
 
-    // Step 4: Build the markdown link
-    const href = `#ref-${ref.type}-${ref.id}`
-    const markdownLink = `[${displayText}](${href})`
-
-    // Step 5: Replace in the result string
-    result = result.substring(0, replaceStart) + markdownLink + result.substring(replaceEnd)
+      const href = `#ref-${ref.type}-${ref.id}`
+      const markdownLink = `[${displayText}](${href})`
+      result = result.substring(0, replaceStart) + markdownLink + result.substring(replaceEnd)
+    }
   }
 
   return result
@@ -283,6 +308,21 @@ export function createReferenceLinkComponent(
     href?: string
     children?: React.ReactNode
   }) => {
+    // Check if this is a URL link (external link)
+    if (href?.startsWith('http://') || href?.startsWith('https://')) {
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+          {...props}
+        >
+          {children}
+        </a>
+      )
+    }
+
     // Check if this is a reference link (starts with #ref-)
     if (href?.startsWith('#ref-')) {
       // Parse: #ref-source-abc123 → type=source, id=abc123
@@ -377,13 +417,11 @@ export function convertReferencesToCompactMarkdown(text: string, referencesLabel
     const refData = referenceMap.get(key)!
     const number = refData.number
 
-    // Analyze context around the reference
     const refStart = reference.startIndex
     const refEnd = reference.endIndex
     const contextBefore = result.substring(Math.max(0, refStart - 2), refStart)
     const contextAfter = result.substring(refEnd, Math.min(result.length, refEnd + 2))
 
-    // Determine what to replace based on bracket context
     let replaceStart = refStart
     let replaceEnd = refEnd
 
@@ -398,11 +436,15 @@ export function convertReferencesToCompactMarkdown(text: string, referencesLabel
       replaceEnd = refEnd + 1
     }
 
-    // Build the numbered citation with full reference in href
-    const citationLink = `[${number}](#ref-${reference.type}-${reference.id})`
-
-    // Replace in the result string
-    result = result.substring(0, replaceStart) + citationLink + result.substring(replaceEnd)
+    // Build the numbered citation
+    if (reference.type === 'url') {
+      // For URLs, keep the full URL as the link
+      const citationLink = `[${number}](${reference.id})`
+      result = result.substring(0, replaceStart) + citationLink + result.substring(replaceEnd)
+    } else {
+      const citationLink = `[${number}](#ref-${reference.type}-${reference.id})`
+      result = result.substring(0, replaceStart) + citationLink + result.substring(replaceEnd)
+    }
   }
 
   // Step 5: Build reference list
@@ -410,7 +452,13 @@ export function convertReferencesToCompactMarkdown(text: string, referencesLabel
 
   // Iterate through reference map in insertion order (Map preserves order)
   for (const [, refData] of referenceMap) {
-    const refListItem = `[${refData.number}] - [${refData.type}:${refData.id}](#ref-${refData.type}-${refData.id})`
+    let refListItem: string
+    if (refData.type === 'url') {
+      // External URL - render as clickable link
+      refListItem = `[${refData.number}] - [${refData.id}](${refData.id})`
+    } else {
+      refListItem = `[${refData.number}] - [${refData.type}:${refData.id}](#ref-${refData.type}-${refData.id})`
+    }
     refListLines.push(refListItem)
   }
 
@@ -426,6 +474,7 @@ export function convertReferencesToCompactMarkdown(text: string, referencesLabel
  * This component handles two types of reference links:
  * 1. Numbered citations in text: [1](#ref-source-abc123)
  * 2. Reference list items: [source:abc123](#ref-source-abc123)
+ * 3. External URLs: [https://example.com](https://example.com)
  *
  * Both use the same href format: #ref-{type}-{id}
  * The component extracts the type and id from the href and triggers the click handler.
@@ -448,6 +497,21 @@ export function createCompactReferenceLinkComponent(
     href?: string
     children?: React.ReactNode
   }) => {
+    // Check if this is a URL link (external link)
+    if (href?.startsWith('http://') || href?.startsWith('https://')) {
+      return (
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-primary hover:underline"
+          {...props}
+        >
+          {children}
+        </a>
+      )
+    }
+
     // Check if this is a reference link (starts with #ref-)
     if (href?.startsWith('#ref-')) {
       // Parse: #ref-source-abc123 → type=source, id=abc123

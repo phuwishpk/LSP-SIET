@@ -444,15 +444,24 @@ class Source(ObjectModel):
     ) -> Dict[str, Any]:
         insights_list = await self.get_insights()
         insights = [insight.model_dump() for insight in insights_list]
+        asset_url = None
+        if self.asset:
+            asset_url = self.asset.url or self.asset.file_path
         if context_size == "long":
             return dict(
                 id=self.id,
                 title=self.title,
                 insights=insights,
                 full_text=self.full_text,
+                asset_url=asset_url,
             )
         else:
-            return dict(id=self.id, title=self.title, insights=insights)
+            return dict(
+                id=self.id,
+                title=self.title,
+                insights=insights,
+                asset_url=asset_url,
+            )
 
     async def get_embedded_chunks(self) -> int:
         try:
