@@ -17,6 +17,7 @@ from loguru import logger
 from surreal_commands import execute_command_sync, submit_command
 
 from api.command_service import CommandService
+from api.dependencies import get_owner_id
 from api.models import (
     AssetModel,
     CreateSourceInsightRequest,
@@ -196,8 +197,9 @@ async def get_sources(
         description="Field to sort by (type, title, created, updated, insights_count, or embedded)",
     ),
     sort_order: str = Query("desc", description="Sort order (asc or desc)"),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Get sources with pagination and sorting support."""
+    """Get sources with pagination and sorting support (scoped to the authenticated user)."""
     try:
         # Validate sort parameters
         if sort_by not in SOURCE_SORT_FIELDS:
@@ -220,12 +222,14 @@ async def get_sources(
 
         # Build the query
         if notebook_id:
-            # Verify notebook exists first
+            # Verify notebook exists and belongs to the owner
             notebook = await Notebook.get(notebook_id)
             if not notebook:
                 raise HTTPException(status_code=404, detail="Notebook not found")
+            if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+                raise HTTPException(status_code=404, detail="Notebook not found")
 
-            # Query sources for specific notebook - include command field with FETCH
+            # Query sources for specific notebook
             query = f"""
                 SELECT id, asset, created, title, updated, topics, command,
                 ({SOURCE_TYPE_EXPRESSION}) AS type,
@@ -245,18 +249,22 @@ async def get_sources(
                 },
             )
         else:
-            # Query all sources - include command field with FETCH
+            # Query all sources scoped to the owner
             query = f"""
                 SELECT id, asset, created, title, updated, topics, command,
                 ({SOURCE_TYPE_EXPRESSION}) AS type,
                 (SELECT VALUE count() FROM source_insight WHERE source = $parent.id GROUP ALL)[0].count OR 0 AS insights_count,
                 (SELECT VALUE id FROM source_embedding WHERE source = $parent.id LIMIT 1) != [] AS embedded
                 FROM source
+                WHERE owner_id = $owner_id OR owner_id = "default"
                 {order_clause}
                 LIMIT $limit START $offset
                 FETCH command
             """
-            result = await repo_query(query, {"limit": limit, "offset": offset})
+            result = await repo_query(
+                query,
+                {"limit": limit, "offset": offset, "owner_id": owner_id},
+            )
 
         # Convert result to response model
         # Command data is already fetched via FETCH command clause
@@ -326,18 +334,24 @@ async def create_source(
     form_data: tuple[SourceCreate, Optional[UploadFile]] = Depends(
         parse_source_form_data
     ),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Create a new source with support for both JSON and multipart form data."""
+    """Create a new source (scoped to the authenticated user)."""
     source_data, upload_file = form_data
 
     # Initialize file_path before try block so exception handlers can reference it
     file_path = None
 
     try:
-        # Verify all specified notebooks exist (backward compatibility support)
+        # Verify all specified notebooks exist and belong to the owner
         for notebook_id in source_data.notebooks or []:
             notebook = await Notebook.get(notebook_id)
             if not notebook:
+                raise HTTPException(
+                    status_code=404, detail=f"Notebook {notebook_id} not found"
+                )
+            # Verify notebook belongs to this owner
+            if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
                 raise HTTPException(
                     status_code=404, detail=f"Notebook {notebook_id} not found"
                 )
@@ -418,6 +432,7 @@ async def create_source(
                 title=source_data.title or "Processing...",
                 topics=[],
                 asset=source_asset,
+                owner_id=owner_id,
             )
             await source.save()
 
@@ -497,6 +512,7 @@ async def create_source(
                 source = Source(
                     title=source_data.title or "Processing...",
                     topics=[],
+                    owner_id=owner_id,
                 )
                 await source.save()
 
@@ -613,16 +629,23 @@ async def create_source(
 
 
 @router.post("/sources/json", response_model=SourceResponse)
-async def create_source_json(source_data: SourceCreate):
-    """Create a new source using JSON payload (legacy endpoint for backward compatibility)."""
-    # Convert to form data format and call main endpoint
+async def create_source_json(
+    source_data: SourceCreate,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Create a new source using JSON payload (scoped to the authenticated user)."""
     form_data = (source_data, None)
-    return await create_source(form_data)
+    return await create_source(form_data, owner_id)
 
 
-async def _resolve_source_file(source_id: str) -> tuple[str, str]:
+async def _resolve_source_file(source_id: str, owner_id: str) -> tuple[str, str]:
     source = await Source.get(source_id)
     if not source:
+        raise HTTPException(status_code=404, detail="Source not found")
+
+    # Verify source belongs to this owner (backward compat: no owner_id = visible)
+    source_owner = getattr(source, "owner_id", None)
+    if source_owner is not None and source_owner != owner_id:
         raise HTTPException(status_code=404, detail="Source not found")
 
     file_path = source.asset.file_path if source.asset else None
@@ -660,11 +683,19 @@ def _is_source_file_available(source: Source) -> Optional[bool]:
 
 
 @router.get("/sources/{source_id}", response_model=SourceResponse)
-async def get_source(source_id: str):
-    """Get a specific source by ID."""
+async def get_source(
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Get a specific source by ID (scoped to the authenticated user)."""
     try:
         source = await Source.get(source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner (backward compat: no owner_id = visible)
+        source_owner = getattr(source, "owner_id", None)
+        if source_owner is not None and source_owner != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         await _stamp_source_view(source.id or source_id)
@@ -724,10 +755,13 @@ async def get_source(source_id: str):
 
 
 @router.head("/sources/{source_id}/download")
-async def check_source_file(source_id: str):
+async def check_source_file(
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
     """Check if a source has a downloadable file."""
     try:
-        await _resolve_source_file(source_id)
+        await _resolve_source_file(source_id, owner_id)
         return Response(status_code=200)
     except HTTPException:
         raise
@@ -737,10 +771,13 @@ async def check_source_file(source_id: str):
 
 
 @router.get("/sources/{source_id}/download")
-async def download_source_file(source_id: str):
+async def download_source_file(
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
     """Download the original file associated with an uploaded source."""
     try:
-        resolved_path, filename = await _resolve_source_file(source_id)
+        resolved_path, filename = await _resolve_source_file(source_id, owner_id)
         return FileResponse(
             path=resolved_path,
             filename=filename,
@@ -754,12 +791,20 @@ async def download_source_file(source_id: str):
 
 
 @router.get("/sources/{source_id}/status", response_model=SourceStatusResponse)
-async def get_source_status(source_id: str):
+async def get_source_status(
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
     """Get processing status for a source."""
     try:
-        # First, verify source exists
+        # First, verify source exists and belongs to the owner
         source = await Source.get(source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner (backward compat: no owner_id = visible)
+        source_owner = getattr(source, "owner_id", None)
+        if source_owner is not None and source_owner != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Check if this is a legacy source (no command)
@@ -816,11 +861,20 @@ async def get_source_status(source_id: str):
 
 
 @router.put("/sources/{source_id}", response_model=SourceResponse)
-async def update_source(source_id: str, source_update: SourceUpdate):
-    """Update a source."""
+async def update_source(
+    source_id: str,
+    source_update: SourceUpdate,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Update a source (scoped to the authenticated user)."""
     try:
         source = await Source.get(source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner (backward compat: no owner_id = visible)
+        source_owner = getattr(source, "owner_id", None)
+        if source_owner is not None and source_owner != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Update only provided fields
@@ -872,12 +926,20 @@ async def update_source(source_id: str, source_update: SourceUpdate):
 
 
 @router.post("/sources/{source_id}/retry", response_model=SourceResponse)
-async def retry_source_processing(source_id: str):
-    """Retry processing for a failed or stuck source."""
+async def retry_source_processing(
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Retry processing for a failed or stuck source (scoped to the authenticated user)."""
     try:
-        # First, verify source exists
+        # First, verify source exists and belongs to the owner
         source = await Source.get(source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner (backward compat: no owner_id = visible)
+        source_owner = getattr(source, "owner_id", None)
+        if source_owner is not None and source_owner != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Check if source already has a running command
@@ -1017,11 +1079,19 @@ async def retry_source_processing(source_id: str):
 
 
 @router.delete("/sources/{source_id}")
-async def delete_source(source_id: str):
-    """Delete a source."""
+async def delete_source(
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Delete a source (scoped to the authenticated user)."""
     try:
         source = await Source.get(source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner (backward compat: no owner_id = visible)
+        source_owner = getattr(source, "owner_id", None)
+        if source_owner is not None and source_owner != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Phase 2: bump every notebook that references this source BEFORE

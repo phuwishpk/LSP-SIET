@@ -1,0 +1,52 @@
+-- Migration 22: Per-user ownership for notebooks, sources, notes, and chat sessions.
+--
+-- Goals:
+--   1. Each user's notebooks, sources, notes, and chat sessions are isolated.
+--   2. Chat sessions are scoped to the authenticated user.
+--   3. The answer cache remains GLOBAL (tenant_id=None) so User B can reuse
+--      cached answers when asking a question similar to User A's.
+--
+-- How it works:
+--   - All records gain an `owner_id` field (string).
+--   - Every API router that creates or queries these records filters by owner_id.
+--   - The auth middleware sets `request.state.owner_id` (already done).
+--   - Existing records (created before this migration) get owner_id = "default"
+--     so they remain visible. A separate admin script can backfill them later.
+--
+-- Enforcement model:
+--   - GET /notebooks  → WHERE owner_id = $owner_id
+--   - POST /notebooks → SET owner_id = $owner_id
+--   - PUT /notebooks/{id} → verify session belongs to owner first
+--   - DELETE /notebooks/{id} → verify session belongs to owner first
+--   - Same pattern for sources, notes, and chat_sessions.
+
+-- =============================================================================
+-- 1. Add owner_id field to all four core tables
+-- =============================================================================
+
+DEFINE FIELD IF NOT EXISTS owner_id ON TABLE notebook TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS owner_id ON TABLE source  TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS owner_id ON TABLE note    TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS owner_id ON TABLE chat_session TYPE option<string>;
+
+-- Backfill existing rows so they remain accessible under the "default" tenant.
+UPDATE notebook       SET owner_id = "default" WHERE owner_id = NONE;
+UPDATE source         SET owner_id = "default" WHERE owner_id = NONE;
+UPDATE note           SET owner_id = "default" WHERE owner_id = NONE;
+UPDATE chat_session   SET owner_id = "default" WHERE owner_id = NONE;
+
+-- =============================================================================
+-- 2. Indexes for fast per-owner queries
+-- =============================================================================
+
+DEFINE INDEX IF NOT EXISTS idx_notebook_owner       ON TABLE notebook       FIELDS owner_id;
+DEFINE INDEX IF NOT EXISTS idx_source_owner        ON TABLE source         FIELDS owner_id;
+DEFINE INDEX IF NOT EXISTS idx_note_owner          ON TABLE note           FIELDS owner_id;
+DEFINE INDEX IF NOT EXISTS idx_chat_session_owner  ON TABLE chat_session   FIELDS owner_id;
+
+-- Composite index for chat_session lookup: owner + parent (notebook | source)
+DEFINE INDEX IF NOT EXISTS idx_chat_session_owner_parent
+    ON TABLE chat_session FIELDS owner_id, parent_kind, parent_id;
+
+-- Index for the refers_to relation to speed up session → parent lookups
+DEFINE INDEX IF NOT EXISTS idx_refers_to_in ON TABLE refers_to FIELDS in;

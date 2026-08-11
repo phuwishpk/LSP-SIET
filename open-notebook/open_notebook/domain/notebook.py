@@ -24,6 +24,8 @@ class Notebook(ObjectModel):
     # (own fields, notes, or referenced sources) changes. Used by the
     # answer cache to invalidate stale answers automatically.
     knowledge_version: Optional[int] = 1
+    # Migration 22: per-user isolation
+    owner_id: Optional[str] = None
 
     @field_validator("name")
     @classmethod
@@ -373,6 +375,8 @@ class Source(ObjectModel):
     # (full_text update, reprocess, delete) so the answer cache can detect
     # stale entries without manual invalidation.
     knowledge_version: Optional[int] = 1
+    # Migration 22: per-user isolation
+    owner_id: Optional[str] = None
 
     @field_validator("command", mode="before")
     @classmethod
@@ -634,6 +638,8 @@ class Note(ObjectModel):
     title: Optional[str] = None
     note_type: Optional[Literal["human", "ai"]] = None
     content: Optional[str] = None
+    # Migration 22: per-user isolation
+    owner_id: Optional[str] = None
 
     @field_validator("content")
     @classmethod
@@ -687,9 +693,12 @@ class Note(ObjectModel):
 
 class ChatSession(ObjectModel):
     table_name: ClassVar[str] = "chat_session"
-    nullable_fields: ClassVar[set[str]] = {"model_override"}
+    nullable_fields: ClassVar[set[str]] = {"model_override", "owner_id"}
     title: Optional[str] = None
     model_override: Optional[str] = None
+    # owner_id: per-user isolation — set when a session is created via the API.
+    # Sessions created before migration 22 have owner_id=NONE (backfilled to "default").
+    owner_id: Optional[str] = None
 
     async def relate_to_notebook(self, notebook_id: str) -> Any:
         if not notebook_id:

@@ -2,13 +2,9 @@ import asyncio
 import json
 from typing import AsyncGenerator, List, Optional
 
-from fastapi import APIRouter, HTTPException, Path
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage
-from langchain_core.runnables import RunnableConfig
-from loguru import logger
-from pydantic import BaseModel, Field
+from fastapi import APIRouter, Depends, HTTPException, Path
 
+from api.dependencies import get_owner_id
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, Source
 from open_notebook.exceptions import (
@@ -90,10 +86,11 @@ class SuccessResponse(BaseModel):
 async def create_source_chat_session(
     request: CreateSourceChatSessionRequest,
     source_id: str = Path(..., description="Source ID"),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Create a new chat session for a source."""
+    """Create a new chat session for a source (scoped to the authenticated user)."""
     try:
-        # Verify source exists
+        # Verify source exists and belongs to the owner
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
@@ -101,10 +98,15 @@ async def create_source_chat_session(
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
 
-        # Create new session with model_override support
+        # Verify source belongs to this owner
+        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Create new session with model_override support and owner_id
         session = ChatSession(
             title=request.title or f"Source Chat {asyncio.get_event_loop().time():.0f}",
             model_override=request.model_override,
+            owner_id=owner_id,
         )
         await session.save()
 
@@ -132,15 +134,22 @@ async def create_source_chat_session(
 @router.get(
     "/sources/{source_id}/chat/sessions", response_model=List[SourceChatSessionResponse]
 )
-async def get_source_chat_sessions(source_id: str = Path(..., description="Source ID")):
-    """Get all chat sessions for a source."""
+async def get_source_chat_sessions(
+    source_id: str = Path(..., description="Source ID"),
+    owner_id: str = Depends(get_owner_id),
+):
+    """Get all chat sessions for a source (scoped to the authenticated user)."""
     try:
-        # Verify source exists
+        # Verify source exists and belongs to the owner
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
         source = await Source.get(full_source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner
+        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get sessions that refer to this source - first get relations, then sessions
@@ -160,6 +169,11 @@ async def get_source_chat_sessions(source_id: str = Path(..., description="Sourc
                 )
                 if session_result and len(session_result) > 0:
                     session_data = session_result[0]
+
+                    # Filter by owner_id (backward compat: no owner_id = visible)
+                    session_owner = session_data.get("owner_id")
+                    if session_owner is not None and session_owner != owner_id:
+                        continue
 
                     # Get message count from LangGraph state
                     msg_count = await get_session_message_count(
@@ -197,15 +211,20 @@ async def get_source_chat_sessions(source_id: str = Path(..., description="Sourc
 async def get_source_chat_session(
     source_id: str = Path(..., description="Source ID"),
     session_id: str = Path(..., description="Session ID"),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Get a specific source chat session with its messages."""
+    """Get a specific source chat session with its messages (scoped to the authenticated user)."""
     try:
-        # Verify source exists
+        # Verify source exists and belongs to the owner
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
         source = await Source.get(full_source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner
+        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get session
@@ -216,6 +235,11 @@ async def get_source_chat_session(
         )
         session = await ChatSession.get(full_session_id)
         if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Verify session belongs to this owner (backward compat: no owner_id = visible)
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Verify session is related to this source
@@ -295,15 +319,20 @@ async def update_source_chat_session(
     request: UpdateSourceChatSessionRequest,
     source_id: str = Path(..., description="Source ID"),
     session_id: str = Path(..., description="Session ID"),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Update source chat session title and/or model override."""
+    """Update source chat session (scoped to the authenticated user)."""
     try:
-        # Verify source exists
+        # Verify source exists and belongs to the owner
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
         source = await Source.get(full_source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner
+        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get session
@@ -314,6 +343,11 @@ async def update_source_chat_session(
         )
         session = await ChatSession.get(full_session_id)
         if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Verify session belongs to this owner (backward compat: no owner_id = visible)
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Verify session is related to this source
@@ -365,15 +399,20 @@ async def update_source_chat_session(
 async def delete_source_chat_session(
     source_id: str = Path(..., description="Source ID"),
     session_id: str = Path(..., description="Session ID"),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Delete a source chat session."""
+    """Delete a source chat session (scoped to the authenticated user)."""
     try:
-        # Verify source exists
+        # Verify source exists and belongs to the owner
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
         source = await Source.get(full_source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner
+        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get session
@@ -384,6 +423,11 @@ async def delete_source_chat_session(
         )
         session = await ChatSession.get(full_session_id)
         if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Verify session belongs to this owner (backward compat: no owner_id = visible)
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Verify session is related to this source
@@ -489,15 +533,20 @@ async def send_message_to_source_chat(
     request: SendMessageRequest,
     source_id: str = Path(..., description="Source ID"),
     session_id: str = Path(..., description="Session ID"),
+    owner_id: str = Depends(get_owner_id),
 ):
-    """Send a message to source chat session with SSE streaming response."""
+    """Send a message to source chat session with SSE streaming response (scoped to the authenticated user)."""
     try:
-        # Verify source exists
+        # Verify source exists and belongs to the owner
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
         source = await Source.get(full_source_id)
         if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Verify source belongs to this owner
+        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify session exists and is related to source
@@ -508,6 +557,11 @@ async def send_message_to_source_chat(
         )
         session = await ChatSession.get(full_session_id)
         if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Verify session belongs to this owner (backward compat: no owner_id = visible)
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
 
         # Verify session is related to this source

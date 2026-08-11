@@ -577,13 +577,16 @@ async def ask_with_notebooks(
         # Shared across users only when the selected notebook content is the
         # same. Exact repeats use no AI call; similar questions use one cheap
         # embedding comparison and skip the language-model graph on a hit.
-        # Phase 1: pass tenant_id (owner_id) and prompt_version into the
-        # fingerprint so Phase 2/4 invalidations will be a no-op upgrade.
+        # Phase 1 (revised): use tenant_id=None so the cache is GLOBAL across
+        # users. This enables cross-user answer reuse: User B benefits from
+        # answers User A already generated for similar questions. Knowledge
+        # version still scopes to the notebook content, so a doc edit still
+        # invalidates the cache automatically.
         context_key = context_fingerprint(
             resolved,
             language=payload.language,
             knowledge_version=getattr(resolved, "knowledge_version", None),
-            tenant_id=effective_owner,
+            tenant_id=None,
             prompt_version="v1",
         )
         cached_answer, question_embedding, cache_match = await get_cached_answer(

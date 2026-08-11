@@ -1,0 +1,13 @@
+-- Migration 22 rollback: remove owner_id fields and indexes.
+
+REMOVE INDEX IF EXISTS idx_refers_to_in ON TABLE refers_to;
+REMOVE INDEX IF NOT EXISTS idx_chat_session_owner_parent ON TABLE chat_session;
+REMOVE INDEX IF NOT EXISTS idx_chat_session_owner ON TABLE chat_session;
+REMOVE INDEX IF NOT EXISTS idx_note_owner ON TABLE note;
+REMOVE INDEX IF NOT EXISTS idx_source_owner ON TABLE source;
+REMOVE INDEX IF NOT EXISTS idx_notebook_owner ON TABLE notebook;
+
+REMOVE FIELD IF EXISTS owner_id ON TABLE chat_session;
+REMOVE FIELD IF EXISTS owner_id ON TABLE note;
+REMOVE FIELD IF EXISTS owner_id ON TABLE source;
+REMOVE FIELD IF EXISTS owner_id ON TABLE notebook;
