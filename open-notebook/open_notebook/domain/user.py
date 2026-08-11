@@ -1,48 +1,109 @@
 """
 User domain model + repository.
 
-The workspace uses SurrealDB to persist registered accounts.
-Passwords are stored as bcrypt hashes; passwords are never returned
-through the API. Lookups are case-insensitive on `username` so users
-can type whatever casing they like on the login form.
+User accounts are stored in MariaDB (user service).
+All other workspace data (notebooks, cells, podcasts, etc.) stays in SurrealDB.
+Passwords are stored as bcrypt hashes; passwords are never returned through the API.
 """
 
 from __future__ import annotations
 
+import os as _os
+from contextlib import asynccontextmanager
 from datetime import datetime, timezone
-from typing import Any, Dict, List, Optional
+from typing import Any, AsyncGenerator, Dict, List, Optional
 
 import bcrypt
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import Column, DateTime, Enum, Integer, String, select, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import declarative_base
 
-from open_notebook.database.repository import (
-    db_connection,
-    ensure_record_id,
-    parse_record_ids,
-)
+from open_notebook.config import get_mariadb_url
+
+
+# =============================================================================
+# SQLAlchemy setup for MariaDB
+# =============================================================================
+
+_Base = declarative_base()
+
+class _UserRow(_Base):
+    __tablename__ = "users"
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    username      = Column(String(32), unique=True, nullable=False)
+    password_hash = Column(String(255), nullable=False)
+    display_name  = Column(String(128), nullable=True)
+    role          = Column(Enum("admin", "student"), nullable=False, default="student")
+    created_at    = Column(DateTime, default=datetime.utcnow)
+    updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login_at = Column(DateTime, nullable=True)
+
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
+
+
+
+# Module-level engine + session factory (lazy, one per process)
+_mariadb_engine: Optional[Any] = None
+_mariadb_session_factory: Optional[Any] = None
+
+
+def _get_engine():
+    global _mariadb_engine
+    if _mariadb_engine is None:
+        _mariadb_engine = create_async_engine(
+            get_mariadb_url(),
+            echo=False,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+        )
+    return _mariadb_engine
+
+
+def _get_session_factory():
+    global _mariadb_session_factory
+    if _mariadb_session_factory is None:
+        _mariadb_session_factory = async_sessionmaker(
+            bind=_get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+    return _mariadb_session_factory
+
+
+@asynccontextmanager
+async def _mariadb_session() -> AsyncGenerator[AsyncSession, None]:
+    """Async context manager for a MariaDB session."""
+    factory = _get_session_factory()
+    async with factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
 
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-
 USERNAME_MIN_LEN = 3
 USERNAME_MAX_LEN = 32
-# Allow short passwords for local dev convenience (admin/123). Production
-# deployments should set WORKSPACE_PASSWORD_MIN_LEN to a higher value.
-import os as _os
-
 PASSWORD_MIN_LEN = int(_os.getenv("WORKSPACE_PASSWORD_MIN_LEN", "3"))
 PASSWORD_MAX_LEN = 128
 BCRYPT_ROUNDS = 12
+
+USER_ROLE_ADMIN   = "admin"
+USER_ROLE_STUDENT = "student"
 
 
 # =============================================================================
 # Exceptions
 # =============================================================================
-
 
 class UserError(Exception):
     """Base error for user operations."""
@@ -72,14 +133,14 @@ class InvalidPasswordError(UserError):
 # Pydantic schema
 # =============================================================================
 
-
 class User(BaseModel):
     """In-memory representation of a stored user."""
 
-    id: Optional[str] = None
+    id: Optional[int] = None
     username: str
     password_hash: str = Field(exclude=True)
     display_name: Optional[str] = None
+    role: str = "student"
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     last_login_at: Optional[str] = None
@@ -103,7 +164,6 @@ class User(BaseModel):
 # Helpers
 # =============================================================================
 
-
 def hash_password(plain: str) -> str:
     """Hash a plaintext password using bcrypt."""
     if not (PASSWORD_MIN_LEN <= len(plain) <= PASSWORD_MAX_LEN):
@@ -122,17 +182,22 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def _row_to_user(row: Dict[str, Any]) -> User:
-    """Map a SurrealDB row into a User instance."""
-    password_hash = row.get("password_hash") or row.get("password") or ""
+def _row_to_user(row: Any) -> User:
+    """Map a SQLAlchemy row into a User instance."""
+    password_hash = getattr(row, "password_hash", "") or ""
+    created_at = getattr(row, "created_at", None)
+    updated_at = getattr(row, "updated_at", None)
+    last_login = getattr(row, "last_login_at", None)
+
     return User(
-        id=row.get("id"),
-        username=row.get("username", ""),
+        id=getattr(row, "id", None),
+        username=getattr(row, "username", ""),
         password_hash=password_hash,
-        display_name=row.get("display_name"),
-        created_at=str(row.get("created_at")) if row.get("created_at") else None,
-        updated_at=str(row.get("updated_at")) if row.get("updated_at") else None,
-        last_login_at=str(row.get("last_login_at")) if row.get("last_login_at") else None,
+        display_name=getattr(row, "display_name", None),
+        role=getattr(row, "role", "student"),
+        created_at=created_at.isoformat() if created_at else None,
+        updated_at=updated_at.isoformat() if updated_at else None,
+        last_login_at=last_login.isoformat() if last_login else None,
     )
 
 
@@ -140,98 +205,97 @@ def _row_to_user(row: Dict[str, Any]) -> User:
 # Repository operations
 # =============================================================================
 
-
 async def get_by_username(username: str) -> Optional[User]:
     """Look up a user by username (case-insensitive)."""
     normalized = username.strip().lower()
-    rows = await _query(
-        "SELECT * FROM user WHERE username = $username LIMIT 1",
-        {"username": normalized},
-    )
-    if not rows:
-        return None
-    return _row_to_user(rows[0])
-
-
-async def get_by_id(user_id: str) -> Optional[User]:
-    """Look up a user by their record id (e.g. user:abc123)."""
-    try:
-        rows = await _query(
-            "SELECT * FROM $id LIMIT 1",
-            {"id": ensure_record_id(user_id)},
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow).where(_UserRow.username == normalized).limit(1)
         )
-    except Exception as exc:
-        logger.debug(f"User lookup failed for id {user_id}: {exc}")
+        row = result.scalar_one_or_none()
+    if row is None:
         return None
-    if not rows:
-        return None
-    return _row_to_user(rows[0])
+    return _row_to_user(row)
 
 
-async def create(username: str, password: str, display_name: Optional[str] = None) -> User:
+async def get_by_id(user_id: int | str) -> Optional[User]:
+    """Look up a user by their numeric id."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        return None
+
+    async with _mariadb_session() as session:
+        result = await session.execute(select(_UserRow).where(_UserRow.id == uid).limit(1))
+        row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return _row_to_user(row)
+
+
+async def create(
+    username: str,
+    password: str,
+    display_name: Optional[str] = None,
+    role: str = "student",
+) -> User:
     """Create a new user. Raises UserAlreadyExists on conflict."""
     normalized = username.strip().lower()
-    existing = await get_by_username(normalized)
-    if existing is not None:
-        raise UserAlreadyExists(f"Username '{normalized}' is already taken")
-
     password_hash = hash_password(password)
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.utcnow()
 
-    async with db_connection() as connection:
-        result = parse_record_ids(
-            await connection.insert(
-                "user",
-                {
-                    "username": normalized,
-                    "password_hash": password_hash,
-                    "display_name": display_name,
-                    "created_at": now,
-                    "updated_at": now,
-                },
-            )
+    async with _mariadb_session() as session:
+        existing = await session.execute(
+            select(_UserRow).where(_UserRow.username == normalized).limit(1)
         )
+        if existing.scalar_one_or_none() is not None:
+            raise UserAlreadyExists(f"Username '{normalized}' is already taken")
 
-    if isinstance(result, str):
-        raise UserError(result)
-    if not result:
-        raise UserError("Insert returned no rows")
+        new_user = _UserRow(
+            username=normalized,
+            password_hash=password_hash,
+            display_name=display_name,
+            role=role,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(new_user)
+        await session.flush()
+        await session.refresh(new_user)
 
-    record = result[0] if isinstance(result, list) else result
-    return _row_to_user(record)
+    return _row_to_user(new_user)
 
 
-async def touch_last_login(user_id: str) -> None:
+async def touch_last_login(user_id: int | str) -> None:
     """Update last_login_at to now (best-effort, errors are logged)."""
-    now = datetime.now(timezone.utc).isoformat()
     try:
-        async with db_connection() as connection:
-            await connection.query(
-                "UPDATE $id SET last_login_at = $now, updated_at = $now",
-                {"id": ensure_record_id(user_id), "now": now},
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid user_id for touch_last_login: {user_id}")
+        return
+
+    try:
+        async with _mariadb_session() as session:
+            await session.execute(
+                update(_UserRow)
+                .where(_UserRow.id == uid)
+                .values(last_login_at=datetime.utcnow(), updated_at=datetime.utcnow())
             )
     except Exception as exc:
-        logger.warning(f"Failed to update last_login_at for {user_id}: {exc}")
+        logger.warning(f"Failed to update last_login_at for user {uid}: {exc}")
 
 
-async def update_password(user_id: str, password: str) -> None:
+async def update_password(user_id: int | str, password: str) -> None:
     """Replace a user's password hash (used by deterministic local admin seeding)."""
-    now = datetime.now(timezone.utc).isoformat()
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        raise UserError(f"Invalid user_id: {user_id}")
+
     password_hash = hash_password(password)
-    async with db_connection() as connection:
-        await connection.query(
-            "UPDATE $id SET password_hash = $password_hash, updated_at = $now",
-            {
-                "id": ensure_record_id(user_id),
-                "password_hash": password_hash,
-                "now": now,
-            },
+    async with _mariadb_session() as session:
+        await session.execute(
+            update(_UserRow)
+            .where(_UserRow.id == uid)
+            .values(password_hash=password_hash, updated_at=datetime.utcnow())
         )
-
-
-async def _query(query_str: str, vars: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-    async with db_connection() as connection:
-        result = parse_record_ids(await connection.query(query_str, vars))
-    if isinstance(result, str):
-        raise UserError(result)
-    return result or []

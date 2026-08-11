@@ -1,6 +1,23 @@
 import os
 
+# =============================================================================
+# MariaDB (user service)
+# =============================================================================
+
+MARIADB_HOST     = os.environ.get("MARIADB_HOST", "mariadb")
+MARIADB_PORT     = int(os.environ.get("MARIADB_PORT", "3306"))
+MARIADB_USER     = os.environ.get("MARIADB_USER", "workspace")
+MARIADB_PASSWORD = os.environ.get("MARIADB_PASSWORD", "workspace_password")
+MARIADB_DATABASE = os.environ.get("MARIADB_DATABASE", "workspace")
+
+def get_mariadb_url() -> str:
+    return (f"mysql+aiomysql://{MARIADB_USER}:{MARIADB_PASSWORD}"
+            f"@{MARIADB_HOST}:{MARIADB_PORT}/{MARIADB_DATABASE}")
+
+# =============================================================================
 # ROOT DATA FOLDER
+# =============================================================================
+
 DATA_FOLDER = "./data"
 
 # LANGGRAPH CHECKPOINT FILE

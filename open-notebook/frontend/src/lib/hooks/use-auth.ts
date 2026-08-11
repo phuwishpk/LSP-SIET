@@ -36,11 +36,12 @@ export function useAuth() {
   }, [hasHydrated, authRequired])
 
   const navigateAfterAuth = () => {
-    // Open Notebook is the primary workspace after authentication. Discard a
-    // stale redirect (for example /dashboard from an earlier build) so admin1
-    // always lands in the full notebook UI with its sidebar.
-    sessionStorage.removeItem('redirectAfterLogin')
-    router.push('/notebooks')
+    const userRole = user?.role
+    if (userRole === 'admin') {
+      router.push('/notebooks')
+    } else {
+      router.push('/dashboard')
+    }
   }
 
   const handleLogin = async (username: string, password: string) => {

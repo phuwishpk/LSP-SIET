@@ -196,11 +196,12 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Podcast profile migration encountered errors: {e}")
         # Non-fatal: profiles can be migrated manually via UI
 
-    # Seed a default workspace user on startup so the
-    # login form has working credentials out of the box. Set
-    # WORKSPACE_SEED_ADMIN=false to disable.
+    # Seed: 1 admin + 5 students on MariaDB startup.
+    # Set WORKSPACE_SEED_ADMIN=false to disable.
     try:
         from open_notebook.domain.user import (
+            USER_ROLE_ADMIN,
+            USER_ROLE_STUDENT,
             UserAlreadyExists,
             create as create_user,
             get_by_username,
@@ -214,26 +215,58 @@ async def lifespan(app: FastAPI):
             "no",
         }
         if seed_enabled and jwt_auth_enabled():
-            seed_username = os.getenv("WORKSPACE_SEED_ADMIN_USERNAME", "admin1")
-            seed_password = os.getenv("WORKSPACE_SEED_ADMIN_PASSWORD", "admin1")
-            existing = await get_by_username(seed_username)
-            if existing is None:
-                try:
-                    await create_user(
-                        username=seed_username,
-                        password=seed_password,
-                        display_name="Administrator",
-                    )
-                    logger.success(
-                        f"Seeded default workspace user '{seed_username}'"
-                    )
-                except UserAlreadyExists:
-                    pass
-                except Exception as exc:
-                    logger.warning(f"Failed to seed default user: {exc}")
-            elif existing.id and not verify_password(seed_password, existing.password_hash):
-                await update_password(existing.id, seed_password)
-                logger.success(f"Updated seeded workspace user '{seed_username}'")
+            seed_users = [
+                {
+                    "username": "admin1",
+                    "password": os.getenv("WORKSPACE_SEED_ADMIN_PASSWORD", "admin1"),
+                    "display_name": "Administrator",
+                    "role": USER_ROLE_ADMIN,
+                },
+                {
+                    "username": "student1",
+                    "password": "student1",
+                    "display_name": "Student 1",
+                    "role": USER_ROLE_STUDENT,
+                },
+                {
+                    "username": "student2",
+                    "password": "student2",
+                    "display_name": "Student 2",
+                    "role": USER_ROLE_STUDENT,
+                },
+                {
+                    "username": "student3",
+                    "password": "student3",
+                    "display_name": "Student 3",
+                    "role": USER_ROLE_STUDENT,
+                },
+                {
+                    "username": "student4",
+                    "password": "student4",
+                    "display_name": "Student 4",
+                    "role": USER_ROLE_STUDENT,
+                },
+                {
+                    "username": "student5",
+                    "password": "student5",
+                    "display_name": "Student 5",
+                    "role": USER_ROLE_STUDENT,
+                },
+            ]
+            for u in seed_users:
+                seed_password = u["password"]
+                existing = await get_by_username(u["username"])
+                if existing is None:
+                    try:
+                        await create_user(**u)
+                        logger.success(f"Seeded user '{u['username']}'")
+                    except UserAlreadyExists:
+                        pass
+                    except Exception as exc:
+                        logger.warning(f"Failed to seed user '{u['username']}': {exc}")
+                elif existing.id and not verify_password(seed_password, existing.password_hash):
+                    await update_password(existing.id, seed_password)
+                    logger.success(f"Updated seeded user '{u['username']}'")
     except Exception as exc:
         logger.debug(f"Skipping default user seed: {exc}")
 

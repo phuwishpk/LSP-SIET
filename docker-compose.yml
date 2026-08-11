@@ -39,6 +39,29 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
+  # MariaDB (user service)
+  # ---------------------------------------------------------------------------
+  mariadb:
+    image: mariadb:11
+    container_name: kmitl_mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_password}
+      MARIADB_DATABASE: workspace
+      MARIADB_USER: workspace
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-workspace_password}
+    volumes:
+      - mariadb_data:/var/lib/mysql
+      - ./docker/mariadb-init.sql:/docker-entrypoint-initdb.d/01-users.sql:ro
+    networks:
+      - kmitlai_default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
   # open-notebook infra: SurrealDB + Redis
   # ---------------------------------------------------------------------------
   surrealdb:
@@ -92,6 +115,11 @@ services:
       - SURREAL_NAMESPACE=open_notebook
       - SURREAL_DATABASE=open_notebook
       - REDIS_URL=redis://redis:6379/0
+      - MARIADB_HOST=mariadb
+      - MARIADB_PORT=3306
+      - MARIADB_USER=workspace
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-workspace_password}
+      - MARIADB_DATABASE=workspace
       - NO_PROXY=surrealdb,redis,localhost,127.0.0.1,::1
       - no_proxy=surrealdb,redis,localhost,127.0.0.1,::1
       - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=${OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB:-2048}
@@ -122,6 +150,8 @@ services:
     depends_on:
       surrealdb:
         condition: service_started
+      mariadb:
+        condition: service_healthy
       redis:
         condition: service_healthy
     restart: unless-stopped
@@ -219,3 +249,10 @@ services:
       - "traefik.http.routers.roadmap.middlewares=gate-auth,roadmap-stripprefix"
       - "traefik.http.services.roadmap.loadbalancer.server.port=3000"
       - "traefik.http.middlewares.roadmap-stripprefix.stripprefix.prefixes=/roadmap"
+
+volumes:
+  mariadb_data:
+  surrealdb_data:
+    driver: local
+  redis_data:
+    driver: local

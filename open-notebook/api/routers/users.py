@@ -63,6 +63,7 @@ class UserResponse(BaseModel):
     id: str
     username: str
     display_name: Optional[str] = None
+    role: str = "student"
     created_at: Optional[str] = None
     last_login_at: Optional[str] = None
 
@@ -88,9 +89,10 @@ class AuthStatusResponse(BaseModel):
 
 def _to_response(user: User) -> UserResponse:
     return UserResponse(
-        id=user.id or "",
+        id=str(user.id) if user.id is not None else "",
         username=user.username,
         display_name=user.display_name,
+        role=user.role or "student",
         created_at=user.created_at,
         last_login_at=user.last_login_at,
     )

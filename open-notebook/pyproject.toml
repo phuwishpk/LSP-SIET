@@ -44,6 +44,8 @@ dependencies = [
     "redis[hiredis]>=5.0.0",
     "pyjwt>=2.9.0",
     "bcrypt>=4.2.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiomysql>=0.2.0",
 ]
 
 [tool.setuptools]
