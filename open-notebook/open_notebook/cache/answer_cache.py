@@ -14,6 +14,7 @@ from loguru import logger
 
 from open_notebook.cache.metrics import cache_metrics
 from open_notebook.cache.service import cache_service
+from open_notebook.cache.threshold_tuner import threshold_tuner
 from open_notebook.utils.embedding import generate_embedding
 
 
@@ -31,6 +32,16 @@ ANSWER_CACHE_HIGH_THRESHOLD = float(
 ANSWER_CACHE_MID_THRESHOLD = float(
     os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_MID_SIMILARITY", "0.92")
 )
+
+
+def _get_high_threshold() -> float:
+    """Current high-band threshold (adaptive when the tuner is enabled)."""
+    return threshold_tuner.get_high_threshold()
+
+
+def _get_mid_threshold() -> float:
+    """Current mid-band threshold (adaptive when the tuner is enabled)."""
+    return threshold_tuner.get_mid_threshold()
 
 # Conservative token-cost heuristic for cache savings accounting.
 # Real token counts require tokenizer access; this estimate lets us report
@@ -192,9 +203,9 @@ def _classify_semantic(similarity: float) -> str:
       - "mid"       : MID ≤ similarity < HIGH        → reuse if intent matches
       - "low"       : similarity < MID               → miss
     """
-    if similarity >= ANSWER_CACHE_HIGH_THRESHOLD:
+    if similarity >= _get_high_threshold():
         return "high"
-    if similarity >= ANSWER_CACHE_MID_THRESHOLD:
+    if similarity >= _get_mid_threshold():
         return "mid"
     return "low"
 

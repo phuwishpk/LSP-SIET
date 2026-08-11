@@ -239,8 +239,33 @@ async def lifespan(app: FastAPI):
 
     logger.success("API initialization completed successfully")
 
+    # Phase 5: start the periodic tuner only when explicitly enabled. The
+    # singleton remains available while disabled so hot-path threshold reads
+    # transparently fall back to static defaults.
+    try:
+        from open_notebook.cache.threshold_tuner import start_tuner_if_enabled
+
+        await start_tuner_if_enabled()
+    except Exception as exc:
+        logger.warning(f"Adaptive threshold tuner failed to start safely: {exc}")
+
+    # Phase 6.5: load persisted circuit-breaker state on startup
+    try:
+        from open_notebook.cache.circuit_breaker import init_circuit_breaker
+
+        await init_circuit_breaker()
+    except Exception as exc:
+        logger.warning(f"Circuit breaker init failed safely: {exc}")
+
     # Yield control to the application
     yield
+
+    try:
+        from open_notebook.cache.threshold_tuner import stop_tuner
+
+        await stop_tuner()
+    except Exception as exc:
+        logger.debug(f"Adaptive threshold tuner shutdown skipped: {exc}")
 
     # Shutdown: close Redis connection
     try:

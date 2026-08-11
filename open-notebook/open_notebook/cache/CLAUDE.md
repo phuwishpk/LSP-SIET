@@ -168,6 +168,86 @@ legacy entry without intent metadata always falls through to a fresh answer;
 it never crashes the user request. Quality-failure reports distinguish exact,
 semantic-high, intent-validated semantic-mid, and fresh answers.
 
+## Phase 5: Adaptive Threshold Tuning
+
+The optional background tuner adjusts the high and mid similarity thresholds
+from production quality signals. It runs outside the request hot path and is
+disabled by default.
+
+Rules:
+
+- Mid quality-failure rate above 15% raises the mid threshold by 0.005.
+- Mid quality-failure rate below 5% lowers it by 0.005.
+- High quality-failure rate above 5% raises the high threshold by 0.005.
+- Intent-validator failure ratio above 60% stops all automatic adjustment and
+  emits a warning because this usually indicates a provider/validator issue.
+- Fewer than 50 effective samples produces no adjustment.
+- Hard bounds and a minimum gap guarantee `HIGH > MID`.
+
+Configuration:
+
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_ENABLED` (default `0`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_INTERVAL` (default `300` seconds)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MIN/MAX` (defaults `0.94/0.99`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN/MAX` (defaults `0.85/0.97`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_FAIL_RATE_INCREASE` (default `0.15`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_FAIL_RATE_DECREASE` (default `0.05`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_ADJUST_STEP` (default `0.005`)
+
+`GET /api/config/answer-cache/analytics` exposes current thresholds, signal
+confidence, sample counts, distributions, and the last adjustment timestamp.
+`POST /api/config/answer-cache/thresholds/reset` restores configured defaults.
+After a process/metrics restart, the tuner waits for sufficient new traffic
+before changing thresholds again.
+
+## Phase 6: Decision Audit & Reliability
+
+### Phase 6.4 — Tuner Decision Log
+
+Every threshold adjustment is persisted to a rolling 100-entry Redis list
+(`cache:tuning:decision_log`) with a human-readable reason and a snapshot of
+the signals that triggered the change. This lets operators audit tuning
+decisions without reading log files.
+
+`GET /api/config/answer-cache/thresholds/history` — recent tuning decisions,
+newest first.
+`POST /api/config/answer-cache/thresholds/history/clear` — reset the log.
+`OPEN_NOTEBOOK_TUNER_HISTORY_LIMIT` (default 100) caps log size.
+
+### Phase 6.5 — Intent-Validation Circuit Breaker
+
+The circuit breaker guards the intent-validation LLM call against slow or
+failing model providers. It is a 3-state machine persisted in Redis so it
+survives restarts:
+
+```
+CLOSED ──(failures ≥ 5)──► OPEN ──(60s timeout)──► HALF_OPEN
+                                               ▲            │
+                         (validation succeeds)  └────────────┘
+```
+
+- **CLOSED** — validation runs normally; failures increment the counter.
+- **OPEN** — validation returns `None` immediately (fast-fail), callers
+  fall back to fresh answer generation. After the timeout, transitions to
+  HALF_OPEN.
+- **HALF_OPEN** — allows up to 3 probe validations. All succeed → CLOSED.
+  Any failure → OPEN again.
+
+When the circuit is OPEN, no LLM call is made, so cascade failures and
+head-of-line blocking are prevented.
+
+Configuration (all have safe defaults, on by default):
+- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER` (default `1`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER_ERROR_THRESHOLD` (default `5`)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER_OPEN_TIMEOUT` (default `60` seconds)
+- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER_HALF_OPEN_REQUESTS` (default `3`)
+
+API:
+- `GET /api/config/answer-cache/circuit-breaker/status` — current state + config
+- `POST /api/config/answer-cache/circuit-breaker/open` — manual trip
+- `POST /api/config/answer-cache/circuit-breaker/close` — manual reset
+- `GET /api/config/answer-cache/analytics` → `circuit_breaker` field
+
 ## How to Add New Cache Target
 
 1. Add TTL constant to `open_notebook/config.py`

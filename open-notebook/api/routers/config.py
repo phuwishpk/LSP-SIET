@@ -245,7 +245,10 @@ async def get_answer_cache_analytics():
     """
     try:
         from open_notebook.cache.answer_cache import get_cache_analytics
+        from open_notebook.cache.metrics import cache_metrics
         from open_notebook.cache.redis_client import redis_client
+        from open_notebook.cache.threshold_tuner import threshold_tuner
+        from open_notebook.config import ANSWER_CACHE_TUNER_ENABLED
 
         health = await redis_client.health_check()
         analytics = await get_cache_analytics()
@@ -253,6 +256,9 @@ async def get_answer_cache_analytics():
 
         return {
             "redis_available": health.get("available", False),
+            # Complete snapshot for dashboards; flattened fields below remain
+            # for clients that consume the original analytics response.
+            "answer_cache": answer,
             "hit_rate": answer.get("hit_rate", 0),
             "exact_hits": answer.get("exact_hits", 0),
             "semantic_hits": answer.get("semantic_hits", 0),
@@ -281,6 +287,17 @@ async def get_answer_cache_analytics():
             "quality_failures_by_source": answer.get(
                 "quality_failures_by_source", {}
             ),
+            "adaptive_thresholds": {
+                "tuner_enabled": ANSWER_CACHE_TUNER_ENABLED,
+                "current_high_threshold": threshold_tuner.get_high_threshold(),
+                "current_mid_threshold": threshold_tuner.get_mid_threshold(),
+                "last_adjustment": (
+                    threshold_tuner.last_adjustment.isoformat()
+                    if threshold_tuner.last_adjustment
+                    else None
+                ),
+                "tuning_signals": cache_metrics.compute_tuning_signals(),
+            },
             "config": {
                 "ttl_seconds": int(
                     __import__(
@@ -324,11 +341,107 @@ async def get_answer_cache_analytics():
                     "open_notebook.config",
                     fromlist=["ANSWER_CACHE_INTENT_MIN_SIMILARITY"],
                 ).ANSWER_CACHE_INTENT_MIN_SIMILARITY,
+                "circuit_breaker_enabled": __import__(
+                    "open_notebook.config",
+                    fromlist=["ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED"],
+                ).ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED,
             },
+            # Phase 6.5: circuit breaker status (sync read of singleton state)
+            "circuit_breaker": _get_circuit_breaker_status(),
         }
     except Exception as e:
         logger.warning(f"Answer cache analytics failed: {e}")
         return {"redis_available": False, "error": str(e)[:200]}
+
+
+def _get_circuit_breaker_status() -> dict:
+    try:
+        from open_notebook.cache.circuit_breaker import (
+            ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED,
+            circuit_breaker,
+        )
+        return circuit_breaker.get_status()
+    except Exception:
+        return {"enabled": False, "state": "unknown", "error": "not available"}
+
+
+@router.post("/config/answer-cache/thresholds/reset")
+async def reset_answer_cache_thresholds():
+    """Reset adaptive thresholds to configured defaults.
+
+    The workspace auth middleware protects this configuration endpoint. The
+    current user model has no role field yet, so there is no finer-grained
+    admin RBAC distinction to enforce here.
+    """
+    from open_notebook.cache.threshold_tuner import threshold_tuner
+
+    threshold_tuner.reset()
+    return {
+        "status": "ok",
+        "high": threshold_tuner.get_high_threshold(),
+        "mid": threshold_tuner.get_mid_threshold(),
+    }
+
+
+@router.get("/config/answer-cache/thresholds/history")
+async def get_threshold_history():
+    """
+    Phase 6.4: Tuner decision log — last 100 threshold adjustments.
+
+    Returns a list of tuning decisions with:
+    - Threshold values before/after
+    - Human-readable reason
+    - Signal snapshot at decision time
+    """
+    from open_notebook.cache.tuner_decision_log import get_history
+
+    limit_str = __import__("os").environ.get(
+        "OPEN_NOTEBOOK_TUNER_HISTORY_LIMIT", "100"
+    )
+    limit = max(1, min(1000, int(limit_str)))
+    history = await get_history(limit=limit)
+    return {"count": len(history), "decisions": history}
+
+
+@router.post("/config/answer-cache/thresholds/history/clear")
+async def clear_threshold_history():
+    """Phase 6.4: Clear the tuner decision log."""
+    from open_notebook.cache.tuner_decision_log import clear_history
+
+    success = await clear_history()
+    return {"status": "ok" if success else "error"}
+
+
+@router.post("/config/answer-cache/circuit-breaker/open")
+async def open_circuit_breaker():
+    """Phase 6.5: Manually open the intent-validation circuit breaker."""
+    from open_notebook.cache.circuit_breaker import circuit_breaker
+
+    await circuit_breaker.open()
+    return {
+        "status": "ok",
+        "state": circuit_breaker.state.value,
+    }
+
+
+@router.post("/config/answer-cache/circuit-breaker/close")
+async def close_circuit_breaker():
+    """Phase 6.5: Manually close (reset) the intent-validation circuit breaker."""
+    from open_notebook.cache.circuit_breaker import circuit_breaker
+
+    await circuit_breaker.close()
+    return {
+        "status": "ok",
+        "state": circuit_breaker.state.value,
+    }
+
+
+@router.get("/config/answer-cache/circuit-breaker/status")
+async def get_circuit_breaker_status():
+    """Phase 6.5: Return current circuit-breaker state and stats."""
+    from open_notebook.cache.circuit_breaker import circuit_breaker
+
+    return circuit_breaker.get_status()
 
 
 @router.post("/config/answer-cache/report-quality-failure")

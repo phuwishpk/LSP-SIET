@@ -6,17 +6,21 @@ import asyncio
 import json
 import re
 import time
-from typing import Any, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from loguru import logger
 
 from open_notebook.ai.models import model_manager
 from open_notebook.cache.metrics import cache_metrics
 from open_notebook.config import (
+    ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED,
     ANSWER_CACHE_INTENT_TIMEOUT_MS,
     ANSWER_CACHE_INTENT_VALIDATOR_ENABLED,
 )
 from open_notebook.utils.text_utils import extract_text_content
+
+if TYPE_CHECKING:
+    from open_notebook.cache.circuit_breaker import CircuitBreaker
 
 
 def _parse_json_object(text: str) -> dict[str, Any]:
@@ -89,6 +93,17 @@ async def validate_intent_match(
     """
     if not ANSWER_CACHE_INTENT_VALIDATOR_ENABLED:
         return None
+
+    cb = _get_circuit_breaker()
+    # _check_transition is async — schedule it without awaiting
+    import asyncio
+    asyncio.create_task(cb._check_transition())
+
+    if cb.is_open():
+        logger.debug("Intent validation blocked: circuit OPEN")
+        cache_metrics.record_intent_validation(False, 0)
+        return None
+
     if not cached_intent or not model_id:
         logger.info("Intent validation skipped: cached intent/model unavailable")
         cache_metrics.record_intent_validation(False, 0)
@@ -118,13 +133,49 @@ New entities (if known): {json.dumps(new_entities or {}, ensure_ascii=False, sor
         if not isinstance(value, bool):
             raise ValueError("Validator did not return a boolean same_intent")
         passed = value
+        if cb.is_closed():
+            await cb.record_success()
         return passed
     except asyncio.TimeoutError:
         logger.warning("Intent validation timed out; generating a fresh answer")
+        if cb.state.value != "half_open":
+            await cb.record_failure()
         return None
     except Exception as exc:
         logger.warning(f"Intent validation failed safely: {exc}")
+        if cb.state.value != "half_open":
+            await cb.record_failure()
         return None
     finally:
         latency_ms = int((time.perf_counter() - started) * 1000)
         cache_metrics.record_intent_validation(passed, latency_ms)
+
+
+_cb_instance: Optional["CircuitBreaker"] = None
+_cb_initialized: bool = False
+
+
+def _get_circuit_breaker() -> "CircuitBreaker":
+    global _cb_instance, _cb_initialized
+    if _cb_instance is None:
+        from open_notebook.cache.circuit_breaker import (
+            ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED,
+            circuit_breaker,
+        )
+        if ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED:
+            # Lazy async init: schedule if not yet done
+            if not _cb_initialized:
+                import asyncio
+                asyncio.create_task(circuit_breaker._load())
+                _cb_initialized = True
+            _cb_instance = circuit_breaker
+        else:
+            class NoOpCB:
+                state = type("S", (), {"value": "closed"})()
+                is_open = lambda self: False
+                is_closed = lambda self: True
+                async def record_success(self): pass
+                async def record_failure(self): pass
+                async def _check_transition(self): pass
+            _cb_instance = NoOpCB()
+    return _cb_instance

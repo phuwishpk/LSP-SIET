@@ -14,7 +14,7 @@ from __future__ import annotations
 import threading
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Dict
+from typing import Any, Dict
 
 from loguru import logger
 
@@ -52,6 +52,13 @@ class CacheMetrics:
     answer_cache_intent_fails: int = 0
     answer_cache_intent_validation_latency_ms: int = 0
     answer_cache_quality_failures_by_source: Dict[str, int] = field(default_factory=dict)
+    # ── Phase 5: adaptive-threshold tuning signals ────────────────────────────
+    answer_cache_mid_failure_rate: float = 0.0
+    answer_cache_high_failure_rate: float = 0.0
+    answer_cache_intent_fail_ratio: float = 0.0
+    answer_cache_tuner_adjustments: int = 0
+    answer_cache_tuner_high: float = 0.97
+    answer_cache_tuner_mid: float = 0.92
 
     def _get_prefix_stats(self, prefix: str) -> Dict[str, int]:
         if prefix not in self.by_prefix:
@@ -181,6 +188,48 @@ class CacheMetrics:
         with self._lock:
             self.answer_cache_semantic_low_rejected += 1
 
+    def compute_tuning_signals(self) -> Dict[str, Any]:
+        """Compute a consistent snapshot for the periodic threshold tuner."""
+        with self._lock:
+            mid_total = self.answer_cache_semantic_mid_hits
+            high_total = self.answer_cache_semantic_high_hits
+            validation_total = self.answer_cache_intent_validations
+            mid_failures = self.answer_cache_quality_failures_by_source.get(
+                "semantic_mid_via_intent_validation", 0
+            )
+            high_failures = self.answer_cache_quality_failures_by_source.get(
+                "semantic_high", 0
+            )
+            mid_rate = mid_failures / mid_total if mid_total else 0.0
+            high_rate = high_failures / high_total if high_total else 0.0
+            intent_ratio = (
+                self.answer_cache_intent_fails / validation_total
+                if validation_total
+                else 0.0
+            )
+            sample_count = max(mid_total, high_total, validation_total)
+            confidence = min(1.0, sample_count / 100)
+            self.answer_cache_mid_failure_rate = mid_rate
+            self.answer_cache_high_failure_rate = high_rate
+            self.answer_cache_intent_fail_ratio = intent_ratio
+            return {
+                "mid_failure_rate": round(mid_rate, 6),
+                "high_failure_rate": round(high_rate, 6),
+                "intent_fail_ratio": round(intent_ratio, 6),
+                "similarity_distribution": self._similarity_distribution_unlocked(),
+                "confidence": round(confidence, 4),
+                "sample_count": sample_count,
+                "mid_outcomes": mid_total,
+                "high_outcomes": high_total,
+                "intent_validations": validation_total,
+            }
+
+    def record_tuner_adjustment(self, high: float, mid: float) -> None:
+        with self._lock:
+            self.answer_cache_tuner_adjustments += 1
+            self.answer_cache_tuner_high = float(high)
+            self.answer_cache_tuner_mid = float(mid)
+
     def _similarity_distribution_unlocked(self) -> Dict[str, int]:
         """Internal: read bucket counts WITHOUT acquiring ``self._lock``.
 
@@ -283,6 +332,9 @@ class CacheMetrics:
                     "quality_failures_by_source": dict(
                         self.answer_cache_quality_failures_by_source
                     ),
+                    "tuner_adjustments": self.answer_cache_tuner_adjustments,
+                    "tuner_high_threshold": self.answer_cache_tuner_high,
+                    "tuner_mid_threshold": self.answer_cache_tuner_mid,
                 },
             }
 
@@ -311,6 +363,12 @@ class CacheMetrics:
             self.answer_cache_intent_fails = 0
             self.answer_cache_intent_validation_latency_ms = 0
             self.answer_cache_quality_failures_by_source.clear()
+            self.answer_cache_mid_failure_rate = 0.0
+            self.answer_cache_high_failure_rate = 0.0
+            self.answer_cache_intent_fail_ratio = 0.0
+            self.answer_cache_tuner_adjustments = 0
+            self.answer_cache_tuner_high = 0.97
+            self.answer_cache_tuner_mid = 0.92
             self.last_reset = datetime.now(timezone.utc)
             self.by_prefix.clear()
 
