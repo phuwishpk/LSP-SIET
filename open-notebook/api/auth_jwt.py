@@ -81,7 +81,9 @@ def issue_access_token(user: User) -> tuple[str, int]:
     issued_at = int(time.time())
     expires_at = issued_at + ttl
     payload = {
-        "sub": user.id,
+        # PyJWT (>=2.8) rejects non-string `sub` claims with InvalidSubjectError
+        # per RFC 7519. MariaDB gives us an int id, so serialize it.
+        "sub": str(user.id),
         "username": user.username,
         "iss": JWT_ISSUER,
         "aud": JWT_AUDIENCE,

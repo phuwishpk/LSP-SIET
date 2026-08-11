@@ -52,9 +52,11 @@ export function LoginForm() {
 
   useEffect(() => {
     if (!hasHydrated) return
+    const destinationFor = (role?: string | null) =>
+      role === 'admin' ? '/notebooks' : '/dashboard'
     if (authRequired !== null) {
       if (!authRequired && isAuthenticated) {
-        router.push('/notebooks')
+        router.push(destinationFor(useAuthStore.getState().user?.role))
       } else {
         setIsCheckingAuth(false)
       }
@@ -62,7 +64,9 @@ export function LoginForm() {
     }
     checkAuthRequired()
       .then((required) => {
-        if (!required) router.push('/notebooks')
+        if (!required) {
+          router.push(destinationFor(useAuthStore.getState().user?.role))
+        }
       })
       .catch(() => {
         // Error already captured in the store
@@ -107,6 +111,9 @@ export function LoginForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!username.trim() || !password.trim()) return
+    // useAuth().login already handles role-based navigation
+    // (admin → /notebooks, everyone else → /dashboard). Don't push again
+    // here or we overwrite the role-aware destination.
     await login(username.trim(), password)
   }
 

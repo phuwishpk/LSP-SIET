@@ -36,8 +36,11 @@ export function useAuth() {
   }, [hasHydrated, authRequired])
 
   const navigateAfterAuth = () => {
-    const userRole = user?.role
-    if (userRole === 'admin') {
+    // Read fresh state directly from the store — the closure `user` is
+    // captured at hook render time and will still be null immediately after
+    // login() sets the store, before React re-renders.
+    const currentUser = useAuthStore.getState().user
+    if (currentUser?.role === 'admin') {
       router.push('/notebooks')
     } else {
       router.push('/dashboard')
