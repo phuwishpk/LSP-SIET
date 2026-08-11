@@ -1,52 +1,35 @@
--- Migration 22: Per-user ownership for notebooks, sources, notes, and chat sessions.
+-- Migration 22: Global Chat Sessions for the /search (Ask) page.
 --
--- Goals:
---   1. Each user's notebooks, sources, notes, and chat sessions are isolated.
---   2. Chat sessions are scoped to the authenticated user.
---   3. The answer cache remains GLOBAL (tenant_id=None) so User B can reuse
---      cached answers when asking a question similar to User A's.
+-- Unlike ChatSession (scoped to a notebook), GlobalChatSession exists
+-- independently of any notebook. This enables the persistent Chat UI
+-- on the Ask tab without requiring the user to pick a notebook first.
 --
--- How it works:
---   - All records gain an `owner_id` field (string).
---   - Every API router that creates or queries these records filters by owner_id.
---   - The auth middleware sets `request.state.owner_id` (already done).
---   - Existing records (created before this migration) get owner_id = "default"
---     so they remain visible. A separate admin script can backfill them later.
---
--- Enforcement model:
---   - GET /notebooks  → WHERE owner_id = $owner_id
---   - POST /notebooks → SET owner_id = $owner_id
---   - PUT /notebooks/{id} → verify session belongs to owner first
---   - DELETE /notebooks/{id} → verify session belongs to owner first
---   - Same pattern for sources, notes, and chat_sessions.
+-- User isolation is via owner_id (set at creation time from the auth token).
+-- LangGraph checkpoints are stored per-session via thread_id, so existing
+-- chat_graph.checkpointer persists messages across requests.
 
 -- =============================================================================
--- 1. Add owner_id field to all four core tables
+-- 1. Define table and fields
 -- =============================================================================
+DEFINE TABLE IF NOT EXISTS global_chat_session SCHEMAFULL;
 
-DEFINE FIELD IF NOT EXISTS owner_id ON TABLE notebook TYPE option<string>;
-DEFINE FIELD IF NOT EXISTS owner_id ON TABLE source  TYPE option<string>;
-DEFINE FIELD IF NOT EXISTS owner_id ON TABLE note    TYPE option<string>;
-DEFINE FIELD IF NOT EXISTS owner_id ON TABLE chat_session TYPE option<string>;
-
--- Backfill existing rows so they remain accessible under the "default" tenant.
-UPDATE notebook       SET owner_id = "default" WHERE owner_id = NONE;
-UPDATE source         SET owner_id = "default" WHERE owner_id = NONE;
-UPDATE note           SET owner_id = "default" WHERE owner_id = NONE;
-UPDATE chat_session   SET owner_id = "default" WHERE owner_id = NONE;
+DEFINE FIELD IF NOT EXISTS title        ON global_chat_session TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS model_override ON global_chat_session TYPE option<string>;
+-- owner_id: per-user isolation — set when a session is created via the API.
+DEFINE FIELD IF NOT EXISTS owner_id     ON global_chat_session TYPE option<string>;
+DEFINE FIELD IF NOT EXISTS created      ON global_chat_session TYPE datetime DEFAULT time::now();
+DEFINE FIELD IF NOT EXISTS updated      ON global_chat_session TYPE datetime DEFAULT time::now();
 
 -- =============================================================================
--- 2. Indexes for fast per-owner queries
+-- 2. Indexes
 -- =============================================================================
+DEFINE INDEX IF NOT EXISTS global_chat_session_owner_id
+    ON global_chat_session FIELDS owner_id;
 
-DEFINE INDEX IF NOT EXISTS idx_notebook_owner       ON TABLE notebook       FIELDS owner_id;
-DEFINE INDEX IF NOT EXISTS idx_source_owner        ON TABLE source         FIELDS owner_id;
-DEFINE INDEX IF NOT EXISTS idx_note_owner          ON TABLE note           FIELDS owner_id;
-DEFINE INDEX IF NOT EXISTS idx_chat_session_owner  ON TABLE chat_session   FIELDS owner_id;
-
--- Composite index for chat_session lookup: owner + parent (notebook | source)
-DEFINE INDEX IF NOT EXISTS idx_chat_session_owner_parent
-    ON TABLE chat_session FIELDS owner_id, parent_kind, parent_id;
-
--- Index for the refers_to relation to speed up session → parent lookups
-DEFINE INDEX IF NOT EXISTS idx_refers_to_in ON TABLE refers_to FIELDS in;
+-- =============================================================================
+-- 3. Backfill: existing rows created before this migration need timestamps.
+--    Existing rows will have created=NONE / updated=NONE — fill them now.
+-- =============================================================================
+UPDATE global_chat_session
+    SET created = time::now(), updated = time::now()
+WHERE created = NONE OR updated = NONE;

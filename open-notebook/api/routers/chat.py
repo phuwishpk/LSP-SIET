@@ -1,15 +1,18 @@
 import asyncio
+import json
 import traceback
 from typing import Any, Dict, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import StreamingResponse
+from langchain_core.messages import HumanMessage
 from langchain_core.runnables import RunnableConfig
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from api.dependencies import get_owner_id
+from api.dependencies import _resolve_owner_id
 from open_notebook.database.repository import ensure_record_id, repo_query
-from open_notebook.domain.notebook import ChatSession, Note, Notebook, Source
+from open_notebook.domain.notebook import ChatSession, GlobalChatSession, Note, Notebook, Source
 from open_notebook.exceptions import (
     NotFoundError,
 )
@@ -94,10 +97,391 @@ class SuccessResponse(BaseModel):
     message: str = Field(..., description="Success message")
 
 
+# =============================================================================
+# Global Chat models (Ask tab — not scoped to a notebook)
+# =============================================================================
+
+class CreateGlobalSessionRequest(BaseModel):
+    title: Optional[str] = Field(None, description="Optional session title")
+    model_override: Optional[str] = Field(
+        None, description="Optional model override for this session"
+    )
+
+
+class GlobalChatSessionResponse(BaseModel):
+    id: str = Field(..., description="Session ID")
+    title: str = Field(..., description="Session title")
+    created: str = Field(..., description="Creation timestamp")
+    updated: str = Field(..., description="Last update timestamp")
+    message_count: Optional[int] = Field(
+        None, description="Number of messages in session"
+    )
+    model_override: Optional[str] = Field(
+        None, description="Model override for this session"
+    )
+
+
+class GlobalChatSessionWithMessagesResponse(GlobalChatSessionResponse):
+    messages: List[ChatMessage] = Field(
+        default_factory=list, description="Session messages"
+    )
+
+
+class ExecuteGlobalChatRequest(BaseModel):
+    session_id: Optional[str] = Field(
+        None,
+        description="Session ID. If not provided, a new session is created.",
+    )
+    message: str = Field(..., description="User message content")
+    context: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Chat context (sources, notes). Empty dict means global/no scope.",
+    )
+    model_override: Optional[str] = Field(
+        None, description="Optional model override for this message"
+    )
+    title: Optional[str] = Field(
+        None,
+        description="Session title. Only used when creating a new session.",
+    )
+
+
+class ExecuteGlobalChatResponse(BaseModel):
+    session_id: str = Field(..., description="Session ID")
+    messages: List[ChatMessage] = Field(..., description="Updated message list")
+
+
+# =============================================================================
+# Global Chat endpoints (Ask tab)
+# =============================================================================
+
+@router.get("/chat/global/sessions", response_model=List[GlobalChatSessionResponse])
+async def get_global_sessions(
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Get all global chat sessions for the authenticated user."""
+    try:
+        sessions = await GlobalChatSession.get_global_sessions(owner_id)
+
+        results = []
+        for session in sessions:
+            # Filter by owner_id (backward compat: sessions with no owner_id are visible)
+            session_owner = getattr(session, "owner_id", None)
+            if session_owner is not None and session_owner != owner_id:
+                continue
+
+            session_id = str(session.id)
+
+            # Get message count from LangGraph state
+            msg_count = await get_session_message_count(chat_graph, session_id)
+
+            results.append(
+                GlobalChatSessionResponse(
+                    id=session.id or "",
+                    title=session.title or "Untitled Session",
+                    created=str(session.created) if session.created else "",
+                    updated=str(session.updated) if session.updated else "",
+                    message_count=msg_count,
+                    model_override=getattr(session, "model_override", None),
+                )
+            )
+
+        return results
+    except Exception as e:
+        logger.error(f"Error fetching global chat sessions: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching global chat sessions: {str(e)}"
+        )
+
+
+@router.post("/chat/global/sessions", response_model=GlobalChatSessionResponse)
+async def create_global_session(
+    request: CreateGlobalSessionRequest,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Create a new global chat session for the authenticated user."""
+    try:
+        session = GlobalChatSession(
+            title=request.title
+            or f"Chat {asyncio.get_event_loop().time():.0f}",
+            model_override=request.model_override,
+            owner_id=owner_id,
+        )
+        await session.save()
+
+        return GlobalChatSessionResponse(
+            id=session.id or "",
+            title=session.title or "",
+            created=str(session.created) if session.created else "",
+            updated=str(session.updated) if session.updated else "",
+            message_count=0,
+            model_override=session.model_override,
+        )
+    except Exception as e:
+        logger.error(f"Error creating global chat session: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating global chat session: {str(e)}"
+        )
+
+
+@router.get(
+    "/chat/global/sessions/{session_id}",
+    response_model=GlobalChatSessionWithMessagesResponse,
+)
+async def get_global_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Get a global chat session with its messages."""
+    try:
+        full_session_id = (
+            session_id
+            if session_id.startswith("global_chat_session:")
+            else f"global_chat_session:{session_id}"
+        )
+        session = await GlobalChatSession.get(full_session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Verify ownership
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        # Get message count
+        msg_count = await get_session_message_count(chat_graph, full_session_id)
+
+        # Retrieve messages from LangGraph state
+        current_state = await asyncio.to_thread(
+            chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+        )
+        state_values = current_state.values if current_state else {}
+        raw_messages: list = state_values.get("messages", [])
+
+        messages: List[ChatMessage] = []
+        for msg in raw_messages:
+            messages.append(
+                ChatMessage(
+                    id=getattr(msg, "id", f"msg_{len(messages)}"),
+                    type=msg.type if hasattr(msg, "type") else "unknown",
+                    content=msg.content if hasattr(msg, "content") else str(msg),
+                    timestamp=None,
+                )
+            )
+
+        return GlobalChatSessionWithMessagesResponse(
+            id=session.id or "",
+            title=session.title or "Untitled Session",
+            created=str(session.created) if session.created else "",
+            updated=str(session.updated) if session.updated else "",
+            message_count=msg_count,
+            model_override=getattr(session, "model_override", None),
+            messages=messages,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching global chat session: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching global chat session: {str(e)}"
+        )
+
+
+@router.put(
+    "/chat/global/sessions/{session_id}",
+    response_model=GlobalChatSessionResponse,
+)
+async def update_global_session(
+    session_id: str,
+    request: UpdateSessionRequest,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Update a global chat session (title or model_override)."""
+    try:
+        full_session_id = (
+            session_id
+            if session_id.startswith("global_chat_session:")
+            else f"global_chat_session:{session_id}"
+        )
+        session = await GlobalChatSession.get(full_session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        if request.title is not None:
+            session.title = request.title
+        if request.model_override is not None:
+            session.model_override = request.model_override
+
+        session.updated = None  # SurrealDB will set to now() via DEFAULT
+        await session.save()
+
+        msg_count = await get_session_message_count(chat_graph, full_session_id)
+
+        return GlobalChatSessionResponse(
+            id=session.id or "",
+            title=session.title or "",
+            created=str(session.created) if session.created else "",
+            updated=str(session.updated) if session.updated else "",
+            message_count=msg_count,
+            model_override=session.model_override,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating global chat session: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating global chat session: {str(e)}"
+        )
+
+
+@router.delete("/chat/global/sessions/{session_id}", response_model=SuccessResponse)
+async def delete_global_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Delete a global chat session."""
+    try:
+        full_session_id = (
+            session_id
+            if session_id.startswith("global_chat_session:")
+            else f"global_chat_session:{session_id}"
+        )
+        session = await GlobalChatSession.get(full_session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        await session.delete()
+
+        return SuccessResponse(success=True, message="Session deleted")
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting global chat session: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error deleting global chat session: {str(e)}"
+        )
+
+
+@router.post("/chat/global/execute", response_model=ExecuteGlobalChatResponse)
+async def execute_global_chat(
+    request: ExecuteGlobalChatRequest,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """
+    Send a message in a global chat session (not scoped to a notebook).
+    If session_id is not provided, creates a new session first.
+    Uses the same chat_graph as notebook-scoped chat so LangGraph checkpoints
+    persist correctly per session.
+    """
+    try:
+        session_id = request.session_id
+        title = request.title
+
+        if session_id:
+            # Verify existing session
+            full_session_id = (
+                session_id
+                if session_id.startswith("global_chat_session:")
+                else f"global_chat_session:{session_id}"
+            )
+            session = await GlobalChatSession.get(full_session_id)
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
+
+            session_owner = getattr(session, "owner_id", None)
+            if session_owner is not None and session_owner != owner_id:
+                raise HTTPException(status_code=404, detail="Session not found")
+        else:
+            # Create new session
+            session = GlobalChatSession(
+                title=title or f"Chat {asyncio.get_event_loop().time():.0f}",
+                model_override=request.model_override,
+                owner_id=owner_id,
+            )
+            await session.save()
+            full_session_id = session.id or ""
+
+        # Determine model override
+        model_override = (
+            request.model_override
+            if request.model_override is not None
+            else getattr(session, "model_override", None)
+        )
+
+        # Get current LangGraph state
+        current_state = await asyncio.to_thread(
+            chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+        )
+        state_values = current_state.values if current_state else {}
+        state_values["messages"] = state_values.get("messages", [])
+        state_values["context"] = request.context
+        state_values["notebook"] = None  # No notebook scope for global chat
+        state_values["model_override"] = model_override
+
+        # Add user message
+        from langchain_core.messages import HumanMessage
+
+        user_message = HumanMessage(content=request.message)
+        state_values["messages"].append(user_message)
+
+        # Execute chat graph
+        result = await asyncio.to_thread(
+            chat_graph.invoke,
+            input=state_values,  # type: ignore[arg-type]
+            config=RunnableConfig(
+                configurable={
+                    "thread_id": full_session_id,
+                    "model_id": model_override,
+                }
+            ),
+        )
+
+        # Update session timestamp
+        await session.save()
+
+        # Convert messages
+        messages: List[ChatMessage] = []
+        for msg in result.get("messages", []):
+            messages.append(
+                ChatMessage(
+                    id=getattr(msg, "id", f"msg_{len(messages)}"),
+                    type=msg.type if hasattr(msg, "type") else "unknown",
+                    content=msg.content if hasattr(msg, "content") else str(msg),
+                    timestamp=None,
+                )
+            )
+
+        return ExecuteGlobalChatResponse(
+            session_id=request.session_id if request.session_id else full_session_id,
+            messages=messages,
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error executing global chat: {str(e)}\n"
+            f"  Session ID: {request.session_id}\n"
+            f"  Traceback:\n{traceback.format_exc()}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Error executing global chat: {str(e)}"
+        )
+
+
 @router.get("/chat/sessions", response_model=List[ChatSessionResponse])
 async def get_sessions(
     notebook_id: str = Query(..., description="Notebook ID"),
-    owner_id: str = Depends(get_owner_id),
+    owner_id: str = Depends(_resolve_owner_id),
 ):
     """Get all chat sessions for a notebook (scoped to the authenticated user)."""
     try:
@@ -150,7 +534,7 @@ async def get_sessions(
 @router.post("/chat/sessions", response_model=ChatSessionResponse)
 async def create_session(
     request: CreateSessionRequest,
-    owner_id: str = Depends(get_owner_id),
+    owner_id: str = Depends(_resolve_owner_id),
 ):
     """Create a new chat session (scoped to the authenticated user)."""
     try:
@@ -198,7 +582,7 @@ async def create_session(
 )
 async def get_session(
     session_id: str,
-    owner_id: str = Depends(get_owner_id),
+    owner_id: str = Depends(_resolve_owner_id),
 ):
     """Get a specific session with its messages (scoped to the authenticated user)."""
     try:
@@ -279,7 +663,7 @@ async def get_session(
 async def update_session(
     session_id: str,
     request: UpdateSessionRequest,
-    owner_id: str = Depends(get_owner_id),
+    owner_id: str = Depends(_resolve_owner_id),
 ):
     """Update session title (scoped to the authenticated user)."""
     try:
@@ -343,7 +727,7 @@ async def update_session(
 @router.delete("/chat/sessions/{session_id}", response_model=SuccessResponse)
 async def delete_session(
     session_id: str,
-    owner_id: str = Depends(get_owner_id),
+    owner_id: str = Depends(_resolve_owner_id),
 ):
     """Delete a chat session (scoped to the authenticated user)."""
     try:
@@ -375,7 +759,7 @@ async def delete_session(
 @router.post("/chat/execute", response_model=ExecuteChatResponse)
 async def execute_chat(
     request: ExecuteChatRequest,
-    owner_id: str = Depends(get_owner_id),
+    owner_id: str = Depends(_resolve_owner_id),
 ):
     """Execute a chat request and get AI response (scoped to the authenticated user)."""
     try:
@@ -581,3 +965,137 @@ async def build_context(request: BuildContextRequest):
     except Exception as e:
         logger.error(f"Error building context: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error building context: {str(e)}")
+
+
+# =============================================================================
+# Global Chat SSE Streaming endpoint
+# =============================================================================
+
+async def _stream_global_chat_response(
+    session_id: str,
+    message: str,
+    context: Dict[str, Any],
+    model_override: Optional[str] = None,
+) -> Any:
+    """
+    Async generator that yields SSE frames for the global chat response.
+    Mirrors the pattern used in `source_chat.py:stream_source_chat_response`.
+    """
+    try:
+        full_session_id = (
+            session_id
+            if session_id.startswith("global_chat_session:")
+            else f"global_chat_session:{session_id}"
+        )
+
+        # Get current LangGraph state
+        current_state = await asyncio.to_thread(
+            chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+        )
+        state_values = current_state.values if current_state else {}
+        state_values["messages"] = state_values.get("messages", [])
+        state_values["context"] = context
+        state_values["notebook"] = None
+        state_values["model_override"] = model_override
+
+        # Add user message
+        user_message = HumanMessage(content=message)
+        state_values["messages"].append(user_message)
+
+        # Emit user message event
+        yield f"data: {json.dumps({'type': 'user_message', 'content': message})}\n\n"
+
+        # Run chat graph in thread (SqliteSaver is sync)
+        result = await asyncio.to_thread(
+            chat_graph.invoke,
+            input=state_values,  # type: ignore[arg-type]
+            config=RunnableConfig(
+                configurable={"thread_id": full_session_id, "model_id": model_override}
+            ),
+        )
+
+        # Emit AI messages
+        for msg in result.get("messages", []):
+            if hasattr(msg, "type") and msg.type == "ai":
+                yield f"data: {json.dumps({'type': 'ai_message', 'content': msg.content})}\n\n"
+
+        # Emit completion
+        yield f"data: {json.dumps({'type': 'complete'})}\n\n"
+
+    except Exception as e:
+        from open_notebook.utils.error_classifier import classify_error
+
+        _, user_message = classify_error(e)
+        logger.error(f"Error in global chat streaming: {str(e)}")
+        yield f"data: {json.dumps({'type': 'error', 'message': user_message})}\n\n"
+
+
+@router.post("/chat/global/execute/stream")
+async def execute_global_chat_stream(
+    request: ExecuteGlobalChatRequest,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """
+    Send a message in a global chat session with SSE streaming response.
+    If session_id is not provided, creates a new session first.
+    """
+    try:
+        session_id = request.session_id
+        title = request.title
+
+        if session_id:
+            # Verify existing session
+            full_session_id = (
+                session_id
+                if session_id.startswith("global_chat_session:")
+                else f"global_chat_session:{session_id}"
+            )
+            session = await GlobalChatSession.get(full_session_id)
+            if not session:
+                raise HTTPException(status_code=404, detail="Session not found")
+
+            session_owner = getattr(session, "owner_id", None)
+            if session_owner is not None and session_owner != owner_id:
+                raise HTTPException(status_code=404, detail="Session not found")
+        else:
+            # Create new session
+            session = GlobalChatSession(
+                title=title or f"Chat {asyncio.get_event_loop().time():.0f}",
+                model_override=request.model_override,
+                owner_id=owner_id,
+            )
+            await session.save()
+            full_session_id = session.id or ""
+
+        # Determine model override
+        model_override = (
+            request.model_override
+            if request.model_override is not None
+            else getattr(session, "model_override", None)
+        )
+
+        # Update session timestamp
+        await session.save()
+
+        return StreamingResponse(
+            _stream_global_chat_response(
+                session_id=full_session_id,
+                message=request.message,
+                context=request.context or {},
+                model_override=model_override,
+            ),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in global chat stream: {str(e)}\n{traceback.format_exc()}")
+        raise HTTPException(
+            status_code=500, detail=f"Error in global chat stream: {str(e)}"
+        )

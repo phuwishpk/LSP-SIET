@@ -1,0 +1,3 @@
+INFO;
+SELECT * FROM migrations;
+SELECT * FROM global_chat_session LIMIT 1;
