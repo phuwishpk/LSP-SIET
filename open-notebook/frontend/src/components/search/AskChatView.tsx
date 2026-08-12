@@ -3,15 +3,17 @@
 import { useEffect } from 'react'
 import { Bot } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { useGlobalChat } from '@/lib/hooks/useGlobalChat'
 import { ChatPanel } from '@/components/source/ChatPanel'
 import { SettingsDialog } from './SettingsDialog'
 import { Button } from '@/components/ui/button'
 import { Settings } from 'lucide-react'
 import { NotebookResponse } from '@/lib/types/api'
 import { useState } from 'react'
+import { useGlobalChat } from '@/lib/hooks/useGlobalChat'
 
 interface AskChatViewProps {
+  // Optional: pass chat instance from parent (for shared state)
+  chat?: ReturnType<typeof useGlobalChat>
   // Optional: if provided, enables notebook-scoped RAG
   notebookId?: string
   sources?: Array<{ id: string; name?: string }>
@@ -39,6 +41,7 @@ interface AskChatViewProps {
 }
 
 export function AskChatView({
+  chat: chatProp,
   notebookId,
   sources,
   notes,
@@ -54,12 +57,14 @@ export function AskChatView({
   const { t } = useTranslation()
   const [settingsOpen, setSettingsOpen] = useState(false)
 
-  const chat = useGlobalChat({
+  // Use passed chat instance if provided, otherwise create own (for backwards compatibility)
+  const internalChat = useGlobalChat({
     notebookId: scopeActive ? notebookId : undefined,
     sources,
     notes,
     contextSelections,
   })
+  const chat = chatProp ?? internalChat
 
   // Build model override from custom models
   const effectiveModel = customModels?.strategy || defaultChatModel || undefined
@@ -109,7 +114,18 @@ export function AskChatView({
             onUpdateSession={(sessionId, title) => chat.updateSession(sessionId, { title })}
             onDeleteSession={chat.deleteSession}
             loadingSessions={chat.loadingSessions}
-            hasRagContext={scopeActive && !!notebookId && !!sources?.length}
+            hasRagContext={scopeActive && !!notebookId && !!chat.lastContext}
+            references={chat.lastContext ? {
+              sources: chat.lastContext.sources,
+              notes: chat.lastContext.notes,
+            } : undefined}
+            notebookContextStats={chat.lastContext ? {
+              sourcesInsights: 0,
+              sourcesFull: chat.lastContext.sources.length,
+              notesCount: chat.lastContext.notes.length,
+              tokenCount: chat.lastContext.tokenCount,
+              charCount: chat.lastContext.charCount,
+            } : undefined}
           />
         </div>
       </div>

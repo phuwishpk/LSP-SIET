@@ -18,6 +18,7 @@ import { ModelSelector } from './ModelSelector'
 import { ContextIndicator } from '@/components/common/ContextIndicator'
 import { SessionManager } from '@/components/source/SessionManager'
 import { MessageActions } from '@/components/source/MessageActions'
+import { ReferencesList } from '@/components/common/ReferencesList'
 import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent } from '@/lib/utils/source-references'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { toast } from 'sonner'
@@ -55,6 +56,11 @@ interface ChatPanelProps {
   notebookId?: string
   // RAG context status - passed from AskChatView to show RAG badge
   hasRagContext?: boolean
+  // References to show below AI messages
+  references?: {
+    sources: Array<{ id: string; name?: string }>
+    notes: Array<{ id: string; title?: string }>
+  }
 }
 
 export function ChatPanel({
@@ -76,6 +82,7 @@ export function ChatPanel({
   notebookContextStats,
   notebookId,
   hasRagContext,
+  references,
 }: ChatPanelProps) {
   const { t } = useTranslation()
   const chatInputId = useId()
@@ -212,10 +219,18 @@ export function ChatPanel({
                       )}
                     </div>
                     {message.type === 'ai' && (
-                      <MessageActions
-                        content={message.content}
-                        notebookId={notebookId}
-                      />
+                      <>
+                        <MessageActions
+                          content={message.content}
+                          notebookId={notebookId}
+                        />
+                        {references && (references.sources.length > 0 || references.notes.length > 0) && (
+                          <ReferencesList
+                            sources={references.sources}
+                            notes={references.notes}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
                   {message.type === 'human' && (

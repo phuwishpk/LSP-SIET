@@ -41,7 +41,14 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
   const [currentSessionId, setCurrentSessionId] = useState<string | null>(null)
   const [messages, setMessages] = useState<GlobalChatMessage[]>([])
   const [isSending, setIsSending] = useState(false)
+  const [isCreatingSession, setIsCreatingSession] = useState(false)
   const [pendingModelOverride, setPendingModelOverride] = useState<string | null>(null)
+  const [lastContext, setLastContext] = useState<{
+    sources: Array<{ id: string; name?: string }>
+    notes: Array<{ id: string; title?: string }>
+    tokenCount?: number
+    charCount?: number
+  } | null>(null)
   // Accumulated streaming text for the current AI response (ref for closure-safe reads)
   const streamingContentRef = useRef('')
   const abortControllerRef = useRef<AbortController | null>(null)
@@ -78,12 +85,17 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     },
   })
 
-  // Update messages when current session changes
+  // Update messages when current session changes — only if session ID matches and not creating
   useEffect(() => {
-    if (currentSession?.messages) {
+    if (currentSession?.messages && currentSession.id === currentSessionId && !isCreatingSession) {
       setMessages(currentSession.messages)
     }
-  }, [currentSession])
+  }, [currentSession, currentSessionId, isCreatingSession])
+
+  // Reset messages when session ID changes (immediate, before new session loads)
+  useEffect(() => {
+    setMessages([])
+  }, [currentSessionId])
 
   // Auto-select most recent session when sessions are loaded
   useEffect(() => {
@@ -165,7 +177,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
 
   // Build context — returns empty context if no notebook scope is configured
   const buildContext = useCallback(async () => {
-    if (!params.notebookId || !params.sources || !params.notes || !params.contextSelections) {
+    if (!params.notebookId) {
       return { sources: [], notes: [] }
     }
 
@@ -181,29 +193,53 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       } catch {}
     }
 
+    // Fetch sources and notes from the notebook to get their actual IDs
+    let sourceIds: string[] = []
+    let noteIds: string[] = []
+
+    try {
+      const [sourcesRes, notesRes] = await Promise.all([
+        fetch(`/api/sources?notebook_id=${params.notebookId}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-Owner-Id': ownerId,
+          }
+        }),
+        fetch(`/api/notes?notebook_id=${params.notebookId}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-Owner-Id': ownerId,
+          }
+        })
+      ])
+
+      if (sourcesRes.ok) {
+        const sourcesData = await sourcesRes.json()
+        sourceIds = sourcesData.map((s: { id: string }) => s.id)
+      }
+
+      if (notesRes.ok) {
+        const notesData = await notesRes.json()
+        noteIds = notesData.map((n: { id: string }) => n.id)
+      }
+    } catch (e) {
+      console.warn('Failed to fetch sources/notes for context:', e)
+    }
+
+    // Build context_config with actual source and note IDs
     const context_config: { sources: Record<string, string>, notes: Record<string, string> } = {
       sources: {},
       notes: {}
     }
 
-    params.sources.forEach(source => {
-      const mode = params.contextSelections!.sources[source.id]
-      if (mode === 'insights') {
-        context_config.sources[source.id] = 'insights'
-      } else if (mode === 'full') {
-        context_config.sources[source.id] = 'full content'
-      } else {
-        context_config.sources[source.id] = 'not in'
-      }
+    // Use 'full content' for all sources from the notebook
+    sourceIds.forEach(sourceId => {
+      context_config.sources[sourceId] = 'full content'
     })
 
-    params.notes.forEach(note => {
-      const mode = params.contextSelections!.notes[note.id]
-      if (mode === 'full') {
-        context_config.notes[note.id] = 'full content'
-      } else {
-        context_config.notes[note.id] = 'not in'
-      }
+    // Use 'full content' for all notes from the notebook
+    noteIds.forEach(noteId => {
+      context_config.notes[noteId] = 'full content'
     })
 
     const response = await fetch('/api/chat/context', {
@@ -223,8 +259,49 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       throw new Error(`Failed to build context: ${response.status}`)
     }
 
-    return await response.json()
-  }, [params])
+    const result = await response.json()
+
+    // Store context info for references display
+    // Re-fetch to get names for sources and notes
+    let sourcesWithNames: Array<{ id: string; name?: string }> = []
+    let notesWithNames: Array<{ id: string; title?: string }> = []
+
+    try {
+      const [sourcesRes, notesRes] = await Promise.all([
+        fetch(`/api/sources?notebook_id=${params.notebookId}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-Owner-Id': ownerId,
+          }
+        }),
+        fetch(`/api/notes?notebook_id=${params.notebookId}`, {
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+            'X-Owner-Id': ownerId,
+          }
+        })
+      ])
+
+      if (sourcesRes.ok) {
+        const sourcesData = await sourcesRes.json()
+        sourcesWithNames = sourcesData.map((s: { id: string; name?: string }) => ({ id: s.id, name: s.name }))
+      }
+
+      if (notesRes.ok) {
+        const notesData = await notesRes.json()
+        notesWithNames = notesData.map((n: { id: string; title?: string }) => ({ id: n.id, title: n.title }))
+      }
+    } catch {}
+
+    setLastContext({
+      sources: sourcesWithNames,
+      notes: notesWithNames,
+      tokenCount: result.token_count,
+      charCount: result.char_count
+    })
+
+    return result
+  }, [params.notebookId])
 
   // Parse an SSE line "data: {...}" into a typed event
   const parseSSEEvent = (line: string): SSEEvent | null => {
@@ -418,10 +495,33 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     setCurrentSessionId(sessionId)
   }, [])
 
-  // Create session (manual trigger, e.g. from sidebar "New Chat")
-  const createSession = useCallback((title?: string) => {
-    return createSessionMutation.mutate({ title })
-  }, [createSessionMutation])
+  // Create session (auto-generates title if not provided)
+  const createSession = useCallback(async (title?: string, modelOverride?: string) => {
+    try {
+      setIsCreatingSession(true)
+      const sessionTitle = title?.trim() || `Chat ${new Date().toLocaleDateString()}`
+      const newSession = await globalChatApi.createSession({
+        title: sessionTitle,
+        model_override: modelOverride ?? undefined
+      })
+      setCurrentSessionId(newSession.id)
+      setMessages([]) // Clear messages for new session
+      queryClient.invalidateQueries({
+        queryKey: QUERY_KEYS.globalChatSessions
+      })
+      return newSession
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { detail?: string } }, message?: string };
+      toast.error(getApiErrorMessage(
+        error.response?.data?.detail || error.message,
+        (key) => t(key),
+        'apiErrors.failedToCreateSession'
+      ))
+      throw err
+    } finally {
+      setIsCreatingSession(false)
+    }
+  }, [queryClient, t])
 
   // Update session
   const updateSession = useCallback((sessionId: string, data: UpdateGlobalChatSessionRequest) => {
@@ -454,6 +554,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     isSending,
     loadingSessions,
     pendingModelOverride,
+    lastContext,
 
     // Actions
     createSession,

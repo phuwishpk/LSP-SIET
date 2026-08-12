@@ -145,6 +145,9 @@ services:
     volumes:
       - ./open-notebook/notebook_data:/app/data
       - ./open-notebook/prompts:/app/prompts
+      # Override the baked-in supervisord.conf so Streamlit binds to 8503
+      # (avoids clashing with the Next.js frontend on 8502).
+      - ./docker/open-notebook/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
     networks:
       - kmitlai_default
     depends_on:

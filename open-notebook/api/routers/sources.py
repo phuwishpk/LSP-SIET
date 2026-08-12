@@ -17,7 +17,7 @@ from loguru import logger
 from surreal_commands import execute_command_sync, submit_command
 
 from api.command_service import CommandService
-from api.dependencies import get_owner_id
+from api.dependencies import get_owner_id, owner_can_access
 from api.models import (
     AssetModel,
     CreateSourceInsightRequest,
@@ -226,7 +226,7 @@ async def get_sources(
             notebook = await Notebook.get(notebook_id)
             if not notebook:
                 raise HTTPException(status_code=404, detail="Notebook not found")
-            if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+            if not owner_can_access(notebook, owner_id):
                 raise HTTPException(status_code=404, detail="Notebook not found")
 
             # Query sources for specific notebook
@@ -351,7 +351,7 @@ async def create_source(
                     status_code=404, detail=f"Notebook {notebook_id} not found"
                 )
             # Verify notebook belongs to this owner
-            if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+            if not owner_can_access(notebook, owner_id):
                 raise HTTPException(
                     status_code=404, detail=f"Notebook {notebook_id} not found"
                 )
@@ -644,8 +644,7 @@ async def _resolve_source_file(source_id: str, owner_id: str) -> tuple[str, str]
         raise HTTPException(status_code=404, detail="Source not found")
 
     # Verify source belongs to this owner (backward compat: no owner_id = visible)
-    source_owner = getattr(source, "owner_id", None)
-    if source_owner is not None and source_owner != owner_id:
+    if not owner_can_access(source, owner_id):
         raise HTTPException(status_code=404, detail="Source not found")
 
     file_path = source.asset.file_path if source.asset else None
@@ -694,8 +693,7 @@ async def get_source(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner (backward compat: no owner_id = visible)
-        source_owner = getattr(source, "owner_id", None)
-        if source_owner is not None and source_owner != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         await _stamp_source_view(source.id or source_id)
@@ -803,8 +801,7 @@ async def get_source_status(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner (backward compat: no owner_id = visible)
-        source_owner = getattr(source, "owner_id", None)
-        if source_owner is not None and source_owner != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Check if this is a legacy source (no command)
@@ -873,8 +870,7 @@ async def update_source(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner (backward compat: no owner_id = visible)
-        source_owner = getattr(source, "owner_id", None)
-        if source_owner is not None and source_owner != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Update only provided fields
@@ -938,8 +934,7 @@ async def retry_source_processing(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner (backward compat: no owner_id = visible)
-        source_owner = getattr(source, "owner_id", None)
-        if source_owner is not None and source_owner != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Check if source already has a running command
@@ -1090,8 +1085,7 @@ async def delete_source(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner (backward compat: no owner_id = visible)
-        source_owner = getattr(source, "owner_id", None)
-        if source_owner is not None and source_owner != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Phase 2: bump every notebook that references this source BEFORE

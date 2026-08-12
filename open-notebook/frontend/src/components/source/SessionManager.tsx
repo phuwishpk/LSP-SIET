@@ -121,34 +121,39 @@ export function SessionManager({
         </CardHeader>
         <CardContent className="flex-1 p-0 min-h-0">
           <ScrollArea className="h-full px-4">
+            {/* New Chat button - auto-creates session with auto-generated title */}
             {isCreating && (
-              <div className="p-3 border rounded-lg mb-3">
-                <Input
-                  value={newSessionTitle}
-                  onChange={(e) => setNewSessionTitle(e.target.value)}
-                  placeholder={t('chat.sessionTitlePlaceholder')}
-                  className="mb-2"
-                  autoFocus
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') handleCreateSession()
-                  }}
-                />
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={handleCreateSession}>
-                    {t('common.create')}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => {
-                      setIsCreating(false)
-                      setNewSessionTitle('')
-                    }}
-                  >
-                    {t('common.cancel')}
-                  </Button>
-                </div>
+              <div className="p-3 border rounded-lg mb-3 flex items-center gap-2">
+                <span className="text-sm text-muted-foreground flex-1">
+                  {t('chat.creatingSession') || 'Creating session...'}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsCreating(false)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
               </div>
+            )}
+
+            {!isCreating && (
+              <Button
+                variant="outline"
+                className="w-full mb-3"
+                onClick={async () => {
+                  setIsCreating(true)
+                  try {
+                    await onCreateSession(`Chat ${new Date().toLocaleDateString()}`)
+                    setIsCreating(false)
+                  } catch {
+                    setIsCreating(false)
+                  }
+                }}
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                {t('chat.newChat') || 'New Chat'}
+              </Button>
             )}
 
             {loadingSessions ? (

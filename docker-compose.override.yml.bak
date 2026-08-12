@@ -1,0 +1,23 @@
+# =============================================================================
+# Development override: mount source code for hot reload
+# =============================================================================
+# Usage: docker compose up
+# =============================================================================
+
+services:
+  open_notebook_api:
+    volumes:
+      - ./open-notebook/frontend/src:/app/frontend/src
+      - ./open-notebook/frontend/public:/app/frontend/public
+      - ./open-notebook/frontend/.env.local:/app/frontend/.env.local
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:3004
+      - API_URL=http://localhost:3004
+    ports:
+      - "3004:3000"
+      - "5055:5055"
+    command: >
+      sh -c "cd /app && export PYTHONPATH=/app && .venv/bin/uvicorn open_notebook.main:app --host 0.0.0.0 --port 5055 &
+             /app/scripts/wait-for-api.sh &&
+             cd /app/frontend && npm run dev"

@@ -3,7 +3,7 @@ from typing import List, Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
-from api.dependencies import get_owner_id
+from api.dependencies import get_owner_id, owner_can_access
 from api.models import NoteCreate, NoteResponse, NoteUpdate
 from open_notebook.domain.notebook import Note
 from open_notebook.exceptions import InvalidInputError, NotFoundError
@@ -24,7 +24,7 @@ async def get_notes(
             notebook = await Notebook.get(notebook_id)
             if not notebook:
                 raise HTTPException(status_code=404, detail="Notebook not found")
-            if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+            if not owner_can_access(notebook, owner_id):
                 raise HTTPException(status_code=404, detail="Notebook not found")
             notes = await notebook.get_notes()
         else:
@@ -104,7 +104,7 @@ async def create_note(
             notebook = await Notebook.get(note_data.notebook_id)
             if not notebook:
                 raise HTTPException(status_code=404, detail="Notebook not found")
-            if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+            if not owner_can_access(notebook, owner_id):
                 raise HTTPException(status_code=404, detail="Notebook not found")
             await new_note.add_to_notebook(note_data.notebook_id)
 
@@ -140,8 +140,7 @@ async def get_note(
             raise HTTPException(status_code=404, detail="Note not found")
 
         # Verify note belongs to this owner (backward compat: no owner_id = visible)
-        note_owner = getattr(note, "owner_id", None)
-        if note_owner is not None and note_owner != owner_id:
+        if not owner_can_access(note, owner_id):
             raise HTTPException(status_code=404, detail="Note not found")
 
         return NoteResponse(
@@ -174,8 +173,7 @@ async def update_note(
             raise HTTPException(status_code=404, detail="Note not found")
 
         # Verify note belongs to this owner (backward compat: no owner_id = visible)
-        note_owner = getattr(note, "owner_id", None)
-        if note_owner is not None and note_owner != owner_id:
+        if not owner_can_access(note, owner_id):
             raise HTTPException(status_code=404, detail="Note not found")
 
         # Update only provided fields
@@ -225,8 +223,7 @@ async def delete_note(
             raise HTTPException(status_code=404, detail="Note not found")
 
         # Verify note belongs to this owner (backward compat: no owner_id = visible)
-        note_owner = getattr(note, "owner_id", None)
-        if note_owner is not None and note_owner != owner_id:
+        if not owner_can_access(note, owner_id):
             raise HTTPException(status_code=404, detail="Note not found")
 
         await note.delete()

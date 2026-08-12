@@ -1,0 +1,184 @@
+# =============================================================================
+# KMITL AI Workspace – development docker-compose with hot reload
+#
+# Usage:
+#   make up-dev                       (recommended)
+#   docker compose -f docker-compose-dev.yml -p kmitlai_dev up
+#
+# Access:
+#   - Frontend (Next.js dev): http://localhost:3000  (hot reload)
+#   - API (FastAPI):          http://localhost:5055  (auto-reload)
+#   - API Docs:               http://localhost:5055/docs
+#
+# Prerequisite:
+#   The `kmitlai/open-notebook:local` image must exist. Build it once with
+#   `make build` (or `make up`). Reusing the image avoids the 10+ minute
+#   `apt-get install` on every dev startup.
+#
+# All services share the `kmitlai_default` bridge network so Next.js can
+# proxy to the API via the docker service name (INTERNAL_API_URL).
+# =============================================================================
+
+networks:
+  kmitlai_default:
+    driver: bridge
+
+services:
+  # ---------------------------------------------------------------------------
+  # MariaDB (workspace user service)
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_mariadb:
+    image: mariadb:11
+    container_name: kmitlai_dev_mariadb
+    environment:
+      MARIADB_ROOT_PASSWORD: ${MARIADB_ROOT_PASSWORD:-root_password}
+      MARIADB_DATABASE: workspace
+      MARIADB_USER: workspace
+      MARIADB_PASSWORD: ${MARIADB_PASSWORD:-workspace_password}
+    volumes:
+      - mariadb_data_dev:/var/lib/mysql
+      - ./docker/mariadb-init.sql:/docker-entrypoint-initdb.d/01-users.sql:ro
+    networks:
+      - kmitlai_default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "healthcheck.sh", "--connect"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # SurrealDB
+  # Shares the same on-disk data as the prod stack so migrations that were
+  # already applied by prod don't re-run against a fresh dev DB (some legacy
+  # migrations use pre-v2 syntax like `array::sort::uniq` that the current
+  # SurrealDB v2 parser rejects). Dev and prod cannot run simultaneously
+  # anyway — they both bind host ports 3000/5055.
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_surrealdb:
+    image: surrealdb/surrealdb:v2
+    container_name: kmitlai_dev_surrealdb
+    command: start --log info --user ${SURREAL_USER:-root} --pass ${SURREAL_PASSWORD:-root} rocksdb:/mydata/mydatabase.db
+    user: root
+    volumes:
+      - ./open-notebook/surreal_data:/mydata
+    environment:
+      - SURREAL_EXPERIMENTAL_GRAPHQL=true
+    networks:
+      - kmitlai_default
+    restart: unless-stopped
+    healthcheck:
+      disable: true
+
+  # ---------------------------------------------------------------------------
+  # Redis
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_redis:
+    image: redis:7-alpine
+    container_name: kmitlai_dev_redis
+    volumes:
+      - redis_data_dev:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - kmitlai_default
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
+
+  # ---------------------------------------------------------------------------
+  # FastAPI backend (hot reload)
+  # Reuses the production image but skips supervisord: uvicorn --reload only.
+  # Streamlit and the baked-in Next.js are intentionally NOT started here;
+  # the Next.js dev server runs in a separate service below.
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_open_notebook_api:
+    image: kmitlai/open-notebook:local
+    container_name: kmitlai_dev_open_notebook_api
+    working_dir: /app
+    command: >
+      sh -c "export PYTHONPATH=/app &&
+             /app/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 5055 --reload"
+    environment:
+      - SURREAL_URL=ws://kmitlai_dev_surrealdb:8000/rpc
+      - SURREAL_USER=${SURREAL_USER:-root}
+      - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
+      - SURREAL_NAMESPACE=open_notebook
+      - SURREAL_DATABASE=open_notebook
+      - REDIS_URL=redis://kmitlai_dev_redis:6379/0
+      - MARIADB_HOST=kmitlai_dev_mariadb
+      - MARIADB_PORT=3306
+      - MARIADB_USER=workspace
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-workspace_password}
+      - MARIADB_DATABASE=workspace
+      - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
+      - WORKSPACE_SEED_ADMIN=true
+      - WORKSPACE_SEED_ADMIN_USERNAME=admin1
+      - WORKSPACE_SEED_ADMIN_PASSWORD=admin1
+      - TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
+      - API_HOST=0.0.0.0
+      - NO_PROXY=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
+      - no_proxy=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
+    volumes:
+      # Hot-reload backend source (mounted over the baked-in copy).
+      # Only mount paths that actually exist locally — otherwise Docker
+      # creates an empty dir and shadows the baked-in contents.
+      - ./open-notebook/api:/app/api
+      - ./open-notebook/open_notebook:/app/open_notebook
+      - ./open-notebook/commands:/app/commands
+      - ./open-notebook/prompts:/app/prompts
+      - ./open-notebook/notebook_data:/app/data
+    networks:
+      - kmitlai_default
+    depends_on:
+      kmitlai_dev_surrealdb:
+        condition: service_started
+      kmitlai_dev_mariadb:
+        condition: service_healthy
+      kmitlai_dev_redis:
+        condition: service_healthy
+    restart: unless-stopped
+    ports:
+      - "5055:5055"
+
+  # ---------------------------------------------------------------------------
+  # Next.js frontend (hot reload)
+  # Uses vanilla node:22-alpine + bind-mounted source. Node modules live in a
+  # named volume to avoid clobbering when the source is mounted.
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_open_notebook_frontend:
+    image: node:22-alpine
+    container_name: kmitlai_dev_open_notebook_frontend
+    working_dir: /app
+    command: sh -c "npm install && npm run dev -- -H 0.0.0.0 -p 3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # Server-side (Next.js rewrites) proxies /api → API container via docker DNS
+      - INTERNAL_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      # Browser-side URLs
+      - NEXT_PUBLIC_API_URL=http://localhost:5055
+      - API_URL=http://localhost:5055
+      - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
+      - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
+    volumes:
+      - ./open-notebook/frontend:/app
+      - frontend_node_modules_dev:/app/node_modules
+    networks:
+      - kmitlai_default
+    ports:
+      - "3000:3000"
+    depends_on:
+      - kmitlai_dev_open_notebook_api
+    restart: unless-stopped
+
+volumes:
+  mariadb_data_dev:
+  redis_data_dev:
+  frontend_node_modules_dev:

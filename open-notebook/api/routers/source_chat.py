@@ -9,7 +9,7 @@ from langchain_core.runnables import RunnableConfig
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from api.dependencies import get_owner_id
+from api.dependencies import get_owner_id, owner_can_access
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, Source
 from open_notebook.exceptions import (
@@ -104,7 +104,7 @@ async def create_source_chat_session(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Create new session with model_override support and owner_id
@@ -154,7 +154,7 @@ async def get_source_chat_sessions(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get sessions that refer to this source - first get relations, then sessions
@@ -229,7 +229,7 @@ async def get_source_chat_session(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get session
@@ -337,7 +337,7 @@ async def update_source_chat_session(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get session
@@ -417,7 +417,7 @@ async def delete_source_chat_session(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Get session
@@ -551,7 +551,7 @@ async def send_message_to_source_chat(
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify source belongs to this owner
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Verify session exists and is related to source

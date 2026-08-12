@@ -45,3 +45,17 @@ async def get_owner_id(request: Request) -> str:
             detail="Authentication required",
         )
     return owner_id
+
+
+def owner_can_access(entity, owner_id: str) -> bool:
+    """
+    True when ``owner_id`` may act on ``entity``.
+
+    Matches the list-query semantics used across routers: an entity with no
+    ``owner_id`` (or the legacy ``"default"`` marker from pre-auth records) is
+    visible to every authenticated user; otherwise it must match exactly.
+    """
+    entity_owner = getattr(entity, "owner_id", None)
+    if entity_owner is None or entity_owner == DEFAULT_OWNER_ID:
+        return True
+    return entity_owner == owner_id

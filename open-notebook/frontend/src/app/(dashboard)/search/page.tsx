@@ -57,6 +57,19 @@ export default function SearchPage() {
   const [selectedNotebooks, setSelectedNotebooks] = useState<NotebookResponse[]>([])
   const [scopeActive, setScopeActive] = useState(false)
 
+  // Single source of truth for chat state
+  const chat = useGlobalChat({
+    notebookId: scopeActive ? selectedNotebooks[0]?.id : undefined,
+    sources: scopeActive ? selectedNotebooks.map(nb => ({ id: nb.id, name: nb.name })) : undefined,
+    notes: scopeActive ? selectedNotebooks.map(nb => ({ id: nb.id, title: nb.name })) : undefined,
+    contextSelections: scopeActive
+      ? {
+          sources: Object.fromEntries(selectedNotebooks.map(nb => [nb.id, 'full' as const])),
+          notes: Object.fromEntries(selectedNotebooks.map(nb => [nb.id, 'full' as const])),
+        }
+      : undefined,
+  })
+
   // Track if we've already auto-triggered from URL params
   const hasAutoTriggeredRef = useRef(false)
   const lastUrlParamsRef = useRef({ q: '', mode: '' })
@@ -136,6 +149,7 @@ export default function SearchPage() {
             {/* Left Sidebar — Session List */}
             <div className="w-64 flex-shrink-0 border-r overflow-hidden hidden md:flex">
               <SessionSidebarWrapper
+                chat={chat}
                 selectedNotebooks={selectedNotebooks}
                 onSelectedNotebooksChange={setSelectedNotebooks}
                 customModels={customModels}
@@ -149,6 +163,7 @@ export default function SearchPage() {
             {/* Right — Chat Area */}
             <div className="flex-1 min-h-0 overflow-hidden">
               <AskChatView
+                chat={chat}
                 notebookId={scopeActive ? selectedNotebooks[0]?.id : undefined}
                 sources={scopeActive ? selectedNotebooks.map(nb => ({ id: nb.id, name: nb.name })) : undefined}
                 notes={scopeActive ? selectedNotebooks.map(nb => ({ id: nb.id, title: nb.name })) : undefined}
@@ -371,6 +386,7 @@ export default function SearchPage() {
 // -----------------------------------------------------------------------------
 
 function SessionSidebarWrapper({
+  chat,
   selectedNotebooks,
   onSelectedNotebooksChange,
   customModels,
@@ -379,6 +395,7 @@ function SessionSidebarWrapper({
   onScopeActiveChange,
   defaultChatModel,
 }: {
+  chat: ReturnType<typeof useGlobalChat>
   selectedNotebooks: NotebookResponse[]
   onSelectedNotebooksChange: (notebooks: NotebookResponse[]) => void
   customModels: { strategy: string; answer: string; finalAnswer: string } | null
@@ -387,18 +404,6 @@ function SessionSidebarWrapper({
   onScopeActiveChange: (active: boolean) => void
   defaultChatModel?: string
 }) {
-  const chat = useGlobalChat({
-    notebookId: scopeActive ? selectedNotebooks[0]?.id : undefined,
-    sources: scopeActive ? selectedNotebooks.map(nb => ({ id: nb.id, name: nb.name })) : undefined,
-    notes: scopeActive ? selectedNotebooks.map(nb => ({ id: nb.id, title: nb.name })) : undefined,
-    contextSelections: scopeActive
-      ? {
-          sources: Object.fromEntries(selectedNotebooks.map(nb => [nb.id, 'full' as const])),
-          notes: Object.fromEntries(selectedNotebooks.map(nb => [nb.id, 'full' as const])),
-        }
-      : undefined,
-  })
-
   return (
     <SessionSidebar
       sessions={chat.sessions}

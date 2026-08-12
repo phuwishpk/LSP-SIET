@@ -3,7 +3,7 @@ from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from loguru import logger
 
-from api.dependencies import get_owner_id
+from api.dependencies import get_owner_id, owner_can_access
 from api.models import (
     NotebookCreate,
     NotebookDeletePreview,
@@ -218,8 +218,7 @@ async def get_notebook_delete_preview(
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
-        notebook_owner = getattr(notebook, "owner_id", None)
-        if notebook_owner is not None and notebook_owner != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         preview = await notebook.get_delete_preview()
@@ -255,8 +254,7 @@ async def get_notebook(
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
-        notebook_owner = getattr(notebook, "owner_id", None)
-        if notebook_owner is not None and notebook_owner != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         await _stamp_notebook_view(notebook_id)
@@ -306,8 +304,7 @@ async def update_notebook(
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
-        notebook_owner = getattr(notebook, "owner_id", None)
-        if notebook_owner is not None and notebook_owner != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Update only provided fields
@@ -392,14 +389,14 @@ async def add_source_to_notebook(
         notebook = await Notebook.get(notebook_id)
         if not notebook:
             raise HTTPException(status_code=404, detail="Notebook not found")
-        if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify the source exists and belongs to the owner
         source = await Source.get(source_id)
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
-        if getattr(source, "owner_id", None) and source.owner_id != owner_id:
+        if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
         # Check if reference already exists (idempotency)
@@ -463,7 +460,7 @@ async def remove_source_from_notebook(
         notebook = await Notebook.get(notebook_id)
         if not notebook:
             raise HTTPException(status_code=404, detail="Notebook not found")
-        if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Delete the reference record linking source to notebook
@@ -525,8 +522,7 @@ async def delete_notebook(
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
-        notebook_owner = getattr(notebook, "owner_id", None)
-        if notebook_owner is not None and notebook_owner != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Phase 2: wipe the answer cache entries that referenced this

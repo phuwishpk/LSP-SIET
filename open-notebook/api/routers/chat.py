@@ -1,5 +1,6 @@
 import asyncio
 import json
+import re
 import traceback
 from typing import Any, Dict, List, Optional
 
@@ -10,7 +11,7 @@ from langchain_core.runnables import RunnableConfig
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from api.dependencies import _resolve_owner_id
+from api.dependencies import _resolve_owner_id, owner_can_access
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, GlobalChatSession, Note, Notebook, Source
 from open_notebook.exceptions import (
@@ -281,6 +282,8 @@ async def get_global_session(
         )
     except HTTPException:
         raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Session not found")
     except Exception as e:
         logger.error(f"Error fetching global chat session: {str(e)}")
         raise HTTPException(
@@ -491,7 +494,7 @@ async def get_sessions(
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify notebook belongs to this owner
-        if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Get sessions for this notebook
@@ -544,7 +547,7 @@ async def create_session(
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Verify notebook belongs to this owner
-        if getattr(notebook, "owner_id", None) and notebook.owner_id != owner_id:
+        if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
         # Create new session with owner_id
@@ -968,6 +971,88 @@ async def build_context(request: BuildContextRequest):
 
 
 # =============================================================================
+# URL hallucination filter — prevents the LLM from citing invented URLs
+# =============================================================================
+
+# A URL is allowed only when it appears verbatim in the CONTEXT that was fed
+# to the model, OR when it matches one of the hard-verified KMITL hostnames
+# below. Reason: LLMs like to invent plausible "kmitl-looking" URLs (e.g.
+# fiet.kmitl.ac.th) that don't actually exist, or swap kmutt.ac.th →
+# kmitl.ac.th. Even subdomains under kmitl.ac.th can be fabricated. So the
+# allowlist is intentionally conservative — the model can always link to the
+# root kmitl.ac.th and describe which faculty in prose.
+_ALLOWED_URL_HOSTS = {
+    "kmitl.ac.th",
+    "www.kmitl.ac.th",
+}
+_URL_HOST_PATTERN = re.compile(
+    r"^https?://([^/:?#]+)", re.IGNORECASE
+)
+# Match ANY http(s) URL in prose (not just [url:...]) so plain-text hallucinated
+# URLs like "see https://fiet.kmitl.ac.th" also get stripped by the same
+# allowlist/context check.
+_PLAIN_URL = re.compile(
+    r"https?://[^\s\]\"'<>()]+", re.IGNORECASE
+)
+_URL_CITATION = re.compile(r"\[url:([^\]]+)\]")
+
+
+def _collect_context_texts(context: Dict[str, Any]) -> List[str]:
+    """Flatten every text field the model was shown, for verbatim URL matching."""
+    texts: List[str] = []
+    for src in (context.get("sources") or []):
+        if isinstance(src, dict):
+            if src.get("full_text"):
+                texts.append(str(src["full_text"]))
+            for ins in (src.get("insights") or []):
+                if isinstance(ins, dict) and ins.get("content"):
+                    texts.append(str(ins["content"]))
+    for note in (context.get("notes") or []):
+        if isinstance(note, dict) and note.get("content"):
+            texts.append(str(note["content"]))
+    return texts
+
+
+def _is_url_allowed(url: str, allowed_texts: List[str]) -> bool:
+    """URL passes if it's on the KMITL allowlist OR appears verbatim in CONTEXT."""
+    host_match = _URL_HOST_PATTERN.match(url)
+    host = host_match.group(1).lower() if host_match else ""
+    if host in _ALLOWED_URL_HOSTS:
+        return True
+    return any(url in t for t in allowed_texts)
+
+
+def _filter_url_citations(content: str, context: Dict[str, Any]) -> str:
+    """
+    Strip URL citations (both bracketed `[url:...]` and plain `https://...`)
+    that are not on the KMITL allowlist AND not present in the CONTEXT that
+    was fed to the model. Leaves surrounding prose intact.
+    """
+    if not content:
+        return content
+    allowed_texts = _collect_context_texts(context)
+
+    def _bracketed(match: "re.Match[str]") -> str:
+        url = match.group(1).strip()
+        if _is_url_allowed(url, allowed_texts):
+            return match.group(0)
+        logger.info(f"Stripping hallucinated URL citation (bracketed): {url}")
+        return ""
+
+    result = _URL_CITATION.sub(_bracketed, content)
+
+    def _plain(match: "re.Match[str]") -> str:
+        url = match.group(0).rstrip(".,;:!?)")
+        trailing = match.group(0)[len(url):]
+        if _is_url_allowed(url, allowed_texts):
+            return match.group(0)
+        logger.info(f"Stripping hallucinated URL citation (plain): {url}")
+        return trailing
+
+    return _PLAIN_URL.sub(_plain, result)
+
+
+# =============================================================================
 # Global Chat SSE Streaming endpoint
 # =============================================================================
 
@@ -1015,10 +1100,11 @@ async def _stream_global_chat_response(
             ),
         )
 
-        # Emit AI messages
+        # Emit AI messages (with hallucinated-URL filtering)
         for msg in result.get("messages", []):
             if hasattr(msg, "type") and msg.type == "ai":
-                yield f"data: {json.dumps({'type': 'ai_message', 'content': msg.content})}\n\n"
+                filtered = _filter_url_citations(msg.content, context)
+                yield f"data: {json.dumps({'type': 'ai_message', 'content': filtered})}\n\n"
 
         # Emit completion
         yield f"data: {json.dumps({'type': 'complete'})}\n\n"

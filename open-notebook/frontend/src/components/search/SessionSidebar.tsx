@@ -95,7 +95,13 @@ export function SessionSidebar({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setIsCreating(true)}
+              onClick={async () => {
+                try {
+                  await onCreateSession(`Chat ${new Date().toLocaleDateString()}`)
+                } catch {
+                  // Error handled by hook
+                }
+              }}
               className="h-7 px-2"
               title={t('chat.newChat') || 'New Chat'}
             >

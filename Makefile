@@ -11,7 +11,7 @@ ENV_FILE      ?= .env
 PROJECT_NAME  ?= kmitlai
 COMPOSE       += -p $(PROJECT_NAME)
 
-.PHONY: help up down logs build rebuild restart ps clean nuke env-check
+.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check
 
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -35,6 +35,14 @@ up: env-check  ## Build images and start the entire stack in detached mode
 	@echo "  - http://localhost/api/docs  FastAPI docs"
 	@echo "  - http://localhost/pb/_/      PocketBase admin"
 
+up-dev: env-check  ## Start development stack with hot reload (frontend + backend)
+	$(COMPOSE) -f docker-compose-dev.yml -p kmitlai_dev --env-file $(ENV_FILE) up
+	@echo ""
+	@echo "Development stack is up with hot reload!"
+	@echo "  - Frontend: http://localhost:3000 (hot reload)"
+	@echo "  - API: http://localhost:5055 (auto-reload)"
+	@echo "  - API Docs: http://localhost:5055/docs"
+
 build: env-check  ## Build all images without starting
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) build
 
@@ -43,6 +51,9 @@ rebuild: env-check  ## Rebuild without cache
 
 down:  ## Stop the stack (keeps volumes)
 	$(COMPOSE) $(COMPOSE_FILE) down
+
+down-dev:  ## Stop development stack
+	$(COMPOSE) -f docker-compose-dev.yml -p kmitlai_dev down
 
 restart:  ## Restart the stack
 	$(COMPOSE) $(COMPOSE_FILE) restart
