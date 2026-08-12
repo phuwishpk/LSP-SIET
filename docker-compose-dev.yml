@@ -165,8 +165,11 @@ services:
       # Browser-side URLs
       - NEXT_PUBLIC_API_URL=http://localhost:5055
       - API_URL=http://localhost:5055
-      - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
-      - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
+      # Prod uses Traefik path prefixes (/quiz, /roadmap); dev has no Traefik.
+      # Both Next.js apps use basePath so we must include the path — visiting
+      # the port root returns 404.
+      - NEXT_PUBLIC_MY_AI_QUIZ_URL=http://localhost:3001/quiz
+      - NEXT_PUBLIC_AI_ROADMAP_URL=http://localhost:3002/roadmap
     volumes:
       - ./open-notebook/frontend:/app
       - frontend_node_modules_dev:/app/node_modules
@@ -176,6 +179,71 @@ services:
       - "3000:3000"
     depends_on:
       - kmitlai_dev_open_notebook_api
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # My-ai-quiz (Next.js) — external app linked from the dashboard "AI Quiz" card
+  # Reuses the production-built image; connects to the dev API on the shared
+  # bridge network via the container hostname `kmitlai_dev_open_notebook_api`.
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_my_ai_quiz:
+    image: kmitlai/my-ai-quiz:local
+    container_name: kmitlai_dev_my_ai_quiz
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
+      - NODE_ENV=production
+    networks:
+      - kmitlai_default
+    ports:
+      - "3001:3000"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # ai-roadmap-generator infra: PocketBase (data store for roadmaps).
+  # Exposed on host 8090 so the browser (NEXT_PUBLIC_POCKETBASE_URL below)
+  # can hit it directly — dev has no Traefik proxy to rewrite /pb like prod.
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_ai_roadmap_pocketbase:
+    image: ghcr.io/muchobien/pocketbase:latest
+    container_name: kmitlai_dev_ai_roadmap_pocketbase
+    volumes:
+      - ./ai-roadmap-generator/pb_data:/pb_data
+    networks:
+      - kmitlai_default
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8090/api/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  # ---------------------------------------------------------------------------
+  # ai-roadmap-generator (Next.js) — external app linked from the dashboard
+  # "AI Roadmap" card. In prod it's mounted under /roadmap via Traefik; in dev
+  # we expose it on host port 3002 so the dashboard fallback URL works.
+  # ---------------------------------------------------------------------------
+  kmitlai_dev_ai_roadmap_generator:
+    image: kmitlai/ai-roadmap-generator:local
+    container_name: kmitlai_dev_ai_roadmap_generator
+    environment:
+      - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
+      - POCKETBASE_URL=http://kmitlai_dev_ai_roadmap_pocketbase:8090
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
+      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      - NODE_ENV=production
+    networks:
+      - kmitlai_default
+    ports:
+      - "3002:3000"
+    depends_on:
+      - kmitlai_dev_ai_roadmap_pocketbase
     restart: unless-stopped
 
 volumes:
