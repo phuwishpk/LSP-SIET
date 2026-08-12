@@ -1,6 +1,6 @@
 'use client'
 
-import { FileText, StickyNote, ExternalLink } from 'lucide-react'
+import { FileText, StickyNote, ExternalLink, Link as LinkIcon } from 'lucide-react'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { toast } from 'sonner'
@@ -8,18 +8,20 @@ import { toast } from 'sonner'
 interface ReferencesListProps {
   sources: Array<{ id: string; name?: string }>
   notes: Array<{ id: string; title?: string }>
+  urls?: string[]
   className?: string
 }
 
 export function ReferencesList({
   sources,
   notes,
+  urls = [],
   className
 }: ReferencesListProps) {
   const { t } = useTranslation()
   const { openModal } = useModalManager()
 
-  const hasReferences = sources.length > 0 || notes.length > 0
+  const hasReferences = sources.length > 0 || notes.length > 0 || urls.length > 0
 
   if (!hasReferences) {
     return null
@@ -69,6 +71,19 @@ export function ReferencesList({
             <StickyNote className="h-3 w-3 flex-shrink-0" />
             <span className="truncate">{note.title || note.id}</span>
           </button>
+        ))}
+
+        {urls.map((url) => (
+          <a
+            key={url}
+            href={url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 text-xs text-left px-2 py-1 rounded hover:bg-muted transition-colors text-primary hover:underline"
+          >
+            <LinkIcon className="h-3 w-3 flex-shrink-0" />
+            <span className="truncate">{url}</span>
+          </a>
         ))}
       </div>
     </div>

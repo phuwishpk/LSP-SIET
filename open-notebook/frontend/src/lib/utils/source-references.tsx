@@ -385,7 +385,16 @@ export function createReferenceLinkComponent(
  * Input: "See [source:abc] and [note:xyz]. Also [source:abc] again."
  * Output: "See [1] and [2]. Also [1] again.\n\nReferences:\n[1] - [source:abc]\n[2] - [note:xyz]"
  */
-export function convertReferencesToCompactMarkdown(text: string, referencesLabel: string = 'References'): string {
+export function convertReferencesToCompactMarkdown(
+  text: string,
+  referencesLabel: string = 'References',
+  options: { appendList?: boolean } = {}
+): string {
+  const appendList = options.appendList ?? true
+  return convertReferencesToCompactMarkdownImpl(text, referencesLabel, appendList)
+}
+
+function convertReferencesToCompactMarkdownImpl(text: string, referencesLabel: string, appendList: boolean): string {
   // Step 1: Parse all references using existing function
   const references = parseSourceReferences(text)
 
@@ -447,25 +456,53 @@ export function convertReferencesToCompactMarkdown(text: string, referencesLabel
     }
   }
 
-  // Step 5: Build reference list
+  // Step 5+6: Optionally append reference list at the bottom of the message.
+  // Skipped when the caller renders references separately below the message
+  // bubble (e.g. AskChatView's unified ReferencesList).
+  if (!appendList) {
+    return result
+  }
   const refListLines: string[] = [`\n\n${referencesLabel}:`]
-
-  // Iterate through reference map in insertion order (Map preserves order)
   for (const [, refData] of referenceMap) {
     let refListItem: string
     if (refData.type === 'url') {
-      // External URL - render as clickable link
       refListItem = `[${refData.number}] - [${refData.id}](${refData.id})`
     } else {
       refListItem = `[${refData.number}] - [${refData.type}:${refData.id}](#ref-${refData.type}-${refData.id})`
     }
     refListLines.push(refListItem)
   }
+  return result + refListLines.join('\n')
+}
 
-  // Step 6: Append reference list to result
-  result = result + refListLines.join('\n')
-
-  return result
+/**
+ * Extract the sources / notes / URLs actually cited in a message, deduplicated
+ * and preserving first-appearance order. IDs are stripped of the `source:` /
+ * `note:` prefix so callers can join them with a display name from a lookup.
+ */
+export function extractCitedReferences(text: string): {
+  sources: string[]
+  notes: string[]
+  urls: string[]
+} {
+  const parsed = parseSourceReferences(text)
+  const sources = new Set<string>()
+  const notes = new Set<string>()
+  const urls = new Set<string>()
+  for (const ref of parsed) {
+    if (ref.type === 'source' || ref.type === 'source_insight') {
+      sources.add(ref.id)
+    } else if (ref.type === 'note') {
+      notes.add(ref.id)
+    } else if (ref.type === 'url') {
+      urls.add(ref.id)
+    }
+  }
+  return {
+    sources: [...sources],
+    notes: [...notes],
+    urls: [...urls],
+  }
 }
 
 /**

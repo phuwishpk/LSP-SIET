@@ -259,14 +259,22 @@ async def get_global_session(
         )
         state_values = current_state.values if current_state else {}
         raw_messages: list = state_values.get("messages", [])
+        # The context stored alongside the messages is the one that was fed
+        # to the model, so URL allowlist / verbatim-context checks stay
+        # consistent whether the message is streamed live or replayed later.
+        stored_context = state_values.get("context") or {}
 
         messages: List[ChatMessage] = []
         for msg in raw_messages:
+            content = msg.content if hasattr(msg, "content") else str(msg)
+            msg_type = msg.type if hasattr(msg, "type") else "unknown"
+            if msg_type == "ai" and isinstance(content, str):
+                content = _filter_url_citations(content, stored_context)
             messages.append(
                 ChatMessage(
                     id=getattr(msg, "id", f"msg_{len(messages)}"),
-                    type=msg.type if hasattr(msg, "type") else "unknown",
-                    content=msg.content if hasattr(msg, "content") else str(msg),
+                    type=msg_type,
+                    content=content,
                     timestamp=None,
                 )
             )
@@ -984,9 +992,18 @@ async def build_context(request: BuildContextRequest):
 _ALLOWED_URL_HOSTS = {
     "kmitl.ac.th",
     "www.kmitl.ac.th",
+    # Verified faculty/department subdomains — add more here after checking
+    # they resolve. Do NOT add speculative "kmitl-looking" hosts.
+    "siet.kmitl.ac.th",  # School of Industrial Education and Technology (ครุศาสตร์อุตสาหกรรม)
 }
 _URL_HOST_PATTERN = re.compile(
     r"^https?://([^/:?#]+)", re.IGNORECASE
+)
+# Match markdown link: [label](url) — handled before plain URL stripping so we
+# can also strip the surrounding [] and () when the URL fails the filter (leaving
+# just the label). Otherwise plain-URL stripping would leave broken `[label]()`.
+_MARKDOWN_LINK = re.compile(
+    r"\[([^\]]*)\]\((https?://[^)\s]+)\)", re.IGNORECASE
 )
 # Match ANY http(s) URL in prose (not just [url:...]) so plain-text hallucinated
 # URLs like "see https://fiet.kmitl.ac.th" also get stripped by the same
@@ -1024,13 +1041,26 @@ def _is_url_allowed(url: str, allowed_texts: List[str]) -> bool:
 
 def _filter_url_citations(content: str, context: Dict[str, Any]) -> str:
     """
-    Strip URL citations (both bracketed `[url:...]` and plain `https://...`)
-    that are not on the KMITL allowlist AND not present in the CONTEXT that
-    was fed to the model. Leaves surrounding prose intact.
+    Strip URL citations of three shapes when the URL is not on the KMITL
+    allowlist AND not present in the CONTEXT that was fed to the model:
+      1. Markdown links `[label](url)` → replaced with just `label`.
+      2. Bracketed citations `[url:...]` → removed entirely.
+      3. Plain URLs `https://...` in prose → removed (trailing punctuation kept).
+    Order matters: markdown links first, so plain-URL stripping doesn't leave
+    a broken `[label]()` shell behind.
     """
     if not content:
         return content
     allowed_texts = _collect_context_texts(context)
+
+    def _markdown(match: "re.Match[str]") -> str:
+        label, url = match.group(1), match.group(2).strip()
+        if _is_url_allowed(url, allowed_texts):
+            return match.group(0)
+        logger.info(f"Stripping hallucinated URL citation (markdown link): {url}")
+        return label
+
+    result = _MARKDOWN_LINK.sub(_markdown, content)
 
     def _bracketed(match: "re.Match[str]") -> str:
         url = match.group(1).strip()
@@ -1039,10 +1069,10 @@ def _filter_url_citations(content: str, context: Dict[str, Any]) -> str:
         logger.info(f"Stripping hallucinated URL citation (bracketed): {url}")
         return ""
 
-    result = _URL_CITATION.sub(_bracketed, content)
+    result = _URL_CITATION.sub(_bracketed, result)
 
     def _plain(match: "re.Match[str]") -> str:
-        url = match.group(0).rstrip(".,;:!?)")
+        url = match.group(0).rstrip(".,;:!?)]")
         trailing = match.group(0)[len(url):]
         if _is_url_allowed(url, allowed_texts):
             return match.group(0)

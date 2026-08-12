@@ -19,7 +19,7 @@ import { ContextIndicator } from '@/components/common/ContextIndicator'
 import { SessionManager } from '@/components/source/SessionManager'
 import { MessageActions } from '@/components/source/MessageActions'
 import { ReferencesList } from '@/components/common/ReferencesList'
-import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent } from '@/lib/utils/source-references'
+import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent, extractCitedReferences } from '@/lib/utils/source-references'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/hooks/use-translation'
@@ -224,12 +224,47 @@ export function ChatPanel({
                           content={message.content}
                           notebookId={notebookId}
                         />
-                        {references && (references.sources.length > 0 || references.notes.length > 0) && (
-                          <ReferencesList
-                            sources={references.sources}
-                            notes={references.notes}
-                          />
-                        )}
+                        {(() => {
+                          // Unified reference list for THIS message:
+                          //   - Every notebook source/note that was fed as CONTEXT
+                          //     (these are the primary RAG references — always show
+                          //     them when a notebook is selected, even if the AI
+                          //     forgot to add an inline [source:xxx] citation).
+                          //   - Plus any AI-cited source/note IDs that aren't already
+                          //     in the notebook context (defensive).
+                          //   - Plus URLs the AI cited that survived the backend
+                          //     allowlist filter.
+                          const contextSources = references?.sources ?? []
+                          const contextNotes = references?.notes ?? []
+                          const cited = extractCitedReferences(message.content)
+
+                          const seenSources = new Set(contextSources.map((s) => s.id))
+                          const extraCitedSources = cited.sources
+                            .map((id) => (id.startsWith('source:') ? id : `source:${id}`))
+                            .filter((id) => !seenSources.has(id))
+                            .map((id) => ({ id }))
+
+                          const seenNotes = new Set(contextNotes.map((n) => n.id))
+                          const extraCitedNotes = cited.notes
+                            .map((id) => (id.startsWith('note:') ? id : `note:${id}`))
+                            .filter((id) => !seenNotes.has(id))
+                            .map((id) => ({ id }))
+
+                          const allSources = [...contextSources, ...extraCitedSources]
+                          const allNotes = [...contextNotes, ...extraCitedNotes]
+
+                          const hasAny =
+                            allSources.length > 0 ||
+                            allNotes.length > 0 ||
+                            cited.urls.length > 0
+                          return hasAny ? (
+                            <ReferencesList
+                              sources={allSources}
+                              notes={allNotes}
+                              urls={cited.urls}
+                            />
+                          ) : null
+                        })()}
                       </>
                     )}
                   </div>
@@ -354,7 +389,10 @@ export function ChatPanel({
   )
 }
 
-// Helper component to render AI messages with clickable references
+// Helper component to render AI messages with clickable references.
+// The inline "References:" list is intentionally suppressed here — a unified
+// list (sources + notes + URLs cited in this message) is rendered by ChatPanel
+// via <ReferencesList> below the message bubble.
 function AIMessageContent({
   content,
   onReferenceClick
@@ -363,16 +401,14 @@ function AIMessageContent({
   onReferenceClick: (type: string, id: string) => void
 }) {
   const { t } = useTranslation()
-  // Convert references to compact markdown with numbered citations
-  const markdownWithCompactRefs = convertReferencesToCompactMarkdown(content, t('common.references'))
-
-  // Create custom link component for compact references
+  const markdownWithCompactRefs = convertReferencesToCompactMarkdown(
+    content,
+    t('common.references'),
+    { appendList: false }
+  )
   const LinkComponent = createCompactReferenceLinkComponent(onReferenceClick)
-
   return (
-    <MarkdownRenderer components={{
-      a: LinkComponent
-    }}>
+    <MarkdownRenderer components={{ a: LinkComponent }}>
       {markdownWithCompactRefs}
     </MarkdownRenderer>
   )
