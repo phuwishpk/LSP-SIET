@@ -175,6 +175,10 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
   // Send message (synchronous, no streaming)
   const sendMessage = useCallback(async (message: string, modelOverride?: string) => {
     let sessionId = currentSessionId
+    // Track whether we just created this session so we can auto-title it once
+    // the LLM has replied. Setting the title before the reply would race the
+    // stream and show a truncated placeholder to the user.
+    let isNewSession = false
 
     // Auto-create session if none exists
     if (!sessionId) {
@@ -189,6 +193,7 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
           model_override: pendingModelOverride ?? undefined
         })
         sessionId = newSession.id
+        isNewSession = true
         setCurrentSessionId(sessionId)
         // Clear pending model override now that it's applied to the session
         setPendingModelOverride(null)
@@ -227,6 +232,20 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
 
       // Refetch current session to get updated data
       await refetchCurrentSession()
+
+      // Fire-and-forget: generate a proper chat title for brand-new sessions
+      // now that the LLM has replied. Any failure is silent — the truncated
+      // placeholder title stays as a fallback.
+      if (isNewSession && sessionId) {
+        chatApi.autoTitleSession(sessionId)
+          .then(() => {
+            queryClient.invalidateQueries({
+              queryKey: QUERY_KEYS.notebookChatSessions(notebookId)
+            })
+            refetchCurrentSession()
+          })
+          .catch(() => {})
+      }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } }, message?: string };
       console.error('Error sending message:', error)

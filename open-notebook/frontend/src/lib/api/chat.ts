@@ -54,6 +54,13 @@ export const chatApi = {
     await apiClient.delete(`/chat/sessions/${sessionId}`)
   },
 
+  autoTitleSession: async (sessionId: string) => {
+    const response = await apiClient.post<{ title: string }>(
+      `/chat/sessions/${sessionId}/auto-title`
+    )
+    return response.data
+  },
+
   // Messaging (synchronous, no streaming)
   sendMessage: async (data: SendNotebookChatMessageRequest) => {
     const response = await apiClient.post<{
@@ -112,6 +119,13 @@ export const globalChatApi = {
 
   deleteSession: async (sessionId: string) => {
     await apiClient.delete(`/chat/global/sessions/${sessionId}`)
+  },
+
+  autoTitleSession: async (sessionId: string) => {
+    const response = await apiClient.post<{ title: string }>(
+      `/chat/global/sessions/${sessionId}/auto-title`
+    )
+    return response.data
   },
 
   sendMessage: async (data: ExecuteGlobalChatRequest) => {

@@ -359,6 +359,94 @@ async def update_global_session(
         )
 
 
+async def _generate_chat_title(seed_text: str) -> str:
+    """
+    Ask the default chat model to produce a concise chat title from the
+    user's opening message. Falls back to a 40-char truncation of the seed
+    when the LLM call fails so title generation never blocks the reply.
+    """
+    seed_text = (seed_text or "").strip()
+    if not seed_text:
+        return "New Chat"
+    fallback = seed_text[:40] + ("…" if len(seed_text) > 40 else "")
+    try:
+        from open_notebook.graphs.prompt import graph as prompt_graph
+
+        prompt = (
+            "Summarise the user's chat question into a short, descriptive Thai/English "
+            "title for the conversation. Rules: 3–8 words, no quotes, no trailing "
+            "punctuation, no emoji, keep language of the source, do not answer the "
+            "question — just title it."
+        )
+        result = await prompt_graph.ainvoke(
+            {  # type: ignore[arg-type]
+                "input_text": seed_text[:800],
+                "prompt": prompt,
+            }
+        )
+        title = str(result.get("output") or "").strip()
+        # Strip surrounding quotes / trailing punctuation the model sometimes adds.
+        title = title.strip('\"\'“”‘’ .,:;-—')
+        if not title:
+            return fallback
+        return title[:80]
+    except Exception as exc:
+        logger.warning(f"auto-title: LLM call failed, using fallback: {exc}")
+        return fallback
+
+
+class AutoTitleResponse(BaseModel):
+    title: str = Field(..., description="AI-generated chat title")
+
+
+@router.post(
+    "/chat/global/sessions/{session_id}/auto-title",
+    response_model=AutoTitleResponse,
+)
+async def auto_title_global_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Regenerate the session title from the first user message via LLM."""
+    try:
+        full_session_id = (
+            session_id
+            if session_id.startswith("global_chat_session:")
+            else f"global_chat_session:{session_id}"
+        )
+        session = await GlobalChatSession.get(full_session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        current_state = await asyncio.to_thread(
+            chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+        )
+        first_user = ""
+        for msg in (current_state.values.get("messages") if current_state else []) or []:
+            if getattr(msg, "type", None) in {"human", "user"}:
+                first_user = str(getattr(msg, "content", "") or "")
+                break
+        if not first_user:
+            raise HTTPException(status_code=400, detail="Session has no user message yet")
+
+        title = await _generate_chat_title(first_user)
+        session.title = title
+        session.updated = None
+        await session.save()
+        return AutoTitleResponse(title=title)
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Session not found")
+    except Exception as e:
+        logger.error(f"Error auto-titling global session: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.delete("/chat/global/sessions/{session_id}", response_model=SuccessResponse)
 async def delete_global_session(
     session_id: str,
@@ -763,6 +851,54 @@ async def update_session(
     except Exception as e:
         logger.error(f"Error updating session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating session: {str(e)}")
+
+
+@router.post(
+    "/chat/sessions/{session_id}/auto-title",
+    response_model=AutoTitleResponse,
+)
+async def auto_title_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Regenerate a notebook chat session title from the first user message."""
+    try:
+        full_session_id = (
+            session_id
+            if session_id.startswith("chat_session:")
+            else f"chat_session:{session_id}"
+        )
+        session = await ChatSession.get(full_session_id)
+        if not session:
+            raise HTTPException(status_code=404, detail="Session not found")
+        session_owner = getattr(session, "owner_id", None)
+        if session_owner is not None and session_owner != owner_id:
+            raise HTTPException(status_code=404, detail="Session not found")
+
+        current_state = await asyncio.to_thread(
+            chat_graph.get_state,
+            config=RunnableConfig(configurable={"thread_id": full_session_id}),
+        )
+        first_user = ""
+        for msg in (current_state.values.get("messages") if current_state else []) or []:
+            if getattr(msg, "type", None) in {"human", "user"}:
+                first_user = str(getattr(msg, "content", "") or "")
+                break
+        if not first_user:
+            raise HTTPException(status_code=400, detail="Session has no user message yet")
+
+        title = await _generate_chat_title(first_user)
+        session.title = title
+        session.updated = None
+        await session.save()
+        return AutoTitleResponse(title=title)
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Session not found")
+    except Exception as e:
+        logger.error(f"Error auto-titling notebook chat session: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.delete("/chat/sessions/{session_id}", response_model=SuccessResponse)

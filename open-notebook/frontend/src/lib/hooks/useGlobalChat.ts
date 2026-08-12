@@ -332,6 +332,11 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     const controller = new AbortController()
     abortControllerRef.current = controller
 
+    // Track whether we just created this session so we can auto-title it
+    // after the reply arrives (auto-titling before the reply would race the
+    // stream and expose the truncated placeholder to the user).
+    let isNewSession = false
+
     // Auto-create session if none exists
     if (!sessionId) {
       try {
@@ -343,6 +348,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
           model_override: pendingModelOverride ?? undefined
         })
         sessionId = newSession.id
+        isNewSession = true
         setCurrentSessionId(sessionId)
         setPendingModelOverride(null)
         queryClient.invalidateQueries({
@@ -464,6 +470,16 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
             // Refetch session to update metadata
             await refetchCurrentSession()
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.globalChatSessions })
+            // Fire-and-forget: rename the session using the LLM once the reply
+            // is done. Placeholder title (truncated message) stays as fallback.
+            if (isNewSession && sessionId) {
+              globalChatApi.autoTitleSession(sessionId)
+                .then(() => {
+                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.globalChatSessions })
+                  refetchCurrentSession()
+                })
+                .catch(() => {})
+            }
           } else if (event.type === 'error') {
             toast.error(event.message)
             // Remove optimistic messages on error
