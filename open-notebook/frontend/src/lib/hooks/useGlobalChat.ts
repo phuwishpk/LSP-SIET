@@ -300,7 +300,13 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       charCount: result.char_count
     })
 
-    return result
+    // Return the flat context payload (`{sources, notes}`) — the /chat/context
+    // endpoint wraps it in `{context, token_count, char_count}`, but the
+    // downstream /chat/global/execute/stream expects the flat shape so the
+    // backend course-code verifier and RELEVANT_EXCERPTS pinner can read
+    // `context.sources[].full_text`. Sending the wrapper made both silently
+    // no-op because `context.sources` was undefined.
+    return result.context
   }, [params.notebookId])
 
   // Parse an SSE line "data: {...}" into a typed event
@@ -392,6 +398,8 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
           message,
           context,
           model_override: model,
+          // Enables backend semantic-search pinning (RELEVANT_EXCERPTS)
+          notebook_id: params.notebookId,
         }),
         signal: controller.signal,
       })

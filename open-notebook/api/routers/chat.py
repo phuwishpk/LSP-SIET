@@ -145,6 +145,14 @@ class ExecuteGlobalChatRequest(BaseModel):
         None,
         description="Session title. Only used when creating a new session.",
     )
+    notebook_id: Optional[str] = Field(
+        None,
+        description=(
+            "Notebook the chat is scoped to. When set, the server pins the top-k "
+            "semantic-search matches for the user's message to the top of the "
+            "context so the model focuses on the most relevant chunks."
+        ),
+    )
 
 
 class ExecuteGlobalChatResponse(BaseModel):
@@ -270,6 +278,7 @@ async def get_global_session(
             msg_type = msg.type if hasattr(msg, "type") else "unknown"
             if msg_type == "ai" and isinstance(content, str):
                 content = _filter_url_citations(content, stored_context)
+                content = await _verify_course_codes(content, stored_context)
             messages.append(
                 ChatMessage(
                     id=getattr(msg, "id", f"msg_{len(messages)}"),
@@ -428,14 +437,18 @@ async def execute_global_chat(
             else getattr(session, "model_override", None)
         )
 
-        # Get current LangGraph state
+        # Get current LangGraph state — pin semantic-search excerpts when a
+        # notebook_id is supplied (mirrors the streaming variant).
         current_state = await asyncio.to_thread(
             chat_graph.get_state,
             config=RunnableConfig(configurable={"thread_id": full_session_id}),
         )
+        pinned_context = await _pin_relevant_excerpts(
+            request.context or {}, request.notebook_id, request.message
+        )
         state_values = current_state.values if current_state else {}
         state_values["messages"] = state_values.get("messages", [])
-        state_values["context"] = request.context
+        state_values["context"] = pinned_context
         state_values["notebook"] = None  # No notebook scope for global chat
         state_values["model_override"] = model_override
 
@@ -460,14 +473,19 @@ async def execute_global_chat(
         # Update session timestamp
         await session.save()
 
-        # Convert messages
+        # Convert messages (URL + course-code filtering)
         messages: List[ChatMessage] = []
         for msg in result.get("messages", []):
+            content = msg.content if hasattr(msg, "content") else str(msg)
+            msg_type = msg.type if hasattr(msg, "type") else "unknown"
+            if msg_type == "ai" and isinstance(content, str):
+                content = _filter_url_citations(content, pinned_context)
+                content = await _verify_course_codes(content, pinned_context)
             messages.append(
                 ChatMessage(
                     id=getattr(msg, "id", f"msg_{len(messages)}"),
-                    type=msg.type if hasattr(msg, "type") else "unknown",
-                    content=msg.content if hasattr(msg, "content") else str(msg),
+                    type=msg_type,
+                    content=content,
                     timestamp=None,
                 )
             )
@@ -619,15 +637,27 @@ async def get_session(
             config=RunnableConfig(configurable={"thread_id": full_session_id}),
         )
 
-        # Extract messages from state
+        # Extract messages from state — apply URL/course-code filters on replay
+        # so hallucinated URLs from older responses get stripped and fake course
+        # codes get flagged with ⚠️ instead of silently misleading the reader.
         messages: list[ChatMessage] = []
+        stored_context = (
+            thread_state.values.get("context")
+            if thread_state and thread_state.values
+            else None
+        ) or {}
         if thread_state and thread_state.values and "messages" in thread_state.values:
             for msg in thread_state.values["messages"]:
+                content = msg.content if hasattr(msg, "content") else str(msg)
+                msg_type = msg.type if hasattr(msg, "type") else "unknown"
+                if msg_type == "ai" and isinstance(content, str):
+                    content = _filter_url_citations(content, stored_context)
+                    content = await _verify_course_codes(content, stored_context)
                 messages.append(
                     ChatMessage(
                         id=getattr(msg, "id", f"msg_{len(messages)}"),
-                        type=msg.type if hasattr(msg, "type") else "unknown",
-                        content=msg.content if hasattr(msg, "content") else str(msg),
+                        type=msg_type,
+                        content=content,
                         timestamp=None,  # LangChain messages don't have timestamps by default
                     )
                 )
@@ -813,10 +843,16 @@ async def execute_chat(
             config=RunnableConfig(configurable={"thread_id": full_session_id}),
         )
 
-        # Prepare state for execution
+        # Prepare state for execution — pin semantic-search excerpts from the
+        # linked notebook so the model sees the most relevant chunks first
+        # (mirrors the streaming global-chat behaviour).
         state_values = current_state.values if current_state else {}
         state_values["messages"] = state_values.get("messages", [])
-        state_values["context"] = request.context
+        notebook_id_for_pin = notebook.id if notebook else None
+        pinned_context = await _pin_relevant_excerpts(
+            request.context or {}, notebook_id_for_pin, request.message
+        )
+        state_values["context"] = pinned_context
         state_values["notebook"] = notebook
         state_values["model_override"] = model_override
 
@@ -844,14 +880,19 @@ async def execute_chat(
         # Update session timestamp
         await session.save()
 
-        # Convert messages to response format
+        # Convert messages to response format (URL + course-code filtering)
         messages: list[ChatMessage] = []
         for msg in result.get("messages", []):
+            content = msg.content if hasattr(msg, "content") else str(msg)
+            msg_type = msg.type if hasattr(msg, "type") else "unknown"
+            if msg_type == "ai" and isinstance(content, str):
+                content = _filter_url_citations(content, pinned_context)
+                content = await _verify_course_codes(content, pinned_context)
             messages.append(
                 ChatMessage(
                     id=getattr(msg, "id", f"msg_{len(messages)}"),
-                    type=msg.type if hasattr(msg, "type") else "unknown",
-                    content=msg.content if hasattr(msg, "content") else str(msg),
+                    type=msg_type,
+                    content=content,
                     timestamp=None,
                 )
             )
@@ -992,9 +1033,23 @@ async def build_context(request: BuildContextRequest):
 _ALLOWED_URL_HOSTS = {
     "kmitl.ac.th",
     "www.kmitl.ac.th",
-    # Verified faculty/department subdomains — add more here after checking
-    # they resolve. Do NOT add speculative "kmitl-looking" hosts.
-    "siet.kmitl.ac.th",  # School of Industrial Education and Technology (ครุศาสตร์อุตสาหกรรม)
+    # Verified faculty / department / service subdomains. Add more here after
+    # a human has visited the URL and confirmed it resolves. Do NOT add
+    # speculative "kmitl-looking" hosts — they defeat the filter's purpose.
+    "siet.kmitl.ac.th",           # ครุศาสตร์อุตสาหกรรมและเทคโนโลยี — Industrial Education & Technology
+    "eng.kmitl.ac.th",            # คณะวิศวกรรมศาสตร์ — Engineering
+    "it.kmitl.ac.th",             # คณะเทคโนโลยีสารสนเทศ — Information Technology
+    "reg.kmitl.ac.th",            # สำนักทะเบียนและประมวลผล — Registrar
+    "www.reg.kmitl.ac.th",
+    "science.kmitl.ac.th",        # คณะวิทยาศาสตร์ — Faculty of Science
+    "www.science.kmitl.ac.th",
+    "osda.kmitl.ac.th",           # สำนักกิจการนักศึกษา — Office of Student Development Affairs
+    "gened.kmitl.ac.th",          # สำนักวิชาศึกษาทั่วไป — General Education
+    "www.gened.kmitl.ac.th",
+    "kbs.kmitl.ac.th",            # KMITL Business School — คณะบริหารธุรกิจ
+    "www.kbs.kmitl.ac.th",
+    "curriculum.kmitl.ac.th",     # ระบบข้อมูลหลักสูตร — canonical source of truth for curriculum details
+                                  # (department/24 = ครุศาสตร์อุตสาหกรรมและเทคโนโลยี)
 }
 _URL_HOST_PATTERN = re.compile(
     r"^https?://([^/:?#]+)", re.IGNORECASE
@@ -1014,9 +1069,31 @@ _PLAIN_URL = re.compile(
 _URL_CITATION = re.compile(r"\[url:([^\]]+)\]")
 
 
+def _unwrap_context(context: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    The /chat/context endpoint returns `{context: {sources, notes}, token_count, ...}`.
+    Older frontend builds forwarded that whole envelope to the streaming
+    endpoint as `context`, which made every downstream check (URL allowlist,
+    course-code verify, RELEVANT_EXCERPTS pin) silently no-op. Accept both
+    shapes here so historic sessions still filter correctly on replay.
+    """
+    if not isinstance(context, dict):
+        return {}
+    if "sources" in context or "notes" in context or "relevant_excerpts" in context:
+        return context
+    inner = context.get("context")
+    if isinstance(inner, dict):
+        return inner
+    return context
+
+
 def _collect_context_texts(context: Dict[str, Any]) -> List[str]:
     """Flatten every text field the model was shown, for verbatim URL matching."""
+    context = _unwrap_context(context)
     texts: List[str] = []
+    for ex in (context.get("relevant_excerpts") or []):
+        if isinstance(ex, dict) and ex.get("text"):
+            texts.append(str(ex["text"]))
     for src in (context.get("sources") or []):
         if isinstance(src, dict):
             if src.get("full_text"):
@@ -1028,6 +1105,86 @@ def _collect_context_texts(context: Dict[str, Any]) -> List[str]:
         if isinstance(note, dict) and note.get("content"):
             texts.append(str(note["content"]))
     return texts
+
+
+# Course-code-like tokens. Two patterns commonly hallucinated by the model:
+#   - KMITL faculty codes: 8 digits, often starting with 03 (e.g. 03206107).
+#   - General studies codes: 8 digits often starting with 90.
+# The AI sometimes writes them with dashes/spaces (03-406-101 / 03 406 101).
+# We normalise by stripping whitespace/dashes before the verbatim CONTEXT check.
+_COURSE_CODE = re.compile(
+    r"(?<![\d.])\d{2}[-\s]?\d{3}[-\s]?\d{3}(?![\d.])"
+)
+
+
+def _normalise_code(token: str) -> str:
+    return re.sub(r"[\s\-]", "", token)
+
+
+async def _fetch_source_full_texts(source_ids: List[str]) -> str:
+    """
+    Pull the raw full_text of every source referenced in the context so that
+    course-code verification can trust the source of truth (the actual PDF /
+    extracted document) instead of the maybe-truncated blob that was fed to
+    the LLM. Fixes the false-positive where the user picks "insights only"
+    mode — full_text is omitted from context, so verify would otherwise flag
+    every real course code as fabricated.
+    """
+    if not source_ids:
+        return ""
+    try:
+        from open_notebook.database.repository import ensure_record_id, repo_query
+
+        rows = await repo_query(
+            "SELECT full_text FROM source WHERE id IN $ids",
+            {"ids": [ensure_record_id(sid) for sid in source_ids]},
+        )
+    except Exception as exc:
+        logger.warning(f"verify: cannot fetch source full_text: {exc}")
+        return ""
+    parts: List[str] = []
+    for row in rows or []:
+        ft = row.get("full_text") if isinstance(row, dict) else None
+        if ft:
+            parts.append(str(ft))
+    return "\n".join(parts)
+
+
+async def _verify_course_codes(content: str, context: Dict[str, Any]) -> str:
+    """
+    Every code-like token the model emits must match a code found in CONTEXT
+    or in the source's full_text (fetched from DB when the context blob is
+    thin — e.g. "insights only" mode). Codes that don't match are wrapped
+    with a visible warning so the reader sees the fabrication instead of
+    the model's number being trusted at face value.
+
+    Async because it may need to hit SurrealDB for a full_text fallback and
+    callers are already async request handlers.
+    """
+    if not content:
+        return content
+    context_blob = "\n".join(_collect_context_texts(context))
+    unwrapped = _unwrap_context(context)
+    source_ids: List[str] = []
+    for s in unwrapped.get("sources") or []:
+        if isinstance(s, dict) and s.get("id"):
+            source_ids.append(str(s["id"]))
+    if source_ids:
+        # Always augment with full_text from DB so context mode (insights vs
+        # full content) doesn't change verification behaviour.
+        context_blob = context_blob + "\n" + await _fetch_source_full_texts(source_ids)
+    if not context_blob.strip():
+        return content
+    normalised_context = _normalise_code(context_blob)
+
+    def _check(match: "re.Match[str]") -> str:
+        token = match.group(0)
+        if _normalise_code(token) in normalised_context:
+            return token
+        logger.info(f"Flagging unverified course code: {token}")
+        return f"⚠️`{token}` (รหัสไม่พบในเอกสาร)"
+
+    return _COURSE_CODE.sub(_check, content)
 
 
 def _is_url_allowed(url: str, allowed_texts: List[str]) -> bool:
@@ -1086,11 +1243,110 @@ def _filter_url_citations(content: str, context: Dict[str, Any]) -> str:
 # Global Chat SSE Streaming endpoint
 # =============================================================================
 
+async def _pin_relevant_excerpts(
+    context: Dict[str, Any], notebook_id: Optional[str], query: str
+) -> Dict[str, Any]:
+    """
+    Semantic-search over the notebook's `source_embedding` chunks for the
+    user's query and prepend the top matches to the CONTEXT as
+    `context["relevant_excerpts"]`. The full-text sources stay intact
+    underneath, so the model still has the whole document as fallback.
+    Falls back silently if embeddings are missing or SurrealDB rejects the
+    query — the model then just sees the full context as before.
+    """
+    if not notebook_id or not (query and query.strip()):
+        return context
+    unwrapped = _unwrap_context(context)
+    sources = unwrapped.get("sources") or []
+    if not sources:
+        return context
+    source_ids: List[Any] = []
+    for s in sources:
+        sid = s.get("id") if isinstance(s, dict) else None
+        if sid:
+            source_ids.append(sid)
+    if not source_ids:
+        return context
+
+    try:
+        from open_notebook.database.repository import ensure_record_id, repo_query
+        from open_notebook.utils.embedding import generate_embedding
+
+        embed = await generate_embedding(query)
+        # Direct source_embedding search — avoids stored fn::vector_search_in_notebook
+        # which is missing from this SurrealDB instance (migration mismatch).
+        # Over-fetch (36) then dedupe in Python: chunks here are duplicated ~3x
+        # from repeated embedding runs, so a small LIMIT starves the top-k of
+        # unique passages and the model never sees the second-most-relevant
+        # material. This was the root cause of "ปีที่ 1 ภาคการศึกษาที่ 2" being
+        # reported as "not in document".
+        rows = await repo_query(
+            """
+            SELECT source, content,
+                   vector::similarity::cosine(embedding, $q) AS sim
+            FROM source_embedding
+            WHERE source IN $sources
+              AND vector::similarity::cosine(embedding, $q) >= $min_sim
+            ORDER BY sim DESC
+            LIMIT 36
+            """,
+            {
+                "q": embed,
+                "sources": [ensure_record_id(sid) for sid in source_ids],
+                "min_sim": 0.2,
+            },
+        )
+    except Exception as exc:
+        logger.warning(f"Skipping relevant-excerpt pinning: {exc}")
+        return context
+
+    title_by_id = {s.get("id"): s.get("title") for s in sources if isinstance(s, dict)}
+    excerpts: List[Dict[str, Any]] = []
+    seen_prefixes: set = set()
+    max_excerpts = 6
+    for row in rows or []:
+        parent = str(row.get("source")) if row.get("source") is not None else None
+        content_text = row.get("content") or ""
+        if not content_text:
+            continue
+        # Chunks often overlap heavily and this DB has each chunk indexed ~3x
+        # from repeated embed runs; dedupe by the first 120 chars so we don't
+        # waste context on near-identical excerpts.
+        key = str(content_text)[:120]
+        if key in seen_prefixes:
+            continue
+        seen_prefixes.add(key)
+        excerpts.append(
+            {
+                "parent_id": parent,
+                "title": title_by_id.get(parent, ""),
+                "similarity": float(row.get("sim") or 0.0),
+                "text": str(content_text)[:1500],
+            }
+        )
+        if len(excerpts) >= max_excerpts:
+            break
+    if excerpts:
+        # Attach the excerpts inside whichever shape was passed. If we received
+        # the /chat/context envelope, put them under `context.context` so the
+        # prompt template's `{{ context.relevant_excerpts }}` lookup still hits.
+        if unwrapped is context:
+            context = {**context, "relevant_excerpts": excerpts}
+        else:
+            merged_inner = {**unwrapped, "relevant_excerpts": excerpts}
+            context = {**context, "context": merged_inner, **merged_inner}
+        logger.info(
+            f"Pinned {len(excerpts)} relevant excerpt(s) for notebook {notebook_id}"
+        )
+    return context
+
+
 async def _stream_global_chat_response(
     session_id: str,
     message: str,
     context: Dict[str, Any],
     model_override: Optional[str] = None,
+    notebook_id: Optional[str] = None,
 ) -> Any:
     """
     Async generator that yields SSE frames for the global chat response.
@@ -1110,6 +1366,12 @@ async def _stream_global_chat_response(
         )
         state_values = current_state.values if current_state else {}
         state_values["messages"] = state_values.get("messages", [])
+        # Pin the top semantic-search excerpts for the user's query so the model
+        # sees the most relevant chunks first (approach 4). Stored in the same
+        # `context` dict, keyed as `relevant_excerpts`, and persisted alongside
+        # the messages so later replay through the URL/code filters can still
+        # check tokens against the same context.
+        context = await _pin_relevant_excerpts(context, notebook_id, message)
         state_values["context"] = context
         state_values["notebook"] = None
         state_values["model_override"] = model_override
@@ -1130,10 +1392,11 @@ async def _stream_global_chat_response(
             ),
         )
 
-        # Emit AI messages (with hallucinated-URL filtering)
+        # Emit AI messages (URL + course-code hallucination filtering)
         for msg in result.get("messages", []):
             if hasattr(msg, "type") and msg.type == "ai":
                 filtered = _filter_url_citations(msg.content, context)
+                filtered = await _verify_course_codes(filtered, context)
                 yield f"data: {json.dumps({'type': 'ai_message', 'content': filtered})}\n\n"
 
         # Emit completion
@@ -1200,6 +1463,7 @@ async def execute_global_chat_stream(
                 message=request.message,
                 context=request.context or {},
                 model_override=model_override,
+                notebook_id=request.notebook_id,
             ),
             media_type="text/event-stream",
             headers={

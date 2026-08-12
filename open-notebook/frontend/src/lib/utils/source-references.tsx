@@ -49,7 +49,11 @@ export function parseSourceReferences(text: string): ParsedReference[] {
   const matches: ParsedReference[] = []
 
   // Pattern 1: (source_insight|insight|note|source):alphanumeric_id
-  const docPattern = /(source_insight|insight|note|source):([a-zA-Z0-9_]+)/g
+  // Optional inner prefix handles LLM outputs like `source:source:xxxxx`
+  // (the model sometimes re-adds `source:` even though the ID already has it).
+  // Without this the parser would treat the literal word `source` as the ID
+  // and produce URLs like /api/sources/source:source → 404.
+  const docPattern = /(source_insight|insight|note|source):(?:(?:source_insight|insight|note|source):)?([a-zA-Z0-9_]+)/g
   let match
   while ((match = docPattern.exec(text)) !== null) {
     const rawType = match[1]
@@ -209,8 +213,9 @@ export function convertSourceReferences(
  * @returns Text with references converted to markdown links
  */
 export function convertReferencesToMarkdownLinks(text: string): string {
-  // Step 1: Find ALL document references
-  const refPattern = /(source_insight|insight|note|source):([a-zA-Z0-9_]+)/g
+  // Step 1: Find ALL document references (see parseSourceReferences for why
+  // the inner double-prefix is tolerated).
+  const refPattern = /(source_insight|insight|note|source):(?:(?:source_insight|insight|note|source):)?([a-zA-Z0-9_]+)/g
   const references: Array<{ type: string; id: string; index: number; length: number }> = []
 
   let match
