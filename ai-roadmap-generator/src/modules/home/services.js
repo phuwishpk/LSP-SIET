@@ -1,5 +1,6 @@
 import { HOME_API } from "./constants";
 import mainApi from "@/infrastructure/http-client-main";
+import { getWorkspaceToken } from "@/infrastructure/workspace-client";
 
 class HomeService {
   createRoadmap = ({token, textOrder, pdfFile}) => {
@@ -8,6 +9,12 @@ class HomeService {
       formData.append("title", textOrder);
       if (token) {
         formData.append("token", token);
+      }
+      // Forward the KMITL workspace JWT (stashed by WorkspaceTokenBridge) so the
+      // API route can generate + persist the roadmap through Open Notebook.
+      const workspaceToken = getWorkspaceToken();
+      if (workspaceToken) {
+        formData.append("workspace_token", workspaceToken);
       }
       if (pdfFile) {
         formData.append("pdf", pdfFile);

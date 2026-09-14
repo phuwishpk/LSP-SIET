@@ -1,5 +1,6 @@
 import asyncio
 import sqlite3
+from datetime import date
 from typing import Annotated, Optional
 
 from ai_prompter import Prompter
@@ -27,9 +28,31 @@ class ThreadState(TypedDict):
     model_override: Optional[str]
 
 
+def _maybe_enable_google_search(model):
+    """Attach Gemini's built-in google_search tool when running on a Google model.
+
+    Non-Google models are returned untouched. Failures fall back to the plain
+    model so a broken grounding call never breaks chat.
+    """
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+    except ImportError:
+        return model
+    if not isinstance(model, ChatGoogleGenerativeAI):
+        return model
+    return model.bind(tools=[{"google_search": {}}])
+
+
 def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict:
     try:
-        system_prompt = Prompter(prompt_template="chat/system").render(data=state)  # type: ignore[arg-type]
+        today = date.today()
+        render_data = {
+            **dict(state),
+            "current_date_iso": today.isoformat(),
+            "current_year_ce": today.year,
+            "current_year_be": today.year + 543,
+        }
+        system_prompt = Prompter(prompt_template="chat/system").render(data=render_data)  # type: ignore[arg-type]
         payload = [SystemMessage(content=system_prompt)] + state.get("messages", [])
         model_id = config.get("configurable", {}).get("model_id") or state.get(
             "model_override"
@@ -70,6 +93,7 @@ def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict
                 )
             )
 
+        model = _maybe_enable_google_search(model)
         ai_message = model.invoke(payload)
 
         # Clean thinking content from AI response (e.g., <think>...</think> tags)

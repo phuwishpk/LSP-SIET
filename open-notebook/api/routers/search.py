@@ -514,7 +514,8 @@ async def _invoke_direct_answer(
         f"own knowledge. Language: {language}.\n\nQuestion: {question}"
     )
     try:
-        ai_message = await model.ainvoke(f"{system_prompt}\n\n{user_prompt}")
+        runnable = model.to_langchain() if hasattr(model, "to_langchain") else model
+        ai_message = await runnable.ainvoke(f"{system_prompt}\n\n{user_prompt}")
         return extract_text_content(ai_message.content)
     except Exception as exc:
         logger.exception(f"Direct LLM call failed for owner {owner_id}: {exc}")

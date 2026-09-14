@@ -185,10 +185,13 @@ function getRelevantPdfContext(text, query) {
 async function getRequestData(req) {
   const contentType = req.headers["content-type"] || "";
 
+  const headerToken = (req.headers["authorization"] || "").replace(/^Bearer\s+/i, "").trim() || null;
+
   if (!contentType.includes("multipart/form-data")) {
     return {
       title: req.query.title,
       token: req.query.token,
+      workspaceToken: req.query.workspace_token || headerToken,
       pdfContext: "",
       pdfFileName: null,
       pdfWarning: null,
@@ -198,12 +201,14 @@ async function getRequestData(req) {
   const { fields, files } = await parseMultipartForm(req);
   const title = firstValue(fields.title) || req.query.title;
   const token = firstValue(fields.token) || req.query.token;
+  const workspaceToken = firstValue(fields.workspace_token) || req.query.workspace_token || headerToken;
   const pdfFile = firstValue(files.pdf);
 
   if (!pdfFile) {
     return {
       title,
       token,
+      workspaceToken,
       pdfContext: "",
       pdfFileName: null,
       pdfWarning: null,
@@ -227,6 +232,7 @@ async function getRequestData(req) {
   return {
     title,
     token,
+    workspaceToken,
     pdfContext: pdfText ? getRelevantPdfContext(pdfText, title || "") : "",
     pdfFileName: pdfFile.originalFilename,
     pdfWarning,
@@ -253,7 +259,7 @@ export default async function handler(req, res) {
     })
   }
 
-  const { title, token, pdfContext, pdfFileName, pdfWarning } = requestData;
+  const { title, token, workspaceToken, pdfContext, pdfFileName, pdfWarning } = requestData;
   // config
   const maxItems = 24
   const minItems = 12
@@ -269,7 +275,7 @@ export default async function handler(req, res) {
   // Authenticated requests are generated and persisted by Open Notebook so
   // Roadmap shares the same model registry, RAG corpus and per-user storage.
   const workspaceApiUrl = process.env.OPEN_NOTEBOOK_API_URL;
-  if (workspaceApiUrl && token) {
+  if (workspaceApiUrl && workspaceToken) {
     try {
       const workspaceResponse = await fetch(
         `${workspaceApiUrl.replace(/\/$/, "")}/api/features/roadmap/generate`,
@@ -277,7 +283,7 @@ export default async function handler(req, res) {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
+            Authorization: `Bearer ${workspaceToken}`,
           },
           body: JSON.stringify({
             title,

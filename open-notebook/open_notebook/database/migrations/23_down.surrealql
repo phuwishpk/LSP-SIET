@@ -1,0 +1,4 @@
+-- Rollback migration 23: restore strict (non-flexible) object arrays.
+DEFINE FIELD OVERWRITE questions ON TABLE quiz_session TYPE array<object>;
+DEFINE FIELD OVERWRITE nodes     ON TABLE roadmap_session TYPE array<object>;
+DEFINE FIELD OVERWRITE edges     ON TABLE roadmap_session TYPE array<object>;

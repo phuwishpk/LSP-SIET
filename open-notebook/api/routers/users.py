@@ -25,6 +25,7 @@ from api.auth_jwt import (
     jwt_auth_enabled,
     optional_current_user,
 )
+from open_notebook.community import points
 from open_notebook.domain.user import (
     InvalidCredentials,
     InvalidPasswordError,
@@ -32,6 +33,7 @@ from open_notebook.domain.user import (
     User,
     UserAlreadyExists,
     create as create_user,
+    get_by_id,
     get_by_username,
     touch_last_login,
     verify_password,
@@ -64,6 +66,11 @@ class UserResponse(BaseModel):
     username: str
     display_name: Optional[str] = None
     role: str = "student"
+    email: Optional[str] = None
+    avatar_url: Optional[str] = None
+    student_id: Optional[str] = None
+    points_balance: int = 0
+    points_exempt: bool = False
     created_at: Optional[str] = None
     last_login_at: Optional[str] = None
 
@@ -79,6 +86,9 @@ class AuthStatusResponse(BaseModel):
     jwt_auth_enabled: bool
     registration_enabled: bool
     auth_required: bool
+    google_login_enabled: bool = False
+    google_login_mock: bool = False
+    allowed_domains: list[str] = []
     user: Optional[UserResponse] = None
 
 
@@ -93,9 +103,25 @@ def _to_response(user: User) -> UserResponse:
         username=user.username,
         display_name=user.display_name,
         role=user.role or "student",
+        email=user.email,
+        avatar_url=user.avatar_url,
+        student_id=user.student_id,
+        points_balance=int(user.points_balance or 0),
+        points_exempt=user.is_points_exempt,
         created_at=user.created_at,
         last_login_at=user.last_login_at,
     )
+
+
+async def _with_welcome(user: User) -> User:
+    """Grant the one-time welcome allowance and return the refreshed user."""
+    try:
+        await points.ensure_welcome(user)
+        fresh = await get_by_id(user.id or 0)
+        return fresh or user
+    except Exception as exc:  # never block login on wallet errors
+        logger.warning(f"welcome points skipped for {user.username}: {exc}")
+        return user
 
 
 def _registration_enabled() -> bool:
@@ -121,10 +147,20 @@ async def auth_status(
 ) -> AuthStatusResponse:
     """Lightweight probe that the frontend uses to decide where to redirect."""
     enabled = jwt_auth_enabled()
+    from api.routers.google_auth import (
+        allowed_domains,
+        google_config_ready,
+        google_login_enabled,
+        google_mock_enabled,
+    )
+
     return AuthStatusResponse(
         jwt_auth_enabled=enabled,
         registration_enabled=_registration_enabled(),
         auth_required=enabled,
+        google_login_enabled=google_login_enabled(),
+        google_login_mock=google_login_enabled() and not google_config_ready() and google_mock_enabled(),
+        allowed_domains=allowed_domains(),
         user=_to_response(user) if user else None,
     )
 
@@ -156,6 +192,7 @@ async def register(payload: RegisterRequest) -> TokenResponse:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
 
+    user = await _with_welcome(user)
     access_token, expires_at = issue_access_token(user)
     return TokenResponse(access_token=access_token, expires_at=expires_at, user=_to_response(user))
 
@@ -177,6 +214,7 @@ async def login(payload: LoginRequest) -> TokenResponse:
             detail="Invalid username or password",
         )
 
+    user = await _with_welcome(user)
     access_token, expires_at = issue_access_token(user)
     await touch_last_login(user.id or "")
     return TokenResponse(access_token=access_token, expires_at=expires_at, user=_to_response(user))

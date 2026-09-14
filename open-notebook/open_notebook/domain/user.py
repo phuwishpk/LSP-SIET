@@ -34,9 +34,16 @@ class _UserRow(_Base):
 
     id            = Column(Integer, primary_key=True, autoincrement=True)
     username      = Column(String(32), unique=True, nullable=False)
-    password_hash = Column(String(255), nullable=False)
+    # Nullable so Google-only (SSO) accounts can exist without a password.
+    password_hash = Column(String(255), nullable=True)
     display_name  = Column(String(128), nullable=True)
-    role          = Column(Enum("admin", "student"), nullable=False, default="student")
+    role          = Column(Enum("admin", "student", "teacher"), nullable=False, default="student")
+    # --- KMITL workspace / SSO profile fields (added by community schema) ---
+    email         = Column(String(191), nullable=True, unique=True)
+    google_sub    = Column(String(64), nullable=True, unique=True)
+    avatar_url    = Column(String(512), nullable=True)
+    student_id    = Column(String(32), nullable=True)
+    points_balance = Column(Integer, nullable=False, default=0)
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
@@ -99,6 +106,8 @@ BCRYPT_ROUNDS = 12
 
 USER_ROLE_ADMIN   = "admin"
 USER_ROLE_STUDENT = "student"
+USER_ROLE_TEACHER = "teacher"
+USER_ROLES = {USER_ROLE_ADMIN, USER_ROLE_STUDENT, USER_ROLE_TEACHER}
 
 
 # =============================================================================
@@ -138,12 +147,23 @@ class User(BaseModel):
 
     id: Optional[int] = None
     username: str
-    password_hash: str = Field(exclude=True)
+    # Empty string for SSO-only accounts (never returned through the API).
+    password_hash: str = Field(default="", exclude=True)
     display_name: Optional[str] = None
     role: str = "student"
+    email: Optional[str] = None
+    google_sub: Optional[str] = None
+    avatar_url: Optional[str] = None
+    student_id: Optional[str] = None
+    points_balance: int = 0
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     last_login_at: Optional[str] = None
+
+    @property
+    def is_points_exempt(self) -> bool:
+        """Admins and teachers are never charged points."""
+        return (self.role or "student") in {USER_ROLE_ADMIN, USER_ROLE_TEACHER}
 
     @field_validator("username")
     @classmethod
@@ -194,7 +214,12 @@ def _row_to_user(row: Any) -> User:
         username=getattr(row, "username", ""),
         password_hash=password_hash,
         display_name=getattr(row, "display_name", None),
-        role=getattr(row, "role", "student"),
+        role=getattr(row, "role", "student") or "student",
+        email=getattr(row, "email", None),
+        google_sub=getattr(row, "google_sub", None),
+        avatar_url=getattr(row, "avatar_url", None),
+        student_id=getattr(row, "student_id", None),
+        points_balance=int(getattr(row, "points_balance", 0) or 0),
         created_at=created_at.isoformat() if created_at else None,
         updated_at=updated_at.isoformat() if updated_at else None,
         last_login_at=last_login.isoformat() if last_login else None,
@@ -299,3 +324,144 @@ async def update_password(user_id: int | str, password: str) -> None:
             .where(_UserRow.id == uid)
             .values(password_hash=password_hash, updated_at=datetime.utcnow())
         )
+
+
+# =============================================================================
+# SSO / profile helpers (Google Workspace @kmitl.ac.th)
+# =============================================================================
+
+
+async def get_by_email(email: str) -> Optional[User]:
+    """Look up a user by (case-insensitive) e-mail address."""
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        return None
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow).where(_UserRow.email == normalized).limit(1)
+        )
+        row = result.scalar_one_or_none()
+    return _row_to_user(row) if row is not None else None
+
+
+async def get_by_google_sub(google_sub: str) -> Optional[User]:
+    """Look up a user by the Google account subject id."""
+    if not google_sub:
+        return None
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow).where(_UserRow.google_sub == google_sub).limit(1)
+        )
+        row = result.scalar_one_or_none()
+    return _row_to_user(row) if row is not None else None
+
+
+async def username_available(username: str) -> bool:
+    normalized = (username or "").strip().lower()
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow.id).where(_UserRow.username == normalized).limit(1)
+        )
+        return result.scalar_one_or_none() is None
+
+
+async def create_sso_user(
+    *,
+    username: str,
+    email: str,
+    google_sub: Optional[str],
+    display_name: Optional[str],
+    avatar_url: Optional[str],
+    role: str = USER_ROLE_STUDENT,
+    student_id: Optional[str] = None,
+) -> User:
+    """Create a password-less account that authenticates through Google SSO."""
+    normalized = username.strip().lower()
+    User(username=normalized)  # run the username validator
+    now = datetime.utcnow()
+    async with _mariadb_session() as session:
+        existing = await session.execute(
+            select(_UserRow.id).where(_UserRow.username == normalized).limit(1)
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise UserAlreadyExists(f"Username '{normalized}' is already taken")
+        row = _UserRow(
+            username=normalized,
+            password_hash=None,
+            display_name=display_name,
+            role=role if role in USER_ROLES else USER_ROLE_STUDENT,
+            email=email.strip().lower(),
+            google_sub=google_sub,
+            avatar_url=avatar_url,
+            student_id=student_id,
+            points_balance=0,
+            created_at=now,
+            updated_at=now,
+            last_login_at=now,
+        )
+        session.add(row)
+        await session.flush()
+        await session.refresh(row)
+    return _row_to_user(row)
+
+
+async def update_profile(
+    user_id: int | str,
+    *,
+    email: Optional[str] = None,
+    google_sub: Optional[str] = None,
+    display_name: Optional[str] = None,
+    avatar_url: Optional[str] = None,
+    role: Optional[str] = None,
+    student_id: Optional[str] = None,
+) -> Optional[User]:
+    """Patch profile fields (only the ones passed as non-None are written)."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        raise UserError(f"Invalid user_id: {user_id}")
+
+    values: Dict[str, Any] = {"updated_at": datetime.utcnow()}
+    if email is not None:
+        values["email"] = email.strip().lower()
+    if google_sub is not None:
+        values["google_sub"] = google_sub
+    if display_name is not None:
+        values["display_name"] = display_name
+    if avatar_url is not None:
+        values["avatar_url"] = avatar_url
+    if role is not None and role in USER_ROLES:
+        values["role"] = role
+    if student_id is not None:
+        values["student_id"] = student_id
+
+    async with _mariadb_session() as session:
+        await session.execute(update(_UserRow).where(_UserRow.id == uid).values(**values))
+    return await get_by_id(uid)
+
+
+async def list_users_brief(limit: int = 200) -> List[Dict[str, Any]]:
+    """Lightweight projection used by community search / leaderboards."""
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(
+                _UserRow.id,
+                _UserRow.username,
+                _UserRow.display_name,
+                _UserRow.role,
+                _UserRow.avatar_url,
+                _UserRow.points_balance,
+            ).limit(limit)
+        )
+        rows = result.all()
+    return [
+        {
+            "id": r.id,
+            "username": r.username,
+            "display_name": r.display_name,
+            "role": r.role,
+            "avatar_url": r.avatar_url,
+            "points_balance": int(r.points_balance or 0),
+        }
+        for r in rows
+    ]

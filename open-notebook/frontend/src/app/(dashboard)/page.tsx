@@ -4,12 +4,12 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { buildCrossAppLink } from '@/lib/cross-app'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { LogOut, BookOpen, GraduationCap, Map, ArrowRight, Sparkles, ExternalLink } from 'lucide-react'
+import { LogOut, BookOpen, GraduationCap, Map, ArrowRight, Sparkles, ExternalLink, Users } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 interface AppCard {
-  id: 'notebook' | 'quiz' | 'roadmap'
+  id: 'community' | 'notebook' | 'quiz' | 'roadmap'
   title: string
   description: string
   icon: React.ComponentType<{ className?: string }>
@@ -25,6 +25,18 @@ interface AppCard {
 }
 
 const APP_CARDS: AppCard[] = [
+  {
+    id: 'community',
+    title: 'SIET Space',
+    description:
+      'ชุมชนแชร์สรุป ควิซ และ Roadmap สไตล์ Facebook พร้อมกระเป๋าแต้มและ KMITL RAG AI',
+    icon: Users,
+    href: '/community',
+    external: false,
+    gradient: 'from-orange-500/15 to-rose-500/15',
+    cta: 'เข้าสู่ชุมชน',
+    badge: 'New',
+  },
   {
     id: 'notebook',
     title: 'Open Notebook',
@@ -116,7 +128,7 @@ export default function DashboardHomePage() {
             </Button>
           </header>
 
-          <section className="grid gap-4 md:grid-cols-3">
+          <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
             {APP_CARDS.map((card) => {
               const Icon = card.icon
               const isBusy = busy === card.id

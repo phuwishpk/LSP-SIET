@@ -77,6 +77,11 @@ export const sourceChatApi = {
       body: JSON.stringify(data)
     }).then(response => {
       if (!response.ok) {
+        if (response.status === 401 && typeof window !== 'undefined') {
+          localStorage.removeItem('auth-storage')
+          window.location.href = '/login'
+          throw new Error('Session expired')
+        }
         throw new Error(`HTTP error! status: ${response.status}`)
       }
       return response.body

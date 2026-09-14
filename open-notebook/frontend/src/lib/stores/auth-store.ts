@@ -8,6 +8,11 @@ export interface AuthUser {
   username: string
   display_name?: string | null
   role?: string | null
+  email?: string | null
+  avatar_url?: string | null
+  student_id?: string | null
+  points_balance?: number
+  points_exempt?: boolean
   created_at?: string | null
   last_login_at?: string | null
 }
@@ -23,8 +28,13 @@ interface AuthState {
   hasHydrated: boolean
   authRequired: boolean | null
   registrationEnabled: boolean
+  googleLoginEnabled: boolean
+  googleLoginMock: boolean
+  allowedDomains: string[]
 
   setHasHydrated: (state: boolean) => void
+  /** Store a token + user obtained outside the password flow (Google SSO). */
+  setSession: (token: string, user: AuthUser) => void
   checkAuthRequired: () => Promise<boolean>
   login: (username: string, password: string) => Promise<boolean>
   register: (
@@ -50,9 +60,23 @@ export const useAuthStore = create<AuthState>()(
       hasHydrated: false,
       authRequired: null,
       registrationEnabled: true,
+      googleLoginEnabled: false,
+      googleLoginMock: false,
+      allowedDomains: ['kmitl.ac.th'],
 
       setHasHydrated: (state: boolean) => {
         set({ hasHydrated: state })
+      },
+
+      setSession: (token: string, user: AuthUser) => {
+        set({
+          isAuthenticated: true,
+          token,
+          user,
+          isLoading: false,
+          error: null,
+          lastAuthCheck: Date.now(),
+        })
       },
 
       checkAuthRequired: async () => {
@@ -68,7 +92,15 @@ export const useAuthStore = create<AuthState>()(
           const required = Boolean(data.jwt_auth_enabled ?? data.auth_enabled)
           const registrationEnabled = Boolean(data.registration_enabled ?? true)
           const currentUser = data.user as AuthUser | undefined
-          set({ authRequired: required, registrationEnabled })
+          set({
+            authRequired: required,
+            registrationEnabled,
+            googleLoginEnabled: Boolean(data.google_login_enabled),
+            googleLoginMock: Boolean(data.google_login_mock),
+            allowedDomains: Array.isArray(data.allowed_domains) && data.allowed_domains.length
+              ? data.allowed_domains
+              : ['kmitl.ac.th'],
+          })
 
           if (!required) {
             set({ isAuthenticated: true, token: 'not-required' })

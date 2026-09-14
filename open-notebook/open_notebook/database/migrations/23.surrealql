@@ -1,0 +1,9 @@
+-- Migration 23: make nested objects in quiz/roadmap sessions FLEXIBLE.
+--
+-- SCHEMAFULL tables silently drop nested keys of `array<object>` fields unless
+-- the field is declared FLEXIBLE, so quiz questions / roadmap nodes were being
+-- persisted as empty objects (`[{}, {}]`). This keeps the schema type but
+-- allows arbitrary nested keys.
+DEFINE FIELD OVERWRITE questions ON TABLE quiz_session FLEXIBLE TYPE array<object>;
+DEFINE FIELD OVERWRITE nodes     ON TABLE roadmap_session FLEXIBLE TYPE array<object>;
+DEFINE FIELD OVERWRITE edges     ON TABLE roadmap_session FLEXIBLE TYPE array<object>;

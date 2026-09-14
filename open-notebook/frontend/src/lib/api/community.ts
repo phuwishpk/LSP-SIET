@@ -1,0 +1,438 @@
+/**
+ * SIET Space community API client (posts, points wallet, quick-ask).
+ * All paths are relative to the axios base URL which already ends in `/api`.
+ */
+import { apiClient } from '@/lib/api/client'
+import type { RoadmapEdgePayload, RoadmapNodePayload } from '@/lib/api/features'
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export type PostType = 'summary' | 'quiz' | 'roadmap' | 'question' | 'material'
+export type ReactionKind = 'like' | 'helpful'
+
+export interface CommunityUserBrief {
+  id: number | string
+  username?: string | null
+  display_name?: string | null
+  avatar_url?: string | null
+  role?: string | null
+}
+
+export interface PostCounts {
+  like: number
+  helpful: number
+  comment: number
+  share: number
+  play: number
+  follow: number
+  cashback: number
+}
+
+export interface PostViewer {
+  liked: boolean
+  helpful: boolean
+  saved: boolean
+  plays: number
+  completed_plays: number
+  imported: boolean
+}
+
+export interface QuizEmbedQuestion {
+  id: number
+  question: string
+  options: string[]
+  correct_answer?: string
+  explanation?: string
+}
+
+export interface QuizEmbed {
+  type: 'quiz'
+  id: string
+  topic?: string | null
+  language?: string | null
+  question_count: number
+  questions: QuizEmbedQuestion[]
+}
+
+export interface RoadmapEmbed {
+  type: 'roadmap'
+  id: string
+  title?: string | null
+  description?: string | null
+  nodes: RoadmapNodePayload[]
+  edges: RoadmapEdgePayload[]
+}
+
+export type PostEmbed = QuizEmbed | RoadmapEmbed
+
+export interface PostCourse {
+  id: number
+  code?: string | null
+  name?: string | null
+}
+
+export interface PostAttachment {
+  name: string
+  size?: number | null
+  mime?: string | null
+}
+
+export interface PostComment {
+  id: number
+  post_id: number
+  content: string
+  created_at: string
+  author: CommunityUserBrief
+}
+
+export interface CommunityPost {
+  id: number
+  type: PostType
+  title?: string | null
+  content?: string | null
+  tags: string[]
+  course?: PostCourse | null
+  author: CommunityUserBrief
+  is_author: boolean
+  attachment?: PostAttachment | null
+  embed?: PostEmbed | null
+  counts: PostCounts
+  viewer: PostViewer
+  created_at: string
+  updated_at?: string
+  comments?: PostComment[]
+}
+
+export interface FeedPage {
+  items: CommunityPost[]
+  next_before_id: number | null
+}
+
+export interface Course {
+  id: number
+  code: string
+  name: string
+  description?: string | null
+  member_count: number
+  post_count: number
+  joined: boolean
+}
+
+export interface PointTransaction {
+  id: number
+  delta: number
+  balance_after: number
+  kind: string
+  ref_type?: string | null
+  ref_id?: string | null
+  note?: string | null
+  created_at: string
+}
+
+export interface PointRules {
+  costs: Record<string, number>
+  welcome: number
+  rag_session_messages: number
+  cashback_per_play: number
+  cashback_max_per_post: number
+  creator_bonus_summary: number
+  helpful_bonus: number
+  exempt_roles: string[]
+}
+
+export interface UserStats {
+  posts: number
+  saved: number
+  courses: number
+  earned: number
+}
+
+export interface Wallet {
+  balance: number
+  exempt: boolean
+  role?: string | null
+  rules: PointRules
+  history: PointTransaction[]
+  stats: UserStats
+}
+
+export interface CommunityMe {
+  user: {
+    id: string
+    username: string
+    display_name?: string | null
+    email?: string | null
+    avatar_url?: string | null
+    role?: string | null
+    student_id?: string | null
+  }
+  balance: number
+  exempt: boolean
+  stats: UserStats
+}
+
+export interface LeaderboardEntry {
+  id: number
+  username: string
+  display_name?: string | null
+  avatar_url?: string | null
+  role?: string | null
+  points_balance: number
+  earned: number
+}
+
+export interface PopularRoadmap {
+  id: number
+  title?: string | null
+  author: CommunityUserBrief
+  node_count: number
+  counts: PostCounts
+  created_at: string
+}
+
+export interface CommunityNotification {
+  id: number
+  kind: string
+  message: string
+  post_id?: number | null
+  is_read: boolean
+  created_at: string
+  actor?: CommunityUserBrief | null
+}
+
+export interface NotificationsResponse {
+  items: CommunityNotification[]
+  unread_count: number
+}
+
+export interface AskCitation {
+  index: number
+  id: string
+  title: string
+  snippet: string
+  score?: number | null
+}
+
+export interface AskResponse {
+  answer: string
+  citations: AskCitation[]
+  session_id: string | null
+  credits_left: number | null
+  charged: number
+  balance: number
+}
+
+export interface QuizStartResponse {
+  play_id: number
+  free: boolean
+  questions: QuizEmbedQuestion[]
+}
+
+export interface QuizSubmitResult {
+  id: number
+  your_answer: string | null
+  correct: boolean
+  correct_answer: string
+  explanation?: string | null
+}
+
+export interface QuizSubmitResponse {
+  score: number
+  total: number
+  results: QuizSubmitResult[]
+  cashback_paid: boolean
+}
+
+export interface SearchResponse {
+  query: string
+  posts: CommunityPost[]
+  users: CommunityUserBrief[]
+  courses: Course[]
+}
+
+export interface FeedFilters {
+  course_id?: number
+  type?: PostType
+  author_id?: number
+  q?: string
+  saved?: boolean
+  my_courses?: boolean
+  embed?: string
+  order?: 'newest' | 'popular'
+  limit?: number
+}
+
+export interface CreatePostInput {
+  type: PostType
+  title?: string
+  content?: string
+  course_id?: number | null
+  tags?: string
+  embed_type?: 'quiz' | 'roadmap'
+  embed_id?: string
+  file?: File | null
+}
+
+// ---------------------------------------------------------------------------
+// API
+// ---------------------------------------------------------------------------
+
+export const communityApi = {
+  me: async () => (await apiClient.get<CommunityMe>('/community/me')).data,
+  wallet: async (limit = 30) =>
+    (await apiClient.get<Wallet>('/community/wallet', { params: { limit } })).data,
+
+  courses: async () => (await apiClient.get<Course[]>('/community/courses')).data,
+  createCourse: async (body: { code: string; name: string; description?: string }) =>
+    (await apiClient.post<Course>('/community/courses', body)).data,
+  joinCourse: async (courseId: number, join: boolean) =>
+    join
+      ? (await apiClient.post(`/community/courses/${courseId}/join`)).data
+      : (await apiClient.delete(`/community/courses/${courseId}/join`)).data,
+
+  feed: async (filters: FeedFilters, beforeId?: number | null) =>
+    (
+      await apiClient.get<FeedPage>('/community/posts', {
+        params: { ...filters, before_id: beforeId ?? undefined },
+      })
+    ).data,
+  post: async (postId: number) =>
+    (await apiClient.get<CommunityPost>(`/community/posts/${postId}`)).data,
+  createPost: async (input: CreatePostInput) => {
+    const form = new FormData()
+    form.append('type', input.type)
+    if (input.title) form.append('title', input.title)
+    if (input.content) form.append('content', input.content)
+    if (input.course_id) form.append('course_id', String(input.course_id))
+    if (input.tags) form.append('tags', input.tags)
+    if (input.embed_type) form.append('embed_type', input.embed_type)
+    if (input.embed_id) form.append('embed_id', input.embed_id)
+    if (input.file) form.append('file', input.file)
+    return (
+      await apiClient.post<{ post: CommunityPost; creator_bonus: number; balance: number }>(
+        '/community/posts',
+        form
+      )
+    ).data
+  },
+  deletePost: async (postId: number) =>
+    (await apiClient.delete(`/community/posts/${postId}`)).data,
+  react: async (postId: number, kind: ReactionKind) =>
+    (
+      await apiClient.post<{ active: boolean; counts: PostCounts; viewer: PostViewer }>(
+        `/community/posts/${postId}/reactions`,
+        { kind }
+      )
+    ).data,
+  comments: async (postId: number) =>
+    (await apiClient.get<PostComment[]>(`/community/posts/${postId}/comments`)).data,
+  addComment: async (postId: number, content: string) =>
+    (
+      await apiClient.post<{ comments: PostComment[] }>(`/community/posts/${postId}/comments`, {
+        content,
+      })
+    ).data,
+  toggleSave: async (postId: number) =>
+    (await apiClient.post<{ saved: boolean }>(`/community/posts/${postId}/save`)).data,
+  share: async (postId: number) =>
+    (await apiClient.post(`/community/posts/${postId}/share`)).data,
+  downloadAttachment: async (postId: number) =>
+    (
+      await apiClient.get<Blob>(`/community/posts/${postId}/attachment`, {
+        responseType: 'blob',
+      })
+    ).data,
+
+  quizStart: async (postId: number) =>
+    (await apiClient.post<QuizStartResponse>(`/community/posts/${postId}/quiz/start`)).data,
+  quizSubmit: async (postId: number, playId: number, answers: Record<string, string>) =>
+    (
+      await apiClient.post<QuizSubmitResponse>(`/community/posts/${postId}/quiz/submit`, {
+        play_id: playId,
+        answers,
+      })
+    ).data,
+  quizImport: async (postId: number) =>
+    (
+      await apiClient.post<{ session_id: string; charged: number; balance: number }>(
+        `/community/posts/${postId}/quiz/import`
+      )
+    ).data,
+  roadmapFollow: async (postId: number) =>
+    (
+      await apiClient.post<{ session_id: string; created: boolean; charged: number }>(
+        `/community/posts/${postId}/roadmap/follow`
+      )
+    ).data,
+
+  leaderboard: async (days = 7) =>
+    (
+      await apiClient.get<{ days: number; items: LeaderboardEntry[] }>('/community/leaderboard', {
+        params: { days },
+      })
+    ).data,
+  popularRoadmaps: async (limit = 5) =>
+    (
+      await apiClient.get<PopularRoadmap[]>('/community/roadmaps/popular', { params: { limit } })
+    ).data,
+  notifications: async (limit = 20) =>
+    (
+      await apiClient.get<NotificationsResponse>('/community/notifications', { params: { limit } })
+    ).data,
+  markNotificationsRead: async (ids?: number[]) =>
+    (await apiClient.post('/community/notifications/read', { ids })).data,
+  search: async (q: string) =>
+    (await apiClient.get<SearchResponse>('/community/search', { params: { q } })).data,
+  materials: async (courseId?: number) =>
+    (
+      await apiClient.get<{ items: CommunityPost[] }>('/community/materials', {
+        params: { course_id: courseId },
+      })
+    ).data,
+  ask: async (body: {
+    question: string
+    session_id?: string | null
+    mode?: 'single' | 'session'
+    language?: string
+  }) => (await apiClient.post<AskResponse>('/community/ask', body)).data,
+}
+
+// ---------------------------------------------------------------------------
+// Error helpers
+// ---------------------------------------------------------------------------
+
+export interface PointsError {
+  status: number
+  message: string
+  required?: number
+  balance?: number
+  kind?: string
+}
+
+/** Extract a user-facing message (+ point metadata) from an axios error. */
+export function describeApiError(error: unknown): PointsError {
+  const err = error as {
+    response?: { status?: number; data?: { detail?: unknown }; headers?: Record<string, string> }
+    message?: string
+  }
+  const status = err?.response?.status ?? 0
+  const detail = err?.response?.data?.detail
+  const headers = err?.response?.headers ?? {}
+  const message =
+    typeof detail === 'string'
+      ? detail
+      : Array.isArray(detail)
+      ? detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? String((d as { msg: string }).msg) : String(d))).join(', ')
+      : err?.message || 'เกิดข้อผิดพลาด'
+  const required = Number(headers['x-points-required'])
+  const balance = Number(headers['x-points-balance'])
+  return {
+    status,
+    message,
+    required: Number.isFinite(required) ? required : undefined,
+    balance: Number.isFinite(balance) ? balance : undefined,
+    kind: headers['x-points-kind'],
+  }
+}

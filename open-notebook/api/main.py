@@ -37,7 +37,9 @@ from api.routers import (
     transformations,
 )
 from api.routers import commands as commands_router
+from api.routers import community as community_router
 from api.routers import features as features_router
+from api.routers import google_auth as google_auth_router
 from api.routers import users as users_router
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
@@ -196,6 +198,14 @@ async def lifespan(app: FastAPI):
         logger.warning(f"Podcast profile migration encountered errors: {e}")
         # Non-fatal: profiles can be migrated manually via UI
 
+    # Community / point-wallet schema (idempotent) – must run before seeding.
+    try:
+        from open_notebook.community.schema import ensure_schema
+
+        await ensure_schema()
+    except Exception as exc:
+        logger.error(f"Community MariaDB schema setup failed: {exc}")
+
     # Seed: 1 admin + 5 students on MariaDB startup.
     # Set WORKSPACE_SEED_ADMIN=false to disable.
     try:
@@ -267,6 +277,25 @@ async def lifespan(app: FastAPI):
                 elif existing.id and not verify_password(seed_password, existing.password_hash):
                     await update_password(existing.id, seed_password)
                     logger.success(f"Updated seeded user '{u['username']}'")
+
+            # Demo data for the community: welcome allowance + sample course rooms.
+            try:
+                from open_notebook.community import points as community_points
+                from open_notebook.community import repository as community_repo
+
+                for u in seed_users:
+                    seeded = await get_by_username(u["username"])
+                    if seeded is not None:
+                        await community_points.ensure_welcome(seeded)
+                for code, name, desc in (
+                    ("CS101", "Data Structure", "โครงสร้างข้อมูลและอัลกอริทึมพื้นฐาน"),
+                    ("CS201", "Web Technology", "การพัฒนาเว็บ ฝั่งหน้าบ้านและหลังบ้าน"),
+                    ("CS301", "OS & Linux", "ระบบปฏิบัติการและการใช้งาน Linux"),
+                    ("CS302", "Computer Network", "เครือข่ายคอมพิวเตอร์และโปรโตคอล"),
+                ):
+                    await community_repo.ensure_course(code, name, desc)
+            except Exception as exc:
+                logger.warning(f"Community seed skipped: {exc}")
     except Exception as exc:
         logger.debug(f"Skipping default user seed: {exc}")
 
@@ -345,6 +374,8 @@ app.add_middleware(
         "/api/users/login",
         "/api/users/register",
         "/api/users/logout",
+        "/api/auth/google/start",
+        "/api/auth/google/exchange",
     ],
 )
 
@@ -482,6 +513,8 @@ app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(languages.router, prefix="/api", tags=["languages"])
 app.include_router(features_router.router, prefix="/api", tags=["features"])
+app.include_router(google_auth_router.router, prefix="/api", tags=["auth"])
+app.include_router(community_router.router, prefix="/api", tags=["community"])
 
 
 @app.get("/")

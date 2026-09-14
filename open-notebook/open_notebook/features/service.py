@@ -184,7 +184,11 @@ async def _invoke_chat(
         # Build the prompt as a single string, matching the convention used by
         # the rest of open-notebook (see open_notebook/graphs/ask.py).
         prompt = f"{system}\n\n{prompt}"
-        ai_message = await model.ainvoke(prompt)
+        # model_manager returns an Esperanto model; convert it to the LangChain
+        # runnable interface (some providers, e.g. GoogleLanguageModel, do not
+        # expose ``ainvoke`` themselves).
+        runnable = model.to_langchain() if hasattr(model, "to_langchain") else model
+        ai_message = await runnable.ainvoke(prompt)
         return extract_text_content(ai_message.content)
     except Exception as exc:
         logger.exception(f"LLM call failed for owner {owner_id}: {exc}")
@@ -347,8 +351,13 @@ async def generate_quiz(
     language: str = "th",
     notebook_id: Optional[str] = None,
     model_id: Optional[str] = None,
+    report: Optional[Dict[str, Any]] = None,
 ) -> QuizSession:
-    """Generate a multiple-choice quiz and persist it for the owner."""
+    """Generate a multiple-choice quiz and persist it for the owner.
+
+    ``report`` (optional dict) receives ``{"cached": bool}`` so callers can
+    tell whether an LLM call actually happened (used by the point wallet).
+    """
     if not owner_id:
         raise InvalidInputError("owner_id is required")
     topic = (topic or "").strip()
@@ -371,6 +380,8 @@ async def generate_quiz(
     cached = await cache_service.get_json(cache_key)
     if cached:
         logger.info(f"Quiz cache HIT for {owner_id} ({prompt_hash})")
+        if report is not None:
+            report["cached"] = True
         return await _persist_quiz(
             owner_id=owner_id,
             topic=topic,
@@ -417,6 +428,8 @@ async def generate_quiz(
 
     await cache_service.set_json(cache_key, {"payload": clean}, ttl=DEFAULT_CACHE_TTL)
 
+    if report is not None:
+        report["cached"] = False
     return await _persist_quiz(
         owner_id=owner_id,
         topic=topic,
@@ -467,8 +480,13 @@ async def generate_roadmap(
     node_count: int = 15,
     notebook_id: Optional[str] = None,
     model_id: Optional[str] = None,
+    report: Optional[Dict[str, Any]] = None,
 ) -> RoadmapSession:
-    """Generate a project roadmap and persist it for the owner."""
+    """Generate a project roadmap and persist it for the owner.
+
+    ``report`` (optional dict) receives ``{"cached": bool}`` so callers can
+    tell whether an LLM call actually happened (used by the point wallet).
+    """
     if not owner_id:
         raise InvalidInputError("owner_id is required")
     description = (description or "").strip()
@@ -491,6 +509,8 @@ async def generate_roadmap(
     cached = await cache_service.get_json(cache_key)
     if cached:
         logger.info(f"Roadmap cache HIT for {owner_id} ({prompt_hash})")
+        if report is not None:
+            report["cached"] = True
         return await _persist_roadmap(
             owner_id=owner_id,
             title=title or cached["payload"].get("title") or "Project Roadmap",
@@ -539,6 +559,8 @@ async def generate_roadmap(
 
     await cache_service.set_json(cache_key, {"payload": clean}, ttl=DEFAULT_CACHE_TTL)
 
+    if report is not None:
+        report["cached"] = False
     return await _persist_roadmap(
         owner_id=owner_id,
         title=title or clean.get("title") or "Project Roadmap",

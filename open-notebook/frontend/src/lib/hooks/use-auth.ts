@@ -42,8 +42,21 @@ export function useAuth() {
     const currentUser = useAuthStore.getState().user
     if (currentUser?.role === 'admin') {
       router.push('/notebooks')
+      return
+    }
+    // Students / teachers land on the SIET Space community feed, unless they
+    // were sent to /login from a protected page.
+    let redirect: string | null = null
+    try {
+      redirect = sessionStorage.getItem('redirectAfterLogin')
+      if (redirect) sessionStorage.removeItem('redirectAfterLogin')
+    } catch {
+      redirect = null
+    }
+    if (redirect && redirect.startsWith('/') && !redirect.startsWith('//') && redirect !== '/login') {
+      router.push(redirect)
     } else {
-      router.push('/dashboard')
+      router.push('/community')
     }
   }
 

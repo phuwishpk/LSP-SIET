@@ -142,6 +142,17 @@ services:
       - API_URL=http://localhost:3000
       # Internal service URLs (container-to-container)
       - INTERNAL_API_URL=http://localhost:5055
+      # --- SIET Space: Google Workspace SSO + point wallet ---
+      # Browser-facing URL of the Next.js frontend (used for the OAuth redirect).
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
+      - GOOGLE_OAUTH_ALLOWED_DOMAINS=${GOOGLE_OAUTH_ALLOWED_DOMAINS:-kmitl.ac.th}
+      # DEV ONLY: lets you "sign in with Google" without real credentials.
+      - GOOGLE_OAUTH_MOCK=${GOOGLE_OAUTH_MOCK:-0}
+      - WORKSPACE_ADMIN_EMAILS=${WORKSPACE_ADMIN_EMAILS:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-*}
     volumes:
       - ./open-notebook/notebook_data:/app/data
       - ./open-notebook/prompts:/app/prompts

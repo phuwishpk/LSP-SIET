@@ -411,6 +411,11 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       })
 
       if (!response.ok) {
+        if (response.status === 401 && typeof window !== 'undefined') {
+          localStorage.removeItem('auth-storage')
+          window.location.href = '/login'
+          return
+        }
         const errorData = await response.json().catch(() => ({}))
         throw new Error(errorData.detail || `Request failed: ${response.status}`)
       }

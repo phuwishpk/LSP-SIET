@@ -42,9 +42,18 @@ import {
   Wrench,
   Command,
   Sparkles,
+  Users,
+  Coins,
 } from 'lucide-react'
+import { useAuthStore } from '@/lib/stores/auth-store'
 
 const getNavigation = (t: TFunction) => [
+  {
+    title: t('navigation.community', 'SIET Space'),
+    items: [
+      { name: t('navigation.communityFeed', 'ชุมชน (Community)'), href: '/community', icon: Users },
+    ],
+  },
   {
     title: t('navigation.collect'),
     items: [
@@ -83,6 +92,7 @@ export function AppSidebar() {
   const navigation = getNavigation(t)
   const pathname = usePathname()
   const { logout } = useAuth()
+  const authUser = useAuthStore((s) => s.user)
   const { isCollapsed, toggleCollapse } = useSidebarStore()
   const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
 
@@ -300,6 +310,21 @@ export function AppSidebar() {
             isCollapsed && 'px-2'
           )}
         >
+          {/* Points wallet (students only) */}
+          {authUser && !authUser.points_exempt && (
+            <Link
+              href="/community"
+              className={cn(
+                'flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
+                isCollapsed && 'justify-center px-0'
+              )}
+              title="กระเป๋าแต้ม"
+            >
+              <Coins className="h-3.5 w-3.5" />
+              {!isCollapsed && <span>{authUser.points_balance ?? 0} PT</span>}
+            </Link>
+          )}
+
           {/* Command Palette hint */}
           {!isCollapsed && (
             <div className="px-3 py-1.5 text-xs text-sidebar-foreground/60">

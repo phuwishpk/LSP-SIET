@@ -1,0 +1,309 @@
+'use client'
+
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+} from '@tanstack/react-query'
+import { toast } from 'sonner'
+import {
+  communityApi,
+  describeApiError,
+  type CreatePostInput,
+  type FeedFilters,
+  type ReactionKind,
+} from '@/lib/api/community'
+import { useAuthStore } from '@/lib/stores/auth-store'
+
+export const COMMUNITY_KEYS = {
+  me: ['community', 'me'] as const,
+  wallet: ['community', 'wallet'] as const,
+  courses: ['community', 'courses'] as const,
+  feed: (filters: FeedFilters) => ['community', 'feed', filters] as const,
+  feedRoot: ['community', 'feed'] as const,
+  post: (id: number) => ['community', 'post', id] as const,
+  comments: (id: number) => ['community', 'comments', id] as const,
+  leaderboard: ['community', 'leaderboard'] as const,
+  popularRoadmaps: ['community', 'popular-roadmaps'] as const,
+  notifications: ['community', 'notifications'] as const,
+  search: (q: string) => ['community', 'search', q] as const,
+  materials: (courseId?: number) => ['community', 'materials', courseId ?? 'all'] as const,
+}
+
+/** Show a toast for an API error; 402 (not enough points) gets a dedicated style. */
+export function toastApiError(error: unknown, fallback = 'เกิดข้อผิดพลาด') {
+  const info = describeApiError(error)
+  if (info.status === 402) {
+    toast.warning('แต้มไม่พอ', { description: info.message || fallback })
+  } else {
+    toast.error(info.message || fallback)
+  }
+  return info
+}
+
+function useRefreshWallet() {
+  const queryClient = useQueryClient()
+  return () => {
+    queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.wallet })
+    queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.me })
+    // Keep the header badge (auth store) in sync with the server balance.
+    void useAuthStore.getState().refreshUser()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Profile / wallet
+// ---------------------------------------------------------------------------
+
+export function useCommunityMe() {
+  return useQuery({ queryKey: COMMUNITY_KEYS.me, queryFn: () => communityApi.me() })
+}
+
+export function useWallet(enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.wallet,
+    queryFn: () => communityApi.wallet(40),
+    enabled,
+    staleTime: 15_000,
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Courses
+// ---------------------------------------------------------------------------
+
+export function useCourses() {
+  return useQuery({ queryKey: COMMUNITY_KEYS.courses, queryFn: () => communityApi.courses() })
+}
+
+export function useJoinCourse() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ courseId, join }: { courseId: number; join: boolean }) =>
+      communityApi.joinCourse(courseId, join),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.courses })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success(vars.join ? 'เข้าร่วมห้องวิชาแล้ว' : 'ออกจากห้องวิชาแล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useCreateCourse() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { code: string; name: string; description?: string }) =>
+      communityApi.createCourse(body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.courses })
+      toast.success('สร้างห้องวิชาแล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Feed
+// ---------------------------------------------------------------------------
+
+export function useFeed(filters: FeedFilters) {
+  return useInfiniteQuery({
+    queryKey: COMMUNITY_KEYS.feed(filters),
+    queryFn: ({ pageParam }) => communityApi.feed({ limit: 15, ...filters }, pageParam),
+    initialPageParam: null as number | null,
+    getNextPageParam: (last) => last.next_before_id,
+  })
+}
+
+export function useCreatePost() {
+  const queryClient = useQueryClient()
+  const refresh = useRefreshWallet()
+  return useMutation({
+    mutationFn: (input: CreatePostInput) => communityApi.createPost(input),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.popularRoadmaps })
+      refresh()
+      toast.success(
+        data.creator_bonus > 0
+          ? `โพสต์แล้ว! ได้รับ Creator Points +${data.creator_bonus}`
+          : 'โพสต์ลงฟีดแล้ว'
+      )
+    },
+    onError: (error) => toastApiError(error, 'โพสต์ไม่สำเร็จ'),
+  })
+}
+
+export function useDeletePost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (postId: number) => communityApi.deletePost(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('ลบโพสต์แล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useReact() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ postId, kind }: { postId: number; kind: ReactionKind }) =>
+      communityApi.react(postId, kind),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useComments(postId: number, enabled: boolean) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.comments(postId),
+    queryFn: () => communityApi.comments(postId),
+    enabled,
+  })
+}
+
+export function useAddComment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ postId, content }: { postId: number; content: string }) =>
+      communityApi.addComment(postId, content),
+    onSuccess: (data, vars) => {
+      queryClient.setQueryData(COMMUNITY_KEYS.comments(vars.postId), data.comments)
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useToggleSave() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (postId: number) => communityApi.toggleSave(postId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success(data.saved ? 'บันทึกไว้แล้ว' : 'เอาออกจากรายการที่บันทึกแล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useSharePost() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (postId: number) => communityApi.share(postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('คัดลอกลิงก์และแชร์แล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Interactive embeds
+// ---------------------------------------------------------------------------
+
+export function useQuizImport() {
+  const queryClient = useQueryClient()
+  const refresh = useRefreshWallet()
+  return useMutation({
+    mutationFn: (postId: number) => communityApi.quizImport(postId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      queryClient.invalidateQueries({ queryKey: ['features', 'quiz', 'sessions'] })
+      refresh()
+      toast.success(
+        data.charged > 0
+          ? `นำเข้าคลังส่วนตัวแล้ว (ใช้ ${data.charged} แต้ม, เหลือ ${data.balance})`
+          : 'นำเข้าคลังส่วนตัวแล้ว'
+      )
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useRoadmapFollow() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (postId: number) => communityApi.roadmapFollow(postId),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      queryClient.invalidateQueries({ queryKey: ['features', 'roadmap', 'sessions'] })
+      toast.success(
+        data.created ? 'บันทึก Roadmap นี้ไว้ในคลังของคุณแล้ว (ฟรี)' : 'คุณเดินตาม Roadmap นี้อยู่แล้ว'
+      )
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// Widgets
+// ---------------------------------------------------------------------------
+
+export function useLeaderboard(days = 7) {
+  return useQuery({
+    queryKey: [...COMMUNITY_KEYS.leaderboard, days],
+    queryFn: () => communityApi.leaderboard(days),
+    staleTime: 60_000,
+  })
+}
+
+export function usePopularRoadmaps() {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.popularRoadmaps,
+    queryFn: () => communityApi.popularRoadmaps(5),
+    staleTime: 60_000,
+  })
+}
+
+export function useNotifications(enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.notifications,
+    queryFn: () => communityApi.notifications(20),
+    enabled,
+    refetchInterval: 30_000,
+  })
+}
+
+export function useMarkNotificationsRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (ids?: number[]) => communityApi.markNotificationsRead(ids),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.notifications }),
+  })
+}
+
+export function useCommunitySearch(q: string) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.search(q),
+    queryFn: () => communityApi.search(q),
+    enabled: q.trim().length > 0,
+  })
+}
+
+export function useMaterials(courseId?: number, enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.materials(courseId),
+    queryFn: () => communityApi.materials(courseId),
+    enabled,
+  })
+}
+
+export function useAsk() {
+  const refresh = useRefreshWallet()
+  return useMutation({
+    mutationFn: (body: {
+      question: string
+      session_id?: string | null
+      mode?: 'single' | 'session'
+    }) => communityApi.ask(body),
+    onSuccess: () => refresh(),
+  })
+}

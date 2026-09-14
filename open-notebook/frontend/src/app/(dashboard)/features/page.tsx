@@ -1,7 +1,9 @@
 'use client'
 
-import { useState } from 'react'
+import { Suspense, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { AppShell } from '@/components/layout/AppShell'
+import { CostBadge, ShareToFeedButton } from '@/components/community/ShareToFeedButton'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -31,10 +33,25 @@ import { QuizRunner } from './components/QuizRunner'
 import { RoadmapGraph } from './components/RoadmapGraph'
 
 export default function FeaturesPage() {
+  return (
+    <Suspense fallback={null}>
+      <FeaturesPageContent />
+    </Suspense>
+  )
+}
+
+function FeaturesPageContent() {
   const { t } = useTranslation()
-  const [activeTab, setActiveTab] = useState<'quiz' | 'roadmap'>('quiz')
-  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(null)
-  const [selectedRoadmapId, setSelectedRoadmapId] = useState<string | null>(null)
+  const params = useSearchParams()
+  const initialTab: 'quiz' | 'roadmap' = params.get('tab') === 'roadmap' ? 'roadmap' : 'quiz'
+  const initialId = params.get('id')
+  const [activeTab, setActiveTab] = useState<'quiz' | 'roadmap'>(initialTab)
+  const [selectedQuizId, setSelectedQuizId] = useState<string | null>(
+    initialTab === 'quiz' ? initialId : null
+  )
+  const [selectedRoadmapId, setSelectedRoadmapId] = useState<string | null>(
+    initialTab === 'roadmap' ? initialId : null
+  )
 
   return (
     <AppShell>
@@ -166,6 +183,9 @@ function QuizTab({
                 }
               />
             </div>
+            <div className="flex items-center justify-between">
+              <CostBadge kind="quiz_generate" />
+            </div>
             <Button
               onClick={handleGenerate}
               disabled={generate.isPending || !topic.trim()}
@@ -264,9 +284,12 @@ function QuizSessionView({ sessionId }: { sessionId: string }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{data.topic}</CardTitle>
-          <Badge variant="secondary">{data.language}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{data.language}</Badge>
+            <ShareToFeedButton embedType="quiz" sessionId={data.id} title={data.topic} />
+          </div>
         </div>
         <CardDescription>
           {data.question_count} questions · {data.created}
@@ -370,6 +393,9 @@ function RoadmapTab({
                 }
               />
             </div>
+            <div className="flex items-center justify-between">
+              <CostBadge kind="roadmap_generate" />
+            </div>
             <Button
               onClick={handleGenerate}
               disabled={generate.isPending || !description.trim()}
@@ -469,9 +495,12 @@ function RoadmapSessionView({ sessionId }: { sessionId: string }) {
   return (
     <Card>
       <CardHeader>
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle>{data.title}</CardTitle>
-          <Badge variant="secondary">{data.language}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{data.language}</Badge>
+            <ShareToFeedButton embedType="roadmap" sessionId={data.id} title={data.title} />
+          </div>
         </div>
         <CardDescription>{data.description}</CardDescription>
       </CardHeader>

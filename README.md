@@ -105,3 +105,53 @@ Open Notebook handles provider configuration in **Settings → Models** – add
 the credential once and the new `/features` page, plus every other workflow in
 the app, can use it immediately. The same key also feeds the standalone apps
 through `OPEN_NOTEBOOK_API_URL`.
+
+## SIET Space – community feed, Google SSO and the point wallet
+
+The Next.js frontend of `open-notebook/` now ships a Facebook-style community
+(`/community`) on top of the existing notebook / quiz / roadmap features.
+
+| Piece | Where |
+|---|---|
+| Google Workspace sign-in (`@kmitl.ac.th`) | `open-notebook/api/routers/google_auth.py`, frontend `/auth/google/callback` |
+| Point wallet (charge / refund / cashback / leaderboard) | `open-notebook/open_notebook/community/points.py` |
+| Feed, courses, comments, reactions, quiz plays, notifications | `open-notebook/api/routers/community.py` + `open_notebook/community/repository.py` |
+| MariaDB schema (idempotent, runs on API start) | `open-notebook/open_notebook/community/schema.py` |
+| 3-column UI | `open-notebook/frontend/src/app/(dashboard)/community/` + `src/components/community/` |
+
+### Sign-in
+
+* Students/teachers sign in with **Google Workspace**. The e-mail domain must be
+  in `GOOGLE_OAUTH_ALLOWED_DOMAINS` (default `kmitl.ac.th`). An 8-digit local
+  part (e.g. `67030123@kmitl.ac.th`) becomes a **student** (student id is stored),
+  anything else becomes a **teacher**; e-mails listed in
+  `WORKSPACE_ADMIN_EMAILS` become **admin**.
+* First sign-in grants the **20-point welcome allowance**.
+* Set `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET` in `.env` and
+  register `${FRONTEND_URL}/auth/google/callback` as an authorised redirect URI
+  in Google Cloud Console. Until then `GOOGLE_OAUTH_MOCK=1` shows a local mock
+  account picker (development only – anyone can pick any e-mail).
+* The username/password form (seeded `admin1`, `student1..5`) is still
+  available under "เข้าสู่ระบบด้วยชื่อผู้ใช้" on the login page.
+
+### Point economy (defaults, override with `POINTS_*` env vars)
+
+| Action | Cost |
+|---|---|
+| KMITL RAG AI – single question | 1 pt |
+| KMITL RAG AI – 5-message session | 4 pt |
+| Generate an AI Quiz | 8 pt (refunded when served from cache) |
+| Generate an AI Roadmap | 15 pt (refunded when served from cache) |
+| Import a friend's shared quiz into your library | 1 pt |
+| Play a friend's shared quiz inline / follow a friend's roadmap | free (1 play per quiz) |
+
+Rewards: +1 pt cashback per friend that finishes your shared quiz (max 15 per
+quiz), +2 pt for sharing a summary, +1 pt per "Helpful" reaction received.
+Teachers and admins are never charged.
+
+### Quiz / roadmap persistence fix
+
+SurrealDB migration `23.surrealql` marks `quiz_session.questions` and
+`roadmap_session.nodes/edges` as `FLEXIBLE` – without it SCHEMAFULL tables
+silently stored `[{}, {}]`, so previously generated quizzes/roadmaps have no
+content and must be regenerated.

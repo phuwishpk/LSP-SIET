@@ -9,10 +9,14 @@ single-user deployments keep working without any config changes.
 
 from __future__ import annotations
 
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from loguru import logger
+
+from api.auth_jwt import optional_current_user
+from open_notebook.community import points
+from open_notebook.domain.user import User
 
 from api.models import (
     QuizGenerateRequest,
@@ -37,6 +41,28 @@ from open_notebook.features import service as feature_service
 router = APIRouter(prefix="/features", tags=["features"])
 
 DEFAULT_OWNER_ID = "default"
+
+
+def _insufficient(exc: points.InsufficientPoints) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        detail=f"แต้มไม่พอ: ต้องใช้ {exc.required} แต้ม แต่คุณมี {exc.balance} แต้ม",
+        headers={
+            "X-Points-Required": str(exc.required),
+            "X-Points-Balance": str(exc.balance),
+            "X-Points-Kind": exc.kind,
+        },
+    )
+
+
+async def _charge(user: Optional[User], kind: str) -> Optional[points.Charge]:
+    """Charge the wallet when the caller is a workspace user (JWT)."""
+    if user is None or user.id is None:
+        return None  # legacy shared-password callers have no wallet
+    try:
+        return await points.charge(user, kind, ref_type=kind)
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
 
 
 def _resolve_owner_id(
@@ -104,8 +130,11 @@ def _session_to_roadmap_response(session: RoadmapSession) -> RoadmapSessionRespo
 async def generate_quiz(
     request: QuizGenerateRequest,
     owner_id: str = Depends(_resolve_owner_id),
+    user: Optional[User] = Depends(optional_current_user),
 ):
-    """Generate a new quiz and persist it for the request owner."""
+    """Generate a new quiz and persist it for the request owner (8 pt)."""
+    charge = await _charge(user, "quiz_generate")
+    report: dict = {}
     try:
         session = await feature_service.generate_quiz(
             owner_id=owner_id,
@@ -114,20 +143,31 @@ async def generate_quiz(
             language=request.language,
             notebook_id=request.notebook_id,
             model_id=request.model_id,
+            report=report,
         )
     except (InvalidInputError, ConfigurationError, ExternalServiceError) as exc:
+        await points.refund(charge, "quiz generation failed")
         logger.warning(f"Quiz generation rejected for {owner_id}: {exc}")
         raise HTTPException(status_code=400, detail=str(exc))
     except DatabaseOperationError as exc:
+        await points.refund(charge, "quiz generation failed")
         logger.exception(f"Database error while generating quiz for {owner_id}")
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
     except Exception as exc:
+        await points.refund(charge, "quiz generation failed")
         logger.exception(f"Unexpected error while generating quiz for {owner_id}")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    cached = bool(report.get("cached"))
+    if cached:
+        # No LLM compute happened – give the points back.
+        await points.refund(charge, "cached quiz – no compute cost")
+    else:
+        await points.set_charge_ref(charge, "quiz_session", session.id or "")
+
     return QuizGenerateResponse(
         session=_session_to_quiz_response(session),
-        cached=False,
+        cached=cached,
     )
 
 
@@ -197,8 +237,11 @@ async def delete_quiz_session(
 async def generate_roadmap(
     request: RoadmapGenerateRequest,
     owner_id: str = Depends(_resolve_owner_id),
+    user: Optional[User] = Depends(optional_current_user),
 ):
-    """Generate a new project roadmap and persist it for the request owner."""
+    """Generate a new project roadmap and persist it for the request owner (15 pt)."""
+    charge = await _charge(user, "roadmap_generate")
+    report: dict = {}
     try:
         session = await feature_service.generate_roadmap(
             owner_id=owner_id,
@@ -208,20 +251,30 @@ async def generate_roadmap(
             node_count=request.node_count,
             notebook_id=request.notebook_id,
             model_id=request.model_id,
+            report=report,
         )
     except (InvalidInputError, ConfigurationError, ExternalServiceError) as exc:
+        await points.refund(charge, "roadmap generation failed")
         logger.warning(f"Roadmap generation rejected for {owner_id}: {exc}")
         raise HTTPException(status_code=400, detail=str(exc))
     except DatabaseOperationError as exc:
+        await points.refund(charge, "roadmap generation failed")
         logger.exception(f"Database error while generating roadmap for {owner_id}")
         raise HTTPException(status_code=500, detail=f"Database error: {exc}")
     except Exception as exc:
+        await points.refund(charge, "roadmap generation failed")
         logger.exception(f"Unexpected error while generating roadmap for {owner_id}")
         raise HTTPException(status_code=500, detail=str(exc))
 
+    cached = bool(report.get("cached"))
+    if cached:
+        await points.refund(charge, "cached roadmap – no compute cost")
+    else:
+        await points.set_charge_ref(charge, "roadmap_session", session.id or "")
+
     return RoadmapGenerateResponse(
         session=_session_to_roadmap_response(session),
-        cached=False,
+        cached=cached,
     )
 
 

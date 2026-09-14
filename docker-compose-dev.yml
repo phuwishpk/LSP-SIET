@@ -122,6 +122,14 @@ services:
       - WORKSPACE_SEED_ADMIN_PASSWORD=admin1
       - TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
       - API_HOST=0.0.0.0
+      # --- SIET Space: Google Workspace SSO + point wallet ---
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
+      - GOOGLE_OAUTH_ALLOWED_DOMAINS=${GOOGLE_OAUTH_ALLOWED_DOMAINS:-kmitl.ac.th}
+      - GOOGLE_OAUTH_MOCK=${GOOGLE_OAUTH_MOCK:-0}
+      - WORKSPACE_ADMIN_EMAILS=${WORKSPACE_ADMIN_EMAILS:-}
       - NO_PROXY=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
       - no_proxy=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
     volumes:
