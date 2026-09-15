@@ -11,7 +11,7 @@
 2. [สถาปัตยกรรมภาพรวม](#2-สถาปัตยกรรมภาพรวม)
 3. [Tech stack](#3-tech-stack)
 4. [โครงสร้างโฟลเดอร์](#4-โครงสร้างโฟลเดอร์)
-5. [วิธีรันระบบ](#5-วิธีรันระบบ)
+5. [การติดตั้งและวิธีรันระบบ](#5-การติดตั้งและวิธีรันระบบ)
 6. [โครงสร้างเนื้อหา](#6-โครงสร้างเนื้อหา)
 7. [บทบาทผู้ใช้ (Roles) โดยละเอียด](#7-บทบาทผู้ใช้-roles-โดยละเอียด)
 8. [ระบบแต้ม (Token Economy)](#8-ระบบแต้ม-token-economy)
@@ -210,9 +210,137 @@ kmitlAI/
 
 ---
 
-## 5. วิธีรันระบบ
+## 5. การติดตั้งและวิธีรันระบบ
 
-### 5.1 รันแบบ production (คำสั่งเดียว)
+### 5.1 ความต้องการของเครื่อง
+
+| รายการ | ขั้นต่ำ | หมายเหตุ |
+|---|---|---|
+| Docker | Docker Desktop หรือ Docker Engine ที่มี **compose v2** | ตรวจด้วย `docker compose version` (ต้องขึ้น `v2.x`) |
+| RAM | 8 GB | ระบบรัน 8 container พร้อมกัน — 16 GB จะลื่นกว่ามาก |
+| พื้นที่ว่าง | ~15 GB | image ของ open-notebook อย่างเดียว ~4.2 GB |
+| git | มี | ใช้ clone โปรเจกต์ |
+| อินเทอร์เน็ต | ต้องมี | ตอน build และตอนเรียกโมเดล AI |
+| ระบบปฏิบัติการ | macOS / Linux / Windows (ผ่าน WSL2) | — |
+
+### 5.2 ติดตั้งครั้งแรก (ทีละขั้น)
+
+**ขั้นที่ 1 — ตรวจว่ามี Docker พร้อมใช้**
+
+```bash
+docker --version
+docker compose version      # ต้องเป็น v2 ขึ้นไป
+```
+
+**ขั้นที่ 2 — ดาวน์โหลดโปรเจกต์**
+
+ทั้ง 3 แอปอยู่ใน repo เดียวกัน ไม่ต้อง clone แยก ไม่มี submodule
+
+```bash
+git clone https://github.com/phuwishpk/LSP-SIET.git kmitlAI
+cd kmitlAI
+```
+
+**ขั้นที่ 3 — สร้างไฟล์ `.env`**
+
+```bash
+cp .env.example .env
+```
+
+(ถ้าลืมขั้นนี้ `make up` จะ copy ให้เองอัตโนมัติ แต่จะได้ค่าตัวอย่างล้วน ๆ)
+
+**ขั้นที่ 4 — แก้ `.env` อย่างน้อย 3 บรรทัด**
+
+| ตัวแปร | ต้องใส่อะไร | ทำไมต้องแก้ |
+|---|---|---|
+| `OPEN_NOTEBOOK_ENCRYPTION_KEY` | ข้อความสุ่มยาว ≥16 ตัวอักษร | ใช้เข้ารหัส API key **และเป็นกุญแจเซ็น JWT เมื่อ `JWT_SECRET` ว่าง** ถ้าปล่อยค่าตัวอย่างไว้ = ใครก็ปลอม token ได้ |
+| `GOOGLE_GENERATIVE_AI_API_KEY` *หรือ* `OPENAI_API_KEY` | API key ของผู้ให้บริการที่จะใช้ | ไม่มีคีย์ = สร้างควิซ/roadmap/ถาม RAG ไม่ได้ |
+| `GOOGLE_OAUTH_MOCK` | `1` ตอนพัฒนา / `0` ตอนใช้จริง | `1` = ล็อกอิน Google แบบจำลอง ไม่ต้องตั้ง OAuth client |
+
+สร้างค่าสุ่มสำหรับ secret:
+
+```bash
+openssl rand -hex 32
+```
+
+> ถ้าจะใช้ Google SSO ของจริง ให้ใส่ `GOOGLE_OAUTH_CLIENT_ID` / `GOOGLE_OAUTH_CLIENT_SECRET`
+> แล้วไปลงทะเบียน `http://localhost:3000/auth/google/callback` เป็น
+> Authorised redirect URI ใน Google Cloud Console ด้วย
+
+**ขั้นที่ 5 — build และ start**
+
+```bash
+make up
+```
+
+ครั้งแรกใช้เวลา **ประมาณ 10–20 นาที** (ต้อง `apt-get install` และ build Next.js
+ทั้ง 3 แอป) ครั้งต่อ ๆ ไปจะเร็วเพราะมี cache แล้ว
+
+**ขั้นที่ 6 — รอให้ API พร้อม**
+
+```bash
+until curl -sf http://localhost:5055/api/auth/status >/dev/null; do sleep 3; done; echo "API พร้อมแล้ว"
+```
+
+ตอน API start จะทำ 2 อย่างอัตโนมัติ: สร้าง/อัปเดตตาราง MariaDB ทั้งหมด
+และรัน migration ของ SurrealDB — ไม่ต้องรันคำสั่ง migrate เอง
+
+**ขั้นที่ 7 — เข้าใช้งานครั้งแรก**
+
+เปิด <http://localhost:3000> แล้วล็อกอินด้วย `admin1` / `admin1`
+
+> ถ้าเข้าทาง <http://localhost/> (ผ่าน Traefik) เบราว์เซอร์จะถาม basic auth ก่อน
+> ค่าเริ่มต้นคือ `admin` / `123` — คนละชั้นกับการล็อกอินของเว็บ
+
+### 5.3 ตั้งค่าโมเดล AI (ขั้นตอนที่ห้ามข้าม)
+
+ติดตั้งเสร็จแล้วระบบจะยังตอบ AI ไม่ได้จนกว่าจะผูกโมเดล ทำครั้งเดียวโดยบัญชี **admin**
+
+1. ล็อกอิน `admin1` → เมนูซ้าย **Models** (หรือเปิด <http://localhost:3000/settings/api-keys>)
+2. กด **Add credential** เลือกผู้ให้บริการ (เช่น Google/Gemini หรือ OpenAI) แล้ววาง API key
+3. กด **Test** ให้ขึ้นว่าเชื่อมต่อได้ → กด **Discover models** → เลือกโมเดลที่จะใช้ → **Register**
+4. ตั้งค่าโมเดลเริ่มต้น อย่างน้อย 2 ช่อง:
+
+| ช่อง | ใช้ทำอะไร | ไม่ตั้งแล้วเป็นอย่างไร |
+|---|---|---|
+| **Default chat model** | ตอบ RAG, สร้างควิซ, สร้าง roadmap | ฟีเจอร์ AI ทั้งหมดใช้ไม่ได้ |
+| **Default embedding model** | แปลงเอกสารในคลังความรู้เป็นเวกเตอร์ | อัปโหลดเอกสารได้แต่ค้นไม่เจอ RAG ตอบว่าไม่มีข้อมูล |
+
+API key ที่กรอกจะถูกเข้ารหัสด้วย `OPEN_NOTEBOOK_ENCRYPTION_KEY` ก่อนเก็บลง SurrealDB
+(คีย์ใน `.env` เป็นเพียง fallback)
+
+### 5.4 ตรวจว่าติดตั้งสำเร็จ
+
+```bash
+make ps                                                     # ควรเห็นทุก service เป็น Up
+curl -o /dev/null -w 'frontend %{http_code}
+' http://localhost:3000/community   # 200
+curl -o /dev/null -w 'api      %{http_code}
+' http://localhost:5055/api/auth/status  # 200
+```
+
+เช็กลิสต์ในเว็บ:
+
+- [ ] ล็อกอิน `admin1` ได้ และเห็นเมนู "จัดการระบบ"
+- [ ] ล็อกอิน `student1` ได้ และเห็น **เฉพาะ** หน้าชุมชน
+- [ ] หน้า `/community` แสดงห้องวิชา CS101–CS302 (ข้อมูลตัวอย่างที่ seed ให้)
+- [ ] กระเป๋าแต้มมุมขวาบนขึ้น 20 แต้ม สำหรับผู้ใช้ใหม่
+- [ ] ถาม KMITL RAG AI แล้วได้คำตอบ (ถ้าเพิ่งติดตั้งจะตอบว่ายังไม่มีเอกสาร — ถือว่าผ่าน)
+
+### 5.5 ปัญหาที่เจอบ่อยตอนติดตั้ง
+
+| อาการ | สาเหตุ | วิธีแก้ |
+|---|---|---|
+| `bind: address already in use` | พอร์ต 3000/3001/3002/5055/80 ถูกใช้อยู่ | หา process ด้วย `lsof -i :3000` แล้วปิด หรือแก้ `ports:` ใน `docker-compose.yml` |
+| `make up` ค้างนานมาก | ครั้งแรกต้อง `apt-get install` + build Next.js 3 แอป | ปกติ รอ 10–20 นาที ดูความคืบหน้าด้วย `make logs` |
+| เปิด `localhost:8502` ไม่ขึ้น | พอร์ตนี้อยู่ **ในคอนเทนเนอร์** ไม่ได้ publish ออกมา | ใช้ <http://localhost:3000> (Streamlit อยู่ที่ `/streamlit`) |
+| ล็อกอินแล้วเด้งออกตลอด | `OPEN_NOTEBOOK_ENCRYPTION_KEY` เปลี่ยนหลัง build | token เก่าใช้ไม่ได้ ให้ล็อกเอาต์แล้วล็อกอินใหม่ |
+| AI ตอบว่าไม่มีโมเดล | ยังไม่ได้ทำขั้น 5.3 | ไปตั้ง default chat model |
+| อัปโหลดเอกสารแล้วสถานะค้าง `failed` | ยังไม่ได้ตั้ง default **embedding** model | ตั้งแล้วกด retry ที่เอกสารนั้น |
+| API ตอบ `Temporary failure in name resolution` | คอนเทนเนอร์ไม่ได้ต่อ network หลัง `docker compose down` | `docker compose -p kmitlai up -d --force-recreate` (`docker restart` ไม่ผูก network กลับ) |
+| ไม่แน่ใจว่าคุยกับ stack ไหนอยู่ | dev กับ prod ใช้พอร์ตชุดเดียวกัน | `docker ps` ดูชื่อคอนเทนเนอร์ — `kmitl_*` คือ prod, `kmitlai_dev_*` คือ dev |
+
+### 5.6 รันแบบ production (รันประจำวัน)
 
 ```bash
 cd ~/kmitlAI
@@ -230,7 +358,7 @@ make up          # copy .env ถ้ายังไม่มี → build ทุ�
 | <http://localhost:8090> | PocketBase admin |
 | <http://localhost/> | ผ่าน Traefik (ถาม user/password ก่อน) |
 
-### 5.2 คำสั่งที่ใช้บ่อย
+### 5.7 คำสั่งที่ใช้บ่อย
 
 ```bash
 make ps            # ดูว่า service ไหนรันอยู่
@@ -248,7 +376,7 @@ docker compose -p kmitlai build open_notebook_api
 docker compose -p kmitlai up -d --force-recreate open_notebook_api
 ```
 
-### 5.3 รันแบบ dev (hot reload)
+### 5.8 รันแบบ dev (hot reload)
 
 ```bash
 make up-dev        # docker-compose-dev.yml, project name kmitlai_dev
@@ -261,7 +389,7 @@ dev mount ซอร์สเข้าไปในคอนเทนเนอร�
 หลัง `docker compose down` แล้ว network อาจไม่ถูกผูกกลับ ให้ใช้
 `up -d --force-recreate` ไม่ใช่ `docker restart`
 
-### 5.4 บัญชีสำหรับทดสอบ
+### 5.9 บัญชีสำหรับทดสอบ
 
 | ชื่อผู้ใช้ | รหัสผ่าน | บทบาท |
 |---|---|---|
@@ -280,12 +408,12 @@ dev mount ซอร์สเข้าไปในคอนเทนเนอร�
 | อีเมลที่อยู่ใน `WORKSPACE_ADMIN_EMAILS` | **admin** |
 | โดเมนอื่นที่ไม่อยู่ใน `GOOGLE_OAUTH_ALLOWED_DOMAINS` | ถูกปฏิเสธ 403 |
 
-### 5.5 ตัวแปรสำคัญใน `.env`
+### 5.10 ตัวแปรสำคัญใน `.env`
 
 | กลุ่ม | ตัวแปร | ความหมาย |
 |---|---|---|
-| ความปลอดภัย | `JWT_SECRET` | กุญแจเซ็น JWT — **ต้องตั้งก่อนขึ้นจริง** |
-| | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | เข้ารหัส credential ของ provider |
+| ความปลอดภัย | `JWT_SECRET` | กุญแจเซ็น JWT — ถ้าว่างจะใช้ `OPEN_NOTEBOOK_ENCRYPTION_KEY` แทน |
+| | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | เข้ารหัส credential ของ provider **และเซ็น JWT เมื่อ `JWT_SECRET` ว่าง** — ต้องเปลี่ยนจากค่าตัวอย่าง |
 | | `WORKSPACE_DISABLE_REGISTRATION` | ปิดการสมัครเอง (ค่าเริ่มต้น `false` = เปิด) |
 | SSO | `GOOGLE_OAUTH_CLIENT_ID/SECRET` | ของจริงจาก Google Cloud Console |
 | | `GOOGLE_OAUTH_MOCK` | `1` = โหมดจำลอง (dev เท่านั้น) |
@@ -698,7 +826,7 @@ curl -s http://localhost:5055/api/auth/status | head -c 200
 
 | # | เรื่อง | สถานะตอนนี้ | ต้องทำ |
 |---|---|---|---|
-| 1 | `JWT_SECRET` ว่าง | ระบบสุ่มให้ใหม่ทุกครั้งที่รีสตาร์ท → ทุกคนหลุดล็อกอิน | ตั้งค่าเป็น secret ยาว ๆ ใน `.env` |
+| 1 | กุญแจเซ็น JWT เป็นค่าตัวอย่าง | `JWT_SECRET` ว่าง ระบบจึงใช้ `OPEN_NOTEBOOK_ENCRYPTION_KEY` แทน ซึ่งยังเป็นค่า `change-me-...` จาก `.env.example` = ค่าที่ทุกคนบน GitHub เห็น → ปลอม token เป็น admin ได้ | ตั้ง `OPEN_NOTEBOOK_ENCRYPTION_KEY` (และ `JWT_SECRET` ถ้าอยากแยกกุญแจ) เป็นค่าสุ่ม เช่น `openssl rand -hex 32` |
 | 2 | Google OAuth โหมดจำลอง | `GOOGLE_OAUTH_MOCK=1` ใครก็สวมเป็นใครก็ได้ | ใส่ client ID/secret จริง แล้วตั้งเป็น `0` |
 | 3 | สมัครสมาชิกเองได้ | `WORKSPACE_DISABLE_REGISTRATION` ยังเป็น `false` | ตั้งเป็น `true` ให้เข้าผ่าน Google อย่างเดียว |
 | 4 | ไม่มี HTTPS | Traefik เปิดแค่ `:80` | เพิ่ม entrypoint 443 + Let's Encrypt |
