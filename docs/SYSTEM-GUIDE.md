@@ -199,6 +199,7 @@ kmitlAI/
 │   │   └── database/migrations/ ← migration ของ SurrealDB
 │   └── frontend/src/
 │       ├── app/(dashboard)/community/page.tsx   ← หน้า 3 คอลัมน์
+│       ├── app/(dashboard)/community/ask/page.tsx ← หน้าเต็มของ KMITL RAG AI
 │       ├── app/(dashboard)/admin/page.tsx       ← คอนโซลผู้ดูแล
 │       ├── components/community/                ← 14 คอมโพเนนต์ (ดูข้อ 12)
 │       └── lib/{api,hooks,stores,utils}/        ← เรียก API + state
@@ -522,6 +523,24 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 └──────────────────┴──────────────────────────────┴────────────────────┘
 ```
 
+**หน้าเต็มของ KMITL RAG AI — `/community/ask`**
+
+กล่องทางขวาไว้ถามสั้น ๆ ส่วนหน้าเต็มไว้นั่งอ่านจริงจัง กดเข้าได้จาก
+"ถาม KMITL RAG AI" ในเครื่องมือ AI หรือลิงก์ "เปิดหน้าเต็ม" บนกล่อง
+
+| ส่วน | มีอะไร |
+|---|---|
+| คอลัมน์ซ้าย | เลือกขอบเขต 4 แบบ (ทุกแหล่ง / รายวิชา / ไฟล์ของฉัน / เจาะจงเอกสาร) พร้อมคำอธิบายว่าจะค้นจากที่ไหน |
+| | เลือกรูปแบบ: คำถามเดี่ยว หรือเซสชันต่อเนื่อง พร้อมราคาแต้ม และปุ่มล้างบทสนทนา |
+| คอลัมน์ขวา | บทสนทนาแบบเต็มจอ, คำถามตัวอย่างให้กดเริ่ม, แหล่งอ้างอิงกดขยายอ่านข้อความต้นฉบับได้ |
+
+บทสนทนาถูกเก็บไว้ใน `localStorage` ของเบราว์เซอร์ (40 ข้อความล่าสุด) ออกจากหน้าแล้วกลับมาไม่หาย
+ไม่ได้ส่งขึ้นเซิร์ฟเวอร์ · รองรับลิงก์ตรง `?course=<id>` และ `?doc=<id>`
+
+> หมายเหตุใต้คำตอบมี 3 แบบ: **📚 อ้างอิงจาก …** (เจอในขอบเขตที่เลือก),
+> **ℹ️ ไม่พบใน … ตอบจากคลังทั้งหมดแทน** (เกิดเฉพาะโหมด `auto` ที่ยอมให้ขยายขอบเขต)
+> และ **⚠️ ไม่พบเอกสารใน …** (ขอบเขตที่เจาะจงไว้ไม่มีเอกสารเลย)
+
 ---
 
 ## 7. บทบาทผู้ใช้ (Roles) โดยละเอียด
@@ -779,6 +798,7 @@ Migration รันอัตโนมัติตอน API start (`database/mig
 | กล่องเขียนโพสต์ | `components/community/CreatorBox.tsx` |
 | การ์ดโพสต์ | `components/community/PostCard.tsx` |
 | กล่องถาม RAG ทางขวา | `components/community/AiQuickWidget.tsx` |
+| หน้าเต็มของ RAG (`/community/ask`) | `app/(dashboard)/community/ask/page.tsx` |
 | คลังความรู้ | `components/community/LibraryPanel.tsx` + `community/library.py` |
 | ปุ่ม "เลือกผลงานขึ้นฟีด" | `components/community/ShareMyWorkDialog.tsx` |
 

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   Bookmark,
   BookOpen,
@@ -60,8 +61,6 @@ interface CourseSidebarProps {
   isStaff: boolean
   onSelectView: (view: FeedView) => void
   onSelectCourse: (courseId: number | null) => void
-  /** Jump to the KMITL RAG AI box in the right-hand column. */
-  onAskAi?: () => void
 }
 
 export function CourseSidebar({
@@ -70,7 +69,6 @@ export function CourseSidebar({
   isStaff,
   onSelectView,
   onSelectCourse,
-  onAskAi,
 }: CourseSidebarProps) {
   const { data: courses, isLoading } = useCourses()
   const me = useAuthStore((s) => s.user)
@@ -315,16 +313,13 @@ export function CourseSidebar({
           เครื่องมือ AI
         </p>
         <nav className="space-y-0.5">
-          {onAskAi && (
-            <button
-              type="button"
-              onClick={onAskAi}
-              className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
-            >
-              <Bot className="h-4 w-4 text-violet-600" /> ถาม KMITL RAG AI
-              <span className="ml-auto text-[10px] text-muted-foreground">1 แต้ม</span>
-            </button>
-          )}
+          <Link
+            href="/community/ask"
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
+          >
+            <Bot className="h-4 w-4 text-violet-600" /> ถาม KMITL RAG AI
+            <span className="ml-auto text-[10px] text-muted-foreground">1 แต้ม →</span>
+          </Link>
           <button
             type="button"
             onClick={() => void openQuizApp()}

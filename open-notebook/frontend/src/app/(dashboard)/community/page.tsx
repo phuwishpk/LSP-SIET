@@ -51,7 +51,6 @@ function CommunityContent() {
   const postId = params.get('post') ? Number(params.get('post')) : null
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
   const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
-  const [askSignal, setAskSignal] = useState(0)
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -123,7 +122,6 @@ function CommunityContent() {
               isStaff={isStaff}
               onSelectView={(v) => setParams({ view: v === 'all' ? null : v, post: null, q: null })}
               onSelectCourse={(id) => setParams({ course: id, post: null, q: null })}
-              onAskAi={() => setAskSignal((n) => n + 1)}
             />
           </div>
         </div>
@@ -219,7 +217,6 @@ function CommunityContent() {
             courseId={courseId}
             focusDocument={askFocus}
             onClearFocus={() => setAskFocus(null)}
-            focusSignal={askSignal}
           />
           <Leaderboard />
           <PopularRoadmaps onOpenPost={openPost} />

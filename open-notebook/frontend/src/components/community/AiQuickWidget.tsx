@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Bot, Coins, FileText, Lock, RotateCcw, Send, Users, X } from 'lucide-react'
+import Link from 'next/link'
+import { Bot, Coins, ExternalLink, FileText, Lock, RotateCcw, Send, Users, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -10,7 +11,7 @@ import { useAsk, useCourses, useWallet, toastApiError } from '@/lib/hooks/use-co
 import type { AskCitation } from '@/lib/api/community'
 import { describeApiError } from '@/lib/api/community'
 import type { AskScope } from '@/lib/api/library'
-import { roomLabel } from '@/lib/utils/community-format'
+import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -33,19 +34,9 @@ interface AiQuickWidgetProps {
   /** A library document the user asked about ("ถาม AI จากเอกสารนี้"). */
   focusDocument?: AskFocus | null
   onClearFocus?: () => void
-  /**
-   * Incremented by the sidebar's "ถาม KMITL RAG AI" entry: scrolls this card
-   * into view and puts the cursor in the question box.
-   */
-  focusSignal?: number
 }
 
-export function AiQuickWidget({
-  courseId,
-  focusDocument,
-  onClearFocus,
-  focusSignal = 0,
-}: AiQuickWidgetProps) {
+export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuickWidgetProps) {
   const ask = useAsk()
   const { data: wallet } = useWallet()
   const { data: courses } = useCourses()
@@ -78,12 +69,6 @@ export function AiQuickWidget({
     if (room && room.kind === 'club') return
     setScopeCourseId(courseId)
   }, [courseId, courses])
-
-  useEffect(() => {
-    if (!focusSignal) return
-    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
-    inputRef.current?.focus()
-  }, [focusSignal])
 
   // Clicking "ask about this document" in the library switches the widget scope.
   useEffect(() => {
@@ -169,7 +154,12 @@ export function AiQuickWidget({
             <Bot className="h-4 w-4" />
           </span>
           AI Quick Prompt
-          <span className="ml-auto text-[11px] font-normal text-muted-foreground">KMITL RAG AI</span>
+          <Link
+            href="/community/ask"
+            className="ml-auto flex items-center gap-1 text-[11px] font-normal text-violet-700 hover:underline dark:text-violet-300"
+          >
+            เปิดหน้าเต็ม <ExternalLink className="h-3 w-3" />
+          </Link>
         </CardTitle>
 
         {/* knowledge scope */}
@@ -261,8 +251,7 @@ export function AiQuickWidget({
                 <p className="whitespace-pre-wrap">{m.content}</p>
                 {m.role === 'assistant' && m.scopeLabel && (
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    {m.grounded ? '📚 อ้างอิง: ' : '⚠️ ไม่พบเอกสารใน '}
-                    {m.scopeLabel}
+                    {answerSourceNote(m.grounded, m.scopeLabel, m.citations?.length ?? 0)}
                   </p>
                 )}
                 {m.citations && m.citations.length > 0 && (

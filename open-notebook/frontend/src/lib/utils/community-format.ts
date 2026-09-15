@@ -78,3 +78,21 @@ export function roomLabel(room: {
 }): string {
   return room.kind === 'club' ? `💬 ${room.name}` : `${room.code ?? ''} ${room.name}`.trim()
 }
+
+/**
+ * What to print under a RAG answer.
+ *
+ * `grounded` only says whether the chosen scope resolved to any notebook — on
+ * the "auto" scope the server may still fall back to the whole workspace, which
+ * returns citations with `grounded: false`. Printing "ไม่พบเอกสาร" next to three
+ * citations reads like a bug, so the three cases are spelled out separately.
+ */
+export function answerSourceNote(
+  grounded: boolean | undefined,
+  scopeLabel: string,
+  citationCount: number
+): string {
+  if (grounded) return `📚 อ้างอิงจาก ${scopeLabel}`
+  if (citationCount > 0) return `ℹ️ ไม่พบใน ${scopeLabel} — ตอบจากคลังความรู้ทั้งหมดแทน`
+  return `⚠️ ไม่พบเอกสารใน ${scopeLabel}`
+}
