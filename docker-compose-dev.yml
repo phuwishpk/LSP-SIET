@@ -116,6 +116,7 @@ services:
       - MARIADB_DATABASE=workspace
       - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
       - JWT_SECRET=${JWT_SECRET:-}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost}
       - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
       - WORKSPACE_SEED_ADMIN=true
       - WORKSPACE_SEED_ADMIN_USERNAME=admin1

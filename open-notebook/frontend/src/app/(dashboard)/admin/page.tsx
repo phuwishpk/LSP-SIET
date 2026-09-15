@@ -8,11 +8,20 @@ import {
   KeyRound,
   Search,
   ShieldCheck,
+  Trash2,
   UserCog,
+  UserPlus,
   UserX,
   Users,
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { HealthPanel } from '@/components/admin/HealthPanel'
+import { ModerationPanel } from '@/components/admin/ModerationPanel'
+import { RoomsPanel } from '@/components/admin/RoomsPanel'
+import { PointsLogPanel } from '@/components/admin/PointsLogPanel'
+import { ImportPanel } from '@/components/admin/ImportPanel'
+import { CreateUserDialog } from '@/components/admin/CreateUserDialog'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -35,6 +44,8 @@ import {
   useAdminOverview,
   useAdminUser,
   useAdminUsers,
+  useBulkDeleteUsers,
+  useDeleteUser,
   useResetPassword,
   useUpdateUser,
 } from '@/lib/hooks/use-admin'
@@ -56,6 +67,9 @@ export default function AdminPage() {
   const [role, setRole] = useState('')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<AdminUser | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [picked, setPicked] = useState<number[]>([])
+  const bulkDelete = useBulkDeleteUsers()
 
   const { data: overview } = useAdminOverview()
   const { data, isLoading } = useAdminUsers({
@@ -71,16 +85,30 @@ export default function AdminPage() {
     <AppShell>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl space-y-5 p-6">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <ShieldCheck className="h-6 w-6 text-primary" />
-            <div>
+            <div className="min-w-0">
               <h1 className="text-2xl font-bold">จัดการระบบ</h1>
               <p className="text-sm text-muted-foreground">
-                เปลี่ยนสิทธิ์ เติมแต้ม ตั้งรหัสผ่านใหม่ และระงับบัญชี โดยไม่ต้องเข้าฐานข้อมูล
+                บัญชี เนื้อหา ห้อง แต้ม และสถานะระบบ — ทุกอย่างที่เคยต้องเข้า MariaDB เอง
               </p>
             </div>
+            <Button size="sm" className="ml-auto gap-1.5" onClick={() => setCreateOpen(true)}>
+              <UserPlus className="h-4 w-4" /> สร้างบัญชี
+            </Button>
           </div>
 
+          <Tabs defaultValue="overview">
+            <TabsList className="flex-wrap">
+              <TabsTrigger value="overview">ภาพรวม</TabsTrigger>
+              <TabsTrigger value="users">ผู้ใช้</TabsTrigger>
+              <TabsTrigger value="content">เนื้อหา</TabsTrigger>
+              <TabsTrigger value="rooms">ห้อง</TabsTrigger>
+              <TabsTrigger value="points">แต้ม</TabsTrigger>
+              <TabsTrigger value="import">นำเข้า CSV</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="mt-4 space-y-4">
           {overview && (
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
               <StatCard icon={Users} label="ผู้ใช้ทั้งหมด" value={overview.users} hint={`ใช้งานใน 7 วัน ${overview.active_week}`} />
@@ -90,7 +118,10 @@ export default function AdminPage() {
               <StatCard icon={Coins} label="แต้มคงเหลือรวม" value={overview.points_outstanding} hint={`ใช้ไป 7 วัน ${overview.points_spent_week}`} />
             </div>
           )}
+              <HealthPanel />
+            </TabsContent>
 
+            <TabsContent value="users" className="mt-4">
           <Card>
             <CardHeader className="pb-3">
               <CardTitle className="text-base">รายชื่อผู้ใช้</CardTitle>
@@ -142,14 +173,65 @@ export default function AdminPage() {
                 </p>
               )}
 
+              {picked.length > 0 && (
+                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-sm">
+                  <span>เลือกไว้ {picked.length} บัญชี</span>
+                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPicked([])}>
+                    ล้างการเลือก
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    className="ml-auto h-7 gap-1 text-xs"
+                    disabled={bulkDelete.isPending}
+                    onClick={() => {
+                      if (
+                        window.confirm(
+                          `ลบ ${picked.length} บัญชีถาวร?\nโพสต์ของพวกเขาจะถูกซ่อน แต้มและการแจ้งเตือนจะถูกลบ และห้องที่เปิดไว้จะยังอยู่แต่ไม่มีเจ้าของ\nการลบย้อนกลับไม่ได้`
+                        )
+                      ) {
+                        bulkDelete.mutate(picked, { onSuccess: () => setPicked([]) })
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> ลบบัญชีที่เลือก
+                  </Button>
+                </div>
+              )}
+
               <div className="divide-y rounded-lg border">
                 {data?.items.map((u) => (
-                  <button
+                  <div
                     key={u.id}
-                    type="button"
-                    onClick={() => setSelected(u)}
-                    className="flex w-full items-center gap-3 p-3 text-left transition hover:bg-accent"
+                    className={cn(
+                      'flex w-full items-center gap-3 p-3 transition hover:bg-accent',
+                      picked.includes(u.id) && 'bg-destructive/5'
+                    )}
                   >
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4 shrink-0 accent-destructive"
+                      checked={picked.includes(u.id)}
+                      disabled={u.id === data.me || u.role === 'admin'}
+                      title={
+                        u.id === data.me
+                          ? 'ลบบัญชีของตัวเองไม่ได้'
+                          : u.role === 'admin'
+                          ? 'ลดสิทธิ์ผู้ดูแลก่อนจึงจะลบได้'
+                          : 'เลือกเพื่อลบ'
+                      }
+                      onChange={(e) =>
+                        setPicked((prev) =>
+                          e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id)
+                        )
+                      }
+                      aria-label={`เลือก ${u.username}`}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setSelected(u)}
+                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                    >
                     <Avatar size="sm" src={u.avatar_url} name={displayName(u)} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
@@ -178,7 +260,8 @@ export default function AdminPage() {
                       {u.points_balance}
                     </span>
                     <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" />
-                  </button>
+                    </button>
+                  </div>
                 ))}
               </div>
 
@@ -197,8 +280,25 @@ export default function AdminPage() {
               )}
             </CardContent>
           </Card>
+            </TabsContent>
+
+            <TabsContent value="content" className="mt-4">
+              <ModerationPanel />
+            </TabsContent>
+            <TabsContent value="rooms" className="mt-4">
+              <RoomsPanel />
+            </TabsContent>
+            <TabsContent value="points" className="mt-4">
+              <PointsLogPanel />
+            </TabsContent>
+            <TabsContent value="import" className="mt-4">
+              <ImportPanel />
+            </TabsContent>
+          </Tabs>
         </div>
       </div>
+
+      <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
 
       {selected && (
         <UserDialog
@@ -248,6 +348,7 @@ function UserDialog({
   const update = useUpdateUser()
   const adjust = useAdjustPoints()
   const resetPassword = useResetPassword()
+  const remove = useDeleteUser()
 
   const current = detail?.user ?? user
   const [role, setRole] = useState<UserRole>(current.role)
@@ -386,15 +487,39 @@ function UserDialog({
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">
-          <Button
-            variant={current.disabled ? 'outline' : 'destructive'}
-            size="sm"
-            disabled={isSelf || busy}
-            onClick={() => update.mutate({ id: current.id, disabled: !current.disabled })}
-          >
-            <UserX className="mr-1.5 h-4 w-4" />
-            {current.disabled ? 'คืนสิทธิ์การใช้งาน' : 'ระงับบัญชี'}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              variant={current.disabled ? 'outline' : 'destructive'}
+              size="sm"
+              disabled={isSelf || busy}
+              onClick={() => update.mutate({ id: current.id, disabled: !current.disabled })}
+            >
+              <UserX className="mr-1.5 h-4 w-4" />
+              {current.disabled ? 'คืนสิทธิ์การใช้งาน' : 'ระงับบัญชี'}
+            </Button>
+            {/* Suspending hides an account; deleting is for ones that should
+                never have existed. Admins must be demoted first. */}
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-destructive hover:text-destructive"
+              disabled={isSelf || busy || remove.isPending || current.role === 'admin'}
+              title={
+                current.role === 'admin' ? 'ลดสิทธิ์ผู้ดูแลคนนี้ก่อนจึงจะลบได้' : undefined
+              }
+              onClick={() => {
+                if (
+                  window.confirm(
+                    `ลบบัญชี "${current.username}" ถาวร?\nโพสต์จะถูกซ่อน · แต้ม ประวัติ และการแจ้งเตือนจะถูกลบ · ห้องที่เปิดไว้จะยังอยู่แต่ไม่มีเจ้าของ\nการลบย้อนกลับไม่ได้`
+                  )
+                ) {
+                  remove.mutate(current.id, { onSuccess: () => onOpenChange(false) })
+                }
+              }}
+            >
+              <Trash2 className="mr-1.5 h-4 w-4" /> ลบบัญชีถาวร
+            </Button>
+          </div>
           <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
             ปิด
           </Button>

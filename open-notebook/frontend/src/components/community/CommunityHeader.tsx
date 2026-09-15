@@ -5,6 +5,7 @@ import {
   ChevronDown,
   GraduationCap,
   LogOut,
+  Menu,
   Search,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
@@ -32,9 +33,21 @@ interface CommunityHeaderProps {
   onSearch: (q: string) => void
   onOpenPost: (postId: number) => void
   onHome: () => void
+  /**
+   * Opens the navigation drawer. Only passed on pages that have a left column
+   * to show; below `lg` that column is hidden, so without this the rooms,
+   * library and AI tools are unreachable on a phone.
+   */
+  onOpenMenu?: () => void
 }
 
-export function CommunityHeader({ query, onSearch, onOpenPost, onHome }: CommunityHeaderProps) {
+export function CommunityHeader({
+  query,
+  onSearch,
+  onOpenPost,
+  onHome,
+  onOpenMenu,
+}: CommunityHeaderProps) {
   const { user, logout } = useAuth()
   const [draft, setDraft] = useState(query)
 
@@ -42,13 +55,24 @@ export function CommunityHeader({ query, onSearch, onOpenPost, onHome }: Communi
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-3 px-3 sm:px-4">
+      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
+        {onOpenMenu && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-9 w-9 shrink-0 p-0 lg:hidden"
+            onClick={onOpenMenu}
+            aria-label="เปิดเมนู"
+          >
+            <Menu className="h-5 w-5" />
+          </Button>
+        )}
         <button
           type="button"
           onClick={onHome}
           className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-accent"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 text-sm font-black text-white shadow">
+          <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 text-sm font-black text-white shadow sm:flex">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">

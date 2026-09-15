@@ -16,7 +16,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 import bcrypt
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import Column, DateTime, Enum, Integer, String, select, update
+from sqlalchemy import Column, DateTime, Enum, Integer, String, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
@@ -559,6 +559,75 @@ async def count_admins(exclude_user_id: Optional[int] = None) -> int:
         params["uid"] = exclude_user_id
     async with _mariadb_session() as session:
         return int((await session.execute(_text(sql), params)).scalar() or 0)
+
+
+async def admin_delete_user(user_id: int) -> Dict[str, int]:
+    """
+    Remove an account and everything that belongs only to it.
+
+    Suspending keeps the data; deleting is for accounts that should never have
+    existed (test runs, duplicates). Other people's content is preserved: the
+    person's posts are soft-deleted rather than dropped, and any room they
+    opened stays open with no owner instead of taking its members down with it.
+
+    The per-post counters are recomputed afterwards, so removing someone who
+    liked or commented does not leave the feed showing numbers that no longer
+    match the rows.
+    """
+    removed: Dict[str, int] = {}
+
+    async with _mariadb_session() as session:
+        # Remember which posts need their counters rebuilt before the rows go.
+        async def _affected(table: str, column: str) -> List[int]:
+            rows = (
+                await session.execute(
+                    text(f"SELECT DISTINCT post_id FROM {table} WHERE {column} = :uid"),
+                    {"uid": user_id},
+                )
+            ).all()
+            return [int(r[0]) for r in rows]
+
+        comment_posts = await _affected("post_comments", "author_id")
+        reaction_posts = await _affected("post_reactions", "user_id")
+        share_posts = await _affected("post_shares", "user_id")
+
+        async def _run(sql: str, key: Optional[str] = None) -> None:
+            result = await session.execute(text(sql), {"uid": user_id})
+            if key:
+                removed[key] = int(result.rowcount or 0)
+
+        await _run("UPDATE posts SET is_deleted = 1 WHERE author_id = :uid", "posts_hidden")
+        await _run("DELETE FROM post_comments WHERE author_id = :uid", "comments")
+        await _run("DELETE FROM post_reactions WHERE user_id = :uid", "reactions")
+        await _run("DELETE FROM post_shares WHERE user_id = :uid", "shares")
+        await _run("DELETE FROM saved_items WHERE user_id = :uid", "saved")
+        await _run("DELETE FROM quiz_plays WHERE user_id = :uid", "quiz_plays")
+        await _run("DELETE FROM course_members WHERE user_id = :uid", "memberships")
+        await _run("DELETE FROM library_documents WHERE owner_id = :uid", "documents")
+        await _run("DELETE FROM rag_sessions WHERE user_id = :uid", "rag_sessions")
+        await _run(
+            "DELETE FROM notifications WHERE user_id = :uid OR actor_id = :uid", "notifications"
+        )
+        await _run("DELETE FROM point_transactions WHERE user_id = :uid", "point_rows")
+        # A room outlives the person who opened it; it simply loses its owner.
+        await _run("UPDATE courses SET created_by = NULL WHERE created_by = :uid", "rooms_orphaned")
+
+        for post_ids, sql in (
+            (comment_posts, "comment_count = (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id)"),
+            (reaction_posts,
+             "like_count = (SELECT COUNT(*) FROM post_reactions r WHERE r.post_id = p.id AND r.kind = 'like'), "
+             "helpful_count = (SELECT COUNT(*) FROM post_reactions r WHERE r.post_id = p.id AND r.kind = 'helpful')"),
+            (share_posts, "share_count = (SELECT COUNT(*) FROM post_shares s WHERE s.post_id = p.id)"),
+        ):
+            if not post_ids:
+                continue
+            ids = ", ".join(str(int(i)) for i in post_ids)
+            await session.execute(text(f"UPDATE posts p SET {sql} WHERE p.id IN ({ids})"))
+
+        await _run("DELETE FROM users WHERE id = :uid", "users")
+
+    logger.info(f"admin deleted user {user_id}: {removed}")
+    return removed
 
 
 async def set_disabled(user_id: int | str, disabled: bool) -> None:

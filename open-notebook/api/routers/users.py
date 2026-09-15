@@ -19,6 +19,13 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from api.login_guard import (
+    check_login_allowed,
+    check_registration_allowed,
+    clear_login_failures,
+    record_login_failure,
+    record_registration,
+)
 from api.auth_jwt import (
     get_current_user,
     issue_access_token,
@@ -166,7 +173,8 @@ async def auth_status(
 
 
 @router.post("/users/register", response_model=TokenResponse, status_code=status.HTTP_201_CREATED)
-async def register(payload: RegisterRequest) -> TokenResponse:
+async def register(payload: RegisterRequest, request: Request) -> TokenResponse:
+    await check_registration_allowed(request)
     if not jwt_auth_enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -192,18 +200,22 @@ async def register(payload: RegisterRequest) -> TokenResponse:
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)
         )
 
+    await record_registration(request)
     user = await _with_welcome(user)
     access_token, expires_at = issue_access_token(user)
     return TokenResponse(access_token=access_token, expires_at=expires_at, user=_to_response(user))
 
 
 @router.post("/users/login", response_model=TokenResponse)
-async def login(payload: LoginRequest) -> TokenResponse:
+async def login(payload: LoginRequest, request: Request) -> TokenResponse:
     if not jwt_auth_enabled():
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="JWT auth is not configured (set JWT_SECRET)",
         )
+
+    # Checked before the password so a locked-out attacker cannot keep guessing.
+    await check_login_allowed(payload.username, request)
 
     user = await get_by_username(payload.username)
     if user is not None and user.disabled:
@@ -214,11 +226,13 @@ async def login(payload: LoginRequest) -> TokenResponse:
     if user is None or not verify_password(payload.password, user.password_hash):
         # Run verify_password against a dummy hash to keep timing constant
         verify_password(payload.password, "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv")
+        await record_login_failure(payload.username, request)
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
         )
 
+    await clear_login_failures(payload.username)
     user = await _with_welcome(user)
     access_token, expires_at = issue_access_token(user)
     await touch_last_login(user.id or "")

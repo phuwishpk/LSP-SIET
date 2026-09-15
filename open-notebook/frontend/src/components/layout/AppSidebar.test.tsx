@@ -12,8 +12,17 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
+// The navigation is role-aware (see lib/roles.ts): students only get the
+// community, everything else belongs to staff. The store decides which.
+const mockRole = vi.fn<() => string | undefined>(() => 'teacher')
+vi.mock('@/lib/stores/auth-store', () => ({
+  useAuthStore: (selector: (state: unknown) => unknown) =>
+    selector({ user: { id: '1', username: 'teacher1', role: mockRole() } }),
+}))
+
 describe('AppSidebar', () => {
   it('renders correctly when expanded', () => {
+    mockRole.mockReturnValue('teacher')
     render(<AppSidebar />)
 
     // With mocked t() returning keys, check for translation key strings
@@ -22,7 +31,28 @@ describe('AppSidebar', () => {
     expect(screen.getByText('navigation.notebooks')).toBeDefined()
   })
 
+  it('hides the staff areas from students', () => {
+    mockRole.mockReturnValue('student')
+    render(<AppSidebar />)
+
+    expect(screen.getByText('navigation.communityFeed')).toBeDefined()
+    expect(screen.queryByText('navigation.sources')).toBeNull()
+    expect(screen.queryByText('navigation.notebooks')).toBeNull()
+    expect(screen.queryByText('navigation.teacherConsole')).toBeNull()
+    expect(screen.queryByText('navigation.adminConsole')).toBeNull()
+  })
+
+  it('gives admins the console and model settings', () => {
+    mockRole.mockReturnValue('admin')
+    render(<AppSidebar />)
+
+    expect(screen.getByText('navigation.teacherConsole')).toBeDefined()
+    expect(screen.getByText('navigation.adminConsole')).toBeDefined()
+    expect(screen.getByText('navigation.models')).toBeDefined()
+  })
+
   it('toggles collapse state when clicking handle', () => {
+    mockRole.mockReturnValue('teacher')
     const toggleCollapse = vi.fn()
     vi.mocked(useSidebarStore).mockReturnValue({
       isCollapsed: false,

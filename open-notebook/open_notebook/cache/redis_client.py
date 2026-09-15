@@ -241,6 +241,38 @@ class RedisClient:
             logger.debug(f"Redis SET embedding error for {key}: {e}")
             return False
 
+    async def incr_with_ttl(self, key: str, ttl_seconds: int) -> Optional[int]:
+        """
+        Atomically increment a counter and make sure it expires.
+
+        Returns the new value, or ``None`` when Redis is unavailable so the
+        caller can fall back instead of failing the request.
+        """
+        client = await self._ensure_connection()
+        if client is None:
+            return None
+        try:
+            pipe = client.pipeline()
+            pipe.incr(key)
+            pipe.expire(key, ttl_seconds, nx=True)
+            value, _ = await pipe.execute()
+            return int(value)
+        except Exception as e:
+            logger.warning(f"Redis incr failed for {key}: {e}")
+            return None
+
+    async def seconds_until_expiry(self, key: str) -> Optional[int]:
+        """Remaining TTL in seconds, or None when unknown/unavailable."""
+        client = await self._ensure_connection()
+        if client is None:
+            return None
+        try:
+            ttl = await client.ttl(key)
+            return int(ttl) if ttl and ttl > 0 else None
+        except Exception as e:
+            logger.warning(f"Redis ttl failed for {key}: {e}")
+            return None
+
     async def close(self) -> None:
         """Close the Redis connection."""
         if self._client:

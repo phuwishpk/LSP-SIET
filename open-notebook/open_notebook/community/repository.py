@@ -601,6 +601,263 @@ async def update_post(
         )
 
 
+async def post_exists(post_id: int) -> bool:
+    """
+    Does this post row exist at all?
+
+    ``get_post_raw`` filters out hidden posts, which made "restore" impossible:
+    the only posts you would ever want to restore are the hidden ones.
+    """
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT id FROM posts WHERE id = :pid"), {"pid": post_id}
+            )
+        ).first()
+    return row is not None
+
+
+async def restore_post(post_id: int) -> None:
+    """Undo a soft delete. Posts are flagged, never dropped, so this is enough."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE posts SET is_deleted = 0 WHERE id = :id"), {"id": post_id}
+        )
+
+
+async def admin_list_posts(
+    *,
+    query: Optional[str] = None,
+    post_type: Optional[str] = None,
+    course_id: Optional[int] = None,
+    author_id: Optional[int] = None,
+    state: str = "visible",
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """
+    Moderation listing: every post, deleted ones included.
+
+    Deliberately not the feed query - a moderator needs the author and the
+    deleted flag, not the viewer-specific "did I like this" columns.
+    """
+    where: List[str] = []
+    params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if state == "visible":
+        where.append("p.is_deleted = 0")
+    elif state == "deleted":
+        where.append("p.is_deleted = 1")
+    if post_type:
+        where.append("p.type = :type")
+        params["type"] = post_type
+    if course_id:
+        where.append("p.course_id = :cid")
+        params["cid"] = int(course_id)
+    if author_id:
+        where.append("p.author_id = :aid")
+        params["aid"] = int(author_id)
+    if query:
+        where.append("(p.title LIKE :q OR p.content LIKE :q OR u.username LIKE :q)")
+        params["q"] = _like(query)
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    async with _mariadb_session() as session:
+        total = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT COUNT(*) AS n FROM posts p
+                      JOIN users u ON u.id = p.author_id {clause}
+                    """
+                ),
+                params,
+            )
+        ).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT p.id, p.type, p.title, p.content, p.is_deleted, p.created_at,
+                           p.like_count, p.helpful_count, p.comment_count, p.share_count,
+                           p.attachment_name,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           c.id AS course_id, c.code AS course_code, c.name AS course_name,
+                           c.kind AS course_kind
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                      LEFT JOIN courses c ON c.id = p.course_id
+                      {clause}
+                     ORDER BY p.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = []
+    for r in rows:
+        body = (r.get("content") or "")
+        items.append(
+            {
+                "id": r["id"],
+                "type": r["type"],
+                "title": r.get("title"),
+                "excerpt": body[:180] + ("…" if len(body) > 180 else ""),
+                "is_deleted": bool(r.get("is_deleted")),
+                "created_at": r.get("created_at"),
+                "has_attachment": bool(r.get("attachment_name")),
+                "counts": {
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                },
+                "author": {
+                    "id": r["author_id"],
+                    "username": r.get("author_username"),
+                    "display_name": r.get("author_display_name"),
+                    "role": r.get("author_role"),
+                },
+                "course": (
+                    {
+                        "id": r["course_id"],
+                        "code": r.get("course_code"),
+                        "name": r.get("course_name"),
+                        "kind": r.get("course_kind") or KIND_COURSE,
+                    }
+                    if r.get("course_id")
+                    else None
+                ),
+            }
+        )
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+async def admin_list_courses() -> List[Dict[str, Any]]:
+    """Every room in the workspace with its owner - abandoned ones included."""
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT c.id, c.code, c.name, c.description, c.kind, c.created_at,
+                           c.created_by,
+                           u.username     AS owner_username,
+                           u.display_name AS owner_display_name,
+                           u.role         AS owner_role,
+                           (SELECT COUNT(*) FROM course_members m WHERE m.course_id = c.id) AS member_count,
+                           (SELECT COUNT(*) FROM posts p
+                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
+                           (SELECT COUNT(*) FROM library_documents d
+                             WHERE d.course_id = c.id AND d.scope = 'course') AS document_count,
+                           (SELECT MAX(p.created_at) FROM posts p
+                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS last_post_at
+                      FROM courses c
+                      LEFT JOIN users u ON u.id = c.created_by
+                     ORDER BY c.kind ASC, c.code ASC
+                    """
+                )
+            )
+        )
+    for r in rows:
+        for key in ("member_count", "post_count", "document_count"):
+            r[key] = int(r.get(key) or 0)
+    return rows
+
+
+async def find_course_by_code(code: str) -> Optional[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT * FROM courses WHERE code = :code LIMIT 1"),
+                {"code": (code or "").strip().upper()[:32]},
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def admin_points_log(
+    *,
+    user_id: Optional[int] = None,
+    kind: Optional[str] = None,
+    days: int = 7,
+    limit: int = 100,
+) -> Dict[str, Any]:
+    """The wallet ledger for the whole workspace, plus totals to spot outliers."""
+    where = ["t.created_at >= NOW() - INTERVAL :days DAY"]
+    params: Dict[str, Any] = {"days": int(days), "limit": int(limit)}
+    if user_id:
+        where.append("t.user_id = :uid")
+        params["uid"] = int(user_id)
+    if kind:
+        where.append("t.kind = :kind")
+        params["kind"] = kind
+    clause = " AND ".join(where)
+
+    async with _mariadb_session() as session:
+        items = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT t.id, t.user_id, t.delta, t.balance_after, t.kind, t.note,
+                           t.created_at, u.username, u.display_name, u.role
+                      FROM point_transactions t
+                      JOIN users u ON u.id = t.user_id
+                     WHERE {clause}
+                     ORDER BY t.id DESC
+                     LIMIT :limit
+                    """
+                ),
+                params,
+            )
+        )
+        by_kind = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT t.kind,
+                           COUNT(*) AS rows_count,
+                           COALESCE(SUM(CASE WHEN t.delta > 0 THEN t.delta END), 0) AS granted,
+                           COALESCE(SUM(CASE WHEN t.delta < 0 THEN -t.delta END), 0) AS spent
+                      FROM point_transactions t
+                      JOIN users u ON u.id = t.user_id
+                     WHERE {clause}
+                     GROUP BY t.kind
+                     ORDER BY rows_count DESC
+                    """
+                ),
+                params,
+            )
+        )
+        top = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT u.id, u.username, u.display_name, u.role,
+                           COALESCE(SUM(CASE WHEN t.delta < 0 THEN -t.delta END), 0) AS spent,
+                           COALESCE(SUM(CASE WHEN t.delta > 0 THEN t.delta END), 0) AS earned
+                      FROM point_transactions t
+                      JOIN users u ON u.id = t.user_id
+                     WHERE {clause}
+                     GROUP BY u.id, u.username, u.display_name, u.role
+                     ORDER BY spent DESC
+                     LIMIT 10
+                    """
+                ),
+                params,
+            )
+        )
+    for r in by_kind:
+        r["rows_count"] = int(r.get("rows_count") or 0)
+        r["granted"] = int(r.get("granted") or 0)
+        r["spent"] = int(r.get("spent") or 0)
+    for r in top:
+        r["spent"] = int(r.get("spent") or 0)
+        r["earned"] = int(r.get("earned") or 0)
+    return {"items": items, "by_kind": by_kind, "top_spenders": top, "days": int(days)}
+
+
 async def soft_delete_post(post_id: int) -> None:
     async with _mariadb_session() as session:
         await session.execute(

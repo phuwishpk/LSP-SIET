@@ -13,6 +13,7 @@ import { COMMUNITY_KEYS, useFeed } from '@/lib/hooks/use-community'
 import { communityApi, type FeedFilters } from '@/lib/api/community'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { CourseSidebar, type FeedView } from '@/components/community/CourseSidebar'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { CreatorBox } from '@/components/community/CreatorBox'
 import { PostCard } from '@/components/community/PostCard'
 import { AiQuickWidget } from '@/components/community/AiQuickWidget'
@@ -51,6 +52,7 @@ function CommunityContent() {
   const postId = params.get('post') ? Number(params.get('post')) : null
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
   const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
+  const [menuOpen, setMenuOpen] = useState(false)
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -110,7 +112,27 @@ function CommunityContent() {
         onSearch={(q) => setParams({ q, post: null })}
         onOpenPost={openPost}
         onHome={goHome}
+        onOpenMenu={() => setMenuOpen(true)}
       />
+
+      {/* Same sidebar, in a drawer, for screens narrower than lg. */}
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent title="เมนู SIET Space" description="ห้องเรียน คลังความรู้ และเครื่องมือ AI">
+          <CourseSidebar
+            view={view}
+            courseId={courseId}
+            isStaff={isStaff}
+            onSelectView={(v) => {
+              setParams({ view: v === 'all' ? null : v, post: null, q: null })
+              setMenuOpen(false)
+            }}
+            onSelectCourse={(id) => {
+              setParams({ course: id, post: null, q: null })
+              setMenuOpen(false)
+            }}
+          />
+        </SheetContent>
+      </Sheet>
 
       <div className="mx-auto grid max-w-[1400px] grid-cols-1 gap-4 px-3 py-4 sm:px-4 lg:grid-cols-[250px_minmax(0,1fr)_320px]">
         {/* Left column */}

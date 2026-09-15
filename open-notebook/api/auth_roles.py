@@ -50,6 +50,10 @@ STAFF_PREFIXES: tuple[str, ...] = (
     "/api/chat",
     "/api/search",
     "/api/commands",
+    # Mounted at /api (not /api/embeddings), so it needs naming separately:
+    # embedding one source costs a provider call and is only reachable from
+    # the staff-only source page.
+    "/api/embed",
 )
 
 # Workspace-wide configuration: one careless change affects every user.

@@ -8,7 +8,7 @@ individual repos stay clean.
 |---|---|---|
 | [`open-notebook/`](open-notebook) | FastAPI + Next.js + Streamlit + SurrealDB + MariaDB + Redis | API `:5055`, Next.js `:3000` (Streamlit at `/streamlit`) |
 | [`My-ai-quiz/`](My-ai-quiz) | Standalone Next.js quiz app | `:3001` |
-| [`ai-roadmap-generator/`](ai-roadmap-generator) | Next.js roadmap app + PocketBase | App `:3002`, PocketBase `:8090` |
+| [`ai-roadmap-generator/`](ai-roadmap-generator) | Next.js roadmap app + PocketBase | App `:3002`, PocketBase via Traefik `/pb` (no host port) |
 
 The new **AI Features** (`/features`) page inside open-notebook folds in the
 generation logic from both standalone apps and is wired to whichever language
@@ -34,7 +34,7 @@ Then open:
 - <http://localhost:5055/docs> – API reference (Swagger)
 - <http://localhost:3001> – My AI Quiz
 - <http://localhost:3002> – AI Roadmap Generator
-- <http://localhost:8090> – PocketBase admin
+- <http://localhost/pb/_/> – PocketBase admin (ผ่าน Traefik เท่านั้น ไม่ได้เปิดพอร์ต 8090 ออกมา)
 
 ## Project layout
 
@@ -202,12 +202,26 @@ close only the rooms they created; admins may manage any room.
 
 ### Admin console
 
-`/admin` (admins only) replaces going into MariaDB by hand: search the user
-directory, change a role, top a wallet up or deduct from it (recorded in the
-points history as `admin_grant` / `admin_deduct`), reset a password, and suspend
-or restore an account. A suspended account cannot sign in and its existing token
-is rejected on the next request. Guard rails stop an admin demoting or
-suspending themselves, or removing the last remaining admin.
+`/admin` (admins only) replaces going into MariaDB by hand. Six tabs:
+
+| Tab | What it does |
+|---|---|
+| ภาพรวม | headline counts plus a **health check** of MariaDB, SurrealDB, Redis and the default chat/embedding models — the usual reasons "the AI does not answer" |
+| ผู้ใช้ | search, change role, adjust points (`admin_grant`/`admin_deduct`), reset password, suspend/restore, and **delete accounts** one at a time or by ticking several |
+| เนื้อหา | every post in the workspace: hide one that breaks the rules, list the hidden ones and **restore** them |
+| ห้อง | every room with its owner, members, posts, documents and last activity; close any of them |
+| แต้ม | the whole points ledger by period and kind, with the biggest spenders |
+| นำเข้า CSV | bulk-create courses and accounts, with a dry run first |
+
+Plus a **สร้างบัญชี** button: with self-registration switched off and Google SSO
+deriving roles from the e-mail, this is the only way to hand a new teacher an
+account.
+
+Suspending keeps everything; deleting is permanent — the person's posts are
+hidden rather than dropped, their rooms stay open without an owner, and the
+like/comment/share counters on other people's posts are recomputed. Guard rails
+stop an admin demoting, suspending or deleting themselves, deleting another
+admin before demoting them, or removing the last remaining admin.
 
 ### Who can do what
 
@@ -261,6 +275,31 @@ length so one-character posts cannot be used to farm points. Teachers and admins
 get `SPAM_STAFF_MULTIPLIER` (default 4x) the quotas. Rejections return
 `429 Too Many Requests` with `Retry-After`, or `409 Conflict` with
 `X-Duplicate-Of` pointing at the original.
+
+### Sign-in throttle and CORS
+
+Guessing a password is not content, so it never touched the anti-spam counters
+above. `api/login_guard.py` adds its own, kept in Redis (surviving a restart,
+shared between workers, with an in-process fallback if Redis is down):
+
+| Counter | Default | Notes |
+|---|---|---|
+| Wrong passwords per **account** | 5 / 15 min | The real defence — an attacker can rotate IPs, but not the account being guessed at |
+| Wrong passwords per **IP** | 100 / 15 min | Secondary, reads `X-Forwarded-For` |
+| Sign-ups per **IP** | 20 / hour | `REGISTER_MAX_PER_IP` |
+
+Rejections return `429` with `Retry-After`. A successful sign-in clears that
+account's counter, and an admin password reset also lifts the lockout — the way
+back in when someone deliberately locks another person out. The per-IP ceilings
+are loose on purpose: a campus NATs hundreds of students behind one address, so
+a tight limit would lock out a whole faculty over other people's typos. Set an
+IP limit to `0` to disable it.
+
+`CORS_ORIGINS` now defaults to the local stack
+(`localhost:3000/3001/3002` plus Traefik on `:80`) instead of `*`. The main
+frontend is unaffected — it proxies `/api` through its own Next.js server — the
+only genuine cross-origin caller is the roadmap app, which reads
+`/api/users/me` from the page.
 
 ### Deploying to a real domain
 
