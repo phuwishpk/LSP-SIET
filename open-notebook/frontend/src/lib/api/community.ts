@@ -34,6 +34,8 @@ export interface PostViewer {
   liked: boolean
   helpful: boolean
   saved: boolean
+  /** True once this viewer has shared the post (one share per person). */
+  shared: boolean
   plays: number
   completed_plays: number
   imported: boolean
@@ -372,7 +374,15 @@ export const communityApi = {
   toggleSave: async (postId: number) =>
     (await apiClient.post<{ saved: boolean }>(`/community/posts/${postId}/save`)).data,
   share: async (postId: number) =>
-    (await apiClient.post(`/community/posts/${postId}/share`)).data,
+    (
+      await apiClient.post<{
+        ok: boolean
+        counted: boolean
+        already_shared: boolean
+        counts: PostCounts
+        message?: string
+      }>(`/community/posts/${postId}/share`)
+    ).data,
   downloadAttachment: async (postId: number) =>
     (
       await apiClient.get<Blob>(`/community/posts/${postId}/attachment`, {

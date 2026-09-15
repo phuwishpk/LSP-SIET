@@ -293,7 +293,13 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             activeClass="text-amber-600"
             onClick={() => save.mutate(post.id)}
           />
-          <ActionButton active={false} icon={Share2} label="แชร์" activeClass="" onClick={copyLink} />
+          <ActionButton
+            active={post.viewer.shared}
+            icon={Share2}
+            label={post.viewer.shared ? 'แชร์แล้ว' : 'แชร์'}
+            activeClass="text-sky-600"
+            onClick={copyLink}
+          />
         </div>
 
         {showComments && (

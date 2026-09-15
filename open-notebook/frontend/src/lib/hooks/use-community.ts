@@ -230,9 +230,15 @@ export function useSharePost() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (postId: number) => communityApi.share(postId),
-    onSuccess: () => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
-      toast.success('คัดลอกลิงก์และแชร์แล้ว')
+      // A person only counts once per post; say so instead of pretending the
+      // second click did something.
+      if (data.already_shared) {
+        toast.info('คัดลอกลิงก์แล้ว', { description: 'คุณแชร์โพสต์นี้ไปแล้ว จึงไม่นับซ้ำ' })
+      } else {
+        toast.success('คัดลอกลิงก์และแชร์แล้ว')
+      }
     },
     onError: (error) => toastApiError(error),
   })

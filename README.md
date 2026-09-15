@@ -155,7 +155,7 @@ your own action, so a small group cannot farm points:
 | Sharing a lecture summary | +2 | 6 |
 | Someone likes your post | +1 | 10 |
 | Someone marks your post Helpful | +1 | 10 |
-| Someone shares your post | +2 | 10 |
+| Someone shares your post | +2 | 10 (one share per person per post) |
 | Improving one of your posts (edit) | +1 | 2 |
 | A friend finishes a quiz you shared | +1 | 15 per quiz |
 
@@ -189,6 +189,10 @@ Everything that adds content is guarded three ways (all `SPAM_*` env vars):
 | Cooldown between submissions | 20 s | 5 s | 15 s |
 | Per hour | 10 | 30 | 10 |
 | Per day | 40 | 150 | 30 |
+
+Reactions and shares are recorded per (post, person) — `post_reactions` and
+`post_shares` — so a like or share counts once no matter how often the button is
+pressed, and sharing your own post never pays you.
 
 Plus a duplicate fingerprint (`content_hash`, MD5 of the payload) that rejects
 re-posting the same text or re-uploading the same file for 24 h, and a minimum

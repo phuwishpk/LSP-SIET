@@ -561,10 +561,24 @@ async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[
     uid = _uid(user)
     post = await _post_or_404(post_id)
     author_id = int(post["author_id"])
-    first_share = not await repo.has_actor_bonus("share_bonus", post_id, uid)
-    if first_share:
-        await repo.bump_counter(post_id, "share_count", 1)
-    if author_id != uid and points.SHARE_BONUS and first_share:
+
+    # One share per person per post. The insert itself decides: a second call
+    # changes nothing, so the count, the bonus and the notification cannot be
+    # inflated by sharing your own post or by sharing again after the daily
+    # point cap was reached.
+    first_share = await repo.record_share(post_id, uid)
+    if not first_share:
+        fresh = await repo.get_post(post_id, uid)
+        return {
+            "ok": True,
+            "counted": False,
+            "already_shared": True,
+            "counts": fresh["counts"] if fresh else {},
+            "message": "คุณแชร์โพสต์นี้ไปแล้ว",
+        }
+
+    await repo.bump_counter(post_id, "share_count", 1)
+    if author_id != uid and points.SHARE_BONUS:
         await points.grant_capped(
             author_id, points.SHARE_BONUS, "share_bonus",
             ref_type="post", ref_id=str(post_id), note=repo.actor_note("share_bonus", uid),
@@ -572,7 +586,13 @@ async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[
     await repo.add_notification(
         author_id, "share", f"{_display(user)} แชร์โพสต์ของคุณ", post_id=post_id, actor_id=uid
     )
-    return {"ok": True, "counted": first_share}
+    fresh = await repo.get_post(post_id, uid)
+    return {
+        "ok": True,
+        "counted": True,
+        "already_shared": False,
+        "counts": fresh["counts"] if fresh else {},
+    }
 
 
 # ---------------------------------------------------------------------------

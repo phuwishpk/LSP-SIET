@@ -136,6 +136,7 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
             "liked": bool(row.get("liked")),
             "helpful": bool(row.get("marked_helpful")),
             "saved": bool(row.get("saved")),
+            "shared": bool(row.get("shared")),
             "plays": int(row.get("my_plays") or 0),
             "completed_plays": int(row.get("my_completed_plays") or 0),
             "imported": bool(row.get("my_imported")),
@@ -156,6 +157,7 @@ _POST_SELECT = """
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'like')    AS liked,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'helpful') AS marked_helpful,
            EXISTS(SELECT 1 FROM saved_items s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
+           EXISTS(SELECT 1 FROM post_shares ps WHERE ps.post_id = p.id AND ps.user_id = :viewer) AS shared,
            (SELECT COUNT(*) FROM quiz_plays q WHERE q.post_id = p.id AND q.user_id = :viewer)                   AS my_plays,
            (SELECT COUNT(*) FROM quiz_plays q WHERE q.post_id = p.id AND q.user_id = :viewer AND q.completed = 1) AS my_completed_plays,
            EXISTS(SELECT 1 FROM point_transactions t WHERE t.user_id = :viewer AND t.kind = 'quiz_import' AND t.ref_type = 'post' AND t.ref_id = CAST(p.id AS CHAR)) AS my_imported
@@ -590,6 +592,32 @@ async def add_comment(post_id: int, author_id: int, content: str) -> int:
             {"pid": post_id},
         )
         return int(result.lastrowid)
+
+
+async def record_share(post_id: int, user_id: int) -> bool:
+    """
+    Remember that this user shared this post.
+
+    Returns True only the first time, so the share count, the author's bonus and
+    the notification all fire exactly once per person per post.
+    """
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text("INSERT IGNORE INTO post_shares (post_id, user_id) VALUES (:pid, :uid)"),
+            {"pid": post_id, "uid": user_id},
+        )
+        return bool(result.rowcount)
+
+
+async def has_shared(post_id: int, user_id: int) -> bool:
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT 1 FROM post_shares WHERE post_id = :pid AND user_id = :uid"),
+                {"pid": post_id, "uid": user_id},
+            )
+        ).first()
+    return bool(row)
 
 
 async def toggle_saved(post_id: int, user_id: int) -> bool:

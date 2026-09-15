@@ -128,6 +128,18 @@ STATEMENTS: list[str] = [
         PRIMARY KEY (post_id, user_id, kind)
     ) {_TABLE_OPTS}
     """,
+    # One row per (post, user): the authoritative record of who already shared
+    # what. Inferring this from the points ledger missed self-shares and shares
+    # made after the daily point cap, which let the share count be inflated.
+    f"""
+    CREATE TABLE IF NOT EXISTS post_shares (
+        post_id    BIGINT NOT NULL,
+        user_id    INT NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (post_id, user_id),
+        INDEX idx_ps_user (user_id, created_at)
+    ) {_TABLE_OPTS}
+    """,
     f"""
     CREATE TABLE IF NOT EXISTS post_comments (
         id         BIGINT AUTO_INCREMENT PRIMARY KEY,
