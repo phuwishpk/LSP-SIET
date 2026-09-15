@@ -1,11 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import {
-  BookMarked,
-  BookOpen,
   Bookmark,
+  BookOpen,
   Flame,
   GraduationCap,
   Hash,
@@ -14,7 +12,6 @@ import {
   Newspaper,
   Plus,
   ScrollText,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -34,7 +31,7 @@ import { useCourses, useCreateCourse, useJoinCourse, useWallet } from '@/lib/hoo
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { cn } from '@/lib/utils'
 
-export type FeedView = 'all' | 'mine' | 'saved' | 'materials' | 'popular'
+export type FeedView = 'all' | 'mine' | 'saved' | 'materials' | 'popular' | 'library'
 
 interface CourseSidebarProps {
   view: FeedView
@@ -115,6 +112,12 @@ export function CourseSidebar({
             onSelectCourse(null)
             onSelectView('mine')
           }}
+        />
+        <NavButton
+          active={view === 'library'}
+          icon={BookOpen}
+          label={isStaff ? 'คลังความรู้ / เพิ่มเนื้อหา' : 'คลังความรู้ & ไฟล์ของฉัน'}
+          onClick={() => onSelectView('library')}
         />
         <NavButton
           active={view === 'materials'}
@@ -235,18 +238,6 @@ export function CourseSidebar({
             <Map className="h-4 w-4 text-orange-600" /> สร้าง AI Roadmap
             <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม ↗</span>
           </button>
-          <Link href="/features" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-            <Sparkles className="h-4 w-4" /> คลัง Quiz / Roadmap ของฉัน
-          </Link>
-          <Link href="/search?mode=ask" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-            <GraduationCap className="h-4 w-4" /> KMITL RAG AI
-          </Link>
-          <Link href="/notebooks" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-            <BookOpen className="h-4 w-4" /> Open Notebook
-          </Link>
-          <Link href="/sources" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-            <BookMarked className="h-4 w-4" /> อัปโหลดเอกสารเข้าคลัง
-          </Link>
         </nav>
       </div>
 

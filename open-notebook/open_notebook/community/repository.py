@@ -396,6 +396,40 @@ async def get_post_raw(post_id: int) -> Optional[Dict[str, Any]]:
     return data
 
 
+async def update_post(
+    post_id: int,
+    *,
+    title: Optional[str] = None,
+    content: Optional[str] = None,
+    tags: Optional[Sequence[str]] = None,
+    course_id: Optional[int] = None,
+    clear_course: bool = False,
+) -> None:
+    """Edit the text fields of a post. Embeds and attachments are untouched."""
+    values: Dict[str, Any] = {"pid": post_id}
+    sets: List[str] = []
+    if title is not None:
+        sets.append("title = :title")
+        values["title"] = title.strip()[:200] or None
+    if content is not None:
+        sets.append("content = :content")
+        values["content"] = content.strip() or None
+    if tags is not None:
+        sets.append("tags = :tags")
+        values["tags"] = ",".join(t.strip()[:40] for t in tags if t.strip())[:255] or None
+    if clear_course:
+        sets.append("course_id = NULL")
+    elif course_id is not None:
+        sets.append("course_id = :course_id")
+        values["course_id"] = course_id
+    if not sets:
+        return
+    async with _mariadb_session() as session:
+        await session.execute(
+            text(f"UPDATE posts SET {', '.join(sets)} WHERE id = :pid"), values
+        )
+
+
 async def soft_delete_post(post_id: int) -> None:
     async with _mariadb_session() as session:
         await session.execute(
@@ -465,23 +499,38 @@ async def toggle_reaction(post_id: int, user_id: int, kind: str) -> bool:
         return True
 
 
-async def has_helpful_bonus(post_id: int, reactor_id: int) -> bool:
-    """Whether this reactor already earned the author a helpful bonus for this post."""
+def actor_note(kind: str, actor_id: int) -> str:
+    """Stable note used to make an author bonus idempotent per (post, actor)."""
+    return f"{kind} from user:{actor_id}"
+
+
+async def has_actor_bonus(kind: str, post_id: int, actor_id: int) -> bool:
+    """
+    Whether this actor already earned the author a bonus of ``kind`` on this post.
+
+    Keeps likes/shares from paying out repeatedly when someone toggles the
+    button on and off.
+    """
     async with _mariadb_session() as session:
         row = (
             await session.execute(
                 text(
                     """
                     SELECT 1 FROM point_transactions
-                     WHERE kind = 'helpful_bonus' AND ref_type = 'post'
+                     WHERE kind = :kind AND ref_type = 'post'
                        AND ref_id = :ref AND note = :note
                      LIMIT 1
                     """
                 ),
-                {"ref": str(post_id), "note": f"helpful from user:{reactor_id}"},
+                {"kind": kind, "ref": str(post_id), "note": actor_note(kind, actor_id)},
             )
         ).first()
     return bool(row)
+
+
+async def has_helpful_bonus(post_id: int, reactor_id: int) -> bool:
+    """Backwards-compatible wrapper around :func:`has_actor_bonus`."""
+    return await has_actor_bonus("helpful_bonus", post_id, reactor_id)
 
 
 async def list_comments(post_id: int, limit: int = 100) -> List[Dict[str, Any]]:

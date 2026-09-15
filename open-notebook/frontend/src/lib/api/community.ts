@@ -139,7 +139,21 @@ export interface PointRules {
   cashback_max_per_post: number
   creator_bonus_summary: number
   helpful_bonus: number
+  /** Earning from community activity (all capped per day). */
+  post_bonus: number
+  like_bonus: number
+  share_bonus: number
+  edit_bonus: number
+  daily_caps: Record<string, number>
   exempt_roles: string[]
+}
+
+export interface EditPostInput {
+  title?: string
+  content?: string
+  tags?: string
+  /** 0 clears the course link. */
+  course_id?: number | null
 }
 
 export interface UserStats {
@@ -218,10 +232,24 @@ export interface AskCitation {
 export interface AskResponse {
   answer: string
   citations: AskCitation[]
+  /** Human-readable description of the knowledge that was searched. */
+  scope_label: string
+  /** True when the answer actually had documents to cite from that scope. */
+  grounded: boolean
   session_id: string | null
   credits_left: number | null
   charged: number
   balance: number
+}
+
+export interface AskRequest {
+  question: string
+  session_id?: string | null
+  mode?: 'single' | 'session'
+  language?: string
+  scope?: 'auto' | 'course' | 'personal' | 'document'
+  course_id?: number | null
+  document_ids?: number[]
 }
 
 export interface QuizStartResponse {
@@ -317,6 +345,13 @@ export const communityApi = {
       )
     ).data
   },
+  editPost: async (postId: number, body: EditPostInput) =>
+    (
+      await apiClient.put<{ post: CommunityPost; edit_bonus: number; balance: number }>(
+        `/community/posts/${postId}`,
+        body
+      )
+    ).data,
   deletePost: async (postId: number) =>
     (await apiClient.delete(`/community/posts/${postId}`)).data,
   react: async (postId: number, kind: ReactionKind) =>
@@ -391,12 +426,8 @@ export const communityApi = {
         params: { course_id: courseId },
       })
     ).data,
-  ask: async (body: {
-    question: string
-    session_id?: string | null
-    mode?: 'single' | 'session'
-    language?: string
-  }) => (await apiClient.post<AskResponse>('/community/ask', body)).data,
+  ask: async (body: AskRequest) =>
+    (await apiClient.post<AskResponse>('/community/ask', body)).data,
 }
 
 // ---------------------------------------------------------------------------

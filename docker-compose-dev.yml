@@ -178,6 +178,8 @@ services:
       # the port root returns 404.
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=http://localhost:3001/quiz
       - NEXT_PUBLIC_AI_ROADMAP_URL=http://localhost:3002/roadmap
+      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost:3001/quiz}
+      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost:3002/roadmap}
     volumes:
       - ./open-notebook/frontend:/app
       - frontend_node_modules_dev:/app/node_modules

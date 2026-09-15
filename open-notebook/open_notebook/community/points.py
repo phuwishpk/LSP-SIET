@@ -58,8 +58,34 @@ CASHBACK_MAX_PER_POST = _env_int("POINTS_CASHBACK_MAX_PER_POST", 15)
 CREATOR_BONUS_SUMMARY = _env_int("POINTS_CREATOR_BONUS_SUMMARY", 2)
 HELPFUL_BONUS = _env_int("POINTS_HELPFUL_BONUS", 1)
 
+# --- Earning from community activity -------------------------------------
+# Students top their wallet back up by contributing, not by paying. Each
+# earning kind has a daily ceiling so a small group cannot farm points by
+# liking each other's posts all day.
+POST_BONUS = _env_int("POINTS_POST_BONUS", 2)
+LIKE_BONUS = _env_int("POINTS_LIKE_BONUS", 1)
+SHARE_BONUS = _env_int("POINTS_SHARE_BONUS", 2)
+EDIT_BONUS = _env_int("POINTS_EDIT_BONUS", 1)
+
+DAILY_CAPS: Dict[str, int] = {
+    "post_bonus": _env_int("POINTS_POST_BONUS_DAILY_CAP", 6),
+    "creator_bonus": _env_int("POINTS_CREATOR_BONUS_DAILY_CAP", 6),
+    "like_bonus": _env_int("POINTS_LIKE_BONUS_DAILY_CAP", 10),
+    "share_bonus": _env_int("POINTS_SHARE_BONUS_DAILY_CAP", 10),
+    "helpful_bonus": _env_int("POINTS_HELPFUL_BONUS_DAILY_CAP", 10),
+    "edit_bonus": _env_int("POINTS_EDIT_BONUS_DAILY_CAP", 2),
+}
+
 # Kinds that count towards the weekly "Top Contributors" leaderboard.
-CREATOR_KINDS = ("cashback", "creator_bonus", "helpful_bonus")
+CREATOR_KINDS = (
+    "cashback",
+    "creator_bonus",
+    "post_bonus",
+    "helpful_bonus",
+    "like_bonus",
+    "share_bonus",
+    "edit_bonus",
+)
 
 
 class InsufficientPoints(Exception):
@@ -96,6 +122,11 @@ def rules_summary() -> Dict[str, Any]:
         "cashback_max_per_post": CASHBACK_MAX_PER_POST,
         "creator_bonus_summary": CREATOR_BONUS_SUMMARY,
         "helpful_bonus": HELPFUL_BONUS,
+        "post_bonus": POST_BONUS,
+        "like_bonus": LIKE_BONUS,
+        "share_bonus": SHARE_BONUS,
+        "edit_bonus": EDIT_BONUS,
+        "daily_caps": dict(DAILY_CAPS),
         "exempt_roles": ["admin", "teacher"],
     }
 
@@ -253,6 +284,54 @@ async def grant(
         )
     logger.info(f"points: user {user_id} granted {amount} pt for {kind} (balance {balance_after})")
     return balance_after
+
+
+async def earned_today(user_id: int, kind: str) -> int:
+    """How many points this user already earned from ``kind`` since midnight."""
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT COALESCE(SUM(delta), 0) AS total
+                      FROM point_transactions
+                     WHERE user_id = :uid AND kind = :kind AND delta > 0
+                       AND created_at >= CURDATE()
+                    """
+                ),
+                {"uid": user_id, "kind": kind},
+            )
+        ).first()
+    return int(row.total or 0) if row else 0
+
+
+async def grant_capped(
+    user_id: int,
+    amount: int,
+    kind: str,
+    *,
+    ref_type: Optional[str] = None,
+    ref_id: Optional[str] = None,
+    note: Optional[str] = None,
+) -> int:
+    """
+    Grant points, trimmed so the user stays within the daily cap for ``kind``.
+
+    Returns how many points were actually granted (0 when the cap is reached),
+    so callers can tell the user why nothing happened.
+    """
+    if amount <= 0:
+        return 0
+    cap = DAILY_CAPS.get(kind)
+    if cap is not None and cap >= 0:
+        already = await earned_today(user_id, kind)
+        remaining = cap - already
+        if remaining <= 0:
+            logger.debug(f"points: user {user_id} hit the daily cap for {kind}")
+            return 0
+        amount = min(amount, remaining)
+    await grant(user_id, amount, kind, ref_type=ref_type, ref_id=ref_id, note=note)
+    return amount
 
 
 async def refund(charge_: Optional[Charge], note: Optional[str] = None) -> None:

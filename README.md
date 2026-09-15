@@ -145,9 +145,54 @@ The Next.js frontend of `open-notebook/` now ships a Facebook-style community
 | Import a friend's shared quiz into your library | 1 pt |
 | Play a friend's shared quiz inline / follow a friend's roadmap | free (1 play per quiz) |
 
-Rewards: +1 pt cashback per friend that finishes your shared quiz (max 15 per
-quiz), +2 pt for sharing a summary, +1 pt per "Helpful" reaction received.
-Teachers and admins are never charged.
+Students earn the points back by contributing to the community. Every earning
+kind is capped per day, pays at most once per (post, person), and never pays for
+your own action, so a small group cannot farm points:
+
+| Earn by | Points | Daily cap |
+|---|---|---|
+| Posting content to the feed | +2 | 6 |
+| Sharing a lecture summary | +2 | 6 |
+| Someone likes your post | +1 | 10 |
+| Someone marks your post Helpful | +1 | 10 |
+| Someone shares your post | +2 | 10 |
+| Improving one of your posts (edit) | +1 | 2 |
+| A friend finishes a quiz you shared | +1 | 15 per quiz |
+
+Teachers and admins are never charged and never need to earn.
+
+Rates and caps are `POINTS_*` environment variables (see `.env.example`).
+
+### Knowledge library (teachers publish, students apply)
+
+| Who | Can add | Visible to | Used by |
+|---|---|---|---|
+| Teacher / admin | course material (`scope=course`, needs a course) | everyone | RAG answers, quizzes, roadmaps of that course |
+| Any student | their own PDF / link / pasted text (`scope=personal`) | only themselves | their own RAG answers, quizzes, roadmaps |
+
+Each course gets its own Open Notebook notebook (`courses.notebook_id`) and each
+user a private one (`users.library_notebook_id`); uploads become embedded
+`Source` records there, tracked in `library_documents`. Extraction + embedding
+run in a FastAPI background task (no surreal-commands worker needed).
+
+Endpoints: `GET/POST /api/community/library`, `GET/DELETE /api/community/library/{id}`,
+`POST /api/community/library/{id}/retry`, plus `POST /api/community/study/quiz`
+and `POST /api/community/study/roadmap` for generating grounded study material.
+`POST /api/community/ask` accepts `scope` = `auto | course | personal | document`.
+
+### Deploying to a real domain
+
+The browser-facing URLs of the two standalone apps are read at **runtime** from
+the frontend's `/config` endpoint, so moving to a domain needs only
+`MY_AI_QUIZ_URL` and `AI_ROADMAP_URL` on the `open_notebook_api` container plus a
+restart — no frontend rebuild. (`NEXT_PUBLIC_*` equivalents remain as a
+build-time fallback.)
+
+An explicit scope never silently widens: if a course has no documents yet the
+answer says so instead of quietly searching the whole workspace. Scoped
+retrieval lives in `open_notebook/community/retrieval.py` because the upstream
+`fn::vector_search_in_notebook` SurrealQL function is missing in this
+deployment.
 
 ### Quiz / roadmap persistence fix
 

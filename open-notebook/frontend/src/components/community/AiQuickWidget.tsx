@@ -1,14 +1,15 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
-import { Bot, Coins, RotateCcw, Send } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { Bot, Coins, FileText, Lock, RotateCcw, Send, Users, X } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
-import { useAsk, useWallet, toastApiError } from '@/lib/hooks/use-community'
+import { useAsk, useCourses, useWallet, toastApiError } from '@/lib/hooks/use-community'
 import type { AskCitation } from '@/lib/api/community'
 import { describeApiError } from '@/lib/api/community'
+import type { AskScope } from '@/lib/api/library'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -16,12 +17,30 @@ interface Message {
   content: string
   citations?: AskCitation[]
   charged?: number
+  scopeLabel?: string
+  grounded?: boolean
 }
 
-export function AiQuickWidget() {
+export interface AskFocus {
+  id: number
+  title: string
+}
+
+interface AiQuickWidgetProps {
+  /** Course currently being browsed – offered as a one-click scope. */
+  courseId?: number | null
+  /** A library document the user asked about ("ถาม AI จากเอกสารนี้"). */
+  focusDocument?: AskFocus | null
+  onClearFocus?: () => void
+}
+
+export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuickWidgetProps) {
   const ask = useAsk()
   const { data: wallet } = useWallet()
+  const { data: courses } = useCourses()
   const [mode, setMode] = useState<'single' | 'session'>('single')
+  const [scope, setScope] = useState<AskScope>('auto')
+  const [scopeCourseId, setScopeCourseId] = useState<number | null>(courseId ?? null)
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [creditsLeft, setCreditsLeft] = useState<number | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -31,23 +50,58 @@ export function AiQuickWidget() {
   const costs = wallet?.rules.costs
   const sessionMessages = wallet?.rules.rag_session_messages ?? 5
   const exempt = wallet?.exempt ?? false
+  const myCourses = useMemo(() => (courses ?? []).filter((c) => c.joined), [courses])
+
+  useEffect(() => {
+    if (courseId) setScopeCourseId(courseId)
+  }, [courseId])
+
+  // Clicking "ask about this document" in the library switches the widget scope.
+  useEffect(() => {
+    if (focusDocument) {
+      setScope('document')
+      setSessionId(null)
+      setCreditsLeft(null)
+    }
+  }, [focusDocument])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
   }, [messages.length, ask.isPending])
 
+  const activeScope: AskScope = focusDocument ? 'document' : scope
+  const scopeCourse = myCourses.find((c) => c.id === scopeCourseId) ?? (courses ?? []).find((c) => c.id === scopeCourseId)
+
   const submit = () => {
     const q = question.trim()
     if (!q || ask.isPending) return
+    if (activeScope === 'course' && !scopeCourseId) {
+      toastApiError({ message: 'เลือกวิชาก่อนถามแบบเจาะจงรายวิชา' }, 'เลือกวิชาก่อน')
+      return
+    }
     setMessages((prev) => [...prev, { role: 'user', content: q }])
     setQuestion('')
     ask.mutate(
-      { question: q, session_id: sessionId, mode },
+      {
+        question: q,
+        session_id: sessionId,
+        mode,
+        scope: activeScope,
+        course_id: activeScope === 'course' ? scopeCourseId : null,
+        document_ids: focusDocument ? [focusDocument.id] : [],
+      },
       {
         onSuccess: (data) => {
           setMessages((prev) => [
             ...prev,
-            { role: 'assistant', content: data.answer, citations: data.citations, charged: data.charged },
+            {
+              role: 'assistant',
+              content: data.answer,
+              citations: data.citations,
+              charged: data.charged,
+              scopeLabel: data.scope_label,
+              grounded: data.grounded,
+            },
           ])
           if (data.session_id) {
             setSessionId(data.session_id)
@@ -86,6 +140,52 @@ export function AiQuickWidget() {
           AI Quick Prompt
           <span className="ml-auto text-[11px] font-normal text-muted-foreground">KMITL RAG AI</span>
         </CardTitle>
+
+        {/* knowledge scope */}
+        <div className="space-y-1.5 pt-1">
+          <p className="text-[11px] font-medium text-muted-foreground">ค้นคำตอบจาก</p>
+          {focusDocument ? (
+            <div className="flex items-center gap-1.5 rounded-md border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] dark:bg-violet-950/40">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-violet-600" />
+              <span className="min-w-0 flex-1 truncate">{focusDocument.title}</span>
+              <button type="button" onClick={onClearFocus} aria-label="ยกเลิกการเจาะจงเอกสาร">
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-1">
+              <ScopeChip active={scope === 'auto'} onClick={() => setScope('auto')}>
+                ทุกแหล่งของฉัน
+              </ScopeChip>
+              <ScopeChip active={scope === 'course'} onClick={() => setScope('course')} icon={Users}>
+                รายวิชา
+              </ScopeChip>
+              <ScopeChip active={scope === 'personal'} onClick={() => setScope('personal')} icon={Lock}>
+                ไฟล์ของฉัน
+              </ScopeChip>
+            </div>
+          )}
+          {!focusDocument && scope === 'course' && (
+            <select
+              className="h-7 w-full rounded-md border bg-background px-2 text-[11px]"
+              value={scopeCourseId ?? ''}
+              onChange={(e) => setScopeCourseId(e.target.value ? Number(e.target.value) : null)}
+            >
+              <option value="">— เลือกวิชา —</option>
+              {(courses ?? []).map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} {c.name}
+                </option>
+              ))}
+            </select>
+          )}
+          {!focusDocument && scope === 'course' && scopeCourse && (
+            <p className="text-[10px] text-muted-foreground">
+              ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา {scopeCourse.code} เท่านั้น
+            </p>
+          )}
+        </div>
+
         <div className="flex flex-wrap items-center gap-1.5 pt-1">
           {sessionId ? (
             <>
@@ -108,12 +208,13 @@ export function AiQuickWidget() {
           )}
         </div>
       </CardHeader>
+
       <CardContent className="space-y-2 pt-0">
         <div ref={listRef} className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/30 p-2">
           {messages.length === 0 && (
             <p className="p-2 text-xs text-muted-foreground">
-              ถาม KMITL RAG AI ด่วน ๆ ได้เลย เช่น &ldquo;สรุป deadlock 4 เงื่อนไข&rdquo; คำตอบอ้างอิงจากคลังความรู้
-              (ไม่เกิน 3 แหล่ง, 150–300 คำ)
+              ถาม KMITL RAG AI ด่วน ๆ ได้เลย เช่น &ldquo;สรุป deadlock 4 เงื่อนไข&rdquo; คำตอบอ้างอิงจากเอกสาร
+              ในขอบเขตที่เลือก (ไม่เกิน 3 แหล่ง, 150–300 คำ)
             </p>
           )}
           {messages.map((m, i) => (
@@ -125,6 +226,12 @@ export function AiQuickWidget() {
                 )}
               >
                 <p className="whitespace-pre-wrap">{m.content}</p>
+                {m.role === 'assistant' && m.scopeLabel && (
+                  <p className="mt-1 text-[10px] text-muted-foreground">
+                    {m.grounded ? '📚 อ้างอิง: ' : '⚠️ ไม่พบเอกสารใน '}
+                    {m.scopeLabel}
+                  </p>
+                )}
                 {m.citations && m.citations.length > 0 && (
                   <ul className="mt-1.5 space-y-0.5 border-t pt-1.5 text-[10px] text-muted-foreground">
                     {m.citations.map((c) => (
@@ -181,6 +288,34 @@ export function AiQuickWidget() {
         </form>
       </CardContent>
     </Card>
+  )
+}
+
+function ScopeChip({
+  active,
+  onClick,
+  icon: Icon,
+  children,
+}: {
+  active: boolean
+  onClick: () => void
+  icon?: React.ComponentType<{ className?: string }>
+  children: React.ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition',
+        active
+          ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-950/50 dark:text-violet-100'
+          : 'hover:bg-accent'
+      )}
+    >
+      {Icon && <Icon className="h-3 w-3" />}
+      {children}
+    </button>
   )
 }
 

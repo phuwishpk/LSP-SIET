@@ -74,10 +74,25 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
               <RuleRow label="นำเข้าควิซเพื่อน" cost={rules.costs.quiz_import} />
               <RuleRow label="ดู/บันทึก Roadmap เพื่อน" cost={0} />
             </div>
+            <p className="mb-1.5 mt-3 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
+              วิธีได้แต้มคืน
+            </p>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
+              <EarnRow label="โพสต์เนื้อหาลงฟีด" amount={rules.post_bonus} cap={rules.daily_caps?.post_bonus} />
+              <EarnRow label="แชร์สรุปบทเรียน" amount={rules.creator_bonus_summary} cap={rules.daily_caps?.creator_bonus} />
+              <EarnRow label="มีคนกดถูกใจโพสต์เรา" amount={rules.like_bonus} cap={rules.daily_caps?.like_bonus} />
+              <EarnRow label="มีคนกด Helpful" amount={rules.helpful_bonus} cap={rules.daily_caps?.helpful_bonus} />
+              <EarnRow label="มีคนแชร์โพสต์เรา" amount={rules.share_bonus} cap={rules.daily_caps?.share_bonus} />
+              <EarnRow label="แก้ไขโพสต์ให้ดีขึ้น" amount={rules.edit_bonus} cap={rules.daily_caps?.edit_bonus} />
+              <EarnRow
+                label="เพื่อนเล่นควิซเราจนจบ"
+                amount={rules.cashback_per_play}
+                cap={rules.cashback_max_per_post}
+                capLabel="ต่อควิซ"
+              />
+            </div>
             <p className="mt-2 text-[11px] text-muted-foreground">
-              แชร์ควิซแล้วเพื่อนเล่นจบ ได้คืน +{rules.cashback_per_play} แต้ม/คน (สูงสุด{' '}
-              {rules.cashback_max_per_post}) · แชร์สรุป +{rules.creator_bonus_summary} · ถูกกด
-              Helpful +{rules.helpful_bonus}
+              แต้มที่ได้จากคนอื่นจะนับครั้งเดียวต่อคนต่อโพสต์ และมีเพดานต่อวันเพื่อกันการปั๊มแต้ม
             </p>
           </div>
         )}
@@ -124,6 +139,29 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
         </div>
       </PopoverContent>
     </Popover>
+  )
+}
+
+function EarnRow({
+  label,
+  amount,
+  cap,
+  capLabel = 'ต่อวัน',
+}: {
+  label: string
+  amount: number
+  cap?: number
+  capLabel?: string
+}) {
+  if (!amount) return null
+  return (
+    <>
+      <span className="text-muted-foreground">{label}</span>
+      <span className="text-right font-semibold tabular-nums text-emerald-600">
+        +{amount}
+        {cap ? <span className="ml-1 font-normal text-muted-foreground">(≤{cap} {capLabel})</span> : null}
+      </span>
+    </>
   )
 }
 

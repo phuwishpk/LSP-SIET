@@ -47,8 +47,12 @@ export const KIND_LABELS: Record<string, string> = {
   roadmap_generate: 'สร้าง AI Roadmap',
   quiz_import: 'นำเข้าควิซของเพื่อน',
   cashback: 'แต้มคืน (เพื่อนทำควิซ)',
-  creator_bonus: 'Creator Points',
+  creator_bonus: 'Creator Points (แชร์สรุป)',
+  post_bonus: 'โพสต์เนื้อหาลงฟีด',
   helpful_bonus: 'มีคนกด Helpful',
+  like_bonus: 'มีคนกดถูกใจโพสต์',
+  share_bonus: 'มีคนแชร์โพสต์',
+  edit_bonus: 'แก้ไขโพสต์ให้ดีขึ้น',
   refund: 'คืนแต้ม',
 }
 

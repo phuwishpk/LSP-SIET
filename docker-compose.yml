@@ -136,6 +136,9 @@ services:
       # Relative paths behind Traefik
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
       - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
+      # Runtime override (no frontend rebuild needed when the domain changes).
+      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost:3001/quiz}
+      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost:3002/roadmap}
       # Browser requests stay on localhost:3000 and Next.js proxies /api to
       # FastAPI. This avoids exposing a container-only address to the browser.
       - NEXT_PUBLIC_API_URL=http://localhost:3000

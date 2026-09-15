@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useRef, useState } from 'react'
-import Link from 'next/link'
 import { FileText, GraduationCap, HelpCircle, Library, Map, Paperclip, Sparkles, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -167,10 +166,6 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                   >
                     ไปสร้างที่แอป {embedType === 'quiz' ? 'AI Quiz' : 'AI Roadmap'} ↗
                   </button>{' '}
-                  หรือดู{' '}
-                  <Link href="/features" className="text-primary hover:underline">
-                    คลังของฉัน
-                  </Link>{' '}
                   · แชร์ควิซแล้วเพื่อนเล่นจบ คุณได้แต้มคืน +1/คน
                 </p>
                 <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={2} placeholder="เขียนคำโปรย เช่น ควิซเตรียมสอบ OS ทำเสร็จภายใน 10 นาที" />

@@ -22,6 +22,26 @@ import { NextRequest, NextResponse } from 'next/server'
  *
  * This allows the same Docker image to work in different deployment scenarios.
  */
+/**
+ * URLs of the two standalone apps (My-ai-quiz, ai-roadmap-generator).
+ *
+ * These used to be read from NEXT_PUBLIC_* only, which bakes them into the
+ * bundle at build time and forces a rebuild for every new domain. Serving them
+ * here means a deployment can change them with a container restart.
+ */
+function externalApps() {
+  return {
+    quizUrl:
+      process.env.MY_AI_QUIZ_URL ||
+      process.env.NEXT_PUBLIC_MY_AI_QUIZ_URL ||
+      null,
+    roadmapUrl:
+      process.env.AI_ROADMAP_URL ||
+      process.env.NEXT_PUBLIC_AI_ROADMAP_URL ||
+      null,
+  }
+}
+
 export async function GET(request: NextRequest) {
   // Priority 1: Check if API_URL is explicitly set
   const envApiUrl = process.env.API_URL || process.env.NEXT_PUBLIC_API_URL
@@ -29,6 +49,7 @@ export async function GET(request: NextRequest) {
   if (envApiUrl) {
     return NextResponse.json({
       apiUrl: envApiUrl,
+      ...externalApps(),
     })
   }
 
@@ -54,6 +75,7 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         apiUrl,
+        ...externalApps(),
       })
     }
   } catch (error) {
@@ -64,5 +86,6 @@ export async function GET(request: NextRequest) {
   console.log('[runtime-config] Using fallback: http://localhost:5055')
   return NextResponse.json({
     apiUrl: 'http://localhost:5055',
+    ...externalApps(),
   })
 }

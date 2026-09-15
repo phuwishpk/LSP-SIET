@@ -100,20 +100,45 @@ def _hash_prompt(payload: Dict[str, Any]) -> str:
     return hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:16]
 
 
-async def _retrieve_rag_context(query: str) -> str:
-    """Retrieve relevant Open Notebook source/note snippets for every feature."""
-    try:
-        results = await text_search(
-            keyword=query,
-            results=8,
-            source=True,
-            note=True,
-        )
-    except Exception as exc:
-        # Empty/new workspaces must still be able to generate features.
-        logger.warning(f"RAG retrieval skipped for {query!r}: {exc}")
-        return ""
+async def _retrieve_rag_context(
+    query: str, notebook_ids: Optional[List[str]] = None
+) -> str:
+    """
+    Retrieve relevant Open Notebook source/note snippets for every feature.
 
+    When ``notebook_ids`` is given (a course library and/or the student's own
+    uploads), retrieval is restricted to those notebooks so generated quizzes
+    and roadmaps stay inside the chosen course material.
+    """
+    results: Any = None
+    if notebook_ids:
+        from open_notebook.community.retrieval import search_in_notebooks
+
+        try:
+            results = await search_in_notebooks(query, notebook_ids, results=8)
+        except Exception as exc:
+            logger.warning(f"Scoped RAG retrieval failed: {exc}")
+            results = None
+        # An explicit scope must not silently widen to the whole workspace.
+        return _format_rag_chunks(results or [])
+
+    if not results:
+        try:
+            results = await text_search(
+                keyword=query,
+                results=8,
+                source=True,
+                note=True,
+            )
+        except Exception as exc:
+            # Empty/new workspaces must still be able to generate features.
+            logger.warning(f"RAG retrieval skipped for {query!r}: {exc}")
+            return ""
+
+    return _format_rag_chunks(results or [])
+
+
+def _format_rag_chunks(results: Any) -> str:
     chunks: List[str] = []
     for index, result in enumerate(results or [], start=1):
         if not isinstance(result, dict):
@@ -356,6 +381,7 @@ async def generate_quiz(
     notebook_id: Optional[str] = None,
     model_id: Optional[str] = None,
     report: Optional[Dict[str, Any]] = None,
+    notebook_ids: Optional[List[str]] = None,
 ) -> QuizSession:
     """Generate a multiple-choice quiz and persist it for the owner.
 
@@ -370,12 +396,13 @@ async def generate_quiz(
     if question_count < 1 or question_count > 20:
         raise InvalidInputError("question_count must be between 1 and 20")
 
-    rag_context = await _retrieve_rag_context(topic)
+    rag_context = await _retrieve_rag_context(topic, notebook_ids)
     cache_key_payload = {
         "topic": topic.lower(),
         "n": question_count,
         "lang": language,
         "model": model_id or "default",
+        "scope": ",".join(sorted(notebook_ids)) if notebook_ids else "global",
         "rag": _hash_prompt({"context": rag_context}) if rag_context else "none",
     }
     prompt_hash = _hash_prompt(cache_key_payload)
@@ -485,6 +512,7 @@ async def generate_roadmap(
     notebook_id: Optional[str] = None,
     model_id: Optional[str] = None,
     report: Optional[Dict[str, Any]] = None,
+    notebook_ids: Optional[List[str]] = None,
 ) -> RoadmapSession:
     """Generate a project roadmap and persist it for the owner.
 
@@ -499,12 +527,13 @@ async def generate_roadmap(
     if node_count < 3 or node_count > 50:
         raise InvalidInputError("node_count must be between 3 and 50")
 
-    rag_context = await _retrieve_rag_context(description)
+    rag_context = await _retrieve_rag_context(description, notebook_ids)
     cache_key_payload = {
         "desc": description.lower(),
         "n": node_count,
         "lang": language,
         "model": model_id or "default",
+        "scope": ",".join(sorted(notebook_ids)) if notebook_ids else "global",
         "rag": _hash_prompt({"context": rag_context}) if rag_context else "none",
     }
     prompt_hash = _hash_prompt(cache_key_payload)

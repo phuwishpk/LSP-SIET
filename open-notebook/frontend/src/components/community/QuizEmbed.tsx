@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import { CheckCircle2, Coins, Gamepad2, GraduationCap, Sparkles, XCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -129,11 +128,9 @@ export function QuizEmbed({ post, embed }: QuizEmbedProps) {
               </Button>
             )}
             {(post.viewer.imported || importedSession) && (
-              <Button size="sm" variant="ghost" asChild>
-                <Link href={importedSession ? `/features?tab=quiz&id=${importedSession}` : '/features?tab=quiz'}>
-                  <Sparkles className="mr-1 h-4 w-4" /> อยู่ในคลังของคุณแล้ว · ซ้อมซ้ำ
-                </Link>
-              </Button>
+              <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                <Sparkles className="h-4 w-4 text-emerald-500" /> นำเข้าแล้ว · เล่นซ้ำตรงนี้ได้ไม่จำกัด
+              </span>
             )}
           </div>
           {post.viewer.completed_plays > 0 && (

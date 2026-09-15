@@ -44,6 +44,8 @@ class _UserRow(_Base):
     avatar_url    = Column(String(512), nullable=True)
     student_id    = Column(String(32), nullable=True)
     points_balance = Column(Integer, nullable=False, default=0)
+    # Open Notebook notebook holding this user's private uploaded documents.
+    library_notebook_id = Column(String(128), nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
@@ -156,6 +158,7 @@ class User(BaseModel):
     avatar_url: Optional[str] = None
     student_id: Optional[str] = None
     points_balance: int = 0
+    library_notebook_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
     last_login_at: Optional[str] = None
@@ -220,6 +223,7 @@ def _row_to_user(row: Any) -> User:
         avatar_url=getattr(row, "avatar_url", None),
         student_id=getattr(row, "student_id", None),
         points_balance=int(getattr(row, "points_balance", 0) or 0),
+        library_notebook_id=getattr(row, "library_notebook_id", None),
         created_at=created_at.isoformat() if created_at else None,
         updated_at=updated_at.isoformat() if updated_at else None,
         last_login_at=last_login.isoformat() if last_login else None,

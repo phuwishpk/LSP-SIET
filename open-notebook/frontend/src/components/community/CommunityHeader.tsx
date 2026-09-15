@@ -1,16 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import Link from 'next/link'
-import { useRouter } from 'next/navigation'
 import {
-  BookOpen,
   ChevronDown,
   GraduationCap,
-  LayoutDashboard,
   LogOut,
   Search,
-  Sparkles,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -41,7 +36,6 @@ interface CommunityHeaderProps {
 
 export function CommunityHeader({ query, onSearch, onOpenPost, onHome }: CommunityHeaderProps) {
   const { user, logout } = useAuth()
-  const router = useRouter()
   const [draft, setDraft] = useState(query)
 
   useEffect(() => setDraft(query), [query])
@@ -121,20 +115,6 @@ export function CommunityHeader({ query, onSearch, onOpenPost, onHome }: Communi
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void openRoadmapApp()}>
                 <MapIcon className="mr-2 h-4 w-4 text-orange-600" /> แอป AI Roadmap ↗
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/features')}>
-                <Sparkles className="mr-2 h-4 w-4" /> คลัง Quiz / Roadmap ของฉัน
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/notebooks')}>
-                <BookOpen className="mr-2 h-4 w-4" /> Open Notebook (คลังความรู้)
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push('/search?mode=ask')}>
-                <GraduationCap className="mr-2 h-4 w-4" /> KMITL RAG AI (เต็มจอ)
-              </DropdownMenuItem>
-              <DropdownMenuItem asChild>
-                <Link href="/dashboard">
-                  <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
-                </Link>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <div className="px-2 py-1.5">

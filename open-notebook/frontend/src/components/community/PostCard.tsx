@@ -11,6 +11,7 @@ import {
   Library,
   MessageCircle,
   MoreHorizontal,
+  Pencil,
   Share2,
   ThumbsUp,
   Trash2,
@@ -21,6 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +34,7 @@ import {
   useAddComment,
   useComments,
   useDeletePost,
+  useEditPost,
   useReact,
   useSharePost,
   useToggleSave,
@@ -61,7 +64,11 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   const save = useToggleSave()
   const share = useSharePost()
   const remove = useDeletePost()
+  const edit = useEditPost()
   const addComment = useAddComment()
+  const [editing, setEditing] = useState(false)
+  const [draftTitle, setDraftTitle] = useState(post.title ?? '')
+  const [draftContent, setDraftContent] = useState(post.content ?? '')
   const [showComments, setShowComments] = useState(false)
   const [expanded, setExpanded] = useState(false)
   const [comment, setComment] = useState('')
@@ -69,6 +76,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
 
   const meta = TYPE_META[post.type] ?? TYPE_META.summary
   const canDelete = post.is_author || me?.role === 'admin'
+  const canEdit = canDelete
   const content = post.content || ''
   const isLong = content.length > 320
   const shownContent = isLong && !expanded ? `${content.slice(0, 320)}…` : content
@@ -138,6 +146,17 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
               <DropdownMenuItem onClick={copyLink}>
                 <Share2 className="mr-2 h-4 w-4" /> คัดลอกลิงก์โพสต์
               </DropdownMenuItem>
+              {canEdit && (
+                <DropdownMenuItem
+                  onClick={() => {
+                    setDraftTitle(post.title ?? '')
+                    setDraftContent(post.content ?? '')
+                    setEditing(true)
+                  }}
+                >
+                  <Pencil className="mr-2 h-4 w-4" /> แก้ไขโพสต์
+                </DropdownMenuItem>
+              )}
               {canDelete && (
                 <DropdownMenuItem
                   className="text-rose-600"
@@ -152,8 +171,43 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           </DropdownMenu>
         </div>
 
-        {post.title && <h3 className="text-base font-semibold leading-snug">{post.title}</h3>}
-        {content && (
+        {editing ? (
+          <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+            <Input
+              value={draftTitle}
+              onChange={(e) => setDraftTitle(e.target.value)}
+              placeholder="หัวข้อโพสต์"
+              maxLength={200}
+            />
+            <Textarea
+              value={draftContent}
+              onChange={(e) => setDraftContent(e.target.value)}
+              rows={4}
+              placeholder="เนื้อหา… เพิ่มรายละเอียดให้สมบูรณ์ขึ้นได้แต้มเล็กน้อย"
+            />
+            <div className="flex justify-end gap-2">
+              <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+                ยกเลิก
+              </Button>
+              <Button
+                size="sm"
+                disabled={edit.isPending}
+                onClick={() =>
+                  edit.mutate(
+                    { postId: post.id, title: draftTitle, content: draftContent },
+                    { onSuccess: () => setEditing(false) }
+                  )
+                }
+              >
+                {edit.isPending ? 'กำลังบันทึก…' : 'บันทึกการแก้ไข'}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {!editing && post.title && (
+          <h3 className="text-base font-semibold leading-snug">{post.title}</h3>
+        )}
+        {!editing && content && (
           <p className="whitespace-pre-wrap text-sm leading-relaxed">
             {shownContent}
             {isLong && (

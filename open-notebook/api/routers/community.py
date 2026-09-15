@@ -12,13 +12,23 @@ import re
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
 from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
-from open_notebook.community import points
+from open_notebook.community import library, points
 from open_notebook.community import repository as repo
 from open_notebook.community.ask import quick_ask
 from open_notebook.config import DATA_FOLDER
@@ -95,6 +105,14 @@ class ReactionBody(BaseModel):
     kind: Literal["like", "helpful"]
 
 
+class PostEditBody(BaseModel):
+    title: Optional[str] = Field(default=None, max_length=200)
+    content: Optional[str] = Field(default=None, max_length=20000)
+    tags: Optional[str] = Field(default=None, max_length=255)
+    # 0 or negative clears the course link
+    course_id: Optional[int] = None
+
+
 class CommentBody(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
 
@@ -110,6 +128,29 @@ class AskBody(BaseModel):
     mode: Literal["single", "session"] = "single"
     language: str = "th"
     model_id: Optional[str] = None
+    # Knowledge scope: auto = my courses + my uploads
+    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    course_id: Optional[int] = None
+    document_ids: List[int] = Field(default_factory=list)
+
+
+class StudyQuizBody(BaseModel):
+    topic: str = Field(..., min_length=1, max_length=500)
+    question_count: int = Field(default=10, ge=1, le=20)
+    language: str = "th"
+    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    course_id: Optional[int] = None
+    document_ids: List[int] = Field(default_factory=list)
+
+
+class StudyRoadmapBody(BaseModel):
+    description: str = Field(..., min_length=1, max_length=2000)
+    title: Optional[str] = Field(default=None, max_length=200)
+    node_count: int = Field(default=12, ge=3, le=50)
+    language: str = "th"
+    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    course_id: Optional[int] = None
+    document_ids: List[int] = Field(default_factory=list)
 
 
 class NotificationsRead(BaseModel):
@@ -333,11 +374,21 @@ async def create_post(
         attachment=attachment,
     )
 
+    # --- earn points for contributing ------------------------------------
+    # A substantial lecture summary is worth more than a one-line question,
+    # and both are capped per day so the feed cannot be farmed.
     bonus = 0
-    if post_type == "summary" and (attachment or len((content or "").strip()) >= 100):
-        bonus = points.CREATOR_BONUS_SUMMARY
-        if bonus:
-            await points.grant(uid, bonus, "creator_bonus", ref_type="post", ref_id=str(post_id), note="shared a summary")
+    substantial = bool(attachment) or bool(snapshot) or len((content or "").strip()) >= 100
+    if post_type == "summary" and substantial:
+        bonus = await points.grant_capped(
+            uid, points.CREATOR_BONUS_SUMMARY, "creator_bonus",
+            ref_type="post", ref_id=str(post_id), note="shared a summary",
+        )
+    elif substantial or (title or "").strip():
+        bonus = await points.grant_capped(
+            uid, points.POST_BONUS, "post_bonus",
+            ref_type="post", ref_id=str(post_id), note=f"posted {post_type}",
+        )
 
     post = await repo.get_post(post_id, uid)
     return {"post": post, "creator_bonus": bonus, "balance": await points.get_balance(uid)}
@@ -350,6 +401,47 @@ async def get_post(post_id: int, user: User = Depends(get_current_user)) -> Dict
         raise HTTPException(status_code=404, detail="Post not found")
     post["comments"] = await repo.list_comments(post_id)
     return post
+
+
+@router.put("/posts/{post_id}")
+async def edit_post(
+    post_id: int, body: PostEditBody, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    Edit your own post (admins may edit any). Attachments and embedded
+    quizzes/roadmaps are left untouched; only the text, tags and course move.
+    """
+    uid = _uid(user)
+    post = await _post_or_404(post_id)
+    if int(post["author_id"]) != uid and user.role != USER_ROLE_ADMIN:
+        raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะโพสต์ของตัวเอง")
+    if body.course_id is not None and body.course_id > 0 and not await repo.get_course(body.course_id):
+        raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
+
+    await repo.update_post(
+        post_id,
+        title=body.title,
+        content=body.content,
+        tags=[t for t in re.split(r"[,#\s]+", body.tags) if t] if body.tags is not None else None,
+        course_id=body.course_id if (body.course_id or 0) > 0 else None,
+        clear_course=body.course_id is not None and body.course_id <= 0,
+    )
+
+    # Improving an existing post is worth a small, tightly capped reward.
+    bonus = 0
+    if int(post["author_id"]) == uid and points.EDIT_BONUS:
+        improved = len((body.content or "").strip()) > len((post.get("content") or "").strip())
+        if improved:
+            bonus = await points.grant_capped(
+                uid, points.EDIT_BONUS, "edit_bonus",
+                ref_type="post", ref_id=str(post_id), note="improved a post",
+            )
+
+    return {
+        "post": await repo.get_post(post_id, uid),
+        "edit_bonus": bonus,
+        "balance": await points.get_balance(uid),
+    }
 
 
 @router.delete("/posts/{post_id}")
@@ -385,10 +477,14 @@ async def react(post_id: int, body: ReactionBody, user: User = Depends(get_curre
         await repo.add_notification(
             author_id, body.kind, f"{_display(user)} {label} โพสต์ของคุณ", post_id=post_id, actor_id=uid
         )
-        if body.kind == "helpful" and points.HELPFUL_BONUS and not await repo.has_helpful_bonus(post_id, uid):
-            await points.grant(
-                author_id, points.HELPFUL_BONUS, "helpful_bonus",
-                ref_type="post", ref_id=str(post_id), note=f"helpful from user:{uid}",
+        # The author earns for the attention their post gets. Each reactor can
+        # only pay out once per post, and there is a daily ceiling per kind.
+        bonus_kind = "like_bonus" if body.kind == "like" else "helpful_bonus"
+        bonus_amount = points.LIKE_BONUS if body.kind == "like" else points.HELPFUL_BONUS
+        if bonus_amount and not await repo.has_actor_bonus(bonus_kind, post_id, uid):
+            await points.grant_capped(
+                author_id, bonus_amount, bonus_kind,
+                ref_type="post", ref_id=str(post_id), note=repo.actor_note(bonus_kind, uid),
             )
     fresh = await repo.get_post(post_id, uid)
     return {"active": active, "counts": fresh["counts"] if fresh else {}, "viewer": fresh["viewer"] if fresh else {}}
@@ -421,12 +517,21 @@ async def toggle_save(post_id: int, user: User = Depends(get_current_user)) -> D
 
 @router.post("/posts/{post_id}/share")
 async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    uid = _uid(user)
     post = await _post_or_404(post_id)
-    await repo.bump_counter(post_id, "share_count", 1)
+    author_id = int(post["author_id"])
+    first_share = not await repo.has_actor_bonus("share_bonus", post_id, uid)
+    if first_share:
+        await repo.bump_counter(post_id, "share_count", 1)
+    if author_id != uid and points.SHARE_BONUS and first_share:
+        await points.grant_capped(
+            author_id, points.SHARE_BONUS, "share_bonus",
+            ref_type="post", ref_id=str(post_id), note=repo.actor_note("share_bonus", uid),
+        )
     await repo.add_notification(
-        int(post["author_id"]), "share", f"{_display(user)} แชร์โพสต์ของคุณ", post_id=post_id, actor_id=_uid(user)
+        author_id, "share", f"{_display(user)} แชร์โพสต์ของคุณ", post_id=post_id, actor_id=uid
     )
-    return {"ok": True}
+    return {"ok": True, "counted": first_share}
 
 
 # ---------------------------------------------------------------------------
@@ -661,6 +766,397 @@ async def materials(
 
 
 # ---------------------------------------------------------------------------
+# Knowledge library
+#
+#   * teachers/admins publish course material  -> scope="course"  (everyone reads)
+#   * students push their own PDFs/links/text  -> scope="personal" (private)
+#
+# Both end up as embedded Open Notebook sources, so KMITL RAG AI, AI Quiz and
+# AI Roadmap can ground their answers in them.
+# ---------------------------------------------------------------------------
+
+
+def _library_error(exc: library.LibraryError) -> HTTPException:
+    return HTTPException(status_code=400, detail=str(exc))
+
+
+def _doc_public(doc: Dict[str, Any], user: User) -> Dict[str, Any]:
+    return {
+        "id": doc["id"],
+        "title": doc["title"],
+        "scope": doc["scope"],
+        "kind": doc["kind"],
+        "status": doc["status"],
+        "error": doc.get("error"),
+        "chunks": int(doc.get("chunks") or 0),
+        "chars": int(doc.get("chars") or 0),
+        "filename": doc.get("filename"),
+        "mime": doc.get("mime"),
+        "size": doc.get("size"),
+        "created_at": doc.get("created_at"),
+        "course": (
+            {
+                "id": doc.get("course_id"),
+                "code": doc.get("course_code"),
+                "name": doc.get("course_name"),
+            }
+            if doc.get("course_id")
+            else None
+        ),
+        "owner": {
+            "id": doc.get("owner_id"),
+            "username": doc.get("owner_username"),
+            "display_name": doc.get("owner_display_name"),
+            "role": doc.get("owner_role"),
+        },
+        "is_owner": int(doc.get("owner_id") or 0) == int(user.id or 0),
+        "can_manage": library.can_manage_document(user, doc),
+    }
+
+
+@router.get("/library")
+async def list_library(
+    scope: Optional[Literal["course", "personal"]] = None,
+    course_id: Optional[int] = None,
+    limit: int = Query(default=100, ge=1, le=200),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Documents the caller may read: every course library + their own uploads."""
+    docs = await library.list_documents(user, scope=scope, course_id=course_id, limit=limit)
+    return {
+        "items": [_doc_public(d, user) for d in docs],
+        "stats": await library.library_stats(user),
+        "can_publish_course": _is_staff(user),
+    }
+
+
+@router.get("/library/{doc_id}")
+async def get_library_document(
+    doc_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    doc = await library.get_document(doc_id)
+    if not doc or not library.can_read_document(user, doc):
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+    return _doc_public(doc, user)
+
+
+@router.post("/library", status_code=201)
+async def upload_library_document(
+    background: BackgroundTasks,
+    scope: Literal["course", "personal"] = Form(default="personal"),
+    course_id: Optional[int] = Form(default=None),
+    title: Optional[str] = Form(default=None),
+    url: Optional[str] = Form(default=None),
+    content: Optional[str] = Form(default=None),
+    share_to_feed: bool = Form(default=False),
+    file: Optional[UploadFile] = File(default=None),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Add one document to the knowledge library.
+
+    Teachers/admins may publish into a course library (``scope="course"`` with a
+    ``course_id``); everyone else is confined to their own private library.
+    Extraction + embedding run in the background – poll ``GET /library/{id}``.
+    """
+    uid = _uid(user)
+    if course_id is not None and course_id <= 0:
+        course_id = None
+
+    # --- resolve scope + destination notebook -----------------------------
+    if scope == library.SCOPE_COURSE:
+        if not _is_staff(user):
+            raise HTTPException(
+                status_code=403,
+                detail="เฉพาะอาจารย์หรือผู้ดูแลเท่านั้นที่เพิ่มเนื้อหาเข้าคลังของรายวิชาได้",
+            )
+        if not course_id:
+            raise HTTPException(status_code=400, detail="กรุณาเลือกรายวิชา")
+        course = await library.get_course(course_id)
+        if not course:
+            raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
+        notebook_id = await library.ensure_course_notebook(course)
+    else:
+        scope = library.SCOPE_PERSONAL
+        notebook_id = await library.ensure_personal_notebook(user)
+
+    # --- payload ----------------------------------------------------------
+    kind: str
+    file_path: Optional[str] = None
+    filename: Optional[str] = None
+    mime: Optional[str] = None
+    size: Optional[int] = None
+    raw_text: Optional[str] = None
+
+    if file is not None and file.filename:
+        kind = "file"
+        filename = library.safe_filename(file.filename)
+        try:
+            library.validate_extension(filename)
+        except library.LibraryError as exc:
+            raise _library_error(exc)
+        file_path = library.storage_path(filename)
+        limit = library.MAX_UPLOAD_MB * 1024 * 1024
+        size = 0
+        with open(file_path, "wb") as fh:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > limit:
+                    fh.close()
+                    os.remove(file_path)
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"ไฟล์ใหญ่เกิน {library.MAX_UPLOAD_MB} MB",
+                    )
+                fh.write(chunk)
+        mime = file.content_type
+    elif url and url.strip():
+        kind = "url"
+        cleaned = url.strip()
+        if not cleaned.lower().startswith(("http://", "https://")):
+            raise HTTPException(status_code=400, detail="ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://")
+        file_path = cleaned[:512]
+    elif content and content.strip():
+        kind = "text"
+        raw_text = content
+    else:
+        raise HTTPException(status_code=400, detail="กรุณาแนบไฟล์ ใส่ลิงก์ หรือวางข้อความ")
+
+    resolved_title = (title or "").strip() or filename or (file_path if kind == "url" else None) or "เอกสารไม่มีชื่อ"
+
+    doc_id = await library.create_document(
+        owner_id=uid,
+        scope=scope,
+        course_id=course_id,
+        notebook_id=notebook_id,
+        title=resolved_title,
+        kind=kind,
+        filename=filename,
+        file_path=file_path,
+        mime=mime,
+        size=size,
+    )
+
+    # --- optionally announce it in the feed --------------------------------
+    post_id: Optional[int] = None
+    if share_to_feed:
+        post_type = "material" if scope == library.SCOPE_COURSE else "summary"
+        if post_type == "material" and not _is_staff(user):
+            post_type = "summary"
+        post_id = await repo.create_post(
+            author_id=uid,
+            post_type=post_type,
+            title=resolved_title,
+            content=(
+                "เพิ่มเข้าคลังความรู้ของรายวิชาแล้ว ถาม KMITL RAG AI หรือสร้างควิซจากเอกสารนี้ได้เลย"
+                if scope == library.SCOPE_COURSE
+                else None
+            ),
+            course_id=course_id,
+            tags=[],
+            attachment=(
+                {"name": filename, "path": file_path, "size": size, "mime": mime}
+                if kind == "file"
+                else None
+            ),
+        )
+        await library.update_document(doc_id, post_id=post_id)
+
+    background.add_task(library.ingest_document, doc_id, raw_text)
+
+    doc = await library.get_document(doc_id)
+    return {
+        "document": _doc_public(doc or {}, user),
+        "post_id": post_id,
+        "message": "กำลังประมวลผลเอกสาร ระบบจะพร้อมใช้ภายในไม่กี่วินาที",
+    }
+
+
+@router.post("/library/{doc_id}/retry")
+async def retry_library_document(
+    doc_id: int, background: BackgroundTasks, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    doc = await library.get_document(doc_id)
+    if not doc or not library.can_read_document(user, doc):
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+    if not library.can_manage_document(user, doc):
+        raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์จัดการเอกสารนี้")
+    if doc["kind"] == "text":
+        raise HTTPException(status_code=400, detail="เอกสารแบบข้อความต้องอัปโหลดใหม่")
+    await library.update_document(doc_id, status="processing", error=None)
+    background.add_task(library.ingest_document, doc_id, None)
+    return {"ok": True}
+
+
+@router.delete("/library/{doc_id}")
+async def delete_library_document(
+    doc_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    doc = await library.get_document(doc_id)
+    if not doc or not library.can_read_document(user, doc):
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+    if not library.can_manage_document(user, doc):
+        raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์ลบเอกสารนี้")
+    await library.delete_document(doc)
+    return {"ok": True}
+
+
+async def _resolve_scope(
+    user: User,
+    scope: str,
+    course_id: Optional[int],
+    document_ids: List[int],
+) -> tuple[List[str], str, bool]:
+    """
+    Resolve a request scope into ``(notebook_ids, label, allow_global_fallback)``.
+
+    "auto" may widen to the whole workspace when the caller has no documents
+    yet; an explicit course/personal/document scope must never do that.
+    """
+    try:
+        notebook_ids = await library.notebook_ids_for_scope(
+            user,
+            scope=scope,
+            course_id=course_id,
+            document_ids=document_ids or None,
+        )
+    except library.LibraryError as exc:
+        raise _library_error(exc)
+
+    if document_ids:
+        label = "เอกสารที่เลือก"
+    elif scope == library.SCOPE_COURSE and course_id:
+        course = await library.get_course(course_id)
+        label = f"คลังความรู้วิชา {course['code']} {course['name']}" if course else "รายวิชา"
+    elif scope == library.SCOPE_PERSONAL:
+        label = "เอกสารส่วนตัวของฉัน"
+    else:
+        label = "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน"
+    explicit = bool(document_ids) or scope in (library.SCOPE_COURSE, library.SCOPE_PERSONAL)
+    return notebook_ids, label, not explicit
+
+
+# ---------------------------------------------------------------------------
+# Study tools scoped to the library (quiz / roadmap from course material)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/study/quiz")
+async def study_quiz(
+    body: StudyQuizBody, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Generate a quiz grounded in the selected course material / own documents."""
+    from open_notebook.features import service as feature_service
+
+    uid = _uid(user)
+    notebook_ids, label, _fallback = await _resolve_scope(
+        user, body.scope, body.course_id, body.document_ids
+    )
+    try:
+        charge = await points.charge(user, "quiz_generate", ref_type="quiz_generate")
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+    report: Dict[str, Any] = {}
+    try:
+        session = await feature_service.generate_quiz(
+            owner_id=_owner(user),
+            topic=body.topic,
+            question_count=body.question_count,
+            language=body.language,
+            model_id=None,
+            report=report,
+            notebook_ids=notebook_ids or None,
+        )
+    except (InvalidInputError, ConfigurationError) as exc:
+        await points.refund(charge, "quiz generation failed")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except ExternalServiceError as exc:
+        await points.refund(charge, "quiz generation failed")
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        await points.refund(charge, "quiz generation failed")
+        logger.exception("study quiz failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if report.get("cached"):
+        await points.refund(charge, "cached quiz – no compute cost")
+    else:
+        await points.set_charge_ref(charge, "quiz_session", session.id or "")
+
+    return {
+        "session_id": session.id,
+        "topic": session.topic,
+        "questions": session.questions,
+        "scope_label": label,
+        "grounded": bool(notebook_ids),
+        "cached": bool(report.get("cached")),
+        "charged": 0 if report.get("cached") else charge.amount,
+        "balance": await points.get_balance(uid),
+    }
+
+
+@router.post("/study/roadmap")
+async def study_roadmap(
+    body: StudyRoadmapBody, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Generate a roadmap grounded in the selected course material / own documents."""
+    from open_notebook.features import service as feature_service
+
+    uid = _uid(user)
+    notebook_ids, label, _fallback = await _resolve_scope(
+        user, body.scope, body.course_id, body.document_ids
+    )
+    try:
+        charge = await points.charge(user, "roadmap_generate", ref_type="roadmap_generate")
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+    report: Dict[str, Any] = {}
+    try:
+        session = await feature_service.generate_roadmap(
+            owner_id=_owner(user),
+            description=body.description,
+            title=body.title,
+            language=body.language,
+            node_count=body.node_count,
+            model_id=None,
+            report=report,
+            notebook_ids=notebook_ids or None,
+        )
+    except (InvalidInputError, ConfigurationError) as exc:
+        await points.refund(charge, "roadmap generation failed")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except ExternalServiceError as exc:
+        await points.refund(charge, "roadmap generation failed")
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        await points.refund(charge, "roadmap generation failed")
+        logger.exception("study roadmap failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    if report.get("cached"):
+        await points.refund(charge, "cached roadmap – no compute cost")
+    else:
+        await points.set_charge_ref(charge, "roadmap_session", session.id or "")
+
+    return {
+        "session_id": session.id,
+        "title": session.title,
+        "nodes": session.nodes,
+        "edges": session.edges,
+        "scope_label": label,
+        "grounded": bool(notebook_ids),
+        "cached": bool(report.get("cached")),
+        "charged": 0 if report.get("cached") else charge.amount,
+        "balance": await points.get_balance(uid),
+    }
+
+
+# ---------------------------------------------------------------------------
 # KMITL RAG AI quick-ask (1 pt / question, 4 pt / 5-message session)
 # ---------------------------------------------------------------------------
 
@@ -668,6 +1164,9 @@ async def materials(
 @router.post("/ask")
 async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
+    notebook_ids, scope_label, allow_fallback = await _resolve_scope(
+        user, body.scope, body.course_id, body.document_ids
+    )
     charge: Optional[points.Charge] = None
     session: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = body.session_id
@@ -704,6 +1203,9 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             history=history,
             language=body.language,
             model_id=body.model_id,
+            notebook_ids=notebook_ids or None,
+            scope_label=scope_label,
+            allow_global_fallback=allow_fallback,
         )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
@@ -726,6 +1228,8 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     return {
         "answer": result["answer"],
         "citations": result["citations"],
+        "scope_label": scope_label,
+        "grounded": bool(notebook_ids),
         "session_id": session_id if session else None,
         "credits_left": credits_left,
         "charged": charge.amount if charge and charge.charged else 0,

@@ -10,7 +10,9 @@ import { toast } from 'sonner'
 import {
   communityApi,
   describeApiError,
+  type AskRequest,
   type CreatePostInput,
+  type EditPostInput,
   type FeedFilters,
   type ReactionKind,
 } from '@/lib/api/community'
@@ -133,6 +135,23 @@ export function useCreatePost() {
       )
     },
     onError: (error) => toastApiError(error, 'โพสต์ไม่สำเร็จ'),
+  })
+}
+
+export function useEditPost() {
+  const queryClient = useQueryClient()
+  const refresh = useRefreshWallet()
+  return useMutation({
+    mutationFn: ({ postId, ...body }: EditPostInput & { postId: number }) =>
+      communityApi.editPost(postId, body),
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      refresh()
+      toast.success(
+        data.edit_bonus > 0 ? `แก้ไขแล้ว ได้ +${data.edit_bonus} แต้ม` : 'แก้ไขโพสต์แล้ว'
+      )
+    },
+    onError: (error) => toastApiError(error, 'แก้ไขไม่สำเร็จ'),
   })
 }
 
@@ -299,11 +318,7 @@ export function useMaterials(courseId?: number, enabled = true) {
 export function useAsk() {
   const refresh = useRefreshWallet()
   return useMutation({
-    mutationFn: (body: {
-      question: string
-      session_id?: string | null
-      mode?: 'single' | 'session'
-    }) => communityApi.ask(body),
+    mutationFn: (body: AskRequest) => communityApi.ask(body),
     onSuccess: () => refresh(),
   })
 }

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import { CheckCircle2, FileText, GraduationCap, Map, Share2, Sparkles, Upload } from 'lucide-react'
 import {
@@ -160,9 +159,9 @@ export function ShareMyWorkDialog({
       label: 'ไปสร้างที่แอป AI Roadmap (15 แต้ม) ↗',
     },
     note: {
-      text: 'ยังไม่มีโน้ตสรุปใน Open Notebook',
-      action: () => window.open('/notebooks', '_self'),
-      label: 'ไปเขียนโน้ตใน Open Notebook',
+      text: 'ยังไม่มีโน้ตสรุปของคุณ · ใช้แท็บ “แชร์สรุป” ในกล่องโพสต์เพื่อพิมพ์หรือแนบไฟล์สรุปได้เลย',
+      action: () => undefined,
+      label: '',
     },
   }
 
@@ -215,9 +214,11 @@ export function ShareMyWorkDialog({
                     <div className="flex flex-col items-center gap-2 p-8 text-center text-sm text-muted-foreground">
                       <Sparkles className="h-6 w-6" />
                       {emptyState[k].text}
-                      <Button size="sm" variant="outline" onClick={emptyState[k].action}>
-                        {emptyState[k].label}
-                      </Button>
+                      {emptyState[k].label && (
+                        <Button size="sm" variant="outline" onClick={emptyState[k].action}>
+                          {emptyState[k].label}
+                        </Button>
+                      )}
                     </div>
                   )}
                   {!loading &&
@@ -298,10 +299,7 @@ export function ShareMyWorkDialog({
           </div>
         </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
-          <Link href="/features" className="self-center text-xs text-muted-foreground hover:underline">
-            จัดการคลังผลงานของฉัน →
-          </Link>
+        <DialogFooter className="gap-2 sm:justify-end">
           <div className="flex gap-2">
             <Button variant="ghost" onClick={() => onOpenChange(false)}>
               ยกเลิก

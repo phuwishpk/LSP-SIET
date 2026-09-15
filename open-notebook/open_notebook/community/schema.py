@@ -68,6 +68,10 @@ STATEMENTS: list[str] = [
         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     ) {_TABLE_OPTS}
     """,
+    # Open Notebook notebook backing each course's shared knowledge library.
+    "ALTER TABLE courses ADD COLUMN IF NOT EXISTS notebook_id VARCHAR(128) NULL",
+    # Personal knowledge library (one Open Notebook notebook per user).
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     f"""
     CREATE TABLE IF NOT EXISTS course_members (
         course_id INT NOT NULL,
@@ -161,6 +165,33 @@ STATEMENTS: list[str] = [
         created_at   DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_rs_user (user_id, updated_at)
+    ) {_TABLE_OPTS}
+    """,
+    # ------------------------------------------------- knowledge library
+    f"""
+    CREATE TABLE IF NOT EXISTS library_documents (
+        id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+        owner_id    INT NOT NULL,
+        scope       ENUM('course','personal') NOT NULL DEFAULT 'personal',
+        course_id   INT NULL,
+        notebook_id VARCHAR(128) NOT NULL,
+        source_id   VARCHAR(128) NULL,
+        title       VARCHAR(200) NOT NULL,
+        kind        ENUM('file','url','text') NOT NULL DEFAULT 'file',
+        filename    VARCHAR(255) NULL,
+        file_path   VARCHAR(512) NULL,
+        mime        VARCHAR(128) NULL,
+        size        INT NULL,
+        status      ENUM('processing','ready','failed') NOT NULL DEFAULT 'processing',
+        error       VARCHAR(500) NULL,
+        chunks      INT NOT NULL DEFAULT 0,
+        chars       INT NOT NULL DEFAULT 0,
+        post_id     BIGINT NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_lib_owner (owner_id, id),
+        INDEX idx_lib_course (course_id, scope, id),
+        INDEX idx_lib_status (status)
     ) {_TABLE_OPTS}
     """,
     f"""

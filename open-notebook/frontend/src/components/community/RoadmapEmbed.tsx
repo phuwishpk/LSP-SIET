@@ -1,7 +1,6 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import Link from 'next/link'
 import { ArrowRight, ChevronDown, ChevronUp, Footprints, Map, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -88,11 +87,9 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
           {expanded ? 'ย่อ' : 'ดูแผนผังเต็ม'}
         </Button>
         {(followedSession || post.viewer.saved) && (
-          <Button size="sm" variant="ghost" asChild>
-            <Link href={followedSession ? `/features?tab=roadmap&id=${followedSession}` : '/features?tab=roadmap'}>
-              <Sparkles className="mr-1 h-4 w-4" /> เปิดในคลังของฉัน
-            </Link>
-          </Button>
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ในรายการของคุณแล้ว (ดูได้ที่ “สรุปที่บันทึกไว้”)
+          </span>
         )}
       </div>
     </div>

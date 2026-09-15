@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useMemo } from 'react'
+import { Suspense, useCallback, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import { ArrowLeft, Inbox } from 'lucide-react'
@@ -18,6 +18,9 @@ import { PostCard } from '@/components/community/PostCard'
 import { AiQuickWidget } from '@/components/community/AiQuickWidget'
 import { Leaderboard, PopularRoadmaps } from '@/components/community/Leaderboard'
 import { ShareMyWorkButton } from '@/components/community/ShareMyWorkDialog'
+import { LibraryPanel } from '@/components/community/LibraryPanel'
+import type { AskFocus } from '@/components/community/AiQuickWidget'
+import type { LibraryDocument } from '@/lib/api/library'
 
 export default function CommunityPage() {
   return (
@@ -33,7 +36,7 @@ export default function CommunityPage() {
   )
 }
 
-const VIEWS: FeedView[] = ['all', 'mine', 'saved', 'materials', 'popular']
+const VIEWS: FeedView[] = ['all', 'mine', 'saved', 'materials', 'popular', 'library']
 
 function CommunityContent() {
   const router = useRouter()
@@ -47,6 +50,7 @@ function CommunityContent() {
   const query = params.get('q') || ''
   const postId = params.get('post') ? Number(params.get('post')) : null
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
+  const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -91,6 +95,12 @@ function CommunityContent() {
     saved: 'สรุปที่บันทึกไว้',
     materials: 'คลังสื่ออาจารย์',
     popular: 'โพสต์ยอดนิยม',
+    library: 'คลังความรู้',
+  }
+
+  const focusDocument = (doc: LibraryDocument) => {
+    setAskFocus({ id: doc.id, title: doc.title })
+    if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -118,7 +128,9 @@ function CommunityContent() {
 
         {/* Center column */}
         <main className="min-w-0 space-y-4">
-          {postId !== null ? (
+          {view === 'library' ? (
+            <LibraryPanel isStaff={isStaff} courseId={courseId} onAskDocument={focusDocument} />
+          ) : postId !== null ? (
             <>
               <Button variant="ghost" size="sm" onClick={() => setParams({ post: null })} className="gap-1">
                 <ArrowLeft className="h-4 w-4" /> กลับไปหน้าฟีด
@@ -201,7 +213,11 @@ function CommunityContent() {
 
         {/* Right column */}
         <div className="space-y-4 lg:sticky lg:top-[72px] lg:self-start">
-          <AiQuickWidget />
+          <AiQuickWidget
+            courseId={courseId}
+            focusDocument={askFocus}
+            onClearFocus={() => setAskFocus(null)}
+          />
           <Leaderboard />
           <PopularRoadmaps onOpenPost={openPost} />
         </div>
