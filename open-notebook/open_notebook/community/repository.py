@@ -20,6 +20,11 @@ from open_notebook.domain.user import _mariadb_session
 POST_TYPES = ("summary", "quiz", "roadmap", "question", "material")
 REACTION_KINDS = ("like", "helpful")
 
+# Rooms come in two flavours: official course rooms (staff only) and
+# student-run discussion rooms.
+KIND_COURSE = "course"
+KIND_CLUB = "club"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -98,8 +103,14 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
     course = None
     course_code = row.pop("course_code", None)
     course_name = row.pop("course_name", None)
+    course_kind = row.pop("course_kind", None)
     if row.get("course_id"):
-        course = {"id": row["course_id"], "code": course_code, "name": course_name}
+        course = {
+            "id": row["course_id"],
+            "code": course_code,
+            "name": course_name,
+            "kind": course_kind or KIND_COURSE,
+        }
 
     tags_raw = row.get("tags") or ""
     tags = [t.strip() for t in tags_raw.split(",") if t.strip()]
@@ -154,6 +165,7 @@ _POST_SELECT = """
            u.role         AS author_role,
            c.code         AS course_code,
            c.name         AS course_name,
+           c.kind         AS course_kind,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'like')    AS liked,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'helpful') AS marked_helpful,
            EXISTS(SELECT 1 FROM saved_items s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
@@ -177,12 +189,13 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
         result = await session.execute(
             text(
                 """
-                SELECT c.id, c.code, c.name, c.description, c.created_by, c.created_at,
+                SELECT c.id, c.code, c.name, c.description, c.kind,
+                       c.created_by, c.created_at,
                        (SELECT COUNT(*) FROM course_members m WHERE m.course_id = c.id) AS member_count,
                        (SELECT COUNT(*) FROM posts p WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
                        EXISTS(SELECT 1 FROM course_members m WHERE m.course_id = c.id AND m.user_id = :uid) AS joined
                   FROM courses c
-                 ORDER BY c.code ASC
+                 ORDER BY c.kind ASC, c.code ASC
                 """
             ),
             {"uid": user_id},
@@ -192,6 +205,7 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
         r["joined"] = bool(r.get("joined"))
         r["member_count"] = int(r.get("member_count") or 0)
         r["post_count"] = int(r.get("post_count") or 0)
+        r["kind"] = r.get("kind") or KIND_COURSE
     return rows
 
 
@@ -204,14 +218,18 @@ async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
 
 
 async def create_course(
-    code: str, name: str, description: Optional[str], created_by: int
+    code: str,
+    name: str,
+    description: Optional[str],
+    created_by: int,
+    kind: str = KIND_COURSE,
 ) -> Dict[str, Any]:
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
                 """
-                INSERT INTO courses (code, name, description, created_by)
-                VALUES (:code, :name, :description, :created_by)
+                INSERT INTO courses (code, name, description, created_by, kind)
+                VALUES (:code, :name, :description, :created_by, :kind)
                 """
             ),
             {
@@ -219,6 +237,7 @@ async def create_course(
                 "name": name.strip()[:128],
                 "description": (description or "").strip()[:255] or None,
                 "created_by": created_by,
+                "kind": kind if kind in (KIND_COURSE, KIND_CLUB) else KIND_COURSE,
             },
         )
         course_id = int(result.lastrowid)
@@ -245,6 +264,43 @@ async def ensure_course(code: str, name: str, description: Optional[str] = None)
             ),
             {"code": code, "name": name, "description": description},
         )
+
+
+async def find_room_by_name(name: str, kind: str = KIND_CLUB) -> Optional[Dict[str, Any]]:
+    """Look up a room by its (case-insensitive, whitespace-collapsed) name."""
+    needle = " ".join((name or "").split())
+    if not needle:
+        return None
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT * FROM courses
+                     WHERE kind = :kind AND LOWER(name) = LOWER(:name)
+                     LIMIT 1
+                    """
+                ),
+                {"kind": kind, "name": needle},
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def delete_course(course_id: int) -> None:
+    """
+    Remove a room. Posts are *detached*, not deleted: a room owner should not be
+    able to wipe out other people's work by closing the room.
+    """
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE posts SET course_id = NULL WHERE course_id = :cid"),
+            {"cid": course_id},
+        )
+        await session.execute(
+            text("DELETE FROM course_members WHERE course_id = :cid"), {"cid": course_id}
+        )
+        await session.execute(text("DELETE FROM courses WHERE id = :cid"), {"cid": course_id})
 
 
 async def set_course_membership(course_id: int, user_id: int, joined: bool) -> None:
@@ -906,10 +962,10 @@ async def search_courses(query: str, limit: int = 8) -> List[Dict[str, Any]]:
             await session.execute(
                 text(
                     """
-                    SELECT id, code, name, description
+                    SELECT id, code, name, description, kind
                       FROM courses
                      WHERE code LIKE :q OR name LIKE :q
-                     ORDER BY code ASC
+                     ORDER BY kind ASC, code ASC
                      LIMIT :limit
                     """
                 ),

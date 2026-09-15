@@ -198,21 +198,38 @@ navigation, but the API is the enforcement point.
 | Area | Student | Teacher | Admin |
 |---|---|---|---|
 | Community feed, points, knowledge library, quiz/roadmap generation | yes | yes | yes |
-| Upload into a course library, create courses, publish teaching material | no | yes | yes |
+| Open a discussion room (ห้องพูดคุย) and close the ones they opened | yes | yes | yes |
+| Upload into a course library, create course rooms, publish teaching material | no | yes | yes |
 | Open Notebook research surface (notebooks, sources, notes, chat, search, podcasts, transformations) | no | yes | yes |
 | AI models, API credentials, workspace settings | no | no | yes |
 
 Blocked requests return `403` with `X-Required-Role`.
 
+### Two kinds of room
+
+The sidebar holds two lists, both stored in `courses` and told apart by `kind`:
+
+| | ห้องวิชา (`kind='course'`) | ห้องพูดคุย (`kind='club'`) |
+|---|---|---|
+| Who opens it | teachers and admins | anyone signed in |
+| Handle | the real course code (`CS101`) | generated (`TALK-9F2C1B`) |
+| Shared knowledge library | yes — feeds KMITL RAG AI | none, by design |
+| Who can close it | admins | its creator, or an admin |
+
+Closing a room detaches its posts instead of deleting them: they return to the
+main feed, so nobody loses work when a room is cleaned up. Opening a room whose
+name already exists returns `409` with `X-Existing-Room`, pointing at the room to
+join instead.
+
 ### Anti-spam on content creation
 
 Everything that adds content is guarded three ways (all `SPAM_*` env vars):
 
-| Guard | Post | Comment | Library upload |
-|---|---|---|---|
-| Cooldown between submissions | 20 s | 5 s | 15 s |
-| Per hour | 10 | 30 | 10 |
-| Per day | 40 | 150 | 30 |
+| Guard | Post | Comment | Library upload | Discussion room |
+|---|---|---|---|---|
+| Cooldown between submissions | 20 s | 5 s | 15 s | 60 s |
+| Per hour | 10 | 30 | 10 | 2 |
+| Per day | 40 | 150 | 30 | 5 |
 
 Reactions and shares are recorded per (post, person) — `post_reactions` and
 `post_shares` — so a like or share counts once no matter how often the button is

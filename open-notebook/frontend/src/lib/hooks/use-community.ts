@@ -12,6 +12,7 @@ import {
   describeApiError,
   type AskRequest,
   type CreatePostInput,
+  type CreateRoomInput,
   type EditPostInput,
   type FeedFilters,
   type ReactionKind,
@@ -110,11 +111,23 @@ export function useJoinCourse() {
 export function useCreateCourse() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: (body: { code: string; name: string; description?: string }) =>
-      communityApi.createCourse(body),
+    mutationFn: (body: CreateRoomInput) => communityApi.createCourse(body),
+    onSuccess: (course) => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.courses })
+      toast.success(course.kind === 'club' ? 'เปิดห้องพูดคุยแล้ว' : 'สร้างห้องวิชาแล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useDeleteCourse() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (courseId: number) => communityApi.deleteCourse(courseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.courses })
-      toast.success('สร้างห้องวิชาแล้ว')
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('ปิดห้องแล้ว โพสต์ในห้องถูกย้ายไปฟีดรวม')
     },
     onError: (error) => toastApiError(error),
   })

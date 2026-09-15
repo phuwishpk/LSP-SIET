@@ -50,6 +50,7 @@ ALLOWED_UPLOAD_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".md", ".txt", "
 # Minimum substance before something counts as a post / knowledge document.
 MIN_POST_CHARS = int(os.getenv("SPAM_MIN_POST_CHARS", "15"))
 MIN_DOCUMENT_CHARS = int(os.getenv("SPAM_MIN_DOCUMENT_CHARS", "80"))
+MIN_ROOM_NAME_CHARS = int(os.getenv("SPAM_MIN_ROOM_NAME_CHARS", "3"))
 
 
 # ---------------------------------------------------------------------------
@@ -65,6 +66,11 @@ def _uid(user: User) -> int:
 
 def _owner(user: User) -> str:
     return str(_uid(user))
+
+
+def _generate_room_code() -> str:
+    """Discussion rooms have no course code, so give them a stable handle."""
+    return f"TALK-{uuid.uuid4().hex[:6].upper()}"
 
 
 def _is_staff(user: User) -> bool:
@@ -120,9 +126,16 @@ async def _post_or_404(post_id: int) -> Dict[str, Any]:
 
 
 class CourseCreate(BaseModel):
-    code: str = Field(..., min_length=2, max_length=32)
+    """
+    A room. ``kind="course"`` is an official course room (staff only, needs a
+    course code); ``kind="club"`` is a discussion room any student may open,
+    where the code is generated for them.
+    """
+
     name: str = Field(..., min_length=2, max_length=128)
+    code: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=255)
+    kind: Literal["course", "club"] = "course"
 
 
 class ReactionBody(BaseModel):
@@ -233,14 +246,63 @@ async def list_courses(user: User = Depends(get_current_user)) -> List[Dict[str,
 
 @router.post("/courses", status_code=201)
 async def create_course(body: CourseCreate, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    if not _is_staff(user):
-        raise HTTPException(status_code=403, detail="Only teachers or admins can create courses")
+    """
+    Open a room.
+
+    Official course rooms stay staff-only. Discussion rooms are open to every
+    signed-in user, rate-limited so the sidebar cannot be flooded, and refused
+    when a room with the same name already exists (the caller is pointed at it
+    instead through ``X-Existing-Room``).
+    """
+    name = " ".join(body.name.split())
+    if body.kind == repo.KIND_CLUB:
+        if len(name) < MIN_ROOM_NAME_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"ตั้งชื่อห้องให้ยาวอย่างน้อย {MIN_ROOM_NAME_CHARS} ตัวอักษร",
+            )
+        await _guard_spam(user, "room")
+        existing = await repo.find_room_by_name(name)
+        if existing:
+            raise HTTPException(
+                status_code=409,
+                detail=f'มีห้อง "{existing["name"]}" อยู่แล้ว เข้าร่วมห้องเดิมได้เลย',
+                headers={"X-Existing-Room": str(existing["id"])},
+            )
+        code = _generate_room_code()
+    else:
+        if not _is_staff(user):
+            raise HTTPException(
+                status_code=403,
+                detail="เฉพาะอาจารย์หรือผู้ดูแลเท่านั้นที่สร้างห้องวิชาได้ — นักศึกษาสร้างห้องพูดคุยได้",
+            )
+        if not body.code or len(body.code.strip()) < 2:
+            raise HTTPException(status_code=400, detail="กรุณากรอกรหัสวิชา")
+        code = body.code.strip()
+
     try:
-        return await repo.create_course(body.code, body.name, body.description, _uid(user))
+        return await repo.create_course(code, name, body.description, _uid(user), kind=body.kind)
     except Exception as exc:
         if "Duplicate" in str(exc):
-            raise HTTPException(status_code=409, detail="Course code already exists")
+            raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
         raise
+
+
+@router.delete("/courses/{course_id}")
+async def delete_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Close a room. Its posts survive — they simply return to the main feed."""
+    course = await repo.get_course(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="ไม่พบห้องนี้")
+    is_admin = user.role == USER_ROLE_ADMIN
+    owns_club = (
+        course.get("kind") == repo.KIND_CLUB
+        and int(course.get("created_by") or 0) == _uid(user)
+    )
+    if not (is_admin or owns_club):
+        raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์ลบห้องนี้")
+    await repo.delete_course(course_id)
+    return {"ok": True, "deleted": course_id}
 
 
 @router.post("/courses/{course_id}/join")
@@ -937,6 +999,13 @@ async def upload_library_document(
         course = await library.get_course(course_id)
         if not course:
             raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
+        if course.get("kind") == repo.KIND_CLUB:
+            # Discussion rooms have no shared library on purpose, so nothing a
+            # student opens can end up grounding the RAG.
+            raise HTTPException(
+                status_code=400,
+                detail="ห้องพูดคุยไม่มีคลังความรู้ กรุณาเลือกห้องวิชา",
+            )
         notebook_id = await library.ensure_course_notebook(course)
     else:
         scope = library.SCOPE_PERSONAL

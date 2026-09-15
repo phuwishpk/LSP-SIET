@@ -34,7 +34,7 @@ import {
   useUploadDocument,
 } from '@/lib/hooks/use-library'
 import type { LibraryDocument, LibraryScope } from '@/lib/api/library'
-import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/community-format'
+import { displayName, formatBytes, roleLabel, roomLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 import { StudyDialog } from './StudyDialog'
 
@@ -156,7 +156,11 @@ function UploadCard({ isStaff, defaultCourseId }: { isStaff: boolean; defaultCou
   const [file, setFile] = useState<File | null>(null)
   const [shareToFeed, setShareToFeed] = useState(isStaff)
 
-  const courseOptions = useMemo(() => courses ?? [], [courses])
+  // Discussion rooms have no shared library – never offer them here.
+  const courseOptions = useMemo(
+    () => (courses ?? []).filter((c) => c.kind !== 'club'),
+    [courses]
+  )
   const needsCourse = scope === 'course'
   const canSubmit =
     !upload.isPending &&
@@ -294,7 +298,7 @@ function UploadCard({ isStaff, defaultCourseId }: { isStaff: boolean; defaultCou
             <option value="">{needsCourse ? '— เลือกรายวิชา —' : 'ไม่ระบุวิชา'}</option>
             {courseOptions.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.code} {c.name}
+                {roomLabel(c)}
               </option>
             ))}
           </select>

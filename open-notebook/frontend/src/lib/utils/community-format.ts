@@ -66,3 +66,15 @@ export function formatBytes(size?: number | null): string {
   if (size < 1024 * 1024) return `${(size / 1024).toFixed(0)} KB`
   return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
+
+/**
+ * How a room reads in a dropdown. Course rooms lead with their code; discussion
+ * rooms have a generated handle nobody needs to see, so they show only a name.
+ */
+export function roomLabel(room: {
+  code?: string | null
+  name: string
+  kind?: 'course' | 'club'
+}): string {
+  return room.kind === 'club' ? `💬 ${room.name}` : `${room.code ?? ''} ${room.name}`.trim()
+}

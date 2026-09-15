@@ -12,7 +12,7 @@ import { Avatar } from '@/components/ui/avatar'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useCourses, useCreatePost, useWallet } from '@/lib/hooks/use-community'
 import { useQuizSessions, useRoadmapSessions } from '@/lib/hooks/use-features'
-import { displayName, formatBytes } from '@/lib/utils/community-format'
+import { displayName, formatBytes, roomLabel } from '@/lib/utils/community-format'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { ShareMyWorkDialog } from './ShareMyWorkDialog'
 import type { PostType } from '@/lib/api/community'
@@ -178,10 +178,10 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                 value={courseId ?? ''}
                 onChange={(e) => setCourseId(e.target.value ? Number(e.target.value) : null)}
               >
-                <option value="">ไม่ระบุวิชา</option>
+                <option value="">ไม่ระบุห้อง</option>
                 {courseOptions.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.code} {c.name}
+                    {roomLabel(c)}
                   </option>
                 ))}
               </select>

@@ -10,6 +10,7 @@ import {
   HelpCircle,
   Library,
   MessageCircle,
+  MessagesSquare,
   MoreHorizontal,
   Pencil,
   Share2,
@@ -129,8 +130,14 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
                   onClick={() => post.course && onSelectCourse?.(post.course.id)}
                   className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent"
                 >
-                  <Hash className="h-3 w-3" />
-                  {post.course.code} {post.course.name}
+                  {post.course.kind === 'club' ? (
+                    <MessagesSquare className="h-3 w-3" />
+                  ) : (
+                    <Hash className="h-3 w-3" />
+                  )}
+                  {post.course.kind === 'club'
+                    ? post.course.name
+                    : `${post.course.code ?? ''} ${post.course.name ?? ''}`.trim()}
                 </button>
               )}
             </div>

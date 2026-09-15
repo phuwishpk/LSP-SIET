@@ -112,7 +112,7 @@ async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT id, code, name, notebook_id FROM courses WHERE id = :cid"),
+                text("SELECT id, code, name, kind, notebook_id FROM courses WHERE id = :cid"),
                 {"cid": course_id},
             )
         ).first()

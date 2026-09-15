@@ -72,6 +72,11 @@ STATEMENTS: list[str] = [
     """,
     # Open Notebook notebook backing each course's shared knowledge library.
     "ALTER TABLE courses ADD COLUMN IF NOT EXISTS notebook_id VARCHAR(128) NULL",
+    # 'course' = official room created by staff; 'club' = free-form discussion
+    # room any student may open (no shared library, so it never feeds the RAG).
+    "ALTER TABLE courses ADD COLUMN IF NOT EXISTS kind "
+    "ENUM('course','club') NOT NULL DEFAULT 'course'",
+    "ALTER TABLE courses ADD INDEX IF NOT EXISTS idx_courses_creator (created_by, created_at)",
     # Personal knowledge library (one Open Notebook notebook per user).
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     f"""

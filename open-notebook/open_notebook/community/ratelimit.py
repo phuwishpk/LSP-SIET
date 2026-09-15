@@ -74,6 +74,17 @@ LIMITS = {
         per_day=_env_int("SPAM_COMMENT_PER_DAY", 150),
         label="ความคิดเห็น",
     ),
+    # Discussion rooms any student may open. Deliberately tight: an abandoned
+    # room is far more annoying to clean up than a stray post.
+    "room": Limit(
+        table="courses",
+        user_column="created_by",
+        cooldown_seconds=_env_int("SPAM_ROOM_COOLDOWN_SECONDS", 60),
+        per_hour=_env_int("SPAM_ROOM_PER_HOUR", 2),
+        per_day=_env_int("SPAM_ROOM_PER_DAY", 5),
+        label="ห้องพูดคุย",
+        extra_where=" AND kind = 'club'",
+    ),
     "library": Limit(
         table="library_documents",
         user_column="owner_id",

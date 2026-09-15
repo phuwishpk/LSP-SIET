@@ -24,7 +24,7 @@ import { notesApi } from '@/lib/api/notes'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { isStaff, type Role } from '@/lib/roles'
-import { timeAgo } from '@/lib/utils/community-format'
+import { roomLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 type WorkKind = 'quiz' | 'roadmap' | 'note'
@@ -286,10 +286,10 @@ export function ShareMyWorkDialog({
               value={courseId ?? ''}
               onChange={(e) => setCourseId(e.target.value ? Number(e.target.value) : null)}
             >
-              <option value="">ไม่ระบุวิชา</option>
+              <option value="">ไม่ระบุห้อง</option>
               {(courses ?? []).map((c) => (
                 <option key={c.id} value={c.id}>
-                  {c.code} {c.name}
+                  {roomLabel(c)}
                 </option>
               ))}
             </select>

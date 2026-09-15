@@ -10,6 +10,7 @@ import { useAsk, useCourses, useWallet, toastApiError } from '@/lib/hooks/use-co
 import type { AskCitation } from '@/lib/api/community'
 import { describeApiError } from '@/lib/api/community'
 import type { AskScope } from '@/lib/api/library'
+import { roomLabel } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -32,9 +33,19 @@ interface AiQuickWidgetProps {
   /** A library document the user asked about ("ถาม AI จากเอกสารนี้"). */
   focusDocument?: AskFocus | null
   onClearFocus?: () => void
+  /**
+   * Incremented by the sidebar's "ถาม KMITL RAG AI" entry: scrolls this card
+   * into view and puts the cursor in the question box.
+   */
+  focusSignal?: number
 }
 
-export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuickWidgetProps) {
+export function AiQuickWidget({
+  courseId,
+  focusDocument,
+  onClearFocus,
+  focusSignal = 0,
+}: AiQuickWidgetProps) {
   const ask = useAsk()
   const { data: wallet } = useWallet()
   const { data: courses } = useCourses()
@@ -46,15 +57,33 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   const [messages, setMessages] = useState<Message[]>([])
   const [question, setQuestion] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
+  const cardRef = useRef<HTMLDivElement>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
 
   const costs = wallet?.rules.costs
   const sessionMessages = wallet?.rules.rag_session_messages ?? 5
   const exempt = wallet?.exempt ?? false
-  const myCourses = useMemo(() => (courses ?? []).filter((c) => c.joined), [courses])
+  // Only official course rooms carry a shared library, so discussion rooms
+  // are not offered as a retrieval scope.
+  const myCourses = useMemo(
+    () => (courses ?? []).filter((c) => c.joined && c.kind !== 'club'),
+    [courses]
+  )
 
   useEffect(() => {
-    if (courseId) setScopeCourseId(courseId)
-  }, [courseId])
+    if (!courseId) return
+    // Discussion rooms have no library; selecting one must not silently become
+    // a course scope the RAG cannot search.
+    const room = (courses ?? []).find((c) => c.id === courseId)
+    if (room && room.kind === 'club') return
+    setScopeCourseId(courseId)
+  }, [courseId, courses])
+
+  useEffect(() => {
+    if (!focusSignal) return
+    cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    inputRef.current?.focus()
+  }, [focusSignal])
 
   // Clicking "ask about this document" in the library switches the widget scope.
   useEffect(() => {
@@ -70,7 +99,9 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   }, [messages.length, ask.isPending])
 
   const activeScope: AskScope = focusDocument ? 'document' : scope
-  const scopeCourse = myCourses.find((c) => c.id === scopeCourseId) ?? (courses ?? []).find((c) => c.id === scopeCourseId)
+  const scopeCourse =
+    myCourses.find((c) => c.id === scopeCourseId) ??
+    (courses ?? []).find((c) => c.id === scopeCourseId && c.kind !== 'club')
 
   const submit = () => {
     const q = question.trim()
@@ -131,7 +162,7 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   const nextCost = sessionId ? 0 : mode === 'session' ? costs?.rag_session ?? 4 : costs?.rag_question ?? 1
 
   return (
-    <Card className="border-violet-200/70 dark:border-violet-900/60">
+    <Card ref={cardRef} id="ai-quick-prompt" className="border-violet-200/70 dark:border-violet-900/60">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
@@ -172,11 +203,13 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
               onChange={(e) => setScopeCourseId(e.target.value ? Number(e.target.value) : null)}
             >
               <option value="">— เลือกวิชา —</option>
-              {(courses ?? []).map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.code} {c.name}
-                </option>
-              ))}
+              {(courses ?? [])
+                .filter((c) => c.kind !== 'club')
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {roomLabel(c)}
+                  </option>
+                ))}
             </select>
           )}
           {!focusDocument && scope === 'course' && scopeCourse && (
@@ -265,6 +298,7 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
           className="space-y-1.5"
         >
           <Textarea
+            ref={inputRef}
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             rows={2}
