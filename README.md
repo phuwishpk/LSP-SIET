@@ -180,6 +180,23 @@ Endpoints: `GET/POST /api/community/library`, `GET/DELETE /api/community/library
 and `POST /api/community/study/roadmap` for generating grounded study material.
 `POST /api/community/ask` accepts `scope` = `auto | course | personal | document`.
 
+### Anti-spam on content creation
+
+Everything that adds content is guarded three ways (all `SPAM_*` env vars):
+
+| Guard | Post | Comment | Library upload |
+|---|---|---|---|
+| Cooldown between submissions | 20 s | 5 s | 15 s |
+| Per hour | 10 | 30 | 10 |
+| Per day | 40 | 150 | 30 |
+
+Plus a duplicate fingerprint (`content_hash`, MD5 of the payload) that rejects
+re-posting the same text or re-uploading the same file for 24 h, and a minimum
+length so one-character posts cannot be used to farm points. Teachers and admins
+get `SPAM_STAFF_MULTIPLIER` (default 4x) the quotas. Rejections return
+`429 Too Many Requests` with `Retry-After`, or `409 Conflict` with
+`X-Duplicate-Of` pointing at the original.
+
 ### Deploying to a real domain
 
 The browser-facing URLs of the two standalone apps are read at **runtime** from

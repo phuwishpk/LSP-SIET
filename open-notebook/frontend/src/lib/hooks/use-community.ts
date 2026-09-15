@@ -33,11 +33,25 @@ export const COMMUNITY_KEYS = {
   materials: (courseId?: number) => ['community', 'materials', courseId ?? 'all'] as const,
 }
 
-/** Show a toast for an API error; 402 (not enough points) gets a dedicated style. */
+/**
+ * Show a toast for an API error.
+ *
+ * 402 (not enough points), 429 (too fast / over quota) and 409 (duplicate
+ * content) are the three the community hits most, so each gets wording that
+ * tells the user what to do instead of a generic failure.
+ */
 export function toastApiError(error: unknown, fallback = 'เกิดข้อผิดพลาด') {
   const info = describeApiError(error)
   if (info.status === 402) {
     toast.warning('แต้มไม่พอ', { description: info.message || fallback })
+  } else if (info.status === 429) {
+    const wait =
+      info.retryAfter && info.retryAfter <= 120
+        ? `ลองใหม่ในอีก ${info.retryAfter} วินาที`
+        : undefined
+    toast.warning('ส่งถี่เกินไป', { description: [info.message, wait].filter(Boolean).join(' · ') })
+  } else if (info.status === 409) {
+    toast.warning('เนื้อหาซ้ำ', { description: info.message || fallback })
   } else {
     toast.error(info.message || fallback)
   }

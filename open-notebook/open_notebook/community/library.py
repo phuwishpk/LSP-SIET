@@ -210,6 +210,7 @@ async def create_document(
     file_path: Optional[str] = None,
     mime: Optional[str] = None,
     size: Optional[int] = None,
+    content_hash: Optional[str] = None,
 ) -> int:
     async with _mariadb_session() as session:
         result = await session.execute(
@@ -217,10 +218,10 @@ async def create_document(
                 """
                 INSERT INTO library_documents
                     (owner_id, scope, course_id, notebook_id, title, kind,
-                     filename, file_path, mime, size, status)
+                     filename, file_path, mime, size, status, content_hash)
                 VALUES
                     (:owner_id, :scope, :course_id, :notebook_id, :title, :kind,
-                     :filename, :file_path, :mime, :size, 'processing')
+                     :filename, :file_path, :mime, :size, 'processing', :content_hash)
                 """
             ),
             {
@@ -234,6 +235,7 @@ async def create_document(
                 "file_path": (file_path or None) and file_path[:512],
                 "mime": (mime or None) and mime[:128],
                 "size": size,
+                "content_hash": content_hash,
             },
         )
         return int(result.lastrowid)

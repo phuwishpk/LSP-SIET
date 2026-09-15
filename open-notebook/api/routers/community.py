@@ -7,6 +7,7 @@ action is attributed to a MariaDB user id.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import uuid
@@ -28,7 +29,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
-from open_notebook.community import library, points
+from open_notebook.community import library, points, ratelimit
 from open_notebook.community import repository as repo
 from open_notebook.community.ask import quick_ask
 from open_notebook.config import DATA_FOLDER
@@ -46,6 +47,9 @@ router = APIRouter(prefix="/community", tags=["community"])
 UPLOAD_DIR = os.path.join(DATA_FOLDER, "community")
 MAX_UPLOAD_MB = int(os.getenv("COMMUNITY_MAX_UPLOAD_MB", "50"))
 ALLOWED_UPLOAD_EXT = {".pdf", ".png", ".jpg", ".jpeg", ".webp", ".md", ".txt", ".docx", ".pptx", ".zip"}
+# Minimum substance before something counts as a post / knowledge document.
+MIN_POST_CHARS = int(os.getenv("SPAM_MIN_POST_CHARS", "15"))
+MIN_DOCUMENT_CHARS = int(os.getenv("SPAM_MIN_DOCUMENT_CHARS", "80"))
 
 
 # ---------------------------------------------------------------------------
@@ -80,6 +84,26 @@ def _insufficient(exc: points.InsufficientPoints) -> HTTPException:
             "X-Points-Balance": str(exc.balance),
             "X-Points-Kind": exc.kind,
         },
+    )
+
+
+async def _guard_spam(user: User, action: str) -> None:
+    """Stop rapid-fire / bulk submissions before any work is done."""
+    try:
+        await ratelimit.check_rate(user, action)
+    except ratelimit.RateLimited as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=exc.message,
+            headers={"Retry-After": str(exc.retry_after)},
+        )
+
+
+def _duplicate(exc: ratelimit.DuplicateContent) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_409_CONFLICT,
+        detail=exc.message,
+        headers={"X-Duplicate-Of": str(exc.existing_id or "")},
     )
 
 
@@ -355,8 +379,23 @@ async def create_post(
         except NotFoundError:
             raise HTTPException(status_code=404, detail="Session not found or not yours")
 
-    if not (content or "").strip() and not snapshot and file is None:
-        raise HTTPException(status_code=400, detail="Post needs some content, a file, or an embed")
+    text_body = (content or "").strip()
+    heading = (title or "").strip()
+    if not text_body and not snapshot and file is None:
+        raise HTTPException(status_code=400, detail="โพสต์ต้องมีเนื้อหา ไฟล์แนบ หรือควิซ/Roadmap ที่ฝังไว้")
+    # Reject one-character "aaa" posts outright – they exist only to farm points.
+    if not snapshot and file is None and len(text_body) + len(heading) < MIN_POST_CHARS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"เขียนอย่างน้อย {MIN_POST_CHARS} ตัวอักษร เพื่อให้เพื่อนเข้าใจว่าโพสต์นี้เกี่ยวกับอะไร",
+        )
+
+    await _guard_spam(user, "post")
+    content_hash = ratelimit.fingerprint(heading, text_body, embed_id or "")
+    try:
+        await ratelimit.check_duplicate_post(uid, content_hash)
+    except ratelimit.DuplicateContent as exc:
+        raise _duplicate(exc)
 
     attachment = await _store_upload(file) if file is not None and file.filename else None
     tag_list = [t for t in re.split(r"[,#\s]+", tags or "") if t]
@@ -372,6 +411,7 @@ async def create_post(
         embed_id=embed_id,
         embed_snapshot=snapshot,
         attachment=attachment,
+        content_hash=content_hash,
     )
 
     # --- earn points for contributing ------------------------------------
@@ -500,6 +540,7 @@ async def list_comments(post_id: int, user: User = Depends(get_current_user)) ->
 async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
     post = await _post_or_404(post_id)
+    await _guard_spam(user, "comment")
     await repo.add_comment(post_id, uid, body.content)
     await repo.add_notification(
         int(post["author_id"]), "comment",
@@ -860,6 +901,7 @@ async def upload_library_document(
     Extraction + embedding run in the background – poll ``GET /library/{id}``.
     """
     uid = _uid(user)
+    await _guard_spam(user, "library")
     if course_id is not None and course_id <= 0:
         course_id = None
 
@@ -887,6 +929,7 @@ async def upload_library_document(
     mime: Optional[str] = None
     size: Optional[int] = None
     raw_text: Optional[str] = None
+    content_hash: str = ""
 
     if file is not None and file.filename:
         kind = "file"
@@ -898,6 +941,7 @@ async def upload_library_document(
         file_path = library.storage_path(filename)
         limit = library.MAX_UPLOAD_MB * 1024 * 1024
         size = 0
+        digest = hashlib.md5()
         with open(file_path, "wb") as fh:
             while True:
                 chunk = await file.read(1024 * 1024)
@@ -911,19 +955,36 @@ async def upload_library_document(
                         status_code=413,
                         detail=f"ไฟล์ใหญ่เกิน {library.MAX_UPLOAD_MB} MB",
                     )
+                digest.update(chunk)
                 fh.write(chunk)
         mime = file.content_type
+        content_hash = digest.hexdigest()
     elif url and url.strip():
         kind = "url"
         cleaned = url.strip()
         if not cleaned.lower().startswith(("http://", "https://")):
             raise HTTPException(status_code=400, detail="ลิงก์ต้องขึ้นต้นด้วย http:// หรือ https://")
         file_path = cleaned[:512]
+        content_hash = ratelimit.fingerprint(cleaned)
     elif content and content.strip():
         kind = "text"
         raw_text = content
+        if len(content.strip()) < MIN_DOCUMENT_CHARS:
+            raise HTTPException(
+                status_code=400,
+                detail=f"ข้อความต้องยาวอย่างน้อย {MIN_DOCUMENT_CHARS} ตัวอักษรจึงจะใช้เป็นแหล่งอ้างอิงได้",
+            )
+        content_hash = ratelimit.fingerprint(content)
     else:
         raise HTTPException(status_code=400, detail="กรุณาแนบไฟล์ ใส่ลิงก์ หรือวางข้อความ")
+
+    # Re-uploading the same document would burn embedding budget for nothing.
+    try:
+        await ratelimit.check_duplicate_document(uid, content_hash)
+    except ratelimit.DuplicateContent as exc:
+        if kind == "file" and file_path and os.path.isfile(file_path):
+            os.remove(file_path)
+        raise _duplicate(exc)
 
     resolved_title = (title or "").strip() or filename or (file_path if kind == "url" else None) or "เอกสารไม่มีชื่อ"
 
@@ -938,6 +999,7 @@ async def upload_library_document(
         file_path=file_path,
         mime=mime,
         size=size,
+        content_hash=content_hash,
     )
 
     # --- optionally announce it in the feed --------------------------------

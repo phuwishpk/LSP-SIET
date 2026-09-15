@@ -276,6 +276,7 @@ async def create_post(
     embed_id: Optional[str] = None,
     embed_snapshot: Optional[Dict[str, Any]] = None,
     attachment: Optional[Dict[str, Any]] = None,
+    content_hash: Optional[str] = None,
 ) -> int:
     if post_type not in POST_TYPES:
         raise ValueError(f"invalid post type {post_type}")
@@ -287,11 +288,11 @@ async def create_post(
                 INSERT INTO posts
                     (author_id, course_id, type, title, content, tags,
                      attachment_name, attachment_path, attachment_size, attachment_mime,
-                     embed_type, embed_id, embed_snapshot)
+                     embed_type, embed_id, embed_snapshot, content_hash)
                 VALUES
                     (:author_id, :course_id, :type, :title, :content, :tags,
                      :att_name, :att_path, :att_size, :att_mime,
-                     :embed_type, :embed_id, :embed_snapshot)
+                     :embed_type, :embed_id, :embed_snapshot, :content_hash)
                 """
             ),
             {
@@ -308,6 +309,7 @@ async def create_post(
                 "embed_type": embed_type,
                 "embed_id": embed_id,
                 "embed_snapshot": json.dumps(embed_snapshot, ensure_ascii=False) if embed_snapshot else None,
+                "content_hash": content_hash,
             },
         )
         return int(result.lastrowid)
@@ -414,6 +416,11 @@ async def update_post(
     if content is not None:
         sets.append("content = :content")
         values["content"] = content.strip() or None
+    if title is not None or content is not None:
+        from open_notebook.community.ratelimit import fingerprint
+
+        sets.append("content_hash = :content_hash")
+        values["content_hash"] = fingerprint(title or "", content or "")
     if tags is not None:
         sets.append("tags = :tags")
         values["tags"] = ",".join(t.strip()[:40] for t in tags if t.strip())[:255] or None

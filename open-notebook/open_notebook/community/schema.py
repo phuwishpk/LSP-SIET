@@ -115,6 +115,10 @@ STATEMENTS: list[str] = [
         INDEX idx_posts_embed (embed_type, embed_id)
     ) {_TABLE_OPTS}
     """,
+    # Fingerprint of title+content, used to reject duplicate/spam posts.
+    "ALTER TABLE posts ADD COLUMN IF NOT EXISTS content_hash CHAR(32) NULL",
+    "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_dupe (author_id, content_hash, created_at)",
+    "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_author_time (author_id, created_at)",
     f"""
     CREATE TABLE IF NOT EXISTS post_reactions (
         post_id    BIGINT NOT NULL,
@@ -134,6 +138,7 @@ STATEMENTS: list[str] = [
         INDEX idx_pc_post (post_id, id)
     ) {_TABLE_OPTS}
     """,
+    "ALTER TABLE post_comments ADD INDEX IF NOT EXISTS idx_pc_author_time (author_id, created_at)",
     f"""
     CREATE TABLE IF NOT EXISTS quiz_plays (
         id            BIGINT AUTO_INCREMENT PRIMARY KEY,
@@ -194,6 +199,10 @@ STATEMENTS: list[str] = [
         INDEX idx_lib_status (status)
     ) {_TABLE_OPTS}
     """,
+    # Fingerprint of the uploaded payload, used to reject re-uploads.
+    "ALTER TABLE library_documents ADD COLUMN IF NOT EXISTS content_hash CHAR(32) NULL",
+    "ALTER TABLE library_documents ADD INDEX IF NOT EXISTS idx_lib_dupe (owner_id, content_hash)",
+    "ALTER TABLE library_documents ADD INDEX IF NOT EXISTS idx_lib_owner_time (owner_id, created_at)",
     f"""
     CREATE TABLE IF NOT EXISTS notifications (
         id         BIGINT AUTO_INCREMENT PRIMARY KEY,

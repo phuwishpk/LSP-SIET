@@ -440,6 +440,10 @@ export interface PointsError {
   required?: number
   balance?: number
   kind?: string
+  /** Seconds to wait before retrying (sent with 429 responses). */
+  retryAfter?: number
+  /** Id of the existing item a 409 duplicate collided with. */
+  duplicateOf?: number
 }
 
 /** Extract a user-facing message (+ point metadata) from an axios error. */
@@ -457,13 +461,21 @@ export function describeApiError(error: unknown): PointsError {
       : Array.isArray(detail)
       ? detail.map((d) => (typeof d === 'object' && d && 'msg' in d ? String((d as { msg: string }).msg) : String(d))).join(', ')
       : err?.message || 'เกิดข้อผิดพลาด'
-  const required = Number(headers['x-points-required'])
-  const balance = Number(headers['x-points-balance'])
+  const lower: Record<string, string> = {}
+  Object.entries(headers).forEach(([k, v]) => {
+    lower[k.toLowerCase()] = v
+  })
+  const required = Number(lower['x-points-required'])
+  const balance = Number(lower['x-points-balance'])
+  const retryAfter = Number(lower['retry-after'])
+  const duplicateOf = Number(lower['x-duplicate-of'])
   return {
     status,
     message,
     required: Number.isFinite(required) ? required : undefined,
     balance: Number.isFinite(balance) ? balance : undefined,
-    kind: headers['x-points-kind'],
+    kind: lower['x-points-kind'],
+    retryAfter: Number.isFinite(retryAfter) ? retryAfter : undefined,
+    duplicateOf: Number.isFinite(duplicateOf) ? duplicateOf : undefined,
   }
 }
