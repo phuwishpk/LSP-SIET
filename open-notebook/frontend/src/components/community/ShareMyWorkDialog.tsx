@@ -22,6 +22,8 @@ import { useQuizSessions, useRoadmapSessions } from '@/lib/hooks/use-features'
 import { useCourses, useCreatePost } from '@/lib/hooks/use-community'
 import { notesApi } from '@/lib/api/notes'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
+import { useAuthStore } from '@/lib/stores/auth-store'
+import { isStaff, type Role } from '@/lib/roles'
 import { timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
@@ -62,10 +64,14 @@ export function ShareMyWorkDialog({
 
   const { data: quizzes, isLoading: loadingQuizzes } = useQuizSessions()
   const { data: roadmaps, isLoading: loadingRoadmaps } = useRoadmapSessions()
+  // Notes live in Open Notebook, which students cannot reach, so the tab is
+  // only offered to teachers/admins (and the API would refuse it anyway).
+  const role = useAuthStore((s) => s.user?.role) as Role
+  const canUseNotes = isStaff(role)
   const { data: notes, isLoading: loadingNotes } = useQuery({
     queryKey: ['community', 'my-notes'],
     queryFn: () => notesApi.list(),
-    enabled: open,
+    enabled: open && canUseNotes,
   })
   const { data: courses } = useCourses()
   const create = useCreatePost()
@@ -194,13 +200,15 @@ export function ShareMyWorkDialog({
               <Map className="h-4 w-4" /> Roadmap ของฉัน
               {roadmaps && <Badge variant="secondary" className="h-4 px-1 text-[10px]">{roadmaps.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="note" className="flex-1 gap-1.5">
-              <FileText className="h-4 w-4" /> โน้ตสรุปของฉัน
-              {notes && <Badge variant="secondary" className="h-4 px-1 text-[10px]">{notes.length}</Badge>}
-            </TabsTrigger>
+            {canUseNotes && (
+              <TabsTrigger value="note" className="flex-1 gap-1.5">
+                <FileText className="h-4 w-4" /> โน้ตสรุปของฉัน
+                {notes && <Badge variant="secondary" className="h-4 px-1 text-[10px]">{notes.length}</Badge>}
+              </TabsTrigger>
+            )}
           </TabsList>
 
-          {(['quiz', 'roadmap', 'note'] as WorkKind[]).map((k) => (
+          {((canUseNotes ? ['quiz', 'roadmap', 'note'] : ['quiz', 'roadmap']) as WorkKind[]).map((k) => (
             <TabsContent key={k} value={k} className="mt-3">
               <ScrollArea className="h-64 rounded-lg border">
                 <div className="space-y-1 p-2">

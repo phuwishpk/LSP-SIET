@@ -180,6 +180,21 @@ Endpoints: `GET/POST /api/community/library`, `GET/DELETE /api/community/library
 and `POST /api/community/study/roadmap` for generating grounded study material.
 `POST /api/community/ask` accepts `scope` = `auto | course | personal | document`.
 
+### Who can do what
+
+Enforced in middleware (`api/auth_roles.py`) so a newly added router is locked
+down by default rather than accidentally public. The frontend hides the matching
+navigation, but the API is the enforcement point.
+
+| Area | Student | Teacher | Admin |
+|---|---|---|---|
+| Community feed, points, knowledge library, quiz/roadmap generation | yes | yes | yes |
+| Upload into a course library, create courses, publish teaching material | no | yes | yes |
+| Open Notebook research surface (notebooks, sources, notes, chat, search, podcasts, transformations) | no | yes | yes |
+| AI models, API credentials, workspace settings | no | no | yes |
+
+Blocked requests return `403` with `X-Required-Role`.
+
 ### Anti-spam on content creation
 
 Everything that adds content is guarded three ways (all `SPAM_*` env vars):

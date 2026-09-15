@@ -15,6 +15,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.auth import PasswordAuthMiddleware
 from api.auth_jwt import get_current_user, jwt_auth_enabled
+from api.auth_roles import RoleAccessMiddleware
 from api.routers import (
     chat,
     config,
@@ -356,6 +357,21 @@ if CORS_IS_DEFAULT_WILDCARD:
     )
 else:
     logger.info(f"CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
+
+# Role gate. Added BEFORE the password middleware so that it *runs after* it
+# (Starlette executes middleware in reverse registration order) and can read the
+# owner id that authentication resolved.
+app.add_middleware(
+    RoleAccessMiddleware,
+    exempt_paths=[
+        "/",
+        "/health",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/api/config",
+    ],
+)
 
 # Add password authentication middleware first
 # Exclude auth + workspace user endpoints so the frontend can probe auth state

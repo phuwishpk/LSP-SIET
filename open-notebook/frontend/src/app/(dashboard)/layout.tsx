@@ -8,6 +8,9 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
+import { usePathname } from 'next/navigation'
+import { useAuthStore } from '@/lib/stores/auth-store'
+import { canAccessRoute, isStaff, type Role } from '@/lib/roles'
 
 export default function DashboardLayout({
   children,
@@ -16,7 +19,10 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
+  const pathname = usePathname()
+  const role = useAuthStore((s) => s.user?.role) as Role
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
+  const allowed = canAccessRoute(role, pathname ?? '/')
 
   // NOTE: the upstream "new Open Notebook version available" toast
   // (useVersionCheck) is intentionally disabled for the KMITL workspace.
@@ -36,6 +42,14 @@ export default function DashboardLayout({
     }
   }, [isAuthenticated, isLoading, router])
 
+  // The API refuses these routes for students (api/auth_roles.py); send them
+  // back to the community instead of rendering a page full of 403s.
+  useEffect(() => {
+    if (!isLoading && isAuthenticated && !allowed) {
+      router.replace('/community')
+    }
+  }, [isLoading, isAuthenticated, allowed, router])
+
   // Show loading spinner during initial auth check or while loading
   if (isLoading || !hasCheckedAuth) {
     return (
@@ -46,7 +60,7 @@ export default function DashboardLayout({
   }
 
   // Don't render anything if not authenticated (during redirect)
-  if (!isAuthenticated) {
+  if (!isAuthenticated || !allowed) {
     return null
   }
 
@@ -55,7 +69,8 @@ export default function DashboardLayout({
       <CreateDialogsProvider>
         {children}
         <ModalProvider />
-        <CommandPalette />
+        {/* The palette lists notebooks and staff-only create actions. */}
+        {isStaff(role) && <CommandPalette />}
       </CreateDialogsProvider>
     </ErrorBoundary>
   )
