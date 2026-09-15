@@ -54,6 +54,7 @@ STAFF_PREFIXES: tuple[str, ...] = (
 
 # Workspace-wide configuration: one careless change affects every user.
 ADMIN_PREFIXES: tuple[str, ...] = (
+    "/api/admin",
     "/api/credentials",
     "/api/settings",
     "/api/models",

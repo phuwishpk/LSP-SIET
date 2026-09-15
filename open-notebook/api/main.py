@@ -37,6 +37,7 @@ from api.routers import (
     speaker_profiles,
     transformations,
 )
+from api.routers import admin as admin_router
 from api.routers import commands as commands_router
 from api.routers import community as community_router
 from api.routers import features as features_router
@@ -531,6 +532,7 @@ app.include_router(languages.router, prefix="/api", tags=["languages"])
 app.include_router(features_router.router, prefix="/api", tags=["features"])
 app.include_router(google_auth_router.router, prefix="/api", tags=["auth"])
 app.include_router(community_router.router, prefix="/api", tags=["community"])
+app.include_router(admin_router.router, prefix="/api", tags=["admin"])
 
 
 @app.get("/")

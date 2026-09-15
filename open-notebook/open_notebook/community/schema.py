@@ -39,6 +39,8 @@ STATEMENTS: list[str] = [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(512) NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS student_id VARCHAR(32) NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS points_balance INT NOT NULL DEFAULT 0",
+    # Suspended accounts keep their data but cannot sign in.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled TINYINT(1) NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_email (email)",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_google_sub (google_sub)",
     # ------------------------------------------------------------ points

@@ -206,6 +206,11 @@ async def login(payload: LoginRequest) -> TokenResponse:
         )
 
     user = await get_by_username(payload.username)
+    if user is not None and user.disabled:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+        )
     if user is None or not verify_password(payload.password, user.password_hash):
         # Run verify_password against a dummy hash to keep timing constant
         verify_password(payload.password, "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv")

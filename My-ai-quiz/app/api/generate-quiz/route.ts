@@ -4,7 +4,10 @@ import { z } from 'zod';
 
 export const maxDuration = 30;
 
-const MODEL_ID = '';
+// Used only when the request does not carry a KMITL workspace token (i.e. the
+// app was opened directly instead of through SIET Space). Override with
+// QUIZ_FALLBACK_MODEL if the Gemini model line changes.
+const MODEL_ID = (process.env.QUIZ_FALLBACK_MODEL || 'gemini-2.5-flash').trim();
 
 const quizSchema = z.object({
   quiz: z.array(
@@ -98,7 +101,14 @@ export async function POST(req: Request) {
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
-      return Response.json({ error: 'AI service is not configured. Please add a Gemini API key.' }, { status: 500 });
+      return Response.json(
+        {
+          error:
+            'ยังไม่ได้ตั้งค่า AI สำหรับโหมดเดี่ยว กรุณาเข้าใช้งานผ่าน SIET Space เพื่อให้ระบบใช้โมเดลของเวิร์กสเปซ ' +
+            '(หรือผู้ดูแลตั้งค่า GOOGLE_GENERATIVE_AI_API_KEY ให้แอปนี้)',
+        },
+        { status: 503 }
+      );
     }
 
     try {

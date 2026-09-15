@@ -68,7 +68,7 @@ export function LoginForm() {
   useEffect(() => {
     if (!hasHydrated) return
     const destinationFor = (role?: string | null) =>
-      role === 'admin' ? '/notebooks' : '/community'
+      role === 'admin' ? '/admin' : '/community'
     if (authRequired !== null) {
       if (!authRequired && isAuthenticated) {
         router.push(destinationFor(useAuthStore.getState().user?.role))
@@ -93,7 +93,7 @@ export function LoginForm() {
   useEffect(() => {
     if (hasHydrated && authRequired && isAuthenticated) {
       const role = useAuthStore.getState().user?.role
-      router.replace(role === 'admin' ? '/notebooks' : '/community')
+      router.replace(role === 'admin' ? '/admin' : '/community')
     }
   }, [hasHydrated, authRequired, isAuthenticated, router])
 

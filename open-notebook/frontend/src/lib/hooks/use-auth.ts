@@ -41,7 +41,7 @@ export function useAuth() {
     // login() sets the store, before React re-renders.
     const currentUser = useAuthStore.getState().user
     if (currentUser?.role === 'admin') {
-      router.push('/notebooks')
+      router.push('/admin')
       return
     }
     // Students / teachers land on the SIET Space community feed, unless they

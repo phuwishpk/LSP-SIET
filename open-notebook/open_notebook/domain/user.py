@@ -44,6 +44,7 @@ class _UserRow(_Base):
     avatar_url    = Column(String(512), nullable=True)
     student_id    = Column(String(32), nullable=True)
     points_balance = Column(Integer, nullable=False, default=0)
+    disabled       = Column(Integer, nullable=False, default=0)
     # Open Notebook notebook holding this user's private uploaded documents.
     library_notebook_id = Column(String(128), nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
@@ -158,6 +159,7 @@ class User(BaseModel):
     avatar_url: Optional[str] = None
     student_id: Optional[str] = None
     points_balance: int = 0
+    disabled: bool = False
     library_notebook_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -223,6 +225,7 @@ def _row_to_user(row: Any) -> User:
         avatar_url=getattr(row, "avatar_url", None),
         student_id=getattr(row, "student_id", None),
         points_balance=int(getattr(row, "points_balance", 0) or 0),
+        disabled=bool(getattr(row, "disabled", 0) or 0),
         library_notebook_id=getattr(row, "library_notebook_id", None),
         created_at=created_at.isoformat() if created_at else None,
         updated_at=updated_at.isoformat() if updated_at else None,
@@ -469,3 +472,103 @@ async def list_users_brief(limit: int = 200) -> List[Dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+# =============================================================================
+# Administration helpers
+# =============================================================================
+
+
+async def admin_list_users(
+    query: Optional[str] = None,
+    role: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Paginated user directory for the admin console."""
+    where: List[str] = []
+    params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if query:
+        where.append(
+            "(username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_id LIKE :q)"
+        )
+        params["q"] = f"%{query.strip()}%"
+    if role in USER_ROLES:
+        where.append("role = :role")
+        params["role"] = role
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    from sqlalchemy import text as _text
+
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                _text(
+                    f"""
+                    SELECT id, username, display_name, role, email, student_id,
+                           avatar_url, points_balance, disabled,
+                           created_at, last_login_at
+                      FROM users {clause}
+                     ORDER BY role = 'admin' DESC, role = 'teacher' DESC, id ASC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        ).all()
+        total = (
+            await session.execute(_text(f"SELECT COUNT(*) FROM users {clause}"), params)
+        ).scalar()
+        counts = (
+            await session.execute(_text("SELECT role, COUNT(*) AS n FROM users GROUP BY role"))
+        ).all()
+
+    def _iso(value: Any) -> Optional[str]:
+        return value.isoformat() if isinstance(value, datetime) else value
+
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "username": r.username,
+                "display_name": r.display_name,
+                "role": r.role,
+                "email": r.email,
+                "student_id": r.student_id,
+                "avatar_url": r.avatar_url,
+                "points_balance": int(r.points_balance or 0),
+                "disabled": bool(r.disabled),
+                "created_at": _iso(r.created_at),
+                "last_login_at": _iso(r.last_login_at),
+            }
+            for r in rows
+        ],
+        "total": int(total or 0),
+        "by_role": {r.role: int(r.n) for r in counts},
+    }
+
+
+async def count_admins(exclude_user_id: Optional[int] = None) -> int:
+    """How many enabled admins exist (optionally ignoring one account)."""
+    from sqlalchemy import text as _text
+
+    sql = "SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0"
+    params: Dict[str, Any] = {}
+    if exclude_user_id is not None:
+        sql += " AND id <> :uid"
+        params["uid"] = exclude_user_id
+    async with _mariadb_session() as session:
+        return int((await session.execute(_text(sql), params)).scalar() or 0)
+
+
+async def set_disabled(user_id: int | str, disabled: bool) -> None:
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        raise UserError(f"Invalid user_id: {user_id}")
+    async with _mariadb_session() as session:
+        await session.execute(
+            update(_UserRow)
+            .where(_UserRow.id == uid)
+            .values(disabled=1 if disabled else 0, updated_at=datetime.utcnow())
+        )

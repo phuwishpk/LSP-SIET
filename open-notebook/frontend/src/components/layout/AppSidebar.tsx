@@ -41,6 +41,7 @@ import {
   Plus,
   Wrench,
   Command,
+  ShieldCheck,
   Sparkles,
   Users,
   Coins,
@@ -88,6 +89,7 @@ const getNavigation = (t: TFunction, role: Role) => [
       { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
       ...(isAdmin(role)
         ? [
+            { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },
             { name: t('navigation.settings'), href: '/settings', icon: Settings },
             { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
           ]

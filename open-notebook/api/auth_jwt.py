@@ -176,6 +176,13 @@ async def get_current_user(
             detail="Invalid or expired access token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # A suspended account keeps its data but must stop working immediately,
+    # even if it is still holding a valid (unexpired) token.
+    if getattr(user, "disabled", False):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="บัญชีนี้ถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ",
+        )
     set_request_owner(request, user.id or "")
     return user
 

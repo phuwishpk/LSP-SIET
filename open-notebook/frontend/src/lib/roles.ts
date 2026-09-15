@@ -19,6 +19,7 @@ export function isAdmin(role: Role): boolean {
 
 /** Route prefixes a student must never land on. */
 export const STAFF_ROUTES = [
+  '/admin',
   '/notebooks',
   '/sources',
   '/search',
@@ -28,7 +29,7 @@ export const STAFF_ROUTES = [
   '/settings',
 ] as const
 
-export const ADMIN_ROUTES = ['/settings', '/advanced'] as const
+export const ADMIN_ROUTES = ['/settings', '/advanced', '/admin'] as const
 
 export function canAccessRoute(role: Role, pathname: string): boolean {
   const matches = (routes: readonly string[]) =>

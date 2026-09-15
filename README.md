@@ -180,6 +180,15 @@ Endpoints: `GET/POST /api/community/library`, `GET/DELETE /api/community/library
 and `POST /api/community/study/roadmap` for generating grounded study material.
 `POST /api/community/ask` accepts `scope` = `auto | course | personal | document`.
 
+### Admin console
+
+`/admin` (admins only) replaces going into MariaDB by hand: search the user
+directory, change a role, top a wallet up or deduct from it (recorded in the
+points history as `admin_grant` / `admin_deduct`), reset a password, and suspend
+or restore an account. A suspended account cannot sign in and its existing token
+is rejected on the next request. Guard rails stop an admin demoting or
+suspending themselves, or removing the last remaining admin.
+
 ### Who can do what
 
 Enforced in middleware (`api/auth_roles.py`) so a newly added router is locked
@@ -236,3 +245,17 @@ SurrealDB migration `23.surrealql` marks `quiz_session.questions` and
 `roadmap_session.nodes/edges` as `FLEXIBLE` – without it SCHEMAFULL tables
 silently stored `[{}, {}]`, so previously generated quizzes/roadmaps have no
 content and must be regenerated.
+
+
+### Standalone app durability
+
+* **AI Roadmap** – a plan generated while signed in is stored as a
+  `roadmap_session` in Open Notebook, and `/roadmap/{code}` reads it back from
+  there (the code is the record id with `:` replaced by `-`). It therefore
+  survives a restart, and only the owner's token can open it. PocketBase is no
+  longer needed for the workspace flow; anonymous plans still live in an
+  in-process cache and are explicitly reported as temporary.
+* **AI Quiz** – the standalone fallback model is `QUIZ_FALLBACK_MODEL`
+  (default `gemini-2.5-flash`) instead of an empty string. Without a workspace
+  token *and* without a Gemini key it now returns a clear 503 telling the user
+  to come in through SIET Space.
