@@ -401,6 +401,20 @@ dev mount ซอร์สเข้าไปในคอนเทนเนอร�
 ล็อกอินด้วย Google ให้กด "เข้าสู่ระบบด้วย KMITL Google" — ตอนนี้ `GOOGLE_OAUTH_MOCK=1`
 จึงขึ้นหน้าเลือกอีเมลจำลอง (ใส่อีเมลอะไรก็ได้ที่ลงท้าย `@kmitl.ac.th`)
 
+**ทางเข้าระบบมี 3 ทาง**
+
+| ทาง | ได้บทบาท | ใช้เมื่อไหร่ |
+|---|---|---|
+| Google ของ KMITL | student / teacher / admin ตามอีเมล | ทางหลักของผู้ใช้จริง |
+| สมัครสมาชิกเอง (`/register`) | **student เสมอ** | ทดลองระบบ หรือคนที่ยังไม่มีอีเมล KMITL |
+| ชื่อผู้ใช้ + รหัสผ่าน (`/login`) | ตามบัญชีที่มีอยู่ | บัญชีผู้ดูแลและบัญชีทดสอบ |
+
+ลิงก์ "สมัครสมาชิก" อยู่บนหน้า `/login` (แสดงเมื่อ `WORKSPACE_DISABLE_REGISTRATION=false`)
+สมัครแล้วได้ token ทันที ไม่ต้องล็อกอินซ้ำ และรับ 20 แต้มต้อนรับ
+
+> อาจารย์**สมัครเองไม่ได้** — ต้องเข้าด้วย Google ที่ตัวหน้าอีเมลไม่ใช่รหัส 8 หลัก
+> หรือให้ผู้ดูแลเปลี่ยนสิทธิ์ให้ที่ `/admin` (มีผลทันทีกับ token ที่ถืออยู่)
+
 กติกาแปลงอีเมลเป็นบทบาท:
 
 | อีเมล | ได้บทบาท |
@@ -639,7 +653,21 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 - ผู้ดูแลพยายามระงับ**ตัวเอง**
 - จะเหลือผู้ดูแลคนสุดท้ายแล้วลดบทบาททิ้ง
 
-### 7.5 ขอบเขตของ API ตาม prefix
+### 7.5 การกันหน้าเว็บ (route guard)
+
+ทุกหน้าใต้ `(dashboard)` ผ่าน `app/(dashboard)/layout.tsx` ซึ่งทำ 2 อย่าง:
+
+1. **ยังไม่ล็อกอิน** → เก็บ path ปัจจุบันไว้ใน `sessionStorage` แล้วส่งไป `/login`
+   ล็อกอินเสร็จเด้งกลับมาหน้าเดิม
+2. **ล็อกอินแล้วแต่สิทธิ์ไม่ถึง** → `canAccessRoute()` ใน `lib/roles.ts` ส่งกลับ `/community`
+
+`STAFF_ROUTES` (student เข้าไม่ได้): `/admin` `/teacher` `/notebooks` `/sources`
+`/search` `/podcasts` `/transformations` `/advanced` `/settings`
+· `ADMIN_ROUTES`: `/admin` `/settings` `/advanced`
+
+ทั้งหมดนี้เป็นแค่การกันหน้าจอ — ตัวบังคับจริงคือ middleware ฝั่ง API (ข้อ 7.6)
+
+### 7.6 ขอบเขตของ API ตาม prefix
 
 | Prefix | ต้องเป็นอย่างน้อย |
 |---|---|
@@ -710,9 +738,9 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 
 ทุก endpoint ขึ้นต้นด้วย `/api` · ดูเอกสารสดที่ `http://localhost:5055/docs`
 
-### เข้าสู่ระบบ
+### เข้าสู่ระบบ / สมัครสมาชิก
 ```
-POST /users/login                  · POST /users/register
+POST /users/login                  · POST /users/register  (201 + token, role=student)
 GET  /auth/status                  · GET  /auth/google/start
 POST /auth/google/exchange
 ```
@@ -844,12 +872,13 @@ curl -o /dev/null -w '%{http_code}\n' http://localhost:3000/community   # คว
 curl -s http://localhost:5055/api/auth/status | head -c 200
 ```
 
-### ชุดทดสอบ API (9 ชุด)
+### ชุดทดสอบ API (10 ชุด)
 
 เขียนเป็นสคริปต์ Python ล้วน ยิงเข้า `http://localhost:5055`
 
 | ชุด | ตรวจอะไร |
 |---|---|
+| `test_auth` | สมัครสมาชิก เข้าสู่ระบบ ชื่อซ้ำ และกำแพงของ `/teacher` |
 | `test_rooms` | ห้องพูดคุย: ใครเปิดได้ ชื่อซ้ำ ลิมิต ปิดห้องแล้วโพสต์รอด |
 | `test_teacher` | คอนโซลอาจารย์: สิทธิ์ แก้/ปิดห้องตัวเอง ผลควิซไม่รั่วข้ามอาจารย์ |
 | `test_community_flow` | SSO, ฟีด, คอมเมนต์, ไลก์, บันทึก, ควิซ, roadmap, leaderboard |
