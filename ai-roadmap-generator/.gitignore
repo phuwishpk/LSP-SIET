@@ -2,7 +2,9 @@
 
 # dependencies
 /node_modules
-package-lock.json
+# package-lock.json is kept in git on purpose: the Docker build runs
+# `npm ci`, which needs it to reproduce the same dependency tree on another
+# machine. Without it the build silently falls back to `npm install`.
 /.pnp
 .pnp.js
 

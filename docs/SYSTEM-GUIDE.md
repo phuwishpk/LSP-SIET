@@ -11,7 +11,7 @@
 2. [สถาปัตยกรรมภาพรวม](#2-สถาปัตยกรรมภาพรวม)
 3. [Tech stack](#3-tech-stack)
 4. [โครงสร้างโฟลเดอร์](#4-โครงสร้างโฟลเดอร์)
-5. [การติดตั้งและวิธีรันระบบ](#5-การติดตั้งและวิธีรันระบบ)
+5. [การติดตั้ง ย้ายเครื่อง และวิธีรันระบบ](#5-การติดตั้งและวิธีรันระบบ)
 6. [โครงสร้างเนื้อหา](#6-โครงสร้างเนื้อหา)
 7. [บทบาทผู้ใช้ (Roles) โดยละเอียด](#7-บทบาทผู้ใช้-roles-โดยละเอียด)
 8. [ระบบแต้ม (Token Economy)](#8-ระบบแต้ม-token-economy)
@@ -158,8 +158,11 @@ Starlette รัน middleware **ย้อนลำดับการลงท�
 ### Infrastructure
 
 Docker Compose, Traefik v2.11 (reverse proxy + basic auth), supervisord ใน container
-`open_notebook_api` ที่คุม 4 process: `api` (uvicorn), `worker` (surreal-commands),
-`frontend` (Next.js standalone), `streamlit` (หน้าเดิม ที่ `/streamlit`)
+`open_notebook_api` ที่คุม 3 process: `api` (uvicorn), `worker` (surreal-commands)
+และ `frontend` (Next.js standalone)
+
+> ในไฟล์ยังมี `[program:streamlit]` แต่ปิด `autostart` ไว้แล้ว เพราะ `streamlit_app.py`
+> ไม่ได้อยู่ใน repo นี้ — ก่อนหน้านี้มัน exit 127 แล้ววนรีสตาร์ท 8 ครั้งทุกครั้งที่บูต
 
 ---
 
@@ -329,20 +332,66 @@ curl -o /dev/null -w 'api      %{http_code}
 - [ ] กระเป๋าแต้มมุมขวาบนขึ้น 20 แต้ม สำหรับผู้ใช้ใหม่
 - [ ] ถาม KMITL RAG AI แล้วได้คำตอบ (ถ้าเพิ่งติดตั้งจะตอบว่ายังไม่มีเอกสาร — ถือว่าผ่าน)
 
-### 5.5 ปัญหาที่เจอบ่อยตอนติดตั้ง
+### 5.5 ย้ายไปรันเครื่องอื่น
+
+**โค้ดอยู่ใน git ครบแล้ว** ทั้ง 3 แอปอยู่ใน repo เดียว ไม่มี submodule
+เครื่องใหม่แค่ `git clone` → `cp .env.example .env` → แก้ 3 บรรทัด → `make up`
+
+**แต่ข้อมูลไม่ได้อยู่ใน git** — ถ้าต้องการยกข้อมูลไปด้วยต้องคัดลอกเอง
+
+| ข้อมูล | เก็บที่ | ขนาดตัวอย่าง |
+|---|---|---|
+| ผู้ใช้ แต้ม ฟีด ห้อง คลังเอกสาร | docker volume `kmitlai_mariadb_data` | ~90 KB (dump) |
+| notebook / source / embedding / ควิซ / roadmap | `open-notebook/surreal_data/` | ~56 MB |
+| ไฟล์ที่อัปโหลด | `open-notebook/notebook_data/` | ~168 MB |
+| ข้อมูล PocketBase ของแอป roadmap | `ai-roadmap-generator/pb_data/` | ~9 MB |
+| แคช (ไม่ต้องย้าย) | `open-notebook/redis_data/` | — |
+
+**สำรองข้อมูล (รันที่เครื่องเดิม)**
+
+```bash
+mkdir -p backup
+# MariaDB: dump เป็น SQL
+docker exec kmitl_mariadb sh -c \
+  'mariadb-dump -uworkspace -p"$MARIADB_PASSWORD" --single-transaction workspace' \
+  > backup/workspace.sql
+# ที่เหลือเป็นโฟลเดอร์ ปิด stack ก่อนคัดลอกเพื่อให้ไฟล์นิ่ง
+make down
+tar czf backup/data.tar.gz \
+  open-notebook/surreal_data open-notebook/notebook_data ai-roadmap-generator/pb_data
+```
+
+**กู้คืน (ที่เครื่องใหม่ หลัง `make up` ครั้งแรก)**
+
+```bash
+tar xzf backup/data.tar.gz            # วางทับโฟลเดอร์ที่ docker สร้างไว้
+docker compose -p kmitlai restart
+docker exec -i kmitl_mariadb sh -c \
+  'mariadb -uworkspace -p"$MARIADB_PASSWORD" workspace' < backup/workspace.sql
+docker compose -p kmitlai restart open_notebook_api
+```
+
+> ถ้าเครื่องใหม่ตั้ง `OPEN_NOTEBOOK_ENCRYPTION_KEY` ไม่ตรงกับเครื่องเดิม
+> **API key ของผู้ให้บริการ AI ที่เก็บไว้จะถอดรหัสไม่ออก** ต้องกรอกใหม่ในหน้า Models
+> และ token ที่ผู้ใช้ถืออยู่จะใช้ไม่ได้ (ต้องล็อกอินใหม่) เพราะกุญแจนี้ใช้เซ็น JWT ด้วย
+
+**ไม่ต้องย้าย**: image ที่ build ไว้ — เครื่องใหม่ build เองจาก source ได้เลย
+และ build ตาม architecture ของเครื่องนั้น (Apple Silicon / x86 ใช้ได้ทั้งคู่)
+
+### 5.6 ปัญหาที่เจอบ่อยตอนติดตั้ง
 
 | อาการ | สาเหตุ | วิธีแก้ |
 |---|---|---|
 | `bind: address already in use` | พอร์ต 3000/3001/3002/5055/80 ถูกใช้อยู่ | หา process ด้วย `lsof -i :3000` แล้วปิด หรือแก้ `ports:` ใน `docker-compose.yml` |
 | `make up` ค้างนานมาก | ครั้งแรกต้อง `apt-get install` + build Next.js 3 แอป | ปกติ รอ 10–20 นาที ดูความคืบหน้าด้วย `make logs` |
-| เปิด `localhost:8502` ไม่ขึ้น | พอร์ตนี้อยู่ **ในคอนเทนเนอร์** ไม่ได้ publish ออกมา | ใช้ <http://localhost:3000> (Streamlit อยู่ที่ `/streamlit`) |
+| เปิด `localhost:8502` ไม่ขึ้น | พอร์ตนี้อยู่ **ในคอนเทนเนอร์** ไม่ได้ publish ออกมา | ใช้ <http://localhost:3000> |
 | ล็อกอินแล้วเด้งออกตลอด | `OPEN_NOTEBOOK_ENCRYPTION_KEY` เปลี่ยนหลัง build | token เก่าใช้ไม่ได้ ให้ล็อกเอาต์แล้วล็อกอินใหม่ |
 | AI ตอบว่าไม่มีโมเดล | ยังไม่ได้ทำขั้น 5.3 | ไปตั้ง default chat model |
 | อัปโหลดเอกสารแล้วสถานะค้าง `failed` | ยังไม่ได้ตั้ง default **embedding** model | ตั้งแล้วกด retry ที่เอกสารนั้น |
 | API ตอบ `Temporary failure in name resolution` | คอนเทนเนอร์ไม่ได้ต่อ network หลัง `docker compose down` | `docker compose -p kmitlai up -d --force-recreate` (`docker restart` ไม่ผูก network กลับ) |
 | ไม่แน่ใจว่าคุยกับ stack ไหนอยู่ | dev กับ prod ใช้พอร์ตชุดเดียวกัน | `docker ps` ดูชื่อคอนเทนเนอร์ — `kmitl_*` คือ prod, `kmitlai_dev_*` คือ dev |
 
-### 5.6 รันแบบ production (รันประจำวัน)
+### 5.7 รันแบบ production (รันประจำวัน)
 
 ```bash
 cd ~/kmitlAI
@@ -360,7 +409,7 @@ make up          # copy .env ถ้ายังไม่มี → build ทุ�
 | <http://localhost/pb/_/> | PocketBase admin (มีเฉพาะผ่าน Traefik — พอร์ต 8090 ไม่ได้เปิดออกมาที่เครื่อง) |
 | <http://localhost/> | ผ่าน Traefik (ถาม user/password ก่อน) |
 
-### 5.7 คำสั่งที่ใช้บ่อย
+### 5.8 คำสั่งที่ใช้บ่อย
 
 ```bash
 make ps            # ดูว่า service ไหนรันอยู่
@@ -378,7 +427,7 @@ docker compose -p kmitlai build open_notebook_api
 docker compose -p kmitlai up -d --force-recreate open_notebook_api
 ```
 
-### 5.8 รันแบบ dev (hot reload)
+### 5.9 รันแบบ dev (hot reload)
 
 ```bash
 make up-dev        # docker-compose-dev.yml, project name kmitlai_dev
@@ -391,7 +440,7 @@ dev mount ซอร์สเข้าไปในคอนเทนเนอร�
 หลัง `docker compose down` แล้ว network อาจไม่ถูกผูกกลับ ให้ใช้
 `up -d --force-recreate` ไม่ใช่ `docker restart`
 
-### 5.9 บัญชีสำหรับทดสอบ
+### 5.10 บัญชีสำหรับทดสอบ
 
 | ชื่อผู้ใช้ | รหัสผ่าน | บทบาท |
 |---|---|---|
@@ -424,7 +473,7 @@ dev mount ซอร์สเข้าไปในคอนเทนเนอร�
 | อีเมลที่อยู่ใน `WORKSPACE_ADMIN_EMAILS` | **admin** |
 | โดเมนอื่นที่ไม่อยู่ใน `GOOGLE_OAUTH_ALLOWED_DOMAINS` | ถูกปฏิเสธ 403 |
 
-### 5.10 ตัวแปรสำคัญใน `.env`
+### 5.11 ตัวแปรสำคัญใน `.env`
 
 | กลุ่ม | ตัวแปร | ความหมาย |
 |---|---|---|

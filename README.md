@@ -6,7 +6,7 @@ individual repos stay clean.
 
 | Repo | Role | Port (host) |
 |---|---|---|
-| [`open-notebook/`](open-notebook) | FastAPI + Next.js + Streamlit + SurrealDB + MariaDB + Redis | API `:5055`, Next.js `:3000` (Streamlit at `/streamlit`) |
+| [`open-notebook/`](open-notebook) | FastAPI + Next.js + SurrealDB + MariaDB + Redis | API `:5055`, Next.js `:3000` |
 | [`My-ai-quiz/`](My-ai-quiz) | Standalone Next.js quiz app | `:3001` |
 | [`ai-roadmap-generator/`](ai-roadmap-generator) | Next.js roadmap app + PocketBase | App `:3002`, PocketBase via Traefik `/pb` (no host port) |
 
