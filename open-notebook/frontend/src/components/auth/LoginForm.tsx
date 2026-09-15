@@ -284,15 +284,24 @@ export function LoginForm() {
                 {isLoading ? 'Signing in…' : 'Sign in'}
               </Button>
 
-              {registrationEnabled && (
-                <div className="text-center text-sm text-muted-foreground pt-2 border-t">
-                  Don&apos;t have an account?{' '}
-                  <Link href="/register" className="text-primary hover:underline">
-                    Create one
-                  </Link>
-                </div>
-              )}
             </form>
+          )}
+
+          {/* Sign-up used to be hidden inside the collapsed password form, so
+              the workspace looked as if it had no registration at all. */}
+          {registrationEnabled && (
+            <div className="rounded-md border border-dashed p-3 text-center text-sm">
+              <p className="text-muted-foreground">
+                ยังไม่มีบัญชี?{' '}
+                <Link href="/register" className="font-medium text-primary hover:underline">
+                  สมัครสมาชิกด้วยชื่อผู้ใช้
+                </Link>
+              </p>
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                บัญชีที่สมัครเองจะเป็น <b>นักศึกษา</b> · อาจารย์ให้เข้าสู่ระบบด้วย Google
+                ของ KMITL
+              </p>
+            </div>
           )}
 
           {configInfo && (

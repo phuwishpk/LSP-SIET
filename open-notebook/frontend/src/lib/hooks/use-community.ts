@@ -13,6 +13,7 @@ import {
   type AskRequest,
   type CreatePostInput,
   type CreateRoomInput,
+  type UpdateRoomInput,
   type EditPostInput,
   type FeedFilters,
   type ReactionKind,
@@ -23,6 +24,10 @@ export const COMMUNITY_KEYS = {
   me: ['community', 'me'] as const,
   wallet: ['community', 'wallet'] as const,
   courses: ['community', 'courses'] as const,
+  teacher: ['community', 'teacher'] as const,
+  teacherOverview: ['community', 'teacher', 'overview'] as const,
+  teacherQuiz: (courseId: number | null) =>
+    ['community', 'teacher', 'quiz', courseId] as const,
   feed: (filters: FeedFilters) => ['community', 'feed', filters] as const,
   feedRoot: ['community', 'feed'] as const,
   post: (id: number) => ['community', 'post', id] as const,
@@ -120,12 +125,44 @@ export function useCreateCourse() {
   })
 }
 
+export function useUpdateCourse() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ courseId, ...body }: UpdateRoomInput & { courseId: number }) =>
+      communityApi.updateCourse(courseId, body),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.courses })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.teacher })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('บันทึกการแก้ไขห้องแล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useTeacherOverview(enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.teacherOverview,
+    queryFn: () => communityApi.teacherOverview(),
+    enabled,
+  })
+}
+
+export function useTeacherQuizResults(courseId: number | null, enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.teacherQuiz(courseId),
+    queryFn: () => communityApi.teacherQuizResults({ course_id: courseId ?? undefined }),
+    enabled,
+  })
+}
+
 export function useDeleteCourse() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (courseId: number) => communityApi.deleteCourse(courseId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.courses })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.teacher })
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
       toast.success('ปิดห้องแล้ว โพสต์ในห้องถูกย้ายไปฟีดรวม')
     },

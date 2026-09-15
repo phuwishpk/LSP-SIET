@@ -138,6 +138,12 @@ class CourseCreate(BaseModel):
     kind: Literal["course", "club"] = "course"
 
 
+class CourseUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=128)
+    code: Optional[str] = Field(default=None, min_length=2, max_length=32)
+    description: Optional[str] = Field(default=None, max_length=255)
+
+
 class ReactionBody(BaseModel):
     kind: Literal["like", "helpful"]
 
@@ -288,19 +294,58 @@ async def create_course(body: CourseCreate, user: User = Depends(get_current_use
         raise
 
 
-@router.delete("/courses/{course_id}")
-async def delete_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Close a room. Its posts survive — they simply return to the main feed."""
+async def _room_or_403(course_id: int, user: User) -> Dict[str, Any]:
+    """
+    Fetch a room the caller is allowed to manage.
+
+    Admins manage every room; everyone else manages only the rooms they opened —
+    which now includes the course rooms a teacher created, so a typo in a course
+    code no longer needs an admin to fix.
+    """
     course = await repo.get_course(course_id)
     if not course:
         raise HTTPException(status_code=404, detail="ไม่พบห้องนี้")
-    is_admin = user.role == USER_ROLE_ADMIN
-    owns_club = (
-        course.get("kind") == repo.KIND_CLUB
-        and int(course.get("created_by") or 0) == _uid(user)
-    )
-    if not (is_admin or owns_club):
-        raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์ลบห้องนี้")
+    if user.role == USER_ROLE_ADMIN:
+        return course
+    if int(course.get("created_by") or 0) == _uid(user):
+        return course
+    raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะห้องที่คุณสร้างเอง")
+
+
+@router.patch("/courses/{course_id}")
+async def update_course(
+    course_id: int, body: CourseUpdate, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Rename a room, fix its code, or reword its description."""
+    course = await _room_or_403(course_id, user)
+    code = body.code
+    if code is not None and course.get("kind") == repo.KIND_CLUB:
+        # Discussion-room handles are generated; there is nothing to edit.
+        code = None
+    name = " ".join(body.name.split()) if body.name else None
+    if name and course.get("kind") == repo.KIND_CLUB:
+        clash = await repo.find_room_by_name(name)
+        if clash and int(clash["id"]) != course_id:
+            raise HTTPException(
+                status_code=409,
+                detail=f'มีห้อง "{clash["name"]}" อยู่แล้ว',
+                headers={"X-Existing-Room": str(clash["id"])},
+            )
+    try:
+        updated = await repo.update_course(
+            course_id, name=name, description=body.description, code=code
+        )
+    except Exception as exc:
+        if "Duplicate" in str(exc):
+            raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
+        raise
+    return updated or {}
+
+
+@router.delete("/courses/{course_id}")
+async def delete_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Close a room. Its posts survive — they simply return to the main feed."""
+    await _room_or_403(course_id, user)
     await repo.delete_course(course_id)
     return {"ok": True, "deleted": course_id}
 
@@ -832,6 +877,59 @@ async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -
 # ---------------------------------------------------------------------------
 # Widgets: leaderboard / popular / notifications / search / materials
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Teacher console
+#
+# Everything a teacher owns, gathered in one place: the rooms they opened, the
+# course material sitting in those rooms, and how students are doing on the
+# quizzes posted there. Students never see these routes.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/teacher/overview")
+async def teacher_overview(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    if not _is_staff(user):
+        raise HTTPException(status_code=403, detail="ส่วนนี้สำหรับอาจารย์และผู้ดูแลระบบเท่านั้น")
+    uid = _uid(user)
+    courses = await repo.courses_owned_by(uid)
+    rooms = [c for c in courses if c.get("kind") != repo.KIND_CLUB]
+    return {
+        "courses": courses,
+        "totals": {
+            "courses": len(rooms),
+            "members": sum(int(c["member_count"]) for c in rooms),
+            "posts": sum(int(c["post_count"]) for c in rooms),
+            "documents": sum(int(c["document_count"]) for c in rooms),
+        },
+    }
+
+
+@router.get("/teacher/quiz-results")
+async def teacher_quiz_results(
+    course_id: Optional[int] = None,
+    limit: int = Query(default=100, ge=1, le=300),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    if not _is_staff(user):
+        raise HTTPException(status_code=403, detail="ส่วนนี้สำหรับอาจารย์และผู้ดูแลระบบเท่านั้น")
+    items = await repo.quiz_results_for_teacher(_uid(user), course_id=course_id, limit=limit)
+    finished = [i for i in items if i["completed"] and i.get("total")]
+    average = (
+        round(sum(int(i["score"] or 0) / int(i["total"]) for i in finished) / len(finished) * 100)
+        if finished
+        else None
+    )
+    return {
+        "items": items,
+        "summary": {
+            "attempts": len(items),
+            "finished": len(finished),
+            "students": len({i["student_id"] for i in items}),
+            "average_percent": average,
+        },
+    }
 
 
 @router.get("/leaderboard")

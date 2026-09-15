@@ -83,10 +83,11 @@ export function CourseSidebar({
   const courseRooms = (courses ?? []).filter((c) => c.kind !== 'club')
   const clubRooms = (courses ?? []).filter((c) => c.kind === 'club')
   const selected = (courses ?? []).find((c) => c.id === courseId) ?? null
-  const canDeleteSelected =
+  // Admins manage every room; everyone else manages the rooms they opened —
+  // including the course rooms a teacher created.
+  const canManageSelected =
     selected !== null &&
-    (me?.role === 'admin' ||
-      (selected.kind === 'club' && Number(me?.id ?? -1) === selected.created_by))
+    (me?.role === 'admin' || Number(me?.id ?? -1) === selected.created_by)
 
   const NavButton = ({
     active,
@@ -283,7 +284,7 @@ export function CourseSidebar({
         </Button>
       </div>
 
-      {selected && (selected.joined || canDeleteSelected) && (
+      {selected && (selected.joined || canManageSelected) && (
         <div className="space-y-1">
           {selected.joined && (
             <Button
@@ -295,7 +296,7 @@ export function CourseSidebar({
               ออกจาก{selected.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'}นี้
             </Button>
           )}
-          {canDeleteSelected && (
+          {canManageSelected && (
             <Button
               variant="ghost"
               size="sm"

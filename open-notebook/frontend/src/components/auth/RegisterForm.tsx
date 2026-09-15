@@ -54,10 +54,10 @@ export function RegisterForm() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle>Registration disabled</CardTitle>
+            <CardTitle>ปิดรับสมัครสมาชิก</CardTitle>
             <CardDescription>
-              The workspace administrator has turned off new sign-ups. Please ask them
-              to create an account for you.
+              ผู้ดูแลระบบปิดการสมัครสมาชิกเองไว้ กรุณาติดต่อผู้ดูแลเพื่อขอบัญชี
+              หรือเข้าสู่ระบบด้วยบัญชี Google ของ KMITL
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -65,7 +65,7 @@ export function RegisterForm() {
               href="/login"
               className="text-primary hover:underline text-sm"
             >
-              ← Back to sign in
+              ← กลับไปหน้าเข้าสู่ระบบ
             </Link>
           </CardContent>
         </Card>
@@ -78,11 +78,11 @@ export function RegisterForm() {
     setLocalError(null)
     if (!username.trim() || !password) return
     if (password !== confirm) {
-      setLocalError('Passwords do not match')
+      setLocalError('รหัสผ่านทั้งสองช่องไม่ตรงกัน')
       return
     }
     if (password.length < 6) {
-      setLocalError('Password must be at least 6 characters')
+      setLocalError('รหัสผ่านต้องยาวอย่างน้อย 6 ตัวอักษร')
       return
     }
     const success = await register(
@@ -100,46 +100,46 @@ export function RegisterForm() {
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
             <UserPlus className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle>Create account</CardTitle>
+          <CardTitle>สมัครสมาชิก SIET Space</CardTitle>
           <CardDescription>
-            One account unlocks every KMITL AI app.
+            หนึ่งบัญชีใช้ได้ทั้งชุมชน AI Quiz และ AI Roadmap · รับ 20 แต้มทันที
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-1.5">
-              <Label htmlFor="username">Username</Label>
+              <Label htmlFor="username">ชื่อผู้ใช้</Label>
               <Input
                 id="username"
                 autoComplete="username"
                 autoFocus
-                placeholder="e.g. alice"
+                placeholder="เช่น somchai"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 disabled={isLoading}
                 required
               />
               <p className="text-xs text-muted-foreground">
-                3-32 characters · letters, digits, dots, underscores or dashes.
+                3-32 ตัวอักษร · ใช้ตัวอักษร ตัวเลข จุด ขีดล่าง หรือขีดกลาง
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="displayName">Display name (optional)</Label>
+              <Label htmlFor="displayName">ชื่อที่แสดง (ไม่บังคับ)</Label>
               <Input
                 id="displayName"
-                placeholder="Alice KMITL"
+                placeholder="สมชาย ใจดี"
                 value={displayName}
                 onChange={(e) => setDisplayName(e.target.value)}
                 disabled={isLoading}
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="password">Password</Label>
+              <Label htmlFor="password">รหัสผ่าน</Label>
               <Input
                 id="password"
                 type="password"
                 autoComplete="new-password"
-                placeholder="At least 6 characters"
+                placeholder="อย่างน้อย 6 ตัวอักษร"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 disabled={isLoading}
@@ -147,7 +147,7 @@ export function RegisterForm() {
               />
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="confirm">Confirm password</Label>
+              <Label htmlFor="confirm">ยืนยันรหัสผ่าน</Label>
               <Input
                 id="confirm"
                 type="password"
@@ -157,6 +157,14 @@ export function RegisterForm() {
                 disabled={isLoading}
                 required
               />
+            </div>
+
+            <div className="rounded-md border border-dashed bg-muted/40 p-3 text-xs leading-relaxed text-muted-foreground">
+              บัญชีที่สมัครทางนี้จะเป็น <b className="text-foreground">นักศึกษา</b> เสมอ
+              <br />
+              อาจารย์ให้เข้าสู่ระบบด้วย <b className="text-foreground">Google ของ KMITL</b>{' '}
+              (อีเมลที่ไม่ใช่รหัสนักศึกษา 8 หลักจะได้สิทธิ์อาจารย์อัตโนมัติ)
+              หรือให้ผู้ดูแลเปลี่ยนสิทธิ์ให้ในหน้าจัดการระบบ
             </div>
 
             {(localError || error) && (
@@ -173,13 +181,13 @@ export function RegisterForm() {
                 isLoading || !username.trim() || !password || password !== confirm
               }
             >
-              {isLoading ? 'Creating account…' : 'Create account'}
+              {isLoading ? 'กำลังสร้างบัญชี…' : 'สมัครสมาชิก'}
             </Button>
 
             <div className="text-center text-sm text-muted-foreground pt-2 border-t">
-              Already have an account?{' '}
+              มีบัญชีอยู่แล้ว?{' '}
               <Link href="/login" className="text-primary hover:underline">
-                Sign in
+                เข้าสู่ระบบ
               </Link>
             </div>
           </form>

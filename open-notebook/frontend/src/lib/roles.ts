@@ -20,6 +20,7 @@ export function isAdmin(role: Role): boolean {
 /** Route prefixes a student must never land on. */
 export const STAFF_ROUTES = [
   '/admin',
+  '/teacher',
   '/notebooks',
   '/sources',
   '/search',

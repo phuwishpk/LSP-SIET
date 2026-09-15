@@ -201,6 +201,7 @@ kmitlAI/
 │       ├── app/(dashboard)/community/page.tsx   ← หน้า 3 คอลัมน์
 │       ├── app/(dashboard)/community/ask/page.tsx ← หน้าเต็มของ KMITL RAG AI
 │       ├── app/(dashboard)/admin/page.tsx       ← คอนโซลผู้ดูแล
+│       ├── app/(dashboard)/teacher/page.tsx     ← คอนโซลอาจารย์
 │       ├── components/community/                ← 14 คอมโพเนนต์ (ดูข้อ 12)
 │       └── lib/{api,hooks,stores,utils}/        ← เรียก API + state
 │
@@ -559,13 +560,15 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | อัปโหลดไฟล์เข้าคลัง **ส่วนตัว** | ✅ | ✅ | ✅ |
 | **เปิดห้องพูดคุย** และปิดห้องที่ตัวเองเปิด | ✅ | ✅ | ✅ |
 | สร้าง **ห้องวิชา** | ❌ | ✅ | ✅ |
+| แก้ไข/ปิดห้องที่ **ตัวเองสร้าง** | ✅ | ✅ | ✅ |
+| คอนโซลอาจารย์ `/teacher` (ห้อง เอกสาร ผลควิซ สื่อการสอน) | ❌ | ✅ | ✅ |
 | อัปโหลดเข้า **คลังความรู้ของวิชา** | ❌ | ✅ | ✅ |
 | โพสต์ประเภท `material` (สื่อการสอน) | ❌ | ✅ | ✅ |
 | เข้าส่วน Open Notebook (notebooks, sources, notes, chat, search, podcasts, transformations) | ❌ | ✅ | ✅ |
 | ตั้งค่าโมเดล AI / API credential / settings | ❌ | ❌ | ✅ |
 | คอนโซลผู้ดูแล `/admin` | ❌ | ❌ | ✅ |
 | ลบโพสต์ของคนอื่น | ❌ | ❌ | ✅ |
-| ปิดห้องของคนอื่น | ❌ | ❌ | ✅ |
+| แก้ไข/ปิดห้องของคนอื่น | ❌ | ❌ | ✅ |
 | ถูกหักแต้ม | ✅ | ❌ | ❌ |
 
 ### 7.2 นักศึกษา (student)
@@ -588,9 +591,21 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 
 ### 7.3 อาจารย์ (teacher)
 
+**หน้าหลักของอาจารย์: `/teacher`** (เมนู "จัดการการสอน") รวม 4 แท็บ
+
+| แท็บ | ทำอะไรได้ |
+|---|---|
+| ห้องของฉัน | ห้องที่ตัวเองสร้าง พร้อมจำนวนสมาชิก/โพสต์/เอกสาร · **แก้ชื่อ รหัส คำอธิบาย และปิดห้องได้เอง** |
+| เอกสารแยกตามวิชา | เอกสารในคลังของแต่ละวิชา พร้อมสถานะ embed และทางลัดไปเพิ่มเนื้อหา |
+| ผลการเล่นควิซ | ใครเล่นควิซในห้องของเรา ได้กี่คะแนน กี่ % เฉลี่ยเท่าไร กรองตามวิชาได้ |
+| สื่อการสอนของฉัน | โพสต์ชนิด `material` ที่ตัวเองโพสต์ พร้อมยอดไลก์/คอมเมนต์ |
+
+การ์ดสรุปด้านบน: ห้องวิชาของฉัน · สมาชิกรวม · เอกสารในคลัง · โพสต์ในห้องของฉัน
+
 **ได้เพิ่มจากนักศึกษา:**
 
 1. **สร้างห้องวิชา** พร้อมรหัสวิชาจริง — นักศึกษาจะเห็นในแถบซ้ายและกดเข้าร่วมได้เอง
+   และ **แก้ไข/ปิดห้องที่ตัวเองสร้างได้** (ห้องที่คนอื่นสร้างต้องให้แอดมินจัดการ)
 2. **เพิ่มเนื้อหาเข้าคลังของวิชา** (PDF / ลิงก์ / ข้อความ) → กลายเป็นแหล่งอ้างอิงที่
    KMITL RAG AI, AI Quiz และ AI Roadmap ของวิชานั้นใช้ตอบ
 3. โพสต์ `material` ซึ่งไปรวมในเมนู "คลังสื่ออาจารย์"
@@ -598,7 +613,8 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 5. **ไม่ถูกหักแต้ม** และได้โควตากันสแปม ×4 เท่าของนักศึกษา (`SPAM_STAFF_MULTIPLIER`)
    เพราะการอัปโหลดสื่อทั้งเทอมรวดเดียวเป็นเรื่องปกติ
 
-**ทำไม่ได้:** แก้บทบาทผู้ใช้, เติม/หักแต้ม, รีเซ็ตรหัสผ่าน, ตั้งค่าโมเดล AI, ลบโพสต์ของคนอื่น
+**ทำไม่ได้:** แก้บทบาทผู้ใช้, เติม/หักแต้ม, รีเซ็ตรหัสผ่าน, ตั้งค่าโมเดล AI,
+ลบโพสต์ของคนอื่น, จัดการห้องที่คนอื่นสร้าง
 
 ### 7.4 ผู้ดูแลระบบ (admin)
 
@@ -613,7 +629,10 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 | รีเซ็ตรหัสผ่าน | รหัสเดิมใช้ไม่ได้ทันที |
 | ระงับ/คืนสิทธิ์บัญชี | บัญชีที่ถูกระงับล็อกอินไม่ได้ **และ token ที่ถืออยู่ถูกปฏิเสธทันที** |
 
-นอกจากนี้ยังตั้งค่าโมเดล AI / credential / settings, ลบโพสต์ของใครก็ได้ และปิดห้องของใครก็ได้
+นอกจากนี้ยังตั้งค่าโมเดล AI / credential / settings, ลบโพสต์ของใครก็ได้ และแก้ไข/ปิดห้องของใครก็ได้
+
+> `/admin` เน้นเรื่อง **บัญชีผู้ใช้** ส่วนเรื่อง **เนื้อหาการสอน** อยู่ที่ `/teacher`
+> ซึ่งแอดมินเข้าได้เหมือนกัน (แต่จะเห็นเฉพาะห้องที่ตัวเองสร้าง)
 
 **ราวกันตก (guard rails)** — ระบบปฏิเสธด้วย `400` เมื่อ:
 - ผู้ดูแลพยายามลดบทบาท**ตัวเอง**
@@ -702,8 +721,8 @@ POST /auth/google/exchange
 ```
 GET    /community/me               · GET    /community/wallet
 GET    /community/courses          · POST   /community/courses
-DELETE /community/courses/{id}     · POST   /community/courses/{id}/join
-DELETE /community/courses/{id}/join
+PATCH  /community/courses/{id}     · DELETE /community/courses/{id}
+POST   /community/courses/{id}/join · DELETE /community/courses/{id}/join
 ```
 
 ### ชุมชน — ฟีด
@@ -736,6 +755,12 @@ POST /community/study/quiz         · POST /community/study/roadmap
 GET  /community/leaderboard        · GET  /community/roadmaps/popular
 GET  /community/notifications      · POST /community/notifications/read
 GET  /community/search             · GET  /community/materials
+```
+
+### อาจารย์ (teacher / admin)
+```
+GET  /community/teacher/overview      (ห้องของฉัน + ตัวเลขสรุป)
+GET  /community/teacher/quiz-results  (?course_id=&limit=)
 ```
 
 ### ผู้ดูแล (admin เท่านั้น)
@@ -794,6 +819,7 @@ Migration รันอัตโนมัติตอน API start (`database/mig
 | SQL ของฟีด/ห้อง | `community/repository.py` |
 | endpoint ของชุมชน | `api/routers/community.py` |
 | คอนโซลผู้ดูแล | `api/routers/admin.py` + `frontend/src/app/(dashboard)/admin/page.tsx` |
+| คอนโซลอาจารย์ | `frontend/src/app/(dashboard)/teacher/page.tsx` + endpoint `/community/teacher/*` |
 | แถบซ้าย (เมนู/ห้อง/เครื่องมือ AI) | `frontend/src/components/community/CourseSidebar.tsx` |
 | กล่องเขียนโพสต์ | `components/community/CreatorBox.tsx` |
 | การ์ดโพสต์ | `components/community/PostCard.tsx` |
@@ -818,13 +844,14 @@ curl -o /dev/null -w '%{http_code}\n' http://localhost:3000/community   # คว
 curl -s http://localhost:5055/api/auth/status | head -c 200
 ```
 
-### ชุดทดสอบ API (8 ชุด)
+### ชุดทดสอบ API (9 ชุด)
 
 เขียนเป็นสคริปต์ Python ล้วน ยิงเข้า `http://localhost:5055`
 
 | ชุด | ตรวจอะไร |
 |---|---|
 | `test_rooms` | ห้องพูดคุย: ใครเปิดได้ ชื่อซ้ำ ลิมิต ปิดห้องแล้วโพสต์รอด |
+| `test_teacher` | คอนโซลอาจารย์: สิทธิ์ แก้/ปิดห้องตัวเอง ผลควิซไม่รั่วข้ามอาจารย์ |
 | `test_community_flow` | SSO, ฟีด, คอมเมนต์, ไลก์, บันทึก, ควิซ, roadmap, leaderboard |
 | `test_library` | คลังความรู้ + RAG แบบจำกัดขอบเขต + สร้างควิซ/roadmap จากคลัง |
 | `test_earning` | การได้แต้มคืนและเพดานรายวัน |

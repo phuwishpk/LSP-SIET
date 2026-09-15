@@ -266,6 +266,112 @@ async def ensure_course(code: str, name: str, description: Optional[str] = None)
         )
 
 
+async def update_course(
+    course_id: int,
+    *,
+    name: Optional[str] = None,
+    description: Optional[str] = None,
+    code: Optional[str] = None,
+) -> Optional[Dict[str, Any]]:
+    """Rename / re-code a room. Only the fields that are passed are touched."""
+    sets: List[str] = []
+    values: Dict[str, Any] = {"cid": course_id}
+    if name is not None:
+        sets.append("name = :name")
+        values["name"] = name.strip()[:128]
+    if description is not None:
+        sets.append("description = :description")
+        values["description"] = description.strip()[:255] or None
+    if code is not None:
+        sets.append("code = :code")
+        values["code"] = code.strip().upper()[:32]
+    if not sets:
+        return await get_course(course_id)
+    async with _mariadb_session() as session:
+        await session.execute(
+            text(f"UPDATE courses SET {', '.join(sets)} WHERE id = :cid"), values
+        )
+    return await get_course(course_id)
+
+
+async def courses_owned_by(user_id: int) -> List[Dict[str, Any]]:
+    """Rooms this person created, with the numbers a teacher actually wants."""
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT c.id, c.code, c.name, c.description, c.kind, c.created_at,
+                           (SELECT COUNT(*) FROM course_members m
+                             WHERE m.course_id = c.id) AS member_count,
+                           (SELECT COUNT(*) FROM posts p
+                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
+                           (SELECT COUNT(*) FROM library_documents d
+                             WHERE d.course_id = c.id AND d.scope = 'course') AS document_count
+                      FROM courses c
+                     WHERE c.created_by = :uid
+                     ORDER BY c.kind ASC, c.code ASC
+                    """
+                ),
+                {"uid": user_id},
+            )
+        )
+    for r in rows:
+        for key in ("member_count", "post_count", "document_count"):
+            r[key] = int(r.get(key) or 0)
+    return rows
+
+
+async def quiz_results_for_teacher(
+    user_id: int,
+    *,
+    course_id: Optional[int] = None,
+    limit: int = 100,
+) -> List[Dict[str, Any]]:
+    """
+    Every attempt at a quiz that belongs to this teacher: quizzes posted into a
+    room they created, plus quizzes they posted themselves.
+    """
+    where = [
+        "(c.created_by = :uid OR p.author_id = :uid)",
+        "p.is_deleted = 0",
+    ]
+    params: Dict[str, Any] = {"uid": user_id, "limit": int(limit)}
+    if course_id:
+        where.append("p.course_id = :cid")
+        params["cid"] = int(course_id)
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT q.id, q.post_id, q.score, q.total, q.completed,
+                           q.created_at, q.completed_at,
+                           p.title        AS post_title,
+                           p.course_id    AS course_id,
+                           c.code         AS course_code,
+                           c.name         AS course_name,
+                           u.id           AS student_id,
+                           u.username     AS student_username,
+                           u.display_name AS student_display_name,
+                           u.student_id   AS student_code
+                      FROM quiz_plays q
+                      JOIN posts p ON p.id = q.post_id
+                      JOIN users u ON u.id = q.user_id
+                      LEFT JOIN courses c ON c.id = p.course_id
+                     WHERE {' AND '.join(where)}
+                     ORDER BY q.id DESC
+                     LIMIT :limit
+                    """
+                ),
+                params,
+            )
+        )
+    for r in rows:
+        r["completed"] = bool(r.get("completed"))
+    return rows
+
+
 async def find_room_by_name(name: str, kind: str = KIND_CLUB) -> Optional[Dict[str, Any]]:
     """Look up a room by its (case-insensitive, whitespace-collapsed) name."""
     needle = " ".join((name or "").split())

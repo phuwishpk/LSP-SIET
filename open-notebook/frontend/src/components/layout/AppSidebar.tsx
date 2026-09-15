@@ -41,6 +41,7 @@ import {
   Plus,
   Wrench,
   Command,
+  GraduationCap,
   ShieldCheck,
   Sparkles,
   Users,
@@ -85,6 +86,7 @@ const getNavigation = (t: TFunction, role: Role) => [
   ...(isStaff(role) ? [{
     title: t('navigation.manage'),
     items: [
+      { name: t('navigation.teacherConsole', 'จัดการการสอน'), href: '/teacher', icon: GraduationCap },
       ...(isAdmin(role) ? [{ name: t('navigation.models'), href: '/settings/api-keys', icon: Bot }] : []),
       { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
       ...(isAdmin(role)

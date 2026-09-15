@@ -183,6 +183,23 @@ Endpoints: `GET/POST /api/community/library`, `GET/DELETE /api/community/library
 and `POST /api/community/study/roadmap` for generating grounded study material.
 `POST /api/community/ask` accepts `scope` = `auto | course | personal | document`.
 
+### Teacher console
+
+`/teacher` (teachers + admins, menu "จัดการการสอน") is the teaching side, kept
+separate from `/admin` which is about accounts:
+
+| Tab | What it shows |
+|---|---|
+| ห้องของฉัน | rooms this person opened, with member / post / document counts — **rename, re-code and close them here** |
+| เอกสารแยกตามวิชา | the course library grouped per course, with embedding status |
+| ผลการเล่นควิซ | every student attempt at a quiz posted in their rooms: score, %, average, filterable by course |
+| สื่อการสอนของฉัน | their own `material` posts |
+
+Endpoints: `GET /api/community/teacher/overview`,
+`GET /api/community/teacher/quiz-results`, plus
+`PATCH /api/community/courses/{id}` for renaming a room. A teacher may edit or
+close only the rooms they created; admins may manage any room.
+
 ### Admin console
 
 `/admin` (admins only) replaces going into MariaDB by hand: search the user
