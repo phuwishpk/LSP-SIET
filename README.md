@@ -6,13 +6,16 @@ individual repos stay clean.
 
 | Repo | Role | Port (host) |
 |---|---|---|
-| [`open-notebook/`](open-notebook) | FastAPI + Streamlit + Next.js + SurrealDB + Redis | API `:5055`, Streamlit `:8502`, Next.js `:3000` |
+| [`open-notebook/`](open-notebook) | FastAPI + Next.js + Streamlit + SurrealDB + MariaDB + Redis | API `:5055`, Next.js `:3000` (Streamlit at `/streamlit`) |
 | [`My-ai-quiz/`](My-ai-quiz) | Standalone Next.js quiz app | `:3001` |
 | [`ai-roadmap-generator/`](ai-roadmap-generator) | Next.js roadmap app + PocketBase | App `:3002`, PocketBase `:8090` |
 
 The new **AI Features** (`/features`) page inside open-notebook folds in the
 generation logic from both standalone apps and is wired to whichever language
 model you configure in **Settings → Models**.
+
+> **คู่มือโครงสร้างระบบฉบับเต็ม (ภาษาไทย): [`docs/SYSTEM-GUIDE.md`](docs/SYSTEM-GUIDE.md)**
+> — สถาปัตยกรรม, tech stack, วิธีรัน, โครงสร้างเนื้อหา และสิทธิ์ของแต่ละบทบาท
 
 ## Quick start
 
@@ -27,8 +30,8 @@ That target will:
 
 Then open:
 
-- <http://localhost:8502> – Open Notebook (Streamlit)
-- <http://localhost:3000> – Open Notebook (Next.js)
+- <http://localhost:3000> – Open Notebook (Next.js) — sign-in, `/community`, `/admin`
+- <http://localhost:5055/docs> – API reference (Swagger)
 - <http://localhost:3001> – My AI Quiz
 - <http://localhost:3002> – AI Roadmap Generator
 - <http://localhost:8090> – PocketBase admin

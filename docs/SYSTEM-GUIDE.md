@@ -1,0 +1,713 @@
+# คู่มือโครงสร้างระบบ — KMITL AI Workspace / SIET Space
+
+> เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
+> เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
+>
+> อัปเดตล่าสุด: 15 กันยายน 2026
+
+## สารบัญ
+
+1. [ระบบนี้คืออะไร](#1-ระบบนี้คืออะไร)
+2. [สถาปัตยกรรมภาพรวม](#2-สถาปัตยกรรมภาพรวม)
+3. [Tech stack](#3-tech-stack)
+4. [โครงสร้างโฟลเดอร์](#4-โครงสร้างโฟลเดอร์)
+5. [วิธีรันระบบ](#5-วิธีรันระบบ)
+6. [โครงสร้างเนื้อหา](#6-โครงสร้างเนื้อหา)
+7. [บทบาทผู้ใช้ (Roles) โดยละเอียด](#7-บทบาทผู้ใช้-roles-โดยละเอียด)
+8. [ระบบแต้ม (Token Economy)](#8-ระบบแต้ม-token-economy)
+9. [ระบบกันสแปม](#9-ระบบกันสแปม)
+10. [แผนผัง API](#10-แผนผัง-api)
+11. [ฐานข้อมูล](#11-ฐานข้อมูล)
+12. [จะแก้อะไร ต้องแก้ไฟล์ไหน](#12-จะแก้อะไร-ต้องแก้ไฟล์ไหน)
+13. [การทดสอบ](#13-การทดสอบ)
+14. [เช็กลิสต์ก่อนขึ้น production](#14-เช็กลิสต์ก่อนขึ้น-production)
+
+---
+
+## 1. ระบบนี้คืออะไร
+
+**KMITL AI Workspace** คือการรวม 3 โปรเจกต์เข้าเป็นระบบเดียวด้วย Docker Compose ชุดเดียว
+โดยมี **SIET Space** เป็นหน้าชุมชนแบบ Facebook สำหรับนักศึกษา KMITL ที่วางทับอยู่บน
+open-notebook อีกที
+
+| ส่วน | ทำหน้าที่ |
+|---|---|
+| **open-notebook** | หัวใจของระบบ — FastAPI + Next.js + SurrealDB + MariaDB เก็บผู้ใช้ แต้ม ฟีด คลังความรู้ และเป็นตัวกลางเรียก AI ให้ทุกแอป |
+| **My-ai-quiz** | แอปสร้างข้อสอบ/ควิซด้วย AI (แยกหน้าเป็นของตัวเอง) |
+| **ai-roadmap-generator** | แอปสร้างแผนการเรียน (roadmap) ด้วย AI (แยกหน้าเป็นของตัวเอง) |
+
+แนวคิดหลัก 3 ข้อ:
+
+1. **AI มีที่เดียว** — `open_notebook_api` เป็นแหล่งเรียกโมเดลเพียงจุดเดียว
+   อีกสองแอปยิงเข้ามาผ่าน `OPEN_NOTEBOOK_API_URL` ไม่ถือ API key เอง
+2. **ทุกการใช้ AI มีต้นทุนเป็นแต้ม** — นักศึกษาได้แต้มคืนจากการมีส่วนร่วมในชุมชน
+   ไม่ใช่จากการเติมเงิน
+3. **สิทธิ์บังคับที่ API ไม่ใช่ที่หน้าจอ** — หน้าเว็บแค่ซ่อนเมนู แต่ตัวที่ปฏิเสธจริงคือ middleware
+
+---
+
+## 2. สถาปัตยกรรมภาพรวม
+
+### 2.1 มองจากภายนอก (ผู้ใช้เข้าเว็บ)
+
+```
+                        ┌──────────────────────────────┐
+   Browser  ───────────▶│  Traefik v2.11  :80          │  Basic auth (gate-auth)
+                        │  file provider + labels      │  ครอบทุก route
+                        └──────┬───────┬───────┬───────┘
+                               │       │       │
+              PathPrefix(`/`)  │       │       │  PathPrefix(`/quiz`)
+                               ▼       │       ▼
+                   ┌────────────────┐  │  ┌──────────────────┐
+                   │ Next.js UI     │  │  │ My-ai-quiz       │
+                   │ (ใน container  │  │  │ Next.js          │
+                   │  open_notebook)│  │  └──────────────────┘
+                   └────────────────┘  │
+                                       │  PathPrefix(`/roadmap`) , `/pb`
+                                       ▼
+                               ┌──────────────────────┐
+                               │ ai-roadmap-generator │
+                               │ + PocketBase (/pb)   │
+                               └──────────────────────┘
+   PathPrefix(`/api`,`/docs`) ────────▶ FastAPI :5055
+```
+
+> หมายเหตุ: ตอนนี้ยังเปิด host port ตรง (3000/3001/3002/5055) ไว้ด้วย
+> ซึ่ง **ข้าม** basic auth ของ Traefik — ดูข้อ 14
+
+### 2.2 มองจากภายใน (open-notebook 3 ชั้น)
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Frontend — Next.js 16 / React 19 (App Router)               │
+│ /community  /admin  /features  /notebooks  /settings ...    │
+│ TanStack Query (cache) + Zustand (auth) + Tailwind v4       │
+└───────────────────────────┬─────────────────────────────────┘
+                            │  REST + JWT (Bearer)
+┌───────────────────────────▼─────────────────────────────────┐
+│ API — FastAPI (Python 3.11)                                 │
+│                                                             │
+│  middleware:  RoleAccessMiddleware  →  PasswordAuthMiddleware│
+│  routers:     community / admin / google_auth / features /  │
+│               notebooks / sources / models / ...            │
+│  services:    community/{points,repository,library,         │
+│               retrieval,ask,ratelimit,schema}.py            │
+└──────┬───────────────────────────┬──────────────────┬───────┘
+       │                           │                  │
+       ▼                           ▼                  ▼
+┌─────────────┐            ┌────────────────┐   ┌──────────┐
+│ MariaDB 11  │            │ SurrealDB v2   │   │ Redis 7  │
+│ ผู้ใช้/แต้ม/  │            │ notebook,      │   │ cache    │
+│ ฟีด/ห้อง/    │            │ source, note,  │   └──────────┘
+│ คลังเอกสาร   │            │ embedding,     │
+│             │            │ quiz/roadmap   │
+└─────────────┘            │ session        │
+                           └────────────────┘
+```
+
+**จุดที่ต้องเข้าใจ:** ข้อมูลผู้ใช้กับชุมชนอยู่ใน **MariaDB** ส่วนเนื้อหา AI
+(เอกสารที่ embed แล้ว, ควิซ, roadmap) อยู่ใน **SurrealDB** ทั้งสองผูกกันด้วย
+คอลัมน์ `notebook_id` / `library_notebook_id` ที่เก็บ record id ของ SurrealDB ไว้เป็นข้อความ
+
+### 2.3 ลำดับการทำงานของ middleware
+
+Starlette รัน middleware **ย้อนลำดับการลงทะเบียน** ดังนั้นใน `api/main.py`
+ต้องลงทะเบียน `RoleAccessMiddleware` **ก่อน** `PasswordAuthMiddleware`
+เพื่อให้ตอนรันจริง auth ทำงานก่อนแล้ว role ค่อยอ่าน `request.state.owner_id` ได้
+
+---
+
+## 3. Tech stack
+
+### Backend
+
+| รายการ | เวอร์ชัน / ไลบรารี | ใช้ทำอะไร |
+|---|---|---|
+| ภาษา | Python 3.11–3.12 | — |
+| Web framework | FastAPI ≥0.104 + Uvicorn | REST API ที่ `:5055` |
+| Validation | Pydantic v2 | schema ของ request/response |
+| ฐานข้อมูลผู้ใช้ | MariaDB 11 ผ่าน SQLAlchemy 2 (async) + aiomysql | users, points, feed |
+| ฐานข้อมูลเนื้อหา | SurrealDB v2 (async driver) | notebook/source/note + vector embedding |
+| Cache | Redis 7 | ผลการค้นหา, context, embedding |
+| Auth | PyJWT (HS256) + Google OAuth 2.0 | JWT ของ workspace + SSO |
+| AI provider layer | Esperanto ≥2.20 | คุยกับ OpenAI/Gemini/Anthropic/Ollama ฯลฯ ด้วย interface เดียว |
+| Workflow | LangGraph ≥1.0 | chat / ask / transformation graph (ของเดิม) |
+| Logging | Loguru | log ทั้งระบบ |
+
+### Frontend (open-notebook)
+
+| รายการ | เวอร์ชัน | ใช้ทำอะไร |
+|---|---|---|
+| Next.js | 16 (App Router) | หน้าเว็บทั้งหมด |
+| React | 19 | — |
+| TypeScript | 5 | — |
+| Tailwind CSS | v4 + shadcn/ui (Radix) | UI |
+| TanStack Query | 5 | ดึง/แคชข้อมูลจาก API |
+| Zustand | 5 | เก็บ auth ใน `localStorage` key `auth-storage` |
+| axios | 1.x | HTTP client + interceptor แนบ Bearer token |
+| sonner | 2.x | toast แจ้งเตือน |
+| lucide-react | 0.525 | ไอคอน |
+
+### แอปแยก
+
+| แอป | Stack | หมายเหตุ |
+|---|---|---|
+| My-ai-quiz | Next.js 16 / React 19 | มี fallback model ของตัวเอง (`QUIZ_FALLBACK_MODEL`) |
+| ai-roadmap-generator | Next.js 13 / React 18 + PocketBase | แผนที่สร้างตอนล็อกอินถูกเก็บใน open-notebook ไม่ใช่ PocketBase |
+
+### Infrastructure
+
+Docker Compose, Traefik v2.11 (reverse proxy + basic auth), supervisord ใน container
+`open_notebook_api` ที่คุม 4 process: `api` (uvicorn), `worker` (surreal-commands),
+`frontend` (Next.js standalone), `streamlit` (หน้าเดิม ที่ `/streamlit`)
+
+---
+
+## 4. โครงสร้างโฟลเดอร์
+
+```
+kmitlAI/
+├── docker-compose.yml           ← นิยาม service ทั้งหมด (production)
+├── docker-compose-dev.yml       ← stack สำหรับ dev (hot reload)
+├── Makefile                     ← make up / down / logs / ps ...
+├── .env / .env.example          ← ค่า config ทั้งหมด
+├── docker/
+│   ├── open-notebook/           ← Dockerfile + supervisord.conf
+│   └── traefik/                 ← traefik.yml + dynamic/all.yml (router, basic auth)
+│
+├── open-notebook/               ← แอปหลัก
+│   ├── api/
+│   │   ├── main.py              ← ลงทะเบียน router, middleware, seed ข้อมูลเริ่มต้น
+│   │   ├── auth_jwt.py          ← get_current_user (ปฏิเสธบัญชีที่ถูกระงับ)
+│   │   ├── auth_roles.py        ← RoleAccessMiddleware (RBAC ตาม prefix)
+│   │   └── routers/
+│   │       ├── community.py     ← ฟีด ห้อง โพสต์ คลังความรู้ RAG (ไฟล์ใหญ่สุด)
+│   │       ├── admin.py         ← คอนโซลผู้ดูแล
+│   │       ├── google_auth.py   ← SSO /auth/google/{start,exchange}
+│   │       ├── features.py      ← สร้างควิซ/roadmap (หักแต้ม)
+│   │       └── ... (notebooks, sources, models, settings ...)
+│   ├── open_notebook/
+│   │   ├── community/
+│   │   │   ├── schema.py        ← DDL ของ MariaDB (idempotent รันทุกครั้งที่ API start)
+│   │   │   ├── repository.py    ← SQL ของฟีด/ห้อง/คอมเมนต์/รีแอ็กชัน
+│   │   │   ├── points.py        ← ราคา โบนัส เพดานรายวัน กระเป๋าแต้ม
+│   │   │   ├── library.py       ← คลังความรู้ → สร้าง Source + notebook
+│   │   │   ├── retrieval.py     ← ค้น vector เฉพาะ notebook (เขียนเอง)
+│   │   │   ├── ask.py           ← KMITL RAG AI
+│   │   │   └── ratelimit.py     ← กันสแปม (cooldown + โควตา + ลายนิ้วมือเนื้อหา)
+│   │   ├── domain/user.py       ← โมเดล User + query MariaDB
+│   │   └── database/migrations/ ← migration ของ SurrealDB
+│   └── frontend/src/
+│       ├── app/(dashboard)/community/page.tsx   ← หน้า 3 คอลัมน์
+│       ├── app/(dashboard)/admin/page.tsx       ← คอนโซลผู้ดูแล
+│       ├── components/community/                ← 14 คอมโพเนนต์ (ดูข้อ 12)
+│       └── lib/{api,hooks,stores,utils}/        ← เรียก API + state
+│
+├── My-ai-quiz/                  ← Next.js (มี Dockerfile อย่างเดียว)
+├── ai-roadmap-generator/        ← Next.js + PocketBase
+└── docs/SYSTEM-GUIDE.md         ← เอกสารนี้
+```
+
+---
+
+## 5. วิธีรันระบบ
+
+### 5.1 รันแบบ production (คำสั่งเดียว)
+
+```bash
+cd ~/kmitlAI
+make up          # copy .env ถ้ายังไม่มี → build ทุก image → start แบบ detached
+```
+
+เปิดใช้งาน:
+
+| URL | คืออะไร |
+|---|---|
+| <http://localhost:3000> | **หน้าเว็บหลัก** — ล็อกอิน / `/community` / `/admin` |
+| <http://localhost:5055/docs> | Swagger ของ API |
+| <http://localhost:3001> | My AI Quiz |
+| <http://localhost:3002> | AI Roadmap Generator |
+| <http://localhost:8090> | PocketBase admin |
+| <http://localhost/> | ผ่าน Traefik (ถาม user/password ก่อน) |
+
+### 5.2 คำสั่งที่ใช้บ่อย
+
+```bash
+make ps            # ดูว่า service ไหนรันอยู่
+make logs          # ตาม log ทุก service
+make restart       # รีสตาร์ททั้ง stack
+make down          # หยุด (ข้อมูลยังอยู่)
+make nuke          # หยุด + ลบ volume (ข้อมูลหายหมด)
+make rebuild       # build ใหม่โดยไม่ใช้ cache
+```
+
+แก้เฉพาะ backend/frontend ของ open-notebook แล้วอยากให้มีผล:
+
+```bash
+docker compose -p kmitlai build open_notebook_api
+docker compose -p kmitlai up -d --force-recreate open_notebook_api
+```
+
+### 5.3 รันแบบ dev (hot reload)
+
+```bash
+make up-dev        # docker-compose-dev.yml, project name kmitlai_dev
+```
+
+⚠️ **dev กับ prod ใช้ host port ชุดเดียวกัน (3000/5055/3001/3002)** ต้อง `make down`
+ตัวหนึ่งก่อนเสมอ ไม่งั้นจะสับสนว่ากำลังคุยกับ stack ไหนอยู่ (เคยเสียเวลากับเรื่องนี้มาแล้ว)
+dev mount ซอร์สเข้าไปในคอนเทนเนอร์และรัน `uvicorn --reload`
+
+หลัง `docker compose down` แล้ว network อาจไม่ถูกผูกกลับ ให้ใช้
+`up -d --force-recreate` ไม่ใช่ `docker restart`
+
+### 5.4 บัญชีสำหรับทดสอบ
+
+| ชื่อผู้ใช้ | รหัสผ่าน | บทบาท |
+|---|---|---|
+| `admin1` | `admin1` | ผู้ดูแลระบบ |
+| `student1` … `student5` | เหมือนชื่อผู้ใช้ | นักศึกษา |
+
+ล็อกอินด้วย Google ให้กด "เข้าสู่ระบบด้วย KMITL Google" — ตอนนี้ `GOOGLE_OAUTH_MOCK=1`
+จึงขึ้นหน้าเลือกอีเมลจำลอง (ใส่อีเมลอะไรก็ได้ที่ลงท้าย `@kmitl.ac.th`)
+
+กติกาแปลงอีเมลเป็นบทบาท:
+
+| อีเมล | ได้บทบาท |
+|---|---|
+| `67030123@kmitl.ac.th` (ตัวหน้า 8 หลัก) | **student** (เก็บรหัสนักศึกษาด้วย) |
+| `somchai.su@kmitl.ac.th` (ไม่ใช่ 8 หลัก) | **teacher** |
+| อีเมลที่อยู่ใน `WORKSPACE_ADMIN_EMAILS` | **admin** |
+| โดเมนอื่นที่ไม่อยู่ใน `GOOGLE_OAUTH_ALLOWED_DOMAINS` | ถูกปฏิเสธ 403 |
+
+### 5.5 ตัวแปรสำคัญใน `.env`
+
+| กลุ่ม | ตัวแปร | ความหมาย |
+|---|---|---|
+| ความปลอดภัย | `JWT_SECRET` | กุญแจเซ็น JWT — **ต้องตั้งก่อนขึ้นจริง** |
+| | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | เข้ารหัส credential ของ provider |
+| | `WORKSPACE_DISABLE_REGISTRATION` | ปิดการสมัครเอง (ค่าเริ่มต้น `false` = เปิด) |
+| SSO | `GOOGLE_OAUTH_CLIENT_ID/SECRET` | ของจริงจาก Google Cloud Console |
+| | `GOOGLE_OAUTH_MOCK` | `1` = โหมดจำลอง (dev เท่านั้น) |
+| | `GOOGLE_OAUTH_ALLOWED_DOMAINS` | ค่าเริ่มต้น `kmitl.ac.th` |
+| | `WORKSPACE_ADMIN_EMAILS` | รายชื่ออีเมลที่จะได้สิทธิ์ admin |
+| แต้ม | `POINTS_*` | ราคา/โบนัส/เพดาน (ดูข้อ 8) |
+| กันสแปม | `SPAM_*` | cooldown และโควตา (ดูข้อ 9) |
+| ลิงก์แอป | `MY_AI_QUIZ_URL`, `AI_ROADMAP_URL` | อ่านตอน **runtime** ผ่าน `/config` เปลี่ยนโดเมนไม่ต้อง build ใหม่ |
+
+---
+
+## 6. โครงสร้างเนื้อหา
+
+### 6.1 แผนผังความสัมพันธ์
+
+```
+users ─┬─< point_transactions       (ประวัติแต้มทุกใบ)
+       ├─< posts ─┬─< post_comments
+       │          ├─< post_reactions   (like / helpful — 1 คน 1 ครั้ง)
+       │          ├─< post_shares      (1 คน 1 ครั้งต่อโพสต์)
+       │          ├─< saved_items
+       │          └─< quiz_plays       (ใครเล่นควิซจบ → เจ้าของได้แต้มคืน)
+       ├─< course_members >─ courses ──< posts
+       ├─< library_documents ─────────▶ SurrealDB Source (embedded)
+       ├─< rag_sessions               (เซสชัน 5 ข้อความของ RAG)
+       └─< notifications
+```
+
+### 6.2 ห้อง (rooms) — มี 2 ชนิดในตารางเดียว
+
+แยกด้วยคอลัมน์ `courses.kind`
+
+| | **ห้องวิชา** (`kind='course'`) | **ห้องพูดคุย** (`kind='club'`) |
+|---|---|---|
+| ใครเปิดได้ | อาจารย์ / ผู้ดูแล | **ทุกคน รวมนักศึกษา** |
+| รหัสห้อง | รหัสวิชาจริง เช่น `CS101` | ระบบสร้างให้ `TALK-9F2C1B` (ไม่แสดงผล) |
+| คลังความรู้ของห้อง | มี → ใช้เป็นแหล่งอ้างอิงของ RAG | **ไม่มีโดยตั้งใจ** |
+| ใครปิดห้องได้ | ผู้ดูแล | คนที่เปิดห้อง หรือผู้ดูแล |
+| ไอคอนในเว็บ | `#` | 💬 |
+
+เหตุผลที่ห้องพูดคุยไม่มีคลังความรู้: ถ้ามี นักศึกษาจะอัปโหลดอะไรก็ได้เข้าไป
+แล้วให้ AI ใช้ตอบ ซึ่งเลี่ยงการตรวจของอาจารย์ — บล็อกทั้งฝั่งหน้าเว็บและฝั่ง API
+
+**ปิดห้องแล้วโพสต์ไม่หาย** — ระบบตั้ง `posts.course_id = NULL` โพสต์จะย้ายกลับไปฟีดรวม
+เพื่อไม่ให้เจ้าของห้องลบงานของคนอื่นได้
+
+ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
+
+### 6.3 โพสต์ — มี 5 ชนิด
+
+| `type` | ใครโพสต์ได้ | หน้าตาในฟีด |
+|---|---|---|
+| `summary` | ทุกคน | สรุปบทเรียน (ได้โบนัสสูงสุด) |
+| `question` | ทุกคน | คำถาม/ชวนคุย |
+| `quiz` | ทุกคน | การ์ดควิซ **เล่นได้ในฟีดเลย** (`QuizEmbed`) |
+| `roadmap` | ทุกคน | การ์ด roadmap กดติดตามได้ (`RoadmapEmbed`) |
+| `material` | **อาจารย์/ผู้ดูแลเท่านั้น** | สื่อการสอน แสดงในเมนู "คลังสื่ออาจารย์" |
+
+แต่ละโพสต์แนบไฟล์ได้ (`.pdf .png .jpg .webp .md .txt .docx .pptx .zip` สูงสุด 50 MB)
+และมีตัวนับแยก: `like_count`, `helpful_count`, `comment_count`, `share_count`,
+`play_count`, `follow_count`, `cashback_earned`
+
+### 6.4 คลังความรู้ (Knowledge Library)
+
+| ใคร | เพิ่มอะไรได้ | ใครเห็น | AI เอาไปใช้ตอนไหน |
+|---|---|---|---|
+| อาจารย์ / ผู้ดูแล | เอกสารของรายวิชา (`scope=course`) | ทุกคน | RAG / ควิซ / roadmap ของวิชานั้น |
+| นักศึกษา | ไฟล์ ลิงก์ หรือข้อความของตัวเอง (`scope=personal`) | เฉพาะตัวเอง | RAG / ควิซ / roadmap ของตัวเอง |
+
+ทุกไฟล์จะถูกดึงข้อความ → สร้างเป็น `Source` ใน SurrealDB → ฝัง embedding
+โดยรันเป็น background task ของ FastAPI (ไม่ต้องรอ) แล้วดูสถานะที่
+`GET /api/community/library/{id}`
+
+**ขอบเขตการค้น (scope) ของ KMITL RAG AI:**
+
+| scope | ค้นที่ไหน |
+|---|---|
+| `auto` | คลังส่วนตัว + ทุกวิชาที่ตัวเองเข้าร่วม (อาจารย์เห็นทุกวิชา) |
+| `course` | คลังของวิชาเดียวที่เลือก |
+| `personal` | เฉพาะไฟล์ของตัวเอง |
+| `document` | เฉพาะเอกสารที่เลือก |
+
+ถ้าเลือก scope ชัดเจนแล้วไม่มีเอกสาร ระบบ**จะตอบว่าไม่มีข้อมูล ไม่แอบขยายไปค้นทั้งระบบ**
+
+### 6.5 หน้า `/community` (3 คอลัมน์)
+
+```
+┌──────────────────┬──────────────────────────────┬────────────────────┐
+│ ซ้าย             │ กลาง                         │ ขวา                │
+├──────────────────┼──────────────────────────────┼────────────────────┤
+│ ฟีดรวม           │ แถบ "เลือกผลงานขึ้นฟีด"       │ 🤖 KMITL RAG AI    │
+│ ยอดนิยม          │ CreatorBox (กล่องเขียนโพสต์)  │    (ถาม/เซสชัน)    │
+│ ห้องที่เข้าร่วม   │                              │                    │
+│ คลังความรู้       │ PostCard                     │ 🏆 อันดับผู้แชร์    │
+│ คลังสื่ออาจารย์   │  ├ ควิซเล่นได้ในการ์ด         │                    │
+│ สรุปที่บันทึกไว้   │  ├ roadmap กดติดตาม          │ 🗺️ roadmap ยอดนิยม │
+│ กฎชุมชน & แต้ม   │  ├ ไลก์ / helpful / แชร์      │                    │
+│                  │  ├ คอมเมนต์ / บันทึก          │                    │
+│ ── ห้องวิชา ──   │  └ แก้ไข / ลบ (ของตัวเอง)     │                    │
+│ + สร้างห้องวิชา  │                              │                    │
+│ ── ห้องพูดคุย ── │                              │                    │
+│ + เปิดห้องพูดคุย │                              │                    │
+│ ── เครื่องมือ AI │                              │                    │
+│ ถาม RAG / Quiz / │                              │                    │
+│ Roadmap          │                              │                    │
+└──────────────────┴──────────────────────────────┴────────────────────┘
+```
+
+---
+
+## 7. บทบาทผู้ใช้ (Roles) โดยละเอียด
+
+ระบบมี 3 บทบาท จัดลำดับสิทธิ์เป็น **student < teacher < admin**
+บังคับที่ `api/auth_roles.py` แบบ *ปิดไว้ก่อน* — router ใหม่ที่ขึ้น prefix เดิมจะถูกล็อกอัตโนมัติ
+ถูกปฏิเสธจะได้ `403` พร้อม header `X-Required-Role`
+
+### 7.1 ตารางสรุปสิทธิ์
+
+| ความสามารถ | นักศึกษา | อาจารย์ | ผู้ดูแล |
+|---|:---:|:---:|:---:|
+| ดูฟีด / โพสต์ / คอมเมนต์ / ไลก์ / แชร์ / บันทึก | ✅ | ✅ | ✅ |
+| เล่นควิซของเพื่อน, ติดตาม roadmap ของเพื่อน | ✅ | ✅ | ✅ |
+| ใช้ KMITL RAG AI, สร้างควิซ, สร้าง roadmap | ✅ (หักแต้ม) | ✅ (ฟรี) | ✅ (ฟรี) |
+| อัปโหลดไฟล์เข้าคลัง **ส่วนตัว** | ✅ | ✅ | ✅ |
+| **เปิดห้องพูดคุย** และปิดห้องที่ตัวเองเปิด | ✅ | ✅ | ✅ |
+| สร้าง **ห้องวิชา** | ❌ | ✅ | ✅ |
+| อัปโหลดเข้า **คลังความรู้ของวิชา** | ❌ | ✅ | ✅ |
+| โพสต์ประเภท `material` (สื่อการสอน) | ❌ | ✅ | ✅ |
+| เข้าส่วน Open Notebook (notebooks, sources, notes, chat, search, podcasts, transformations) | ❌ | ✅ | ✅ |
+| ตั้งค่าโมเดล AI / API credential / settings | ❌ | ❌ | ✅ |
+| คอนโซลผู้ดูแล `/admin` | ❌ | ❌ | ✅ |
+| ลบโพสต์ของคนอื่น | ❌ | ❌ | ✅ |
+| ปิดห้องของคนอื่น | ❌ | ❌ | ✅ |
+| ถูกหักแต้ม | ✅ | ❌ | ❌ |
+
+### 7.2 นักศึกษา (student)
+
+**เห็นอะไร:** เฉพาะ `/community` และหน้าย่อยของมัน — เมนู Open Notebook, Settings,
+Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPalette` เรียก `/api/notebooks` และ
+`SetupBanner` เรียก `/api/credentials` จึงต้องซ่อนสองตัวนี้ด้วย ไม่งั้นหน้า community จะ 403)
+
+**ทำอะไรได้ตามปกติ:**
+
+1. ล็อกอิน Google ครั้งแรก → ได้ **20 แต้ม** ต้อนรับ
+2. เข้าร่วมห้องวิชาเองได้ทันที (ไม่ต้องรออนุมัติ)
+3. เปิด **ห้องพูดคุย** ของตัวเอง เช่น "ติวเลข 1 ก่อนสอบ" — จำกัด 1 ห้อง/นาที, 2 ห้อง/ชม., 5 ห้อง/วัน
+4. โพสต์สรุป/คำถาม แนบไฟล์ แชร์ควิซหรือ roadmap ที่ตัวเองทำขึ้นฟีด
+5. อัปโหลดชีท/ลิงก์เข้าคลัง **ส่วนตัว** แล้วให้ AI อ่านเฉพาะของตัวเอง
+6. ใช้ AI โดยเสียแต้ม แล้วหาแต้มคืนจากการโพสต์/มีคนไลก์/มีคนแชร์
+
+**ทำไม่ได้:** สร้างห้องวิชา, เพิ่มเนื้อหาเข้าคลังของวิชา, โพสต์สื่อการสอน,
+เข้าหลังบ้าน Open Notebook, แก้ค่าโมเดล
+
+### 7.3 อาจารย์ (teacher)
+
+**ได้เพิ่มจากนักศึกษา:**
+
+1. **สร้างห้องวิชา** พร้อมรหัสวิชาจริง — นักศึกษาจะเห็นในแถบซ้ายและกดเข้าร่วมได้เอง
+2. **เพิ่มเนื้อหาเข้าคลังของวิชา** (PDF / ลิงก์ / ข้อความ) → กลายเป็นแหล่งอ้างอิงที่
+   KMITL RAG AI, AI Quiz และ AI Roadmap ของวิชานั้นใช้ตอบ
+3. โพสต์ `material` ซึ่งไปรวมในเมนู "คลังสื่ออาจารย์"
+4. เข้าส่วน Open Notebook เต็มรูปแบบ (notebook, source, note, chat, search, podcast, transformation)
+5. **ไม่ถูกหักแต้ม** และได้โควตากันสแปม ×4 เท่าของนักศึกษา (`SPAM_STAFF_MULTIPLIER`)
+   เพราะการอัปโหลดสื่อทั้งเทอมรวดเดียวเป็นเรื่องปกติ
+
+**ทำไม่ได้:** แก้บทบาทผู้ใช้, เติม/หักแต้ม, รีเซ็ตรหัสผ่าน, ตั้งค่าโมเดล AI, ลบโพสต์ของคนอื่น
+
+### 7.4 ผู้ดูแลระบบ (admin)
+
+**ได้เพิ่มจากอาจารย์ — คอนโซลที่ `/admin`:**
+
+| งาน | รายละเอียด |
+|---|---|
+| ภาพรวมระบบ | จำนวนผู้ใช้ / ถูกระงับ / ใช้งานใน 7 วัน / โพสต์ / ห้อง / เอกสาร / แต้มคงค้าง |
+| ค้นและกรองผู้ใช้ | ค้นตามชื่อ/อีเมล กรองตามบทบาท |
+| เปลี่ยนบทบาท | student ⇄ teacher ⇄ admin (มีผลทันทีกับ token ที่ถืออยู่) |
+| เติม/หักแต้ม | บันทึกในประวัติเป็น `admin_grant` / `admin_deduct` |
+| รีเซ็ตรหัสผ่าน | รหัสเดิมใช้ไม่ได้ทันที |
+| ระงับ/คืนสิทธิ์บัญชี | บัญชีที่ถูกระงับล็อกอินไม่ได้ **และ token ที่ถืออยู่ถูกปฏิเสธทันที** |
+
+นอกจากนี้ยังตั้งค่าโมเดล AI / credential / settings, ลบโพสต์ของใครก็ได้ และปิดห้องของใครก็ได้
+
+**ราวกันตก (guard rails)** — ระบบปฏิเสธด้วย `400` เมื่อ:
+- ผู้ดูแลพยายามลดบทบาท**ตัวเอง**
+- ผู้ดูแลพยายามระงับ**ตัวเอง**
+- จะเหลือผู้ดูแลคนสุดท้ายแล้วลดบทบาททิ้ง
+
+### 7.5 ขอบเขตของ API ตาม prefix
+
+| Prefix | ต้องเป็นอย่างน้อย |
+|---|---|
+| `/api/community/*`, `/api/features/*`, `/api/users/*`, `/api/auth/*`, `/api/config` | ล็อกอิน (student) |
+| `/api/notebooks`, `/api/sources`, `/api/notes`, `/api/insights`, `/api/context`, `/api/transformations`, `/api/podcasts`, `/api/episode-profiles`, `/api/speaker-profiles`, `/api/chat`, `/api/search`, `/api/commands` | teacher |
+| `/api/admin`, `/api/credentials`, `/api/settings`, `/api/models`, `/api/embeddings` | admin |
+
+---
+
+## 8. ระบบแต้ม (Token Economy)
+
+### 8.1 จ่ายแต้มเมื่อไหร่
+
+| การใช้งาน | แต้ม |
+|---|---|
+| KMITL RAG AI — ถาม 1 คำถาม | 1 |
+| KMITL RAG AI — เซสชันต่อเนื่อง 5 ข้อความ | 4 |
+| สร้าง AI Quiz 1 ชุด | 8 (คืนแต้มถ้าดึงจากแคช) |
+| สร้าง AI Roadmap 1 แผน | 15 (คืนแต้มถ้าดึงจากแคช) |
+| นำเข้าควิซของเพื่อนเข้าคลังตัวเอง | 1 |
+| เล่นควิซของเพื่อนในฟีด / ติดตาม roadmap ของเพื่อน | **ฟรี** (ควิซละ 1 ครั้ง) |
+
+### 8.2 ได้แต้มคืนเมื่อไหร่
+
+| เหตุการณ์ | แต้ม | เพดาน/วัน |
+|---|---|---|
+| ล็อกอินครั้งแรก | +20 | ครั้งเดียว |
+| โพสต์เนื้อหาลงฟีด | +2 | 6 |
+| แชร์สรุปบทเรียน | +2 | 6 |
+| มีคนกดไลก์โพสต์เรา | +1 | 10 |
+| มีคนกด Helpful โพสต์เรา | +1 | 10 |
+| มีคนแชร์โพสต์เรา | +2 | 10 |
+| แก้ไขโพสต์ของตัวเองให้ดีขึ้น | +1 | 2 |
+| เพื่อนเล่นควิซที่เราแชร์จนจบ | +1/คน | 15 ต่อควิซ |
+
+**กติกากันการปั่นแต้ม:**
+- ไลก์/แชร์นับ **1 คนต่อ 1 โพสต์** เท่านั้น (ตาราง `post_reactions`, `post_shares`)
+- แชร์โพสต์ตัวเอง **ไม่ได้แต้ม** และไม่เพิ่มยอดแชร์
+- ทุกใบมีบันทึกใน `point_transactions` พร้อม `balance_after` ตรวจย้อนหลังได้
+- อาจารย์และผู้ดูแลไม่ถูกหักและไม่ต้องหาแต้ม
+
+ปรับทุกค่าได้ผ่าน `POINTS_*` ใน `.env`
+
+---
+
+## 9. ระบบกันสแปม
+
+อยู่ใน `open_notebook/community/ratelimit.py` มี 3 ด่าน
+
+**ด่านที่ 1 — cooldown + โควตา** (นับจากตารางเนื้อหาโดยตรง ไม่มีตารางบันทึกเพิ่ม)
+
+| | โพสต์ | คอมเมนต์ | อัปโหลดคลัง | เปิดห้องพูดคุย |
+|---|---|---|---|---|
+| เว้นระยะขั้นต่ำ | 20 วิ | 5 วิ | 15 วิ | 60 วิ |
+| ต่อชั่วโมง | 10 | 30 | 10 | 2 |
+| ต่อวัน | 40 | 150 | 30 | 5 |
+
+**ด่านที่ 2 — ลายนิ้วมือเนื้อหา** MD5 ของเนื้อหาเก็บใน `content_hash`
+โพสต์/ไฟล์เดิมซ้ำภายใน 24 ชม. → `409` พร้อม `X-Duplicate-Of` ชี้ของเดิม
+
+**ด่านที่ 3 — ความยาวขั้นต่ำ** โพสต์ ≥15 ตัวอักษร, เอกสาร ≥80, ชื่อห้อง ≥3
+
+อาจารย์/ผู้ดูแลได้โควตา ×4 · ถูกจำกัดจะได้ `429` พร้อม `Retry-After`
+
+---
+
+## 10. แผนผัง API
+
+ทุก endpoint ขึ้นต้นด้วย `/api` · ดูเอกสารสดที่ `http://localhost:5055/docs`
+
+### เข้าสู่ระบบ
+```
+POST /users/login                  · POST /users/register
+GET  /auth/status                  · GET  /auth/google/start
+POST /auth/google/exchange
+```
+
+### ชุมชน — โปรไฟล์และห้อง
+```
+GET    /community/me               · GET    /community/wallet
+GET    /community/courses          · POST   /community/courses
+DELETE /community/courses/{id}     · POST   /community/courses/{id}/join
+DELETE /community/courses/{id}/join
+```
+
+### ชุมชน — ฟีด
+```
+GET    /community/posts            · POST   /community/posts
+GET    /community/posts/{id}       · PUT    /community/posts/{id}
+DELETE /community/posts/{id}       · GET    /community/posts/{id}/attachment
+POST   /community/posts/{id}/reactions
+GET    /community/posts/{id}/comments  · POST /community/posts/{id}/comments
+POST   /community/posts/{id}/save  · POST   /community/posts/{id}/share
+```
+
+### ชุมชน — ควิซ / roadmap ในฟีด
+```
+POST /community/posts/{id}/quiz/start   · POST /community/posts/{id}/quiz/submit
+POST /community/posts/{id}/quiz/import  · POST /community/posts/{id}/roadmap/follow
+```
+
+### ชุมชน — คลังความรู้ และ AI
+```
+GET  /community/library            · POST   /community/library
+GET  /community/library/{id}       · DELETE /community/library/{id}
+POST /community/library/{id}/retry
+POST /community/ask                (scope = auto | course | personal | document)
+POST /community/study/quiz         · POST /community/study/roadmap
+```
+
+### ชุมชน — อื่น ๆ
+```
+GET  /community/leaderboard        · GET  /community/roadmaps/popular
+GET  /community/notifications      · POST /community/notifications/read
+GET  /community/search             · GET  /community/materials
+```
+
+### ผู้ดูแล (admin เท่านั้น)
+```
+GET   /admin/overview              · GET   /admin/users
+GET   /admin/users/{id}            · PATCH /admin/users/{id}
+POST  /admin/users/{id}/points     · POST  /admin/users/{id}/reset-password
+```
+
+---
+
+## 11. ฐานข้อมูล
+
+### MariaDB — ฐาน `workspace` (13 ตาราง)
+
+| ตาราง | เก็บอะไร |
+|---|---|
+| `users` | บัญชี, บทบาท, อีเมล, `google_sub`, รหัสนักศึกษา, ยอดแต้ม, `disabled`, `library_notebook_id` |
+| `point_transactions` | ทุกการเคลื่อนไหวของแต้ม + `balance_after` |
+| `courses` | ห้องวิชา/ห้องพูดคุย (`kind`) + `notebook_id` |
+| `course_members` | ใครอยู่ห้องไหน |
+| `posts` | โพสต์ทั้งหมด + ตัวนับ + `content_hash` + ข้อมูลไฟล์แนบ |
+| `post_reactions` | like / helpful (PK: post + user + kind) |
+| `post_shares` | การแชร์ (PK: post + user) |
+| `post_comments` | คอมเมนต์ |
+| `saved_items` | โพสต์ที่บันทึกไว้ |
+| `quiz_plays` | การเล่นควิซและคะแนน |
+| `library_documents` | เอกสารในคลัง + สถานะการ embed |
+| `rag_sessions` | เซสชัน RAG 5 ข้อความ |
+| `notifications` | แจ้งเตือน |
+
+Schema เป็น **idempotent DDL** ใน `community/schema.py` รันทุกครั้งที่ API start
+เพิ่มคอลัมน์ใหม่ให้เพิ่มที่นี่ **และ** ที่ `_UserRow` + โมเดล `User` ใน
+`domain/user.py` ไม่งั้นจะพังตอน runtime
+
+### SurrealDB — namespace/database `open_notebook`
+
+เก็บ `notebook`, `source`, `note`, `insight`, `chat_session`, `credential`,
+`quiz_session`, `roadmap_session` พร้อม vector embedding
+Migration รันอัตโนมัติตอน API start (`database/migrations/*.surrealql`)
+
+> ข้อควรระวัง: ตาราง SCHEMAFULL ที่มีฟิลด์ `array<object>` ต้องประกาศ `FLEXIBLE`
+> ไม่งั้น key ที่ซ้อนอยู่ข้างในจะถูกทิ้งเงียบ ๆ (migration 23 แก้เรื่องนี้ให้
+> `quiz_session.questions` และ `roadmap_session.nodes/edges`)
+
+---
+
+## 12. จะแก้อะไร ต้องแก้ไฟล์ไหน
+
+| อยากแก้ | ไฟล์ |
+|---|---|
+| ราคา/โบนัส/เพดานแต้ม | `open_notebook/community/points.py` (หรือ `POINTS_*` ใน `.env`) |
+| กติกากันสแปม | `open_notebook/community/ratelimit.py` (หรือ `SPAM_*`) |
+| สิทธิ์ของแต่ละบทบาท | `api/auth_roles.py` (หลังบ้าน) + `frontend/src/lib/roles.ts` (หน้าบ้าน) |
+| เพิ่มคอลัมน์ฐานข้อมูล | `community/schema.py` + `domain/user.py` |
+| SQL ของฟีด/ห้อง | `community/repository.py` |
+| endpoint ของชุมชน | `api/routers/community.py` |
+| คอนโซลผู้ดูแล | `api/routers/admin.py` + `frontend/src/app/(dashboard)/admin/page.tsx` |
+| แถบซ้าย (เมนู/ห้อง/เครื่องมือ AI) | `frontend/src/components/community/CourseSidebar.tsx` |
+| กล่องเขียนโพสต์ | `components/community/CreatorBox.tsx` |
+| การ์ดโพสต์ | `components/community/PostCard.tsx` |
+| กล่องถาม RAG ทางขวา | `components/community/AiQuickWidget.tsx` |
+| คลังความรู้ | `components/community/LibraryPanel.tsx` + `community/library.py` |
+| ปุ่ม "เลือกผลงานขึ้นฟีด" | `components/community/ShareMyWorkDialog.tsx` |
+
+คอมโพเนนต์ชุมชนทั้งหมด 14 ตัว: `AiQuickWidget`, `CommunityHeader`, `CourseSidebar`,
+`CreatorBox`, `Leaderboard`, `LibraryPanel`, `NotificationsMenu`, `PointsWallet`,
+`PostCard`, `QuizEmbed`, `RoadmapEmbed`, `ShareMyWorkDialog`, `ShareToFeedButton`,
+`StudyDialog`
+
+---
+
+## 13. การทดสอบ
+
+### ตรวจหน้าเว็บและ API เร็ว ๆ
+
+```bash
+curl -o /dev/null -w '%{http_code}\n' http://localhost:3000/community   # ควรได้ 200
+curl -s http://localhost:5055/api/auth/status | head -c 200
+```
+
+### ชุดทดสอบ API (8 ชุด)
+
+เขียนเป็นสคริปต์ Python ล้วน ยิงเข้า `http://localhost:5055`
+
+| ชุด | ตรวจอะไร |
+|---|---|
+| `test_rooms` | ห้องพูดคุย: ใครเปิดได้ ชื่อซ้ำ ลิมิต ปิดห้องแล้วโพสต์รอด |
+| `test_community_flow` | SSO, ฟีด, คอมเมนต์, ไลก์, บันทึก, ควิซ, roadmap, leaderboard |
+| `test_library` | คลังความรู้ + RAG แบบจำกัดขอบเขต + สร้างควิซ/roadmap จากคลัง |
+| `test_earning` | การได้แต้มคืนและเพดานรายวัน |
+| `test_spam` | cooldown, โควตา, เนื้อหาซ้ำ, ความยาวขั้นต่ำ |
+| `test_share_once` | 1 คนแชร์ได้ครั้งเดียวต่อโพสต์ |
+| `test_roles` | RBAC ครบทั้ง 3 บทบาท |
+| `test_admin` | คอนโซลผู้ดูแล + ราวกันตก |
+
+**ข้อควรรู้เวลารันซ้ำ:** ชุดทดสอบเรียก container ตรง ๆ ตามชื่อ
+(`kmitl_mariadb`, `kmitl_open_notebook_api`) ถ้าชี้ผิด stack ส่วนล้างข้อมูลจะเงียบไป
+แล้วข้ออื่นจะพังแทน · และต้องใช้บัญชี SSO ใหม่ทุกรอบ เพราะเพดานแต้มรายวันติดมากับบัญชี
+ทำให้รอบที่สองของวันได้ 0 แต้ม
+
+---
+
+## 14. เช็กลิสต์ก่อนขึ้น production
+
+ยังไม่ได้ทำ — ต้องจัดการก่อนเปิดให้คนนอกใช้
+
+| # | เรื่อง | สถานะตอนนี้ | ต้องทำ |
+|---|---|---|---|
+| 1 | `JWT_SECRET` ว่าง | ระบบสุ่มให้ใหม่ทุกครั้งที่รีสตาร์ท → ทุกคนหลุดล็อกอิน | ตั้งค่าเป็น secret ยาว ๆ ใน `.env` |
+| 2 | Google OAuth โหมดจำลอง | `GOOGLE_OAUTH_MOCK=1` ใครก็สวมเป็นใครก็ได้ | ใส่ client ID/secret จริง แล้วตั้งเป็น `0` |
+| 3 | สมัครสมาชิกเองได้ | `WORKSPACE_DISABLE_REGISTRATION` ยังเป็น `false` | ตั้งเป็น `true` ให้เข้าผ่าน Google อย่างเดียว |
+| 4 | ไม่มี HTTPS | Traefik เปิดแค่ `:80` | เพิ่ม entrypoint 443 + Let's Encrypt |
+| 5 | host port ข้าม Traefik | 3000/3001/3002/5055 เข้าได้ตรงโดยไม่ผ่าน basic auth | ลบ `ports:` ออก ให้เข้าทาง Traefik อย่างเดียว |
+| 6 | บัญชีทดลองยังอยู่ | `admin1`, `student1..5` รหัสเดาง่าย | ปิด `WORKSPACE_SEED_ADMIN` และลบบัญชีทิ้ง |
+| 7 | รหัสฐานข้อมูลค่าเริ่มต้น | MariaDB / SurrealDB ใช้รหัสจาก `.env.example` | เปลี่ยนทั้งหมด |
+| 8 | CORS เปิดกว้าง | รับทุก origin | จำกัดเป็นโดเมนจริง |
+| 9 | ยังไม่มีแผนสำรองข้อมูล | — | ตั้ง cron dump MariaDB + SurrealDB |
+
+**เรื่องโดเมนจริง:** URL ของแอป Quiz/Roadmap อ่านตอน runtime จาก `/config` ของ frontend
+ดังนั้นย้ายโดเมนแค่ตั้ง `MY_AI_QUIZ_URL` / `AI_ROADMAP_URL` บน container
+`open_notebook_api` แล้วรีสตาร์ท **ไม่ต้อง build frontend ใหม่**
