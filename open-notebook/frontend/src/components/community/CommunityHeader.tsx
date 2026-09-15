@@ -29,6 +29,8 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { PointsWallet } from './PointsWallet'
 import { NotificationsMenu } from './NotificationsMenu'
 import { displayName, roleLabel } from '@/lib/utils/community-format'
+import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
+import { Map as MapIcon } from 'lucide-react'
 
 interface CommunityHeaderProps {
   query: string
@@ -114,8 +116,14 @@ export function CommunityHeader({ query, onSearch, onOpenPost, onHome }: Communi
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              <DropdownMenuItem onClick={() => void openQuizApp()}>
+                <GraduationCap className="mr-2 h-4 w-4 text-emerald-600" /> แอป AI Quiz ↗
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void openRoadmapApp()}>
+                <MapIcon className="mr-2 h-4 w-4 text-orange-600" /> แอป AI Roadmap ↗
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/features')}>
-                <Sparkles className="mr-2 h-4 w-4" /> AI Quiz / Roadmap ของฉัน
+                <Sparkles className="mr-2 h-4 w-4" /> คลัง Quiz / Roadmap ของฉัน
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push('/notebooks')}>
                 <BookOpen className="mr-2 h-4 w-4" /> Open Notebook (คลังความรู้)

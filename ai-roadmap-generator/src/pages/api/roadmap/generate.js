@@ -322,10 +322,14 @@ export default async function handler(req, res) {
       const code = String(session.id || `rag-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, "-");
       const record = {
         code,
+        // Raw Open Notebook session id – used by the "share to SIET Space" button.
+        session_id: session.id,
         title: session.title || title,
         data: JSON.stringify(roadmap),
         roadmap,
         created: session.created,
+        likes: 0,
+        is_liked: false,
       };
       cacheData.put(`roadmap/local/${code}`, record);
       return res.status(200).json({

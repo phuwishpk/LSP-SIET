@@ -42,3 +42,32 @@ export async function fetchCurrentWorkspaceUser() {
     return null
   }
 }
+
+/**
+ * Browser-facing URL of the KMITL workspace (open-notebook Next.js app).
+ * `NEXT_PUBLIC_WORKSPACE_URL` wins when baked into the build; otherwise infer
+ * it: on the standalone port (3002) the workspace lives on port 3000 of the
+ * same host, behind Traefik (`/roadmap`) it is the site root.
+ */
+export function getWorkspaceAppUrl() {
+  const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL
+  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  if (typeof window === 'undefined') return 'http://localhost:3000'
+  const { protocol, hostname, port, origin } = window.location
+  if (port === '3002') return `${protocol}//${hostname}:3000`
+  return origin
+}
+
+/** Share an Open Notebook roadmap session to the SIET Space community feed. */
+export async function shareRoadmapToCommunity({ sessionId, title, content }) {
+  const token = getWorkspaceToken()
+  if (!token) throw new Error('กรุณาเข้าสู่ระบบผ่าน SIET Space ก่อนแชร์')
+  const res = await fetch('/roadmap/api/roadmap/share', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+    body: JSON.stringify({ session_id: sessionId, title, content }),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok) throw new Error(data?.message || 'แชร์ไม่สำเร็จ')
+  return data
+}

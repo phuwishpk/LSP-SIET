@@ -10,6 +10,7 @@ import {
   GraduationCap,
   Hash,
   Library,
+  Map,
   Newspaper,
   Plus,
   ScrollText,
@@ -30,6 +31,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useCourses, useCreateCourse, useJoinCourse, useWallet } from '@/lib/hooks/use-community'
+import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { cn } from '@/lib/utils'
 
 export type FeedView = 'all' | 'mine' | 'saved' | 'materials' | 'popular'
@@ -217,8 +219,24 @@ export function CourseSidebar({
           เครื่องมือ AI
         </p>
         <nav className="space-y-0.5">
+          <button
+            type="button"
+            onClick={() => void openQuizApp()}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
+          >
+            <GraduationCap className="h-4 w-4 text-emerald-600" /> สร้าง AI Quiz
+            <span className="ml-auto text-[10px] text-muted-foreground">8 แต้ม ↗</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => void openRoadmapApp()}
+            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
+          >
+            <Map className="h-4 w-4 text-orange-600" /> สร้าง AI Roadmap
+            <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม ↗</span>
+          </button>
           <Link href="/features" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent">
-            <Sparkles className="h-4 w-4" /> สร้าง AI Quiz / Roadmap
+            <Sparkles className="h-4 w-4" /> คลัง Quiz / Roadmap ของฉัน
           </Link>
           <Link href="/search?mode=ask" className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-accent">
             <GraduationCap className="h-4 w-4" /> KMITL RAG AI

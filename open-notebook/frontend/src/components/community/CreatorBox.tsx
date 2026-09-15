@@ -14,6 +14,8 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { useCourses, useCreatePost, useWallet } from '@/lib/hooks/use-community'
 import { useQuizSessions, useRoadmapSessions } from '@/lib/hooks/use-features'
 import { displayName, formatBytes } from '@/lib/utils/community-format'
+import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
+import { ShareMyWorkDialog } from './ShareMyWorkDialog'
 import type { PostType } from '@/lib/api/community'
 import { cn } from '@/lib/utils'
 
@@ -39,6 +41,7 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
   const [file, setFile] = useState<File | null>(null)
   const [embedType, setEmbedType] = useState<'quiz' | 'roadmap'>('quiz')
   const [embedId, setEmbedId] = useState<string>('')
+  const [pickerOpen, setPickerOpen] = useState(false)
 
   const { data: quizzes } = useQuizSessions()
   const { data: roadmaps } = useRoadmapSessions()
@@ -120,14 +123,23 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
               </TabsContent>
 
               <TabsContent value="embed" className="mt-3 space-y-2">
-                <div className="flex gap-2">
+                <div className="flex flex-wrap gap-2">
                   <Button type="button" size="sm" variant={embedType === 'quiz' ? 'default' : 'outline'} onClick={() => { setEmbedType('quiz'); setEmbedId('') }}>
                     <GraduationCap className="mr-1 h-4 w-4" /> AI Quiz
                   </Button>
                   <Button type="button" size="sm" variant={embedType === 'roadmap' ? 'default' : 'outline'} onClick={() => { setEmbedType('roadmap'); setEmbedId('') }}>
                     <Map className="mr-1 h-4 w-4" /> AI Roadmap
                   </Button>
+                  <Button type="button" size="sm" variant="secondary" className="ml-auto" onClick={() => setPickerOpen(true)}>
+                    <Sparkles className="mr-1 h-4 w-4" /> เลือกจากผลงานของฉัน
+                  </Button>
                 </div>
+                <ShareMyWorkDialog
+                  open={pickerOpen}
+                  onOpenChange={setPickerOpen}
+                  defaultCourseId={courseId}
+                  initialKind={embedType}
+                />
                 <select
                   className="h-9 w-full rounded-md border bg-background px-3 text-sm"
                   value={embedId}
@@ -148,8 +160,16 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                 </select>
                 <p className="text-xs text-muted-foreground">
                   ยังไม่มี?{' '}
+                  <button
+                    type="button"
+                    onClick={() => void (embedType === 'quiz' ? openQuizApp() : openRoadmapApp())}
+                    className="text-primary hover:underline"
+                  >
+                    ไปสร้างที่แอป {embedType === 'quiz' ? 'AI Quiz' : 'AI Roadmap'} ↗
+                  </button>{' '}
+                  หรือดู{' '}
                   <Link href="/features" className="text-primary hover:underline">
-                    ไปสร้างที่ AI Features
+                    คลังของฉัน
                   </Link>{' '}
                   · แชร์ควิซแล้วเพื่อนเล่นจบ คุณได้แต้มคืน +1/คน
                 </p>

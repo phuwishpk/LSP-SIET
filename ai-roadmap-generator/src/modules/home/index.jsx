@@ -6,7 +6,7 @@ import FormNewRoadmap from "./components/form-new-roadmap";
 import RecentRoadmap from "./components/recents";
 import Categories from "@/modules/home/components/categories";
 import Footer from "@/shared/components/footer";
-import {fetchCurrentWorkspaceUser} from "@/infrastructure/workspace-client";
+import {fetchCurrentWorkspaceUser, getWorkspaceAppUrl} from "@/infrastructure/workspace-client";
 
 const Home = () => {
     const [isMounted, setIsMounted] = useState(false);
@@ -37,9 +37,15 @@ const Home = () => {
                         textAlign: 'center',
                         marginBottom: '0.5rem',
                     }}>
-                        ✓ Signed in to KMITL AI Workspace as <strong>@{workspaceUser.username}</strong>.
-                        Roadmaps are stored locally in PocketBase but your session is
-                        shared across the workspace.
+                        ✓ เข้าสู่ระบบด้วยบัญชี KMITL: <strong>{workspaceUser.display_name || workspaceUser.username}</strong>
+                        {' · '}
+                        {workspaceUser.points_exempt
+                            ? 'ไม่ตัดแต้ม (อาจารย์/ผู้ดูแล)'
+                            : `🪙 แต้มคงเหลือ ${workspaceUser.points_balance ?? 0} · สร้าง Roadmap ใช้ 15 แต้ม`}
+                        {' · '}
+                        <a href={`${getWorkspaceAppUrl()}/community`} style={{ color: '#065f46', textDecoration: 'underline' }}>
+                            ← กลับ SIET Space
+                        </a>
                     </div>
                 </Container>
             )}

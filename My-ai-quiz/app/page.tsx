@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { getWorkspaceUrl } from './lib/workspace';
 
 interface Question {
   id: number;
@@ -11,6 +12,14 @@ interface Question {
 }
 
 const TOKEN_STORAGE_KEY = 'kmitlai-workspace-token';
+const QUIZ_COST = 8;
+
+interface WorkspaceUser {
+  username: string;
+  display_name?: string | null;
+  points_balance?: number;
+  points_exempt?: boolean;
+}
 
 export default function QuizPage() {
   const [topic, setTopic] = useState('');
@@ -20,6 +29,10 @@ export default function QuizPage() {
   const [showResult, setShowResult] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
+  const [me, setMe] = useState<WorkspaceUser | null>(null);
+  const [sessionId, setSessionId] = useState<string | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [sharedPostId, setSharedPostId] = useState<number | null>(null);
   const [history, setHistory] = useState<Array<{
     topic: string;
     score: number;
@@ -49,6 +62,40 @@ export default function QuizPage() {
     }
   }, []);
 
+  const refreshMe = useCallback(async (jwt: string | null) => {
+    if (!jwt) return;
+    try {
+      const res = await fetch('/quiz/api/me', { headers: { Authorization: `Bearer ${jwt}` } });
+      if (res.ok) setMe(await res.json());
+    } catch {
+      // workspace unreachable – balance chip simply stays hidden
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshMe(token);
+  }, [token, refreshMe]);
+
+  const shareToCommunity = async () => {
+    if (!token || !sessionId || sharing) return;
+    setSharing(true);
+    setError(null);
+    try {
+      const res = await fetch('/quiz/api/share-quiz', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ session_id: sessionId, title: topic.trim(), content: `ควิซ "${topic.trim()}" ${questions.length} ข้อ ลองทำกันดู!` }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data?.error || 'แชร์ไม่สำเร็จ');
+      setSharedPostId(data.post_id ?? 0);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'แชร์ไม่สำเร็จ');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const persistHistory = (entry: { topic: string; score: number; total: number; created: string }) => {
     if (typeof window === 'undefined') return;
     const next = [entry, ...history].slice(0, 10);
@@ -69,6 +116,8 @@ export default function QuizPage() {
     setQuestions([]);
     setSelectedAnswers({});
     setShowResult(false);
+    setSessionId(null);
+    setSharedPostId(null);
 
     try {
       // The local route is a server-side bridge to Open Notebook. Keeping the
@@ -106,6 +155,8 @@ export default function QuizPage() {
 
       if (Array.isArray(list) && list.length > 0) {
         setQuestions(list);
+        setSessionId(typeof data.session_id === 'string' ? data.session_id : null);
+        refreshMe(token);
       } else {
         setError('ไม่พบข้อสอบที่สร้างขึ้น ลองใหม่อีกครั้ง');
       }
@@ -150,9 +201,22 @@ export default function QuizPage() {
             ใส่หัวข้อที่คุณสนใจ แล้วปล่อยให้ระบบสร้างคำถามแบบปรนัยพร้อมคำอธิบายและเฉลยให้คุณทันที
           </p>
           {token && (
-            <p className="text-xs text-emerald-600">
-              ✓ ลงชื่อเข้าใช้ด้วย workspace token — ผลลัพธ์จะถูกบันทึกในบัญชีของคุณ
-            </p>
+            <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
+              <span className="text-emerald-600">
+                ✓ ลงชื่อเข้าใช้ด้วยบัญชี KMITL{me ? ` (${me.display_name || me.username})` : ''} — ควิซจะถูกบันทึกในคลังของคุณ
+              </span>
+              {me && (
+                <span className="rounded-full border border-amber-300 bg-amber-50 px-3 py-1 font-semibold text-amber-800">
+                  🪙 {me.points_exempt ? 'ไม่ตัดแต้ม' : `แต้มคงเหลือ ${me.points_balance ?? 0} · สร้างควิซใช้ ${QUIZ_COST} แต้ม`}
+                </span>
+              )}
+              <a
+                href={`${getWorkspaceUrl()}/community`}
+                className="rounded-full border border-slate-300 px-3 py-1 text-slate-600 transition hover:bg-slate-100"
+              >
+                ← กลับ SIET Space
+              </a>
+            </div>
           )}
         </div>
 
@@ -209,6 +273,30 @@ export default function QuizPage() {
               <span>ข้อที่สร้างขึ้น: {questions.length} ข้อ</span>
               <span>ตอบแล้ว: {answeredCount}/{questions.length}</span>
             </div>
+
+            {token && sessionId && (
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-orange-200 bg-orange-50 px-4 py-3 text-sm">
+                <span className="text-orange-900">
+                  แชร์ควิซชุดนี้ลงฟีด SIET Space — เพื่อนเล่นจบ คุณได้แต้มคืน +1/คน (สูงสุด 15)
+                </span>
+                {sharedPostId === null ? (
+                  <button
+                    onClick={shareToCommunity}
+                    disabled={sharing}
+                    className="rounded-xl bg-orange-600 px-4 py-2 font-semibold text-white transition hover:bg-orange-700 disabled:bg-slate-400"
+                  >
+                    {sharing ? 'กำลังแชร์...' : 'แชร์ลงฟีด Community'}
+                  </button>
+                ) : (
+                  <a
+                    href={`${getWorkspaceUrl()}/community${sharedPostId ? `?post=${sharedPostId}` : ''}`}
+                    className="rounded-xl bg-emerald-600 px-4 py-2 font-semibold text-white transition hover:bg-emerald-700"
+                  >
+                    ✓ แชร์แล้ว · เปิดดูในฟีด
+                  </a>
+                )}
+              </div>
+            )}
 
             {questions.map((q) => (
               <div key={q.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">

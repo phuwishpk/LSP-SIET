@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 from typing import Any, Dict, List, Optional
 
 from loguru import logger
@@ -162,11 +163,14 @@ async def _invoke_chat(
     model_id: Optional[str] = None,
 ) -> str:
     """Single entry point that talks to whichever provider the user configured."""
+    # Esperanto models default to max_tokens=850, which truncates long Thai
+    # JSON (e.g. a 15-node roadmap) and makes the response unparseable.
+    max_tokens = int(os.getenv("FEATURES_LLM_MAX_TOKENS", "8192") or 8192)
     try:
         if model_id:
-            model = await model_manager.get_model(model_id)
+            model = await model_manager.get_model(model_id, max_tokens=max_tokens)
         else:
-            model = await model_manager.get_default_model(default_type)
+            model = await model_manager.get_default_model(default_type, max_tokens=max_tokens)
     except Exception as exc:
         logger.error(f"Failed resolving model for feature: {exc}")
         raise ConfigurationError(

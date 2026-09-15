@@ -11,11 +11,35 @@ import copyToClipboard from "@/shared/helper/copy-clipboard";
 import useLike from "@/modules/flow/hooks/like-roadmap";
 import { toPng } from "html-to-image";
 import { getRectOfNodes } from "reactflow";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { getWorkspaceAppUrl, hasWorkspaceSession, shareRoadmapToCommunity } from "@/infrastructure/workspace-client";
 
 const Header = ({ data, reactFlowInstance }) => {
     const link = typeof window !== "undefined" ? window?.location?.href : "";
     const hookLike = useLike(data?.is_liked, data?.id, data?.likes);
+    const [canShare, setCanShare] = useState(false);
+    const [sharing, setSharing] = useState(false);
+    const [sharedPostId, setSharedPostId] = useState(null);
+    useEffect(() => {
+        setCanShare(Boolean(data?.session_id) && hasWorkspaceSession());
+    }, [data?.session_id]);
+    const shareToCommunity = async () => {
+        if (sharing) return;
+        setSharing(true);
+        try {
+            const result = await shareRoadmapToCommunity({
+                sessionId: data.session_id,
+                title: data.title,
+                content: `แผนการเรียน "${data.title}" ลองเดินตามกันดู!`,
+            });
+            setSharedPostId(result.post_id ?? 0);
+            toast.success("แชร์ลงฟีด SIET Space แล้ว!");
+        } catch (error) {
+            toast.error(error?.message || "แชร์ไม่สำเร็จ");
+        } finally {
+            setSharing(false);
+        }
+    };
     const onClickLike = () => {
         if (hookLike.data.isLiked) {
             hookLike.disLikeAction();
@@ -162,6 +186,29 @@ const Header = ({ data, reactFlowInstance }) => {
                 >
                     Download Png
                 </Button>
+                {canShare && (
+                    sharedPostId === null ? (
+                        <Button
+                            onClick={shareToCommunity}
+                            color={"warning"}
+                            className="downloadBtn"
+                            disabled={sharing}
+                        >
+                            {sharing ? "กำลังแชร์..." : "แชร์ลงฟีด SIET Space (ฟรี)"}
+                        </Button>
+                    ) : (
+                        <a href={`${getWorkspaceAppUrl()}/community${sharedPostId ? `?post=${sharedPostId}` : ""}`}>
+                            <Button color={"success"} className="downloadBtn">
+                                ✓ แชร์แล้ว · เปิดดูในฟีด
+                            </Button>
+                        </a>
+                    )
+                )}
+                <a href={`${getWorkspaceAppUrl()}/community`}>
+                    <Button color={"default"} bordered className="downloadBtn">
+                        ← SIET Space
+                    </Button>
+                </a>
             </div>
         </ComponentWithStyle>
     )

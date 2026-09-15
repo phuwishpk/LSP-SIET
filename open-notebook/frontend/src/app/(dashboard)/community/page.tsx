@@ -17,6 +17,7 @@ import { CreatorBox } from '@/components/community/CreatorBox'
 import { PostCard } from '@/components/community/PostCard'
 import { AiQuickWidget } from '@/components/community/AiQuickWidget'
 import { Leaderboard, PopularRoadmaps } from '@/components/community/Leaderboard'
+import { ShareMyWorkButton } from '@/components/community/ShareMyWorkDialog'
 
 export default function CommunityPage() {
   return (
@@ -135,7 +136,18 @@ function CommunityContent() {
           ) : (
             <>
               {view !== 'materials' && view !== 'saved' && (
-                <CreatorBox defaultCourseId={courseId} isStaff={isStaff} />
+                <>
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-orange-200/70 bg-gradient-to-r from-orange-50 to-rose-50 px-4 py-3 dark:border-orange-900/60 dark:from-orange-950/30 dark:to-rose-950/30">
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">มีควิซ Roadmap หรือสรุปที่ทำไว้แล้ว?</p>
+                      <p className="text-xs text-muted-foreground">
+                        เลือกผลงานของคุณขึ้นฟีดได้ทันที · เพื่อนเล่นควิซจบ ได้แต้มคืน +1/คน
+                      </p>
+                    </div>
+                    <ShareMyWorkButton defaultCourseId={courseId} />
+                  </div>
+                  <CreatorBox defaultCourseId={courseId} isStaff={isStaff} />
+                </>
               )}
               <div className="flex items-center justify-between px-1">
                 <h2 className="text-sm font-semibold text-muted-foreground">

@@ -87,7 +87,12 @@ export async function POST(req: Request) {
         correctAnswer: question.correct_answer,
         explanation: question.explanation,
       }));
-      return Response.json({ quiz });
+      return Response.json({
+        quiz,
+        // Open Notebook session id – lets the UI share this quiz to SIET Space.
+        session_id: workspaceData?.session?.id ?? null,
+        cached: Boolean(workspaceData?.cached),
+      });
     }
 
     const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
