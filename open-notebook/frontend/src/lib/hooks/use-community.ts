@@ -264,6 +264,20 @@ export function useAddComment() {
   })
 }
 
+export function useDeleteComment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ postId, commentId }: { postId: number; commentId: number }) =>
+      communityApi.deleteComment(postId, commentId),
+    onSuccess: (data, vars) => {
+      queryClient.setQueryData(COMMUNITY_KEYS.comments(vars.postId), data.comments)
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('ลบความคิดเห็นแล้ว')
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
 export function useToggleSave() {
   const queryClient = useQueryClient()
   return useMutation({

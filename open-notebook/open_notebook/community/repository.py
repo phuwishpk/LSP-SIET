@@ -986,6 +986,7 @@ async def list_comments(post_id: int, limit: int = 100) -> List[Dict[str, Any]]:
             "post_id": r["post_id"],
             "content": r["content"],
             "created_at": r["created_at"],
+            "author_id": r["author_id"],
             "author": {
                 "id": r["author_id"],
                 "username": r["author_username"],
@@ -1011,6 +1012,41 @@ async def add_comment(post_id: int, author_id: int, content: str) -> int:
             {"pid": post_id},
         )
         return int(result.lastrowid)
+
+
+async def get_comment(comment_id: int) -> Optional[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT * FROM post_comments WHERE id = :cid"), {"cid": comment_id}
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def delete_comment(comment_id: int, post_id: int) -> None:
+    """
+    Remove a comment for good.
+
+    Posts are only flagged as deleted so a moderator can undo it, but a comment
+    someone withdraws is expected to be gone. The count on the post is
+    recalculated rather than decremented, so it cannot drift below zero if the
+    same comment is deleted twice.
+    """
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("DELETE FROM post_comments WHERE id = :cid"), {"cid": comment_id}
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE posts SET comment_count =
+                    (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = :pid)
+                 WHERE id = :pid
+                """
+            ),
+            {"pid": post_id},
+        )
 
 
 async def record_share(post_id: int, user_id: int) -> bool:

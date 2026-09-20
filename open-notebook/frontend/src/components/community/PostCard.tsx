@@ -34,6 +34,7 @@ import { communityApi, type CommunityPost } from '@/lib/api/community'
 import {
   useAddComment,
   useComments,
+  useDeleteComment,
   useDeletePost,
   useEditPost,
   useReact,
@@ -67,6 +68,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   const remove = useDeletePost()
   const edit = useEditPost()
   const addComment = useAddComment()
+  const deleteComment = useDeleteComment()
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(post.title ?? '')
   const [draftContent, setDraftContent] = useState(post.content ?? '')
@@ -313,7 +315,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           <div className="space-y-3 border-t pt-3">
             {loadingComments && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
             {comments?.map((c) => (
-              <div key={c.id} className="flex items-start gap-2">
+              <div key={c.id} className="group flex items-start gap-2">
                 <Avatar size="sm" src={c.author.avatar_url} name={displayName(c.author)} />
                 <div className="min-w-0 flex-1 rounded-2xl bg-muted px-3 py-2">
                   <p className="text-xs font-semibold">
@@ -322,6 +324,27 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
                   </p>
                   <p className="whitespace-pre-wrap text-sm">{c.content}</p>
                 </div>
+                {c.can_delete && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 w-7 shrink-0 p-0 text-muted-foreground opacity-0 transition hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
+                    disabled={deleteComment.isPending}
+                    aria-label="ลบความคิดเห็น"
+                    title={
+                      c.author_id === Number(me?.id)
+                        ? 'ลบความคิดเห็นของคุณ'
+                        : 'ลบความคิดเห็นในโพสต์ของคุณ'
+                    }
+                    onClick={() => {
+                      if (window.confirm('ลบความคิดเห็นนี้? การลบย้อนกลับไม่ได้')) {
+                        deleteComment.mutate({ postId: post.id, commentId: c.id })
+                      }
+                    }}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                )}
               </div>
             ))}
             {!loadingComments && (comments?.length ?? 0) === 0 && (
