@@ -2,7 +2,7 @@
 User domain model + repository.
 
 User accounts are stored in MariaDB (user service).
-All other workspace data (notebooks, cells, podcasts, etc.) stays in SurrealDB.
+All other workspace data (notebooks, sources, notes, etc.) stays in SurrealDB.
 Passwords are stored as bcrypt hashes; passwords are never returned through the API.
 """
 

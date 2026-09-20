@@ -60,6 +60,5 @@ vi.mock('@/lib/hooks/use-create-dialogs', () => ({
   useCreateDialogs: vi.fn(() => ({
     openSourceDialog: vi.fn(),
     openNotebookDialog: vi.fn(),
-    openPodcastDialog: vi.fn(),
   })),
 }))

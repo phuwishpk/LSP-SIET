@@ -16,10 +16,12 @@ class CommandService:
     ) -> str:
         """Submit a generic command job for background processing"""
         try:
-            # Ensure command modules are imported before submitting
-            # This is needed because submit_command validates against local registry
+            # Ensure command modules are imported before submitting: the
+            # registry that submit_command validates against is built by those
+            # imports. (The podcast module used to be imported here; it was
+            # removed along with the rest of the unused podcast subsystem.)
             try:
-                import commands.podcast_commands  # noqa: F401
+                import commands  # noqa: F401
             except ImportError as import_err:
                 logger.error(f"Failed to import command modules: {import_err}")
                 raise ValueError("Command modules not available")

@@ -41,7 +41,7 @@ const APP_CARDS: AppCard[] = [
     id: 'notebook',
     title: 'Open Notebook',
     description:
-      'Research assistant with notebooks, sources, notes, podcasts and the AI chat workspace.',
+      'Research assistant with notebooks, sources, notes and the AI chat workspace.',
     icon: BookOpen,
     href: '/search?mode=ask',
     external: false,

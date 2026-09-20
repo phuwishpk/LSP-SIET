@@ -11,7 +11,7 @@ The policy is expressed once, here, as path prefixes:
 
 * **student**  – community, knowledge library, quiz/roadmap generation, own profile
 * **teacher**  – everything a student can do, plus the Open Notebook research
-  surface (notebooks, sources, notes, chat, search, podcasts, transformations)
+  surface (notebooks, sources, notes, chat, search, transformations)
 * **admin**    – everything, including model configuration and API credentials
 
 Keeping it in middleware rather than per-route means a newly added router is
@@ -44,9 +44,6 @@ STAFF_PREFIXES: tuple[str, ...] = (
     "/api/insights",
     "/api/context",
     "/api/transformations",
-    "/api/podcasts",
-    "/api/episode-profiles",
-    "/api/speaker-profiles",
     "/api/chat",
     "/api/search",
     "/api/commands",
