@@ -14,6 +14,9 @@ The new **AI Features** (`/features`) page inside open-notebook folds in the
 generation logic from both standalone apps and is wired to whichever language
 model you configure in **Settings → Models**.
 
+> **จะติดตั้งบนเครื่องใหม่ เริ่มที่ [`docs/RUNBOOK.md`](docs/RUNBOOK.md)** — ขั้นตอนเดินตามได้จบในตัว
+> พร้อมวิธีตรวจว่ารันสำเร็จจริงและวิธีไล่หาสาเหตุเมื่อพอร์ต 3000 ไม่ขึ้น
+>
 > **คู่มือโครงสร้างระบบฉบับเต็ม (ภาษาไทย): [`docs/SYSTEM-GUIDE.md`](docs/SYSTEM-GUIDE.md)**
 > — สถาปัตยกรรม, tech stack, วิธีรัน, โครงสร้างเนื้อหา และสิทธิ์ของแต่ละบทบาท
 
@@ -21,6 +24,14 @@ model you configure in **Settings → Models**.
 
 ```bash
 make up
+```
+
+⚠️ **บน Windows ให้ตรวจ line ending ก่อน `make up` ครั้งแรก** — ถ้าเชลล์สคริปต์ถูก
+checkout เป็น CRLF เว็บที่พอร์ต 3000 จะไม่ขึ้นทั้งที่ `docker ps` รายงานว่าปกติ
+รายละเอียดอยู่ที่ [RUNBOOK ข้อ 2.2](docs/RUNBOOK.md)
+
+```bash
+git ls-files --eol docker/open-notebook/wait-for-api.sh    # ต้องได้ w/lf
 ```
 
 That target will:

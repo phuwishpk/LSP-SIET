@@ -217,6 +217,9 @@ kmitlAI/
 
 ## 5. การติดตั้งและวิธีรันระบบ
 
+> ถ้าต้องการแค่ขั้นตอนติดตั้งแบบเดินตามได้จบในตัว ใช้ [RUNBOOK.md](RUNBOOK.md) แทน
+> ข้อนี้ให้รายละเอียดครบกว่า แต่ยาวกว่าและปนกับเรื่องอื่น
+
 ### 5.1 ความต้องการของเครื่อง
 
 | รายการ | ขั้นต่ำ | หมายเหตุ |
@@ -226,7 +229,18 @@ kmitlAI/
 | พื้นที่ว่าง | ~15 GB | image ของ open-notebook อย่างเดียว ~4.2 GB |
 | git | มี | ใช้ clone โปรเจกต์ |
 | อินเทอร์เน็ต | ต้องมี | ตอน build และตอนเรียกโมเดล AI |
-| ระบบปฏิบัติการ | macOS / Linux / Windows (ผ่าน WSL2) | — |
+| ระบบปฏิบัติการ | macOS / Linux / Windows (WSL2 หรือ Git Bash) | ดูข้อควรระวังเรื่อง line ending ด้านล่าง |
+
+> **Windows: เรื่อง line ending คือกับดักอันดับหนึ่งของโปรเจกต์นี้**
+>
+> Git for Windows ตั้ง `core.autocrlf=true` มาให้โดยอัตโนมัติ แปลว่าทุกไฟล์ที่ checkout
+> ออกมาจะถูกแปลง LF → CRLF รวมถึงเชลล์สคริปต์ที่คอนเทนเนอร์ Linux ต้องรัน
+> เมื่อ `wait-for-api.sh` มี CRLF บรรทัดแรกจะกลายเป็น `#!/bin/sh\r` เคอร์เนลจึงไปหา
+> โปรแกรมชื่อ `/bin/sh\r` ซึ่งไม่มีอยู่ → สคริปต์ออกด้วย exit 127 → **หน้าเว็บที่พอร์ต
+> 3000 ไม่ขึ้น ทั้งที่ `docker ps` รายงานว่าคอนเทนเนอร์ Up ปกติ**
+>
+> repo มี `.gitattributes` ที่ pin ไฟล์กลุ่มนี้ไว้เป็น LF แล้ว จึงไม่ต้องไปแก้
+> `core.autocrlf` ของเครื่อง แต่**ต้องตรวจว่ามันทำงานจริง** ตามขั้นที่ 2 ข้างล่าง
 
 ### 5.2 ติดตั้งครั้งแรก (ทีละขั้น)
 
@@ -244,6 +258,28 @@ docker compose version      # ต้องเป็น v2 ขึ้นไป
 ```bash
 git clone https://github.com/phuwishpk/LSP-SIET.git kmitlAI
 cd kmitlAI
+```
+
+จากนั้น**ตรวจ line ending ทันที ก่อนทำอะไรต่อ** (ข้ามขั้นนี้ = เสี่ยงเจออาการพอร์ต
+3000 ไม่ขึ้นแบบหาสาเหตุยาก):
+
+```bash
+git ls-files --eol docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+```
+
+ต้องได้ `w/lf` ทั้งสองบรรทัด (`i/` คือในคลัง `w/` คือไฟล์จริงในเครื่อง):
+
+```
+i/lf    w/lf    attr/text eol=lf        docker/open-notebook/wait-for-api.sh
+i/lf    w/lf    attr/text eol=lf        open-notebook/dev-init.sh
+```
+
+ถ้าได้ `w/crlf` แปลว่า `.gitattributes` ยังไม่ถูกใช้ ให้บังคับ checkout ใหม่เฉพาะสองไฟล์นี้:
+
+```bash
+rm docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+git checkout -- docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+git ls-files --eol docker/open-notebook/wait-for-api.sh   # ตรวจซ้ำ ต้องเป็น w/lf
 ```
 
 **ขั้นที่ 3 — สร้างไฟล์ `.env`**
@@ -324,6 +360,24 @@ curl -o /dev/null -w 'api      %{http_code}
 ' http://localhost:5055/api/auth/status  # 200
 ```
 
+**อย่าเชื่อ `make ps` อย่างเดียว** — คอนเทนเนอร์ `kmitl_open_notebook_api` รัน 3
+โปรเซสอยู่ข้างในผ่าน supervisord (`api`, `worker`, `frontend`) ถ้าตัวใดตัวหนึ่งตาย
+คอนเทนเนอร์ยังรายงานว่า `Up` เหมือนเดิม ต้องเปิดดูข้างในด้วย:
+
+```bash
+docker logs kmitl_open_notebook_api 2>&1 | grep -E "entered RUNNING|FATAL"
+```
+
+ต้องเห็นครบทั้ง 3 ตัวเป็น RUNNING และ**ต้องไม่มีบรรทัด FATAL**:
+
+```
+INFO success: api entered RUNNING state, process has stayed up for > than 1 seconds
+INFO success: worker entered RUNNING state, process has stayed up for > than 3 seconds
+INFO success: frontend entered RUNNING state, process has stayed up for > than 10 seconds
+```
+
+ถ้าเจอ `gave up: frontend entered FATAL state` = พอร์ต 3000 จะไม่ขึ้น ดูข้อ 5.6
+
 เช็กลิสต์ในเว็บ:
 
 - [ ] ล็อกอิน `admin1` ได้ และเห็นเมนู "จัดการระบบ"
@@ -336,6 +390,21 @@ curl -o /dev/null -w 'api      %{http_code}
 
 **โค้ดอยู่ใน git ครบแล้ว** ทั้ง 3 แอปอยู่ใน repo เดียว ไม่มี submodule
 เครื่องใหม่แค่ `git clone` → `cp .env.example .env` → แก้ 3 บรรทัด → `make up`
+
+**ตรวจก่อนย้าย (ทำที่เครื่องเดิม)** — เครื่องใหม่จะได้เฉพาะสิ่งที่ commit แล้วเท่านั้น
+ถ้ามีการแก้ที่ยังค้างอยู่ เครื่องใหม่จะพังด้วยอาการที่เครื่องเดิมไม่เจอ:
+
+```bash
+git status --short          # ต้องว่าง
+git push                    # โค้ดขึ้น remote ครบ
+```
+
+สองอย่างที่ต้องอยู่ใน commit แน่ ๆ ไม่งั้นเครื่องใหม่ติดตั้งไม่ผ่าน:
+
+| ต้องมี | ถ้าไม่มีจะเจอ |
+|---|---|
+| `.gitattributes` ที่ pin `*.sh` เป็น `eol=lf` | เครื่อง Windows checkout สคริปต์เป็น CRLF → frontend exit 127 → พอร์ต 3000 ไม่ขึ้น |
+| migration ที่ใช้ไวยากรณ์ของ SurrealDB v2 | API รีสตาร์ทวนไม่จบตั้งแต่ครั้งแรก เพราะฐานข้อมูลใหม่ต้องรัน migration ครบทุกตัวตั้งแต่ 1 |
 
 **แต่ข้อมูลไม่ได้อยู่ใน git** — ถ้าต้องการยกข้อมูลไปด้วยต้องคัดลอกเอง
 
@@ -390,6 +459,9 @@ docker compose -p kmitlai restart open_notebook_api
 | อัปโหลดเอกสารแล้วสถานะค้าง `failed` | ยังไม่ได้ตั้ง default **embedding** model | ตั้งแล้วกด retry ที่เอกสารนั้น |
 | API ตอบ `Temporary failure in name resolution` | คอนเทนเนอร์ไม่ได้ต่อ network หลัง `docker compose down` | `docker compose -p kmitlai up -d --force-recreate` (`docker restart` ไม่ผูก network กลับ) |
 | ไม่แน่ใจว่าคุยกับ stack ไหนอยู่ | dev กับ prod ใช้พอร์ตชุดเดียวกัน | `docker ps` ดูชื่อคอนเทนเนอร์ — `kmitl_*` คือ prod, `kmitlai_dev_*` คือ dev |
+| **`localhost:3000` ไม่ขึ้นเลย แต่ `docker ps` บอก `Up`** | `frontend` ตายอยู่ข้างในคอนเทนเนอร์ — log จะมี `wait-for-api.sh: cannot execute: required file not found`, `exited: frontend (exit status 127)` แล้วจบด้วย `gave up: frontend entered FATAL state` สาเหตุคือสคริปต์ถูก checkout เป็น CRLF (ดูข้อ 5.1) | ทำตามขั้นที่ 2 ของข้อ 5.2 ให้ไฟล์เป็น LF แล้ว **build ใหม่** — `docker compose -p kmitlai build open_notebook_api && docker compose -p kmitlai up -d --force-recreate open_notebook_api` |
+| API รีสตาร์ทวนไม่จบ + log ขึ้น `Failed to run database migrations` / `Parse error: Invalid function/constant path` | migration เรียกฟังก์ชัน SurrealQL ที่ถูกถอดออกไปใน SurrealDB v2 (เช่น `array::sort::uniq` ซึ่งต้องเขียนเป็น `array::sort(array::distinct(...))` แทน) | ดึงโค้ดล่าสุดให้ครบแล้ว build ใหม่ — ห้ามแก้เฉพาะไฟล์ในคอนเทนเนอร์ด้วย `docker cp` เพราะจะหายเมื่อคอนเทนเนอร์ถูก recreate |
+| แก้ไฟล์ในคอนเทนเนอร์แล้วดีอยู่พักหนึ่ง จู่ ๆ กลับมาพังเหมือนเดิม | `docker cp` / แก้ไฟล์สด ๆ อยู่บน writable layer ของคอนเทนเนอร์ `docker restart` รอด แต่ `docker compose up` / `--force-recreate` จะสร้างคอนเทนเนอร์ใหม่จาก image เดิมทำให้การแก้หายไป | แก้ที่ซอร์สแล้ว `build` ใหม่เสมอ |
 
 ### 5.7 รันแบบ production (รันประจำวัน)
 
