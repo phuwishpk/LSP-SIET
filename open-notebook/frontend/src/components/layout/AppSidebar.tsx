@@ -142,7 +142,7 @@ export function AppSidebar() {
       >
         <div
           className={cn(
-            'flex h-16 items-center group',
+            'flex h-16 shrink-0 items-center group',
             isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
           )}
         >
@@ -187,7 +187,7 @@ export function AppSidebar() {
 
         <nav
           className={cn(
-            'flex-1 space-y-1 py-4',
+            'min-h-0 flex-1 space-y-1 overflow-y-auto py-4',
             isCollapsed ? 'px-2' : 'px-3'
           )}
         >
@@ -322,7 +322,7 @@ export function AppSidebar() {
 
         <div
           className={cn(
-            'border-t border-sidebar-border p-3 space-y-2',
+            'shrink-0 border-t border-sidebar-border p-3 space-y-2',
             isCollapsed && 'px-2'
           )}
         >

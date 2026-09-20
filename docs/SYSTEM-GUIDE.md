@@ -910,6 +910,9 @@ POST   /admin/import/users
 
 ## 11. ฐานข้อมูล
 
+> ผัง ER ฉบับเต็มพร้อมคีย์และความสัมพันธ์ทุกเส้น (Mermaid ใช้ได้เลย):
+> **[docs/ER-DIAGRAM.md](ER-DIAGRAM.md)**
+
 ### MariaDB — ฐาน `workspace` (13 ตาราง)
 
 | ตาราง | เก็บอะไร |
