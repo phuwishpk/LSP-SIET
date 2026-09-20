@@ -88,6 +88,9 @@ export interface PostComment {
   content: string
   created_at: string
   author: CommunityUserBrief
+  author_id: number
+  /** The server decides: comment author, post owner, or admin. */
+  can_delete: boolean
 }
 
 export interface CommunityPost {
@@ -437,6 +440,12 @@ export const communityApi = {
       await apiClient.post<{ comments: PostComment[] }>(`/community/posts/${postId}/comments`, {
         content,
       })
+    ).data,
+  deleteComment: async (postId: number, commentId: number) =>
+    (
+      await apiClient.delete<{ ok: boolean; comments: PostComment[] }>(
+        `/community/posts/${postId}/comments/${commentId}`
+      )
     ).data,
   toggleSave: async (postId: number) =>
     (await apiClient.post<{ saved: boolean }>(`/community/posts/${postId}/save`)).data,

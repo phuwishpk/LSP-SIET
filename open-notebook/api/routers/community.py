@@ -637,10 +637,27 @@ async def react(post_id: int, body: ReactionBody, user: User = Depends(get_curre
     return {"active": active, "counts": fresh["counts"] if fresh else {}, "viewer": fresh["viewer"] if fresh else {}}
 
 
+def _mark_deletable(
+    comments: List[Dict[str, Any]], user: User, post: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """
+    Flag the comments this viewer is allowed to remove.
+
+    Three people can: whoever wrote it, whoever owns the post (moderating their
+    own thread, as on any social feed), and an admin.
+    """
+    uid = _uid(user)
+    owns_post = int(post.get("author_id") or 0) == uid
+    is_admin = user.role == USER_ROLE_ADMIN
+    for c in comments:
+        c["can_delete"] = bool(int(c.get("author_id") or 0) == uid or owns_post or is_admin)
+    return comments
+
+
 @router.get("/posts/{post_id}/comments")
 async def list_comments(post_id: int, user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    await _post_or_404(post_id)
-    return await repo.list_comments(post_id)
+    post = await _post_or_404(post_id)
+    return _mark_deletable(await repo.list_comments(post_id), user, post)
 
 
 @router.post("/posts/{post_id}/comments", status_code=201)
@@ -653,7 +670,36 @@ async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_
         int(post["author_id"]), "comment",
         f"{_display(user)} แสดงความคิดเห็นในโพสต์ของคุณ", post_id=post_id, actor_id=uid,
     )
-    return {"comments": await repo.list_comments(post_id)}
+    return {"comments": _mark_deletable(await repo.list_comments(post_id), user, post)}
+
+
+@router.delete("/posts/{post_id}/comments/{comment_id}")
+async def delete_comment(
+    post_id: int, comment_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Remove a comment. Unlike a post, this really deletes the row."""
+    post = await _post_or_404(post_id)
+    comment = await repo.get_comment(comment_id)
+    if not comment or int(comment["post_id"]) != post_id:
+        raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นนี้")
+
+    uid = _uid(user)
+    allowed = (
+        int(comment["author_id"]) == uid
+        or int(post.get("author_id") or 0) == uid
+        or user.role == USER_ROLE_ADMIN
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=403, detail="ลบได้เฉพาะความคิดเห็นของตัวเอง หรือในโพสต์ของคุณเอง"
+        )
+
+    await repo.delete_comment(comment_id, post_id)
+    return {
+        "ok": True,
+        "deleted": comment_id,
+        "comments": _mark_deletable(await repo.list_comments(post_id), user, post),
+    }
 
 
 @router.post("/posts/{post_id}/save")
