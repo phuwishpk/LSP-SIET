@@ -34,3 +34,7 @@ logs/
 # Build outputs (other)
 **/dist/
 **/build/
+# Data bundles / DB dumps produced by deploy/export-data.sh (contain user data + .env)
+deploy/*.tar.gz
+deploy/*.sql
+.env.bak-*
