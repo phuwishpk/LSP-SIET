@@ -30,10 +30,11 @@ import { Textarea } from '@/components/ui/textarea'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { useAsk, useCourses, useWallet, toastApiError } from '@/lib/hooks/use-community'
-import { useLibrary } from '@/lib/hooks/use-library'
+import { useKnowledge, useLibrary } from '@/lib/hooks/use-library'
 import { describeApiError, type AskCitation } from '@/lib/api/community'
 import type { AskScope } from '@/lib/api/library'
 import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
+import { decodePick, pickFromParams, pickToAskFields } from '@/lib/utils/knowledge-pick'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -76,15 +77,18 @@ function AskContent() {
   const { data: wallet } = useWallet()
   const { data: courses } = useCourses()
   const { data: library } = useLibrary()
+  const { data: knowledge } = useKnowledge()
 
   const initialCourse = params.get('course') ? Number(params.get('course')) : null
-  const initialDoc = params.get('doc') ? Number(params.get('doc')) : null
+  // ?doc=12, ?notebook=notebook:abc or ?source=source:xyz preselect the dropdown.
+  const initialPick = pickFromParams(params)
 
   const [scope, setScope] = useState<AskScope>(
-    initialDoc ? 'document' : initialCourse ? 'course' : 'auto'
+    initialPick ? 'document' : initialCourse ? 'course' : 'auto'
   )
   const [scopeCourseId, setScopeCourseId] = useState<number | null>(initialCourse)
-  const [docId, setDocId] = useState<number | null>(initialDoc)
+  // Encoded dropdown value: an uploaded document, a whole notebook, or one source.
+  const [pickValue, setPickValue] = useState<string | null>(initialPick)
   const [mode, setMode] = useState<'single' | 'session'>('single')
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [creditsLeft, setCreditsLeft] = useState<number | null>(null)
@@ -107,7 +111,36 @@ function AskContent() {
     [library]
   )
   const scopeCourse = courseOptions.find((c) => c.id === scopeCourseId)
-  const scopeDoc = readyDocs.find((d) => d.id === docId)
+
+  // Notebooks built by admins/teachers + course libraries: the same list for
+  // every role, so a student can ask about material they cannot open in /notebooks.
+  const sharedNotebooks = useMemo(() => knowledge?.notebooks ?? [], [knowledge])
+  const pick = useMemo(() => decodePick(pickValue), [pickValue])
+  // Course documents are already listed as sources of their course notebook, so
+  // this group only carries the caller's own uploads (plus a deep-linked doc).
+  const myDocs = useMemo(
+    () =>
+      readyDocs.filter(
+        (d) => d.scope === 'personal' || (pick?.kind === 'doc' && pick.id === d.id)
+      ),
+    [pick, readyDocs]
+  )
+  const pickLabel = useMemo(() => {
+    if (!pick) return null
+    if (pick.kind === 'doc') {
+      const doc = readyDocs.find((d) => d.id === pick.id)
+      return doc ? { kind: 'document' as const, title: doc.title, count: 1 } : null
+    }
+    for (const nb of sharedNotebooks) {
+      if (pick.kind === 'notebook' && nb.id === pick.id) {
+        return { kind: 'notebook' as const, title: nb.name, count: nb.source_count }
+      }
+      const source = pick.kind === 'source' ? nb.sources.find((x) => x.id === pick.id) : undefined
+      if (source) return { kind: 'document' as const, title: source.title, count: 1 }
+    }
+    return null
+  }, [pick, readyDocs, sharedNotebooks])
+  const nothingToPick = myDocs.length === 0 && sharedNotebooks.length === 0
 
   // --- keep the transcript across navigation (per browser, never sent anywhere)
   useEffect(() => {
@@ -143,8 +176,11 @@ function AskContent() {
         toastApiError({ message: 'เลือกวิชาก่อนถามแบบเจาะจงรายวิชา' }, 'เลือกวิชาก่อน')
         return
       }
-      if (scope === 'document' && !docId) {
-        toastApiError({ message: 'เลือกเอกสารก่อนถามแบบเจาะจงเอกสาร' }, 'เลือกเอกสารก่อน')
+      if (scope === 'document' && !pick) {
+        toastApiError(
+          { message: 'เลือก notebook หรือเอกสารก่อนถามแบบเจาะจงเอกสาร' },
+          'เลือกเอกสารก่อน'
+        )
         return
       }
       setMessages((prev) => [...prev, { role: 'user', content: q, at: Date.now() }])
@@ -156,7 +192,9 @@ function AskContent() {
           mode,
           scope,
           course_id: scope === 'course' ? scopeCourseId : null,
-          document_ids: scope === 'document' && docId ? [docId] : [],
+          document_ids: [],
+          // A dropdown pick decides scope + ids together (whole notebook vs one document).
+          ...(scope === 'document' ? pickToAskFields(pick) : {}),
         },
         {
           onSuccess: (data) => {
@@ -189,7 +227,7 @@ function AskContent() {
         }
       )
     },
-    [ask, docId, mode, question, scope, scopeCourseId, sessionId]
+    [ask, mode, pick, question, scope, scopeCourseId, sessionId]
   )
 
   const clearAll = () => {
@@ -279,31 +317,56 @@ function AskContent() {
 
                 {scope === 'document' && (
                   <select
+                    aria-label="เลือก notebook หรือเอกสาร"
                     className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                    value={docId ?? ''}
-                    onChange={(e) => setDocId(e.target.value ? Number(e.target.value) : null)}
+                    value={pickValue ?? ''}
+                    onChange={(e) => setPickValue(e.target.value || null)}
+                    disabled={nothingToPick}
                   >
-                    <option value="">— เลือกเอกสาร —</option>
-                    {readyDocs.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.title}
-                      </option>
+                    <option value="">
+                      {nothingToPick ? '— ยังไม่มีเอกสารให้เลือก —' : '— เลือก notebook หรือเอกสาร —'}
+                    </option>
+                    {myDocs.length > 0 && (
+                      <optgroup label="ไฟล์ของฉัน">
+                        {myDocs.map((d) => (
+                          <option key={d.id} value={`doc:${d.id}`}>
+                            {d.title}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {sharedNotebooks.map((nb) => (
+                      <optgroup key={nb.id} label={`${nb.name} · ${nb.owner_label}`}>
+                        <option value={`nb:${nb.id}`}>
+                          ทั้ง notebook นี้ ({nb.source_count} เอกสาร)
+                        </option>
+                        {nb.sources.map((src) => (
+                          <option key={src.id} value={`src:${src.id}`} disabled={src.chunks === 0}>
+                            {src.title}
+                            {src.chunks === 0 ? ' (ยังไม่พร้อมค้น)' : ''}
+                          </option>
+                        ))}
+                      </optgroup>
                     ))}
                   </select>
                 )}
 
                 <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
                   {scope === 'auto' &&
-                    'ค้นจากไฟล์ของคุณเอง + คลังความรู้ของทุกวิชาที่คุณเข้าร่วม'}
+                    'ค้นจากไฟล์ของคุณเอง + คลังความรู้ของทุกวิชาที่คุณเข้าร่วม + notebook ที่อาจารย์และผู้ดูแลจัดทำไว้'}
                   {scope === 'course' &&
                     (scopeCourse
                       ? `ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา ${scopeCourse.code} เท่านั้น`
                       : 'เลือกวิชาที่ต้องการให้ AI อ่านเฉพาะเอกสารของวิชานั้น')}
                   {scope === 'personal' && 'ตอบจากไฟล์ที่คุณอัปโหลดเองเท่านั้น คนอื่นไม่เห็น'}
                   {scope === 'document' &&
-                    (scopeDoc
-                      ? `ตอบจากเอกสาร “${scopeDoc.title}” เท่านั้น`
-                      : 'เลือกเอกสารหนึ่งฉบับให้ AI อ่านเฉพาะฉบับนั้น')}
+                    (pickLabel
+                      ? pickLabel.kind === 'notebook'
+                        ? `ตอบจากทุกเอกสารใน notebook “${pickLabel.title}” (${pickLabel.count} เอกสาร)`
+                        : `ตอบจากเอกสาร “${pickLabel.title}” เท่านั้น`
+                      : nothingToPick
+                      ? 'ยังไม่มี notebook จากอาจารย์/ผู้ดูแล และคุณยังไม่ได้อัปโหลดไฟล์'
+                      : 'เลือก notebook ทั้งเล่ม หรือเอกสารหนึ่งฉบับ ให้ AI อ่านเฉพาะส่วนนั้น')}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
                   ถ้าขอบเขตที่เลือกยังไม่มีเอกสาร AI จะบอกตรง ๆ ว่าไม่มีข้อมูล ไม่เดาคำตอบ

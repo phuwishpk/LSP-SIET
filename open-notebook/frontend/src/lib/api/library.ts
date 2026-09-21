@@ -7,7 +7,7 @@ import type { QuizEmbedQuestion } from '@/lib/api/community'
 import type { RoadmapEdgePayload, RoadmapNodePayload } from '@/lib/api/features'
 
 export type LibraryScope = 'course' | 'personal'
-export type AskScope = 'auto' | 'course' | 'personal' | 'document'
+export type AskScope = 'auto' | 'course' | 'personal' | 'document' | 'notebook'
 export type DocumentStatus = 'processing' | 'ready' | 'failed'
 export type DocumentKind = 'file' | 'url' | 'text'
 
@@ -39,6 +39,32 @@ export interface LibraryListResponse {
   items: LibraryDocument[]
   stats: { course_docs: number; my_docs: number; processing: number }
   can_publish_course: boolean
+}
+
+/** One source inside a shared notebook. `chunks === 0` means it is not searchable yet. */
+export interface KnowledgeSource {
+  id: string
+  title: string
+  chunks: number
+}
+
+/**
+ * A notebook every role may ask about: research notebooks built by
+ * admins/teachers (`kind: 'staff'`) and live course libraries (`kind: 'course'`).
+ */
+export interface KnowledgeNotebook {
+  id: string
+  name: string
+  description: string
+  kind: 'staff' | 'course'
+  owner_label: string
+  source_count: number
+  sources: KnowledgeSource[]
+}
+
+export interface KnowledgeResponse {
+  notebooks: KnowledgeNotebook[]
+  stats: { notebooks: number; sources: number }
 }
 
 export interface UploadDocumentInput {
@@ -92,6 +118,10 @@ export const libraryApi = {
 
   get: async (id: number) =>
     (await apiClient.get<LibraryDocument>(`/community/library/${id}`)).data,
+
+  /** Shared notebooks (+ their sources) offered by the "เจาะจงเอกสาร" dropdown. */
+  knowledge: async () =>
+    (await apiClient.get<KnowledgeResponse>('/community/knowledge')).data,
 
   upload: async (input: UploadDocumentInput) => {
     const form = new FormData()

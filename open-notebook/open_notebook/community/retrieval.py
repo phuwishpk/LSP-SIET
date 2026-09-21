@@ -19,7 +19,7 @@ NOT for an explicit course/personal/document scope).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
@@ -62,9 +62,15 @@ async def search_in_notebooks(
     results: int = 8,
     minimum_score: float = DEFAULT_MIN_SIMILARITY,
     include_notes: bool = True,
+    source_ids: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Cosine search restricted to the documents inside ``notebook_ids``.
+
+    ``source_ids`` narrows it further to exactly those sources (they must still
+    belong to ``notebook_ids`` — the notebooks are the permission boundary, the
+    sources only a filter inside it). Notebook notes are skipped in that mode:
+    "answer from this one document" must not quote something else.
 
     Returns dicts shaped like the rest of the search helpers
     (``id``, ``title``, ``matches``, ``similarity``) so callers can treat the
@@ -74,8 +80,12 @@ async def search_in_notebooks(
         return []
 
     linked = await notebook_record_ids(notebook_ids)
-    source_ids, note_ids = linked["sources"], linked["notes"]
-    if not source_ids and not note_ids:
+    source_rids, note_ids = linked["sources"], linked["notes"]
+    if source_ids is not None:
+        wanted = {str(s) for s in source_ids}
+        source_rids = [s for s in source_rids if str(s) in wanted]
+        note_ids = []
+    if not source_rids and not note_ids:
         return []
 
     from open_notebook.utils.embedding import generate_embedding
@@ -83,9 +93,9 @@ async def search_in_notebooks(
     embedding = await generate_embedding(query)
     hits: List[Dict[str, Any]] = []
 
-    if source_ids:
+    if source_rids:
         params = {
-            "ids": source_ids,
+            "ids": source_rids,
             "q": embedding,
             "min": minimum_score,
             "k": int(results),

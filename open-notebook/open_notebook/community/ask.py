@@ -46,10 +46,16 @@ def _score(result: Dict[str, Any]) -> float:
     return 0.0
 
 
-async def _search_notebooks(question: str, notebook_ids: Sequence[str]) -> List[Any]:
-    """Search only the documents inside the given notebooks."""
+async def _search_notebooks(
+    question: str,
+    notebook_ids: Sequence[str],
+    source_ids: Optional[Sequence[str]] = None,
+) -> List[Any]:
+    """Search only the documents inside the given notebooks (or just ``source_ids``)."""
     try:
-        return await search_in_notebooks(question, notebook_ids, results=MAX_CHUNKS)
+        return await search_in_notebooks(
+            question, notebook_ids, results=MAX_CHUNKS, source_ids=source_ids
+        )
     except Exception as exc:
         logger.warning(f"quick-ask: scoped search failed: {exc}")
         return []
@@ -72,6 +78,7 @@ async def retrieve(
     notebook_ids: Optional[Sequence[str]] = None,
     *,
     allow_global_fallback: bool = True,
+    source_ids: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Return up to MAX_CHUNKS citation dicts: {index, id, title, snippet, score}.
@@ -82,7 +89,7 @@ async def retrieve(
     """
     results: List[Any] = []
     if notebook_ids:
-        results = await _search_notebooks(question, notebook_ids)
+        results = await _search_notebooks(question, notebook_ids, source_ids)
         if not results and not allow_global_fallback:
             return []
     if not results and allow_global_fallback:
@@ -163,12 +170,16 @@ async def quick_ask(
     notebook_ids: Optional[Sequence[str]] = None,
     scope_label: Optional[str] = None,
     allow_global_fallback: bool = True,
+    source_ids: Optional[Sequence[str]] = None,
 ) -> Dict[str, Any]:
     question = (question or "").strip()
     if not question:
         raise ValueError("question is required")
     citations = await retrieve(
-        question, notebook_ids, allow_global_fallback=allow_global_fallback
+        question,
+        notebook_ids,
+        allow_global_fallback=allow_global_fallback,
+        source_ids=source_ids,
     )
     prompt = _build_prompt(question, citations, history, language, scope_label)
     answer = await _invoke_chat(

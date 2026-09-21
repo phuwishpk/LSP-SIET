@@ -68,8 +68,16 @@ DENIED_MESSAGE = {
 }
 
 
-def required_role(path: str) -> Optional[str]:
+# Admin-only to CHANGE, but staff must be able to READ: the add-source dialog
+# takes its defaults from here. When a teacher could not read it, "embed" fell
+# back to off and every source a teacher added was invisible to the RAG.
+STAFF_READABLE_PATHS: tuple[str, ...] = ("/api/settings",)
+
+
+def required_role(path: str, method: str = "GET") -> Optional[str]:
     """Return the minimum role a path needs, or None when anyone signed in may use it."""
+    if method.upper() in ("GET", "HEAD") and path.rstrip("/") in STAFF_READABLE_PATHS:
+        return USER_ROLE_TEACHER
     for prefix in ADMIN_PREFIXES:
         if path == prefix or path.startswith(prefix + "/"):
             return USER_ROLE_ADMIN
@@ -97,7 +105,7 @@ class RoleAccessMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS" or path in self.exempt_paths:
             return await call_next(request)
 
-        needed = required_role(path)
+        needed = required_role(path, request.method)
         if needed is None:
             return await call_next(request)
 

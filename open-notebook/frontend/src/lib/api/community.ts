@@ -310,9 +310,13 @@ export interface AskRequest {
   session_id?: string | null
   mode?: 'single' | 'session'
   language?: string
-  scope?: 'auto' | 'course' | 'personal' | 'document'
+  scope?: 'auto' | 'course' | 'personal' | 'document' | 'notebook'
   course_id?: number | null
   document_ids?: number[]
+  /** Whole shared notebooks picked from GET /community/knowledge. */
+  notebook_ids?: string[]
+  /** Single sources inside a readable notebook. */
+  source_ids?: string[]
 }
 
 export interface QuizStartResponse {

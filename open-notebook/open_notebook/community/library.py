@@ -133,7 +133,8 @@ async def notebook_ids_for_scope(
     * ``course``   – one course library (any authenticated user may read it)
     * ``personal`` – only the caller's own uploads
     * ``auto``     – personal library + every course the caller belongs to
-                     (staff see every course library)
+                     (staff see every course library) + every shared staff
+                     notebook (see :func:`list_shared_notebooks`)
     """
     uid = int(user.id or 0)
     ids: List[str] = []
@@ -183,12 +184,298 @@ async def notebook_ids_for_scope(
                 )
             ).all()
     ids.extend(str(r[0]) for r in rows if r[0])
+    # Research notebooks prepared by admins/teachers are part of everybody's
+    # knowledge, not only of the person who built them.
+    ids.extend(await shared_notebook_ids())
     return list(dict.fromkeys(ids))
 
 
 # ---------------------------------------------------------------------------
 # Document bookkeeping (MariaDB)
 # ---------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Shared notebooks: staff research notebooks surfaced to every role
+# ---------------------------------------------------------------------------
+#
+# Admins and teachers prepare material in the Open Notebook research surface
+# (/notebooks), which students cannot open. Those notebooks are nevertheless the
+# richest knowledge in the workspace, so the community RAG exposes them
+# read-only: every signed-in user can pick one (or one of its sources) in the
+# "เจาะจงเอกสาร" dropdown and the "auto" scope searches them too.
+#
+# What is NEVER shared: a notebook owned by a student, anybody's personal
+# library notebook, archived notebooks, and notebooks of deleted courses.
+
+PERSONAL_NOTEBOOK_PREFIX = "[ส่วนตัว]"
+MAX_SHARED_NOTEBOOKS = 100
+MAX_SOURCES_PER_NOTEBOOK = 200
+_RECORD_ID_RE = re.compile(r"^(notebook|source):[A-Za-z0-9_\-]{1,64}$")
+
+ROLE_LABEL = {"admin": "ผู้ดูแลระบบ", "teacher": "อาจารย์"}
+
+
+def classify_notebook_owner(
+    owner_id: Any, *, staff_ids: set[int], course_ids: set[int]
+) -> Optional[str]:
+    """
+    Decide whether a notebook owner makes the notebook shareable.
+
+    Returns ``"staff"`` (built by an admin/teacher, or a legacy notebook from
+    before per-user ownership existed), ``"course"`` (a live course library) or
+    ``None`` when the notebook must stay private.
+    """
+    owner = str(owner_id or "").strip()
+    if owner in ("", "default", "None"):
+        return "staff"
+    if owner.startswith("course:"):
+        try:
+            return "course" if int(owner.split(":", 1)[1]) in course_ids else None
+        except ValueError:
+            return None
+    if owner.isdigit() and int(owner) in staff_ids:
+        return "staff"
+    return None
+
+
+def is_valid_record_id(value: Any, table: str) -> bool:
+    return (
+        isinstance(value, str)
+        and bool(_RECORD_ID_RE.match(value))
+        and value.startswith(f"{table}:")
+    )
+
+
+async def _sharing_context() -> Dict[str, Any]:
+    """Who is staff, which courses are live, which notebooks are private libraries."""
+    async with _mariadb_session() as session:
+        staff_rows = (
+            await session.execute(
+                text(
+                    "SELECT id, username, display_name, role FROM users "
+                    "WHERE role IN ('admin', 'teacher') AND IFNULL(disabled, 0) = 0"
+                )
+            )
+        ).all()
+        course_rows = (
+            await session.execute(
+                text("SELECT id, code, name, notebook_id FROM courses WHERE kind = 'course'")
+            )
+        ).all()
+        personal_rows = (
+            await session.execute(
+                text("SELECT library_notebook_id FROM users WHERE library_notebook_id IS NOT NULL")
+            )
+        ).all()
+    staff = {int(r._mapping["id"]): dict(r._mapping) for r in staff_rows}
+    courses = {int(r._mapping["id"]): dict(r._mapping) for r in course_rows}
+    return {
+        "staff": staff,
+        "courses": courses,
+        "personal_notebooks": {str(r[0]) for r in personal_rows if r[0]},
+        "course_notebooks": {
+            str(c["notebook_id"]) for c in courses.values() if c.get("notebook_id")
+        },
+    }
+
+
+async def list_shared_notebooks(*, with_sources: bool = True) -> List[Dict[str, Any]]:
+    """
+    Notebooks every signed-in user may read through the community RAG.
+
+    Each item: ``{id, name, description, kind, owner_label, source_count,
+    sources: [{id, title, chunks}]}``. Only notebooks that actually hold at
+    least one source are returned, so empty scratch notebooks never show up.
+    """
+    ctx = await _sharing_context()
+    staff_owner_ids = [str(uid) for uid in ctx["staff"]]
+    course_owner_ids = [f"course:{cid}" for cid in ctx["courses"]]
+    try:
+        rows = await repo_query(
+            """
+            SELECT id, name, description, owner_id, updated
+              FROM notebook
+             WHERE (archived = false OR archived = NONE)
+               AND (owner_id = "default" OR owner_id = NONE
+                    OR owner_id IN $staff OR owner_id IN $courses)
+               AND count(<-reference) > 0
+             ORDER BY name
+             LIMIT $limit
+            """,
+            {"staff": staff_owner_ids, "courses": course_owner_ids, "limit": MAX_SHARED_NOTEBOOKS},
+        )
+    except Exception as exc:
+        logger.warning(f"shared notebooks: listing failed: {exc}")
+        return []
+
+    notebooks: List[Dict[str, Any]] = []
+    for row in rows or []:
+        nb_id = str(row.get("id") or "")
+        name = str(row.get("name") or "")
+        if not nb_id or nb_id in ctx["personal_notebooks"]:
+            continue
+        # Belt and braces: a personal library whose MariaDB link was lost is
+        # still private, whoever owns it.
+        if name.startswith(PERSONAL_NOTEBOOK_PREFIX):
+            continue
+        kind = classify_notebook_owner(
+            row.get("owner_id"),
+            staff_ids=set(ctx["staff"]),
+            course_ids=set(ctx["courses"]),
+        )
+        if kind is None:
+            continue
+        owner = str(row.get("owner_id") or "")
+        if kind == "course":
+            course = ctx["courses"].get(int(owner.split(":", 1)[1]), {})
+            owner_label = f"คลังวิชา {course.get('code') or ''}".strip()
+        elif owner.isdigit():
+            person = ctx["staff"].get(int(owner), {})
+            who = person.get("display_name") or person.get("username") or "staff"
+            owner_label = f"{who} · {ROLE_LABEL.get(str(person.get('role')), 'อาจารย์')}"
+        else:
+            owner_label = "ส่วนกลาง · ผู้ดูแลระบบ"
+        notebooks.append(
+            {
+                "id": nb_id,
+                "name": name or "Notebook",
+                "description": str(row.get("description") or ""),
+                "kind": kind,
+                "owner_label": owner_label,
+                "source_count": 0,
+                "sources": [],
+            }
+        )
+
+    if not notebooks:
+        return []
+
+    nb_refs = [ensure_record_id(n["id"]) for n in notebooks]
+    try:
+        links = await repo_query(
+            "SELECT in AS source, out AS notebook FROM reference WHERE out IN $nbs",
+            {"nbs": nb_refs},
+        )
+    except Exception as exc:
+        logger.warning(f"shared notebooks: reference lookup failed: {exc}")
+        links = []
+    by_notebook: Dict[str, List[str]] = {}
+    for link in links or []:
+        by_notebook.setdefault(str(link.get("notebook")), []).append(str(link.get("source")))
+
+    titles: Dict[str, str] = {}
+    chunks: Dict[str, int] = {}
+    if with_sources:
+        all_sources = [ensure_record_id(s) for ids in by_notebook.values() for s in ids]
+        if all_sources:
+            try:
+                for src in await repo_query(
+                    "SELECT id, title FROM source WHERE id IN $ids", {"ids": all_sources}
+                ) or []:
+                    titles[str(src.get("id"))] = str(src.get("title") or "")
+                for agg in await repo_query(
+                    "SELECT source, count() AS chunks FROM source_embedding "
+                    "WHERE source IN $ids GROUP BY source",
+                    {"ids": all_sources},
+                ) or []:
+                    chunks[str(agg.get("source"))] = int(agg.get("chunks") or 0)
+            except Exception as exc:
+                logger.warning(f"shared notebooks: source lookup failed: {exc}")
+
+    for nb in notebooks:
+        source_ids = list(dict.fromkeys(by_notebook.get(nb["id"], [])))
+        nb["source_count"] = len(source_ids)
+        if with_sources:
+            nb["sources"] = [
+                {
+                    "id": sid,
+                    "title": titles.get(sid) or "เอกสารไม่มีชื่อ",
+                    "chunks": chunks.get(sid, 0),
+                }
+                for sid in source_ids[:MAX_SOURCES_PER_NOTEBOOK]
+            ]
+            nb["sources"].sort(key=lambda s: s["title"])
+    return [nb for nb in notebooks if nb["source_count"] > 0]
+
+
+async def shared_notebook_ids() -> List[str]:
+    return [nb["id"] for nb in await list_shared_notebooks(with_sources=False)]
+
+
+async def resolve_knowledge_pick(
+    user: User,
+    *,
+    notebook_ids: Optional[Sequence[str]] = None,
+    source_ids: Optional[Sequence[str]] = None,
+) -> Dict[str, Any]:
+    """
+    Validate a dropdown pick and turn it into a retrieval scope.
+
+    The ids come from the browser, so every one of them is checked against what
+    this user may read: shared notebooks, every course library and the user's
+    own personal library. Anything else (e.g. another student's private
+    notebook) is dropped, and an empty result raises instead of silently
+    widening the search.
+
+    Returns ``{"notebook_ids": [...], "source_ids": [...] | None, "label": str}``.
+    ``source_ids`` is ``None`` when whole notebooks were picked.
+    """
+    wanted_nbs = [n for n in (notebook_ids or []) if is_valid_record_id(n, "notebook")][:20]
+    wanted_srcs = [s for s in (source_ids or []) if is_valid_record_id(s, "source")][:20]
+    if not wanted_nbs and not wanted_srcs:
+        raise LibraryError("ยังไม่ได้เลือก notebook หรือเอกสาร")
+
+    shared = await list_shared_notebooks(with_sources=False)
+    names = {nb["id"]: nb["name"] for nb in shared}
+    ctx = await _sharing_context()
+    allowed = set(names) | ctx["course_notebooks"]
+    if user.library_notebook_id:
+        allowed.add(str(user.library_notebook_id))
+
+    if wanted_srcs:
+        links = await repo_query(
+            "SELECT in AS source, out AS notebook FROM reference "
+            "WHERE in IN $srcs AND out IN $nbs",
+            {
+                "srcs": [ensure_record_id(s) for s in wanted_srcs],
+                "nbs": [ensure_record_id(n) for n in allowed],
+            },
+        )
+        ok_sources = list(dict.fromkeys(str(l.get("source")) for l in links or []))
+        ok_notebooks = list(dict.fromkeys(str(l.get("notebook")) for l in links or []))
+        if not ok_sources:
+            raise LibraryError("ไม่พบเอกสารที่เลือก หรือคุณไม่มีสิทธิ์อ่านเอกสารนี้")
+        title_rows = await repo_query(
+            "SELECT id, title FROM source WHERE id IN $ids",
+            {"ids": [ensure_record_id(s) for s in ok_sources]},
+        )
+        first = next((str(r.get("title") or "") for r in title_rows or []), "")
+        label = f"เอกสาร “{first}”" if len(ok_sources) == 1 and first else f"เอกสารที่เลือก {len(ok_sources)} ฉบับ"
+        return {"notebook_ids": ok_notebooks, "source_ids": ok_sources, "label": label}
+
+    ok = [n for n in dict.fromkeys(wanted_nbs) if n in allowed]
+    if not ok:
+        raise LibraryError("ไม่พบ notebook ที่เลือก หรือคุณไม่มีสิทธิ์อ่าน notebook นี้")
+    label = (
+        f"Notebook “{names.get(ok[0], 'ที่เลือก')}”" if len(ok) == 1 else f"Notebook ที่เลือก {len(ok)} เล่ม"
+    )
+    return {"notebook_ids": ok, "source_ids": None, "label": label}
+
+
+async def scope_for_documents(user: User, document_ids: Sequence[int]) -> Dict[str, Any]:
+    """
+    Library documents → ``{"notebook_ids", "source_ids"}``.
+
+    A course notebook holds many documents, so "ask about this one document"
+    has to narrow the search to that document's source, not the whole notebook.
+    ``source_ids`` is ``None`` only for legacy rows that never recorded one.
+    """
+    docs = await list_documents_by_ids(user, list(document_ids))
+    notebooks = list(dict.fromkeys(str(d["notebook_id"]) for d in docs if d.get("notebook_id")))
+    sources = [str(d["source_id"]) for d in docs if d.get("source_id")]
+    complete = bool(docs) and len(sources) == len(docs)
+    return {"notebook_ids": notebooks, "source_ids": sources if complete else None}
 
 
 def _row(r: Any) -> Dict[str, Any]:

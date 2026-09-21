@@ -171,10 +171,14 @@ class AskBody(BaseModel):
     mode: Literal["single", "session"] = "single"
     language: str = "th"
     model_id: Optional[str] = None
-    # Knowledge scope: auto = my courses + my uploads
-    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    # Knowledge scope: auto = my courses + my uploads + shared staff notebooks
+    scope: Literal["auto", "course", "personal", "document", "notebook"] = "auto"
     course_id: Optional[int] = None
     document_ids: List[int] = Field(default_factory=list)
+    # Picks from GET /community/knowledge (validated server-side, never trusted):
+    # whole shared notebooks, or single sources inside a readable notebook.
+    notebook_ids: List[str] = Field(default_factory=list, max_length=20)
+    source_ids: List[str] = Field(default_factory=list, max_length=20)
 
 
 class StudyQuizBody(BaseModel):
@@ -1299,6 +1303,32 @@ async def delete_library_document(
     return {"ok": True}
 
 
+async def _resolve_pick(
+    user: User,
+    document_ids: List[int],
+    notebook_ids: List[str],
+    source_ids: List[str],
+) -> Optional[tuple[List[str], Optional[List[str]], str]]:
+    """
+    Explicit dropdown picks → ``(notebook_ids, source_ids, label)``, else None.
+
+    A single document means *that document*: the search is narrowed to its
+    source instead of the whole notebook that happens to hold it.
+    """
+    try:
+        if source_ids or notebook_ids:
+            pick = await library.resolve_knowledge_pick(
+                user, notebook_ids=notebook_ids, source_ids=source_ids
+            )
+            return pick["notebook_ids"], pick["source_ids"], pick["label"]
+        if document_ids:
+            docs = await library.scope_for_documents(user, document_ids)
+            return docs["notebook_ids"], docs["source_ids"], "เอกสารที่เลือก"
+    except library.LibraryError as exc:
+        raise _library_error(exc)
+    return None
+
+
 async def _resolve_scope(
     user: User,
     scope: str,
@@ -1329,7 +1359,7 @@ async def _resolve_scope(
     elif scope == library.SCOPE_PERSONAL:
         label = "เอกสารส่วนตัวของฉัน"
     else:
-        label = "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน"
+        label = "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน + Notebook ของอาจารย์/ผู้ดูแล"
     explicit = bool(document_ids) or scope in (library.SCOPE_COURSE, library.SCOPE_PERSONAL)
     return notebook_ids, label, not explicit
 
@@ -1452,6 +1482,29 @@ async def study_roadmap(
 
 
 # ---------------------------------------------------------------------------
+# Shared knowledge: staff notebooks every role can ask about
+# ---------------------------------------------------------------------------
+
+
+@router.get("/knowledge")
+async def list_knowledge(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Everything the "เจาะจงเอกสาร" dropdown offers besides the caller's own
+    library documents: research notebooks built by admins/teachers and live
+    course libraries, each with its sources. Read-only and the same for every
+    role — students cannot open /notebooks, but they can ask about its content.
+    """
+    notebooks = await library.list_shared_notebooks(with_sources=True)
+    return {
+        "notebooks": notebooks,
+        "stats": {
+            "notebooks": len(notebooks),
+            "sources": sum(nb["source_count"] for nb in notebooks),
+        },
+    }
+
+
+# ---------------------------------------------------------------------------
 # KMITL RAG AI quick-ask (1 pt / question, 4 pt / 5-message session)
 # ---------------------------------------------------------------------------
 
@@ -1459,9 +1512,19 @@ async def study_roadmap(
 @router.post("/ask")
 async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    notebook_ids, scope_label, allow_fallback = await _resolve_scope(
-        user, body.scope, body.course_id, body.document_ids
-    )
+    source_ids: Optional[List[str]] = None
+    if body.scope in ("document", "notebook") and not (
+        body.document_ids or body.notebook_ids or body.source_ids
+    ):
+        raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อนถาม")
+    pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
+    if pick is not None:
+        notebook_ids, source_ids, scope_label = pick
+        allow_fallback = False
+    else:
+        notebook_ids, scope_label, allow_fallback = await _resolve_scope(
+            user, body.scope, body.course_id, body.document_ids
+        )
     charge: Optional[points.Charge] = None
     session: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = body.session_id
@@ -1501,6 +1564,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             notebook_ids=notebook_ids or None,
             scope_label=scope_label,
             allow_global_fallback=allow_fallback,
+            source_ids=source_ids,
         )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
