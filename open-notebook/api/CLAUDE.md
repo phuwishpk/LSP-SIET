@@ -62,7 +62,6 @@ FastAPI application serving three architectural layers: routes (HTTP endpoints),
 - **routers/credentials.py**: CRUD + test + discover + migrate for credential management
 - **routers/transformations.py**: POST /transformations
 - **routers/insights.py**: GET /sources/{source_id}/insights
-- **routers/auth.py**: POST /auth/password (password-based auth)
 - **routers/languages.py**: GET /languages (available podcast languages via pycountry+babel)
 - **routers/commands.py**: GET /commands/{command_id} (job status tracking)
 

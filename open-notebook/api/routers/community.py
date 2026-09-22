@@ -179,6 +179,16 @@ class AskBody(BaseModel):
     # whole shared notebooks, or single sources inside a readable notebook.
     notebook_ids: List[str] = Field(default_factory=list, max_length=20)
     source_ids: List[str] = Field(default_factory=list, max_length=20)
+    # Google Search grounding: "auto" = only when the library does not cover the
+    # question, "always" = also to support the answer, "off" = library only.
+    web: Literal["auto", "always", "off"] = "auto"
+    # Stored chat history: append to this conversation (must be the caller's);
+    # omitted = a new conversation titled after the question.
+    conversation_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class RenameConversationBody(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
 
 
 class StudyQuizBody(BaseModel):
@@ -1359,7 +1369,11 @@ async def _resolve_scope(
     elif scope == library.SCOPE_PERSONAL:
         label = "เอกสารส่วนตัวของฉัน"
     else:
-        label = "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน + Notebook ของอาจารย์/ผู้ดูแล"
+        label = (
+            "ทุกแหล่งในระบบ (สิทธิ์ผู้ดูแล)"
+            if library.is_admin(user)
+            else "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน + Notebook ของอาจารย์/ผู้ดูแล"
+        )
     explicit = bool(document_ids) or scope in (library.SCOPE_COURSE, library.SCOPE_PERSONAL)
     return notebook_ids, label, not explicit
 
@@ -1494,9 +1508,11 @@ async def list_knowledge(user: User = Depends(get_current_user)) -> Dict[str, An
     course libraries, each with its sources. Read-only and the same for every
     role — students cannot open /notebooks, but they can ask about its content.
     """
-    notebooks = await library.list_shared_notebooks(with_sources=True)
+    notebooks = await library.list_shared_notebooks(with_sources=True, viewer=user)
     return {
         "notebooks": notebooks,
+        # Admins also receive every private notebook (visibility="private").
+        "sees_everything": library.is_admin(user),
         "stats": {
             "notebooks": len(notebooks),
             "sources": sum(nb["source_count"] for nb in notebooks),
@@ -1507,6 +1523,123 @@ async def list_knowledge(user: User = Depends(get_current_user)) -> Dict[str, An
 # ---------------------------------------------------------------------------
 # KMITL RAG AI quick-ask (1 pt / question, 4 pt / 5-message session)
 # ---------------------------------------------------------------------------
+
+
+async def _store_exchange(
+    uid: int,
+    body: AskBody,
+    result: Dict[str, Any],
+    scope_label: str,
+    grounded: bool,
+    charged: int,
+    session_id: Optional[str],
+    credits_left: Optional[int],
+) -> Optional[str]:
+    """
+    Append the question and answer to the caller's chat history.
+
+    History is a convenience on top of an answer that was already produced and
+    paid for, so a storage problem is logged and the answer still goes out.
+    """
+    try:
+        conversation_id = body.conversation_id
+        if conversation_id and not await repo.get_conversation(conversation_id, uid):
+            conversation_id = None  # not theirs or gone: start a fresh one
+        if not conversation_id:
+            conversation_id = await repo.create_conversation(uid, body.question, scope_label)
+        await repo.append_messages(
+            conversation_id,
+            [
+                {
+                    "role": "user",
+                    "content": body.question,
+                    "meta": {"scope": body.scope, "web": body.web},
+                },
+                {
+                    "role": "assistant",
+                    "content": result["answer"],
+                    "meta": {
+                        "citations": result.get("citations", []),
+                        "web_sources": result.get("web_sources", []),
+                        "web_used": bool(result.get("web_used")),
+                        "coverage": result.get("coverage"),
+                        "scope_label": scope_label,
+                        "grounded": grounded,
+                        "charged": charged,
+                        "session_id": session_id,
+                        "credits_left": credits_left,
+                    },
+                },
+            ],
+        )
+        return conversation_id
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(f"rag history: could not store exchange for user {uid}: {exc}")
+        return None
+
+
+def _conversation_public(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "title": row.get("title") or "บทสนทนาใหม่",
+        "scope_label": row.get("scope_label"),
+        "message_count": int(row.get("message_count") or 0),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+@router.get("/ask/history")
+async def list_ask_history(
+    limit: int = Query(default=50, ge=1, le=100),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """The caller's own KMITL RAG AI conversations, newest first (every role)."""
+    rows = await repo.list_conversations(_uid(user), limit=limit)
+    return {"items": [_conversation_public(r) for r in rows]}
+
+
+@router.get("/ask/history/{conversation_id}")
+async def get_ask_conversation(
+    conversation_id: str, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    row = await repo.get_conversation(conversation_id, _uid(user))
+    if not row:
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    messages = await repo.list_messages(conversation_id)
+    return {
+        **_conversation_public(row),
+        "messages": [
+            {
+                "id": m["id"],
+                "role": m["role"],
+                "content": m["content"],
+                "meta": m.get("meta") or {},
+                "created_at": m.get("created_at"),
+            }
+            for m in messages
+        ],
+    }
+
+
+@router.patch("/ask/history/{conversation_id}")
+async def rename_ask_conversation(
+    conversation_id: str,
+    body: RenameConversationBody,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    if not await repo.rename_conversation(conversation_id, _uid(user), body.title):
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    return {"ok": True}
+
+
+@router.delete("/ask/history/{conversation_id}")
+async def delete_ask_conversation(
+    conversation_id: str, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    if not await repo.delete_conversation(conversation_id, _uid(user)):
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    return {"ok": True}
 
 
 @router.post("/ask")
@@ -1565,6 +1698,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             scope_label=scope_label,
             allow_global_fallback=allow_fallback,
             source_ids=source_ids,
+            web=body.web,
         )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
@@ -1584,9 +1718,21 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         credits_left = int(session.get("credits_left") or 0) - 1
         await repo.update_rag_session(session_id or "", history, credits_left)
 
+    charged_amount = charge.amount if charge and charge.charged else 0
+    conversation_id = await _store_exchange(
+        uid, body, result, scope_label, bool(notebook_ids), charged_amount,
+        session_id if session else None, credits_left,
+    )
+
     return {
+        "conversation_id": conversation_id,
         "answer": result["answer"],
         "citations": result["citations"],
+        "web_sources": result.get("web_sources", []),
+        "web_used": bool(result.get("web_used")),
+        "web_queries": result.get("web_queries", []),
+        "web_mode": result.get("web_mode", "off"),
+        "coverage": result.get("coverage", "full"),
         "scope_label": scope_label,
         "grounded": bool(notebook_ids),
         "session_id": session_id if session else None,

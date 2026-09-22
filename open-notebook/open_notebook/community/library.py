@@ -186,7 +186,7 @@ async def notebook_ids_for_scope(
     ids.extend(str(r[0]) for r in rows if r[0])
     # Research notebooks prepared by admins/teachers are part of everybody's
     # knowledge, not only of the person who built them.
-    ids.extend(await shared_notebook_ids())
+    ids.extend(await visible_notebook_ids(user))
     return list(dict.fromkeys(ids))
 
 
@@ -239,6 +239,17 @@ def classify_notebook_owner(
     return None
 
 
+def classify_private_notebook(name: Any, notebook_id: str, personal_ids: set[str]) -> str:
+    """For the admin-only view: what kind of private notebook is this?"""
+    if notebook_id in personal_ids or str(name or "").startswith(PERSONAL_NOTEBOOK_PREFIX):
+        return "personal"  # somebody's private upload library
+    return "student"  # a notebook a student created in the research surface
+
+
+def is_admin(user: Optional[User]) -> bool:
+    return bool(user) and (user.role or "") == "admin"
+
+
 def is_valid_record_id(value: Any, table: str) -> bool:
     return (
         isinstance(value, str)
@@ -280,54 +291,103 @@ async def _sharing_context() -> Dict[str, Any]:
     }
 
 
-async def list_shared_notebooks(*, with_sources: bool = True) -> List[Dict[str, Any]]:
-    """
-    Notebooks every signed-in user may read through the community RAG.
+async def _owner_names(owner_ids: Sequence[str]) -> Dict[int, Dict[str, Any]]:
+    ids = sorted({int(o) for o in owner_ids if str(o).isdigit()})
+    if not ids:
+        return {}
+    placeholders = ", ".join(f":u{i}" for i in range(len(ids)))
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(f"SELECT id, username, display_name, role FROM users WHERE id IN ({placeholders})"),
+                {f"u{i}": v for i, v in enumerate(ids)},
+            )
+        ).all()
+    return {int(r._mapping["id"]): dict(r._mapping) for r in rows}
 
-    Each item: ``{id, name, description, kind, owner_label, source_count,
-    sources: [{id, title, chunks}]}``. Only notebooks that actually hold at
-    least one source are returned, so empty scratch notebooks never show up.
+
+async def list_shared_notebooks(
+    *, with_sources: bool = True, viewer: Optional[User] = None
+) -> List[Dict[str, Any]]:
     """
+    Notebooks the viewer may read through the community RAG.
+
+    Everybody gets the *shared* ones (staff research notebooks + live course
+    libraries). An **admin** additionally gets every private notebook in the
+    workspace, marked ``visibility="private"`` — the operator is accountable for
+    all content and must be able to inspect what the AI can be asked about.
+
+    Each item: ``{id, name, description, kind, visibility, owner_label,
+    archived, source_count, sources: [{id, title, chunks}]}``. Only notebooks
+    holding at least one source are returned, so empty scratch notebooks never
+    show up.
+    """
+    see_all = is_admin(viewer)
     ctx = await _sharing_context()
     staff_owner_ids = [str(uid) for uid in ctx["staff"]]
     course_owner_ids = [f"course:{cid}" for cid in ctx["courses"]]
     try:
-        rows = await repo_query(
-            """
-            SELECT id, name, description, owner_id, updated
-              FROM notebook
-             WHERE (archived = false OR archived = NONE)
-               AND (owner_id = "default" OR owner_id = NONE
-                    OR owner_id IN $staff OR owner_id IN $courses)
-               AND count(<-reference) > 0
-             ORDER BY name
-             LIMIT $limit
-            """,
-            {"staff": staff_owner_ids, "courses": course_owner_ids, "limit": MAX_SHARED_NOTEBOOKS},
-        )
+        if see_all:
+            rows = await repo_query(
+                """
+                SELECT id, name, description, owner_id, archived, updated
+                  FROM notebook
+                 WHERE count(<-reference) > 0
+                 ORDER BY name
+                 LIMIT $limit
+                """,
+                {"limit": MAX_SHARED_NOTEBOOKS * 5},
+            )
+        else:
+            rows = await repo_query(
+                """
+                SELECT id, name, description, owner_id, archived, updated
+                  FROM notebook
+                 WHERE (archived = false OR archived = NONE)
+                   AND (owner_id = "default" OR owner_id = NONE
+                        OR owner_id IN $staff OR owner_id IN $courses)
+                   AND count(<-reference) > 0
+                 ORDER BY name
+                 LIMIT $limit
+                """,
+                {"staff": staff_owner_ids, "courses": course_owner_ids, "limit": MAX_SHARED_NOTEBOOKS},
+            )
     except Exception as exc:
         logger.warning(f"shared notebooks: listing failed: {exc}")
         return []
+    people = await _owner_names([str(r.get("owner_id") or "") for r in rows or []]) if see_all else {}
 
     notebooks: List[Dict[str, Any]] = []
     for row in rows or []:
         nb_id = str(row.get("id") or "")
         name = str(row.get("name") or "")
-        if not nb_id or nb_id in ctx["personal_notebooks"]:
+        if not nb_id:
             continue
+        owner = str(row.get("owner_id") or "")
         # Belt and braces: a personal library whose MariaDB link was lost is
         # still private, whoever owns it.
-        if name.startswith(PERSONAL_NOTEBOOK_PREFIX):
-            continue
-        kind = classify_notebook_owner(
+        is_personal = nb_id in ctx["personal_notebooks"] or name.startswith(PERSONAL_NOTEBOOK_PREFIX)
+        kind = None if is_personal else classify_notebook_owner(
             row.get("owner_id"),
             staff_ids=set(ctx["staff"]),
             course_ids=set(ctx["courses"]),
         )
+        visibility = "shared"
         if kind is None:
-            continue
-        owner = str(row.get("owner_id") or "")
-        if kind == "course":
+            if not see_all:
+                continue
+            visibility = "private"
+            kind = classify_private_notebook(name, nb_id, ctx["personal_notebooks"])
+        if visibility == "private":
+            if owner.startswith("course:"):
+                # library of a course that has since been deleted
+                kind = "course"
+                owner_label = f"คลังวิชาที่ถูกลบแล้ว ({owner})"
+            else:
+                person = people.get(int(owner), {}) if owner.isdigit() else {}
+                who = person.get("display_name") or person.get("username") or (owner or "ไม่ทราบเจ้าของ")
+                owner_label = f"ส่วนตัวของ {who}"
+        elif kind == "course":
             course = ctx["courses"].get(int(owner.split(":", 1)[1]), {})
             owner_label = f"คลังวิชา {course.get('code') or ''}".strip()
         elif owner.isdigit():
@@ -342,6 +402,8 @@ async def list_shared_notebooks(*, with_sources: bool = True) -> List[Dict[str, 
                 "name": name or "Notebook",
                 "description": str(row.get("description") or ""),
                 "kind": kind,
+                "visibility": visibility,
+                "archived": bool(row.get("archived")),
                 "owner_label": owner_label,
                 "source_count": 0,
                 "sources": [],
@@ -403,6 +465,11 @@ async def shared_notebook_ids() -> List[str]:
     return [nb["id"] for nb in await list_shared_notebooks(with_sources=False)]
 
 
+async def visible_notebook_ids(user: User) -> List[str]:
+    """Shared notebooks for everybody; every notebook with content for an admin."""
+    return [nb["id"] for nb in await list_shared_notebooks(with_sources=False, viewer=user)]
+
+
 async def resolve_knowledge_pick(
     user: User,
     *,
@@ -426,7 +493,7 @@ async def resolve_knowledge_pick(
     if not wanted_nbs and not wanted_srcs:
         raise LibraryError("ยังไม่ได้เลือก notebook หรือเอกสาร")
 
-    shared = await list_shared_notebooks(with_sources=False)
+    shared = await list_shared_notebooks(with_sources=False, viewer=user)
     names = {nb["id"]: nb["name"] for nb in shared}
     ctx = await _sharing_context()
     allowed = set(names) | ctx["course_notebooks"]

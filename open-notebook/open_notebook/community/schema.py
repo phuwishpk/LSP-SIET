@@ -191,6 +191,33 @@ STATEMENTS: list[str] = [
         INDEX idx_rs_user (user_id, updated_at)
     ) {_TABLE_OPTS}
     """,
+    # ------------------------------------------------- RAG chat history
+    # Every question a user asks KMITL RAG AI (single or session mode, ask page
+    # or sidebar widget) is appended to a conversation the user can reopen,
+    # continue, rename or delete. Private to its owner - admins included.
+    f"""
+    CREATE TABLE IF NOT EXISTS rag_conversations (
+        id            VARCHAR(64) PRIMARY KEY,
+        user_id       INT NOT NULL,
+        title         VARCHAR(200) NOT NULL,
+        scope_label   VARCHAR(255) NULL,
+        message_count INT NOT NULL DEFAULT 0,
+        created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_rc_user (user_id, updated_at)
+    ) {_TABLE_OPTS}
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS rag_messages (
+        id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+        conversation_id VARCHAR(64) NOT NULL,
+        role            VARCHAR(16) NOT NULL,
+        content         LONGTEXT NOT NULL,
+        meta            LONGTEXT NULL,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_rm_conv (conversation_id, id)
+    ) {_TABLE_OPTS}
+    """,
     # ------------------------------------------------- knowledge library
     f"""
     CREATE TABLE IF NOT EXISTS library_documents (

@@ -290,11 +290,66 @@ export interface AskCitation {
   title: string
   snippet: string
   score?: number | null
+  /** True when the answer actually refers to this passage as [n]. */
+  cited?: boolean
+}
+
+/** A web page Google Search grounding used; referenced in the answer as [Wn]. */
+export interface AskWebSource {
+  index: number
+  title: string
+  url: string
+}
+
+/** auto = only when the library does not cover the question. */
+export type AskWebMode = 'auto' | 'always' | 'off'
+
+
+/** One stored KMITL RAG AI conversation (own history; every role). */
+export interface RagConversation {
+  id: string
+  title: string
+  scope_label?: string | null
+  message_count: number
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface RagStoredMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  meta: {
+    citations?: AskCitation[]
+    web_sources?: AskWebSource[]
+    web_used?: boolean
+    coverage?: 'full' | 'partial' | 'none'
+    scope_label?: string
+    grounded?: boolean
+    charged?: number
+    session_id?: string | null
+    credits_left?: number | null
+    scope?: string
+    web?: AskWebMode
+  }
+  created_at?: string | null
+}
+
+export interface RagConversationDetail extends RagConversation {
+  messages: RagStoredMessage[]
 }
 
 export interface AskResponse {
+  /** The stored conversation this exchange was appended to. */
+  conversation_id?: string | null
   answer: string
   citations: AskCitation[]
+  web_sources?: AskWebSource[]
+  web_used?: boolean
+  web_queries?: string[]
+  web_mode?: AskWebMode
+  /** How well the chosen scope answered the question. */
+  coverage?: 'full' | 'partial' | 'none'
   /** Human-readable description of the knowledge that was searched. */
   scope_label: string
   /** True when the answer actually had documents to cite from that scope. */
@@ -317,6 +372,10 @@ export interface AskRequest {
   notebook_ids?: string[]
   /** Single sources inside a readable notebook. */
   source_ids?: string[]
+  /** Google Search grounding for out-of-scope questions / supporting facts. */
+  web?: AskWebMode
+  /** Continue a stored conversation; omitted = start a new one. */
+  conversation_id?: string | null
 }
 
 export interface QuizStartResponse {
@@ -518,6 +577,15 @@ export const communityApi = {
     ).data,
   ask: async (body: AskRequest) =>
     (await apiClient.post<AskResponse>('/community/ask', body)).data,
+
+  askHistory: async (limit = 50) =>
+    (await apiClient.get<{ items: RagConversation[] }>('/community/ask/history', { params: { limit } })).data,
+  askConversation: async (id: string) =>
+    (await apiClient.get<RagConversationDetail>(`/community/ask/history/${encodeURIComponent(id)}`)).data,
+  renameConversation: async (id: string, title: string) =>
+    (await apiClient.patch(`/community/ask/history/${encodeURIComponent(id)}`, { title })).data,
+  deleteConversation: async (id: string) =>
+    (await apiClient.delete(`/community/ask/history/${encodeURIComponent(id)}`)).data,
 }
 
 // ---------------------------------------------------------------------------

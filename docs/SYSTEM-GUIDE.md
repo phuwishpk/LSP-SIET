@@ -682,8 +682,16 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | | เลือกรูปแบบ: คำถามเดี่ยว หรือเซสชันต่อเนื่อง พร้อมราคาแต้ม และปุ่มล้างบทสนทนา |
 | คอลัมน์ขวา | บทสนทนาแบบเต็มจอ, คำถามตัวอย่างให้กดเริ่ม, แหล่งอ้างอิงกดขยายอ่านข้อความต้นฉบับได้ |
 
-บทสนทนาถูกเก็บไว้ใน `localStorage` ของเบราว์เซอร์ (40 ข้อความล่าสุด) ออกจากหน้าแล้วกลับมาไม่หาย
-ไม่ได้ส่งขึ้นเซิร์ฟเวอร์ · รองรับลิงก์ตรง `?course=<id>` และ `?doc=<id>`
+ทุกครั้งที่ถาม บทสนทนาจะถูกบันทึกลง MariaDB (`rag_conversations` + `rag_messages`)
+ไม่ว่าจะถามจากกล่องด้านขวาหรือหน้าเต็ม และไม่ว่าผู้ถามจะมีบทบาทใด ·
+เปิดอ่านย้อนหลังได้จากแผงประวัติ (`AskHistoryPanel.tsx`) หรือลิงก์ตรง `?c=<conversation_id>` ·
+บทสนทนาเป็นของเจ้าของคนเดียว แม้แต่ admin ก็เปิดของคนอื่นไม่ได้ (ตอบ `404` โดยตั้งใจ) ·
+รองรับลิงก์ตรง `?course=<id>` และ `?doc=<id>` ด้วย
+
+> **เปลี่ยนจากเดิม** ก่อนหน้านี้ประวัติเก็บใน `localStorage` ของเบราว์เซอร์ 40 ข้อความ
+> และไม่ส่งขึ้นเซิร์ฟเวอร์เลย ตอนนี้ย้ายขึ้นเซิร์ฟเวอร์แล้วและ transcript ใน
+> `localStorage` ถูกถอดออก · อย่าสับสนกับตาราง `rag_sessions` ซึ่งเป็นคนละเรื่อง
+> ใช้นับโควตา 5 ข้อความของเซสชันแบบเสียแต้ม และยังใช้งานอยู่
 
 > หมายเหตุใต้คำตอบมี 3 แบบ: **📚 อ้างอิงจาก …** (เจอในขอบเขตที่เลือก),
 > **ℹ️ ไม่พบใน … ตอบจากคลังทั้งหมดแทน** (เกิดเฉพาะโหมด `auto` ที่ยอมให้ขยายขอบเขต)
@@ -915,8 +923,9 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 ### เข้าสู่ระบบ / สมัครสมาชิก
 ```
 POST /users/login                  · POST /users/register  (201 + token, role=student)
-GET  /auth/status                  · GET  /auth/google/start
-POST /auth/google/exchange
+POST /users/logout                 · GET  /users/me
+GET  /auth/status                  · GET  /auth/legacy-status
+GET  /auth/google/start            · POST /auth/google/exchange
 ```
 
 ### ชุมชน — โปรไฟล์และห้อง
@@ -934,6 +943,7 @@ GET    /community/posts/{id}       · PUT    /community/posts/{id}
 DELETE /community/posts/{id}       · GET    /community/posts/{id}/attachment
 POST   /community/posts/{id}/reactions
 GET    /community/posts/{id}/comments  · POST /community/posts/{id}/comments
+DELETE /community/posts/{id}/comments/{comment_id}
 POST   /community/posts/{id}/save  · POST   /community/posts/{id}/share
 ```
 
@@ -948,7 +958,10 @@ POST /community/posts/{id}/quiz/import  · POST /community/posts/{id}/roadmap/fo
 GET  /community/library            · POST   /community/library
 GET  /community/library/{id}       · DELETE /community/library/{id}
 POST /community/library/{id}/retry
-POST /community/ask                (scope = auto | course | personal | document)
+GET  /community/knowledge          (คลัง/เอกสารที่เลือกให้ AI อ่านได้)
+POST /community/ask                (scope = auto | course | personal | document | notebook)
+GET    /community/ask/history      · GET    /community/ask/history/{id}
+PATCH  /community/ask/history/{id} · DELETE /community/ask/history/{id}
 POST /community/study/quiz         · POST /community/study/roadmap
 ```
 

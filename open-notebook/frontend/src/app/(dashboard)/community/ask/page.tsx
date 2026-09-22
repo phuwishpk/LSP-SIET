@@ -6,7 +6,8 @@
  * The right-hand widget on /community is for a quick one-liner; this page is
  * where a real study session happens: a roomy transcript, the retrieval scope
  * spelled out rather than hidden behind chips, citations you can actually read,
- * and the conversation kept in localStorage so navigating away does not lose it.
+ * and every exchange stored on the server (per account, any device): the
+ * history panel reopens, continues, renames or deletes past conversations.
  */
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -18,6 +19,7 @@ import {
   FileText,
   Globe2,
   Lock,
+  Plus,
   RotateCcw,
   Send,
   Sparkles,
@@ -28,10 +30,31 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
+import { AnswerReferences } from '@/components/community/AnswerReferences'
+import { AskHistoryPanel } from '@/components/community/AskHistoryPanel'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
-import { useAsk, useCourses, useWallet, toastApiError } from '@/lib/hooks/use-community'
+import { UploadCard } from '@/components/community/LibraryPanel'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import {
+  ASK_HISTORY_KEYS,
+  useAsk,
+  useAskConversation,
+  useCourses,
+  useWallet,
+  toastApiError,
+} from '@/lib/hooks/use-community'
+import { useQueryClient } from '@tanstack/react-query'
 import { useKnowledge, useLibrary } from '@/lib/hooks/use-library'
-import { describeApiError, type AskCitation } from '@/lib/api/community'
+import {
+  describeApiError,
+  type AskCitation,
+  type AskWebMode,
+  type AskWebSource,
+  type RagStoredMessage,
+} from '@/lib/api/community'
+import { useAuthStore } from '@/lib/stores/auth-store'
+import { isStaff, type Role } from '@/lib/roles'
 import type { AskScope } from '@/lib/api/library'
 import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
 import { decodePick, pickFromParams, pickToAskFields } from '@/lib/utils/knowledge-pick'
@@ -41,13 +64,32 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   citations?: AskCitation[]
+  webSources?: AskWebSource[]
+  coverage?: 'full' | 'partial' | 'none'
   charged?: number
   scopeLabel?: string
   grounded?: boolean
   at: number
 }
 
-const STORAGE_KEY = 'siet-rag-transcript'
+/** Stored messages -> the shape the transcript renders. */
+function fromStored(stored: RagStoredMessage[]): Message[] {
+  return stored.map((m) => {
+    const at = m.created_at ? new Date(m.created_at).getTime() || m.id : m.id
+    if (m.role === 'user') return { role: 'user', content: m.content, at }
+    return {
+      role: 'assistant',
+      content: m.content,
+      citations: m.meta.citations,
+      webSources: m.meta.web_sources,
+      coverage: m.meta.coverage,
+      charged: m.meta.charged,
+      scopeLabel: m.meta.scope_label,
+      grounded: m.meta.grounded,
+      at,
+    }
+  })
+}
 
 const EXAMPLES = [
   'สรุปเงื่อนไข 4 ข้อของ deadlock พร้อมตัวอย่าง',
@@ -90,9 +132,17 @@ function AskContent() {
   // Encoded dropdown value: an uploaded document, a whole notebook, or one source.
   const [pickValue, setPickValue] = useState<string | null>(initialPick)
   const [mode, setMode] = useState<'single' | 'session'>('single')
+  // Google Search grounding: auto = only when the library does not cover the question.
+  const [webMode, setWebMode] = useState<AskWebMode>('auto')
+  const [addOpen, setAddOpen] = useState(false)
+  const role = useAuthStore((s) => s.user?.role) as Role
   const [sessionId, setSessionId] = useState<string | null>(null)
   const [creditsLeft, setCreditsLeft] = useState<number | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
+  // ?c=<id> reopens a stored conversation; a new one starts without it.
+  const [conversationId, setConversationId] = useState<string | null>(params.get('c'))
+  const stored = useAskConversation(conversationId)
+  const queryClient = useQueryClient()
   const [question, setQuestion] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -142,23 +192,27 @@ function AskContent() {
   }, [pick, readyDocs, sharedNotebooks])
   const nothingToPick = myDocs.length === 0 && sharedNotebooks.length === 0
 
-  // --- keep the transcript across navigation (per browser, never sent anywhere)
+  // --- a reopened conversation replaces the transcript (and resumes an open session)
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY)
-      if (raw) setMessages(JSON.parse(raw) as Message[])
-    } catch {
-      /* private window or blocked storage – the page works without it */
+    if (!conversationId) return
+    if (stored.isError) {
+      toastApiError(stored.error, 'ไม่พบบทสนทนานี้')
+      setConversationId(null)
+      router.replace('/community/ask')
+      return
     }
-  }, [])
-
-  useEffect(() => {
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-40)))
-    } catch {
-      /* ignore */
+    if (!stored.data) return
+    setMessages(fromStored(stored.data.messages))
+    const last = [...stored.data.messages].reverse().find((m) => m.role === 'assistant')
+    const credits = last?.meta.credits_left ?? 0
+    if (last?.meta.session_id && credits > 0) {
+      setSessionId(last.meta.session_id)
+      setCreditsLeft(credits)
+    } else {
+      setSessionId(null)
+      setCreditsLeft(null)
     }
-  }, [messages])
+  }, [conversationId, stored.data, stored.isError, stored.error, router])
 
   useEffect(() => {
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
@@ -195,15 +249,27 @@ function AskContent() {
           document_ids: [],
           // A dropdown pick decides scope + ids together (whole notebook vs one document).
           ...(scope === 'document' ? pickToAskFields(pick) : {}),
+          web: webMode,
+          conversation_id: conversationId,
         },
         {
           onSuccess: (data) => {
+            if (data.conversation_id && data.conversation_id !== conversationId) {
+              setConversationId(data.conversation_id)
+              router.replace(`/community/ask?c=${encodeURIComponent(data.conversation_id)}`)
+            }
+            if (data.conversation_id) {
+              // keep a reopened conversation's cache in step without a refetch
+              queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.detail(data.conversation_id) })
+            }
             setMessages((prev) => [
               ...prev,
               {
                 role: 'assistant',
                 content: data.answer,
                 citations: data.citations,
+                webSources: data.web_sources ?? [],
+                coverage: data.coverage,
                 charged: data.charged,
                 scopeLabel: data.scope_label,
                 grounded: data.grounded,
@@ -227,19 +293,30 @@ function AskContent() {
         }
       )
     },
-    [ask, mode, pick, question, scope, scopeCourseId, sessionId]
+    [ask, conversationId, mode, pick, queryClient, question, router, scope, scopeCourseId, sessionId, webMode]
   )
 
-  const clearAll = () => {
+  // "แชทใหม่": the old conversation stays in the history, the transcript resets.
+  const startNew = useCallback(() => {
     setMessages([])
     setSessionId(null)
     setCreditsLeft(null)
-    try {
-      window.localStorage.removeItem(STORAGE_KEY)
-    } catch {
-      /* ignore */
-    }
-  }
+    setConversationId(null)
+    router.replace('/community/ask')
+    inputRef.current?.focus()
+  }, [router])
+
+  const openConversation = useCallback(
+    (id: string) => {
+      if (id === conversationId) return
+      setMessages([])
+      setSessionId(null)
+      setCreditsLeft(null)
+      setConversationId(id)
+      router.replace(`/community/ask?c=${encodeURIComponent(id)}`)
+    },
+    [conversationId, router]
+  )
 
   const nextCost = sessionId
     ? 0
@@ -336,7 +413,12 @@ function AskContent() {
                       </optgroup>
                     )}
                     {sharedNotebooks.map((nb) => (
-                      <optgroup key={nb.id} label={`${nb.name} · ${nb.owner_label}`}>
+                      <optgroup
+                        key={nb.id}
+                        label={`${nb.visibility === 'private' ? '🔒 ' : ''}${nb.name} · ${nb.owner_label}${
+                          nb.archived ? ' (เก็บถาวร)' : ''
+                        }`}
+                      >
                         <option value={`nb:${nb.id}`}>
                           ทั้ง notebook นี้ ({nb.source_count} เอกสาร)
                         </option>
@@ -368,8 +450,59 @@ function AskContent() {
                       ? 'ยังไม่มี notebook จากอาจารย์/ผู้ดูแล และคุณยังไม่ได้อัปโหลดไฟล์'
                       : 'เลือก notebook ทั้งเล่ม หรือเอกสารหนึ่งฉบับ ให้ AI อ่านเฉพาะส่วนนั้น')}
                 </p>
+                {knowledge?.sees_everything && (
+                  <p className="text-[11px] text-muted-foreground">
+                    🔒 สิทธิ์ผู้ดูแล: เห็น notebook ส่วนตัวของผู้ใช้ทุกคนด้วย ผู้ใช้อื่นไม่เห็นรายการเหล่านี้
+                  </p>
+                )}
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-8 w-full gap-1.5 text-xs"
+                  onClick={() => setAddOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" /> เพิ่มเนื้อหาให้ AI อ่าน
+                </Button>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm">ค้นเว็บเสริม (Google Search)</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                <div className="grid grid-cols-3 gap-1.5">
+                  {(
+                    [
+                      ['auto', 'อัตโนมัติ'],
+                      ['always', 'ทุกครั้ง'],
+                      ['off', 'ปิด'],
+                    ] as const
+                  ).map(([value, label]) => (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-pressed={webMode === value}
+                      onClick={() => setWebMode(value)}
+                      className={cn(
+                        'rounded-lg border px-2 py-1.5 text-[11px] transition',
+                        webMode === value
+                          ? 'border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100'
+                          : 'hover:bg-accent'
+                      )}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
+                  {webMode === 'auto' &&
+                    'ตอบจากเอกสารก่อน ถ้าคำถามอยู่นอกขอบเขตหรือเอกสารตอบได้ไม่ครบ จึงค้นเว็บเสริม'}
+                  {webMode === 'always' && 'ตอบจากเอกสาร แล้วค้นเว็บมาสนับสนุนเพิ่มทุกคำถาม'}
+                  {webMode === 'off' && 'ตอบจากเอกสารเท่านั้น ถ้าไม่มีข้อมูล AI จะบอกตรง ๆ'}
+                </p>
                 <p className="text-[11px] text-muted-foreground">
-                  ถ้าขอบเขตที่เลือกยังไม่มีเอกสาร AI จะบอกตรง ๆ ว่าไม่มีข้อมูล ไม่เดาคำตอบ
+                  ท้ายคำตอบมีรายการอ้างอิงเสมอ: [n] จากคลังความรู้ และ [Wn] จากเว็บ
                 </p>
               </CardContent>
             </Card>
@@ -410,13 +543,15 @@ function AskContent() {
                   variant="outline"
                   size="sm"
                   className="h-8 w-full gap-1.5 text-xs"
-                  onClick={clearAll}
+                  onClick={startNew}
                   disabled={messages.length === 0 && !sessionId}
                 >
-                  <RotateCcw className="h-3.5 w-3.5" /> ล้างบทสนทนา
+                  <RotateCcw className="h-3.5 w-3.5" /> เริ่มแชทใหม่
                 </Button>
               </CardContent>
             </Card>
+
+            <AskHistoryPanel activeId={conversationId} onOpen={openConversation} onNew={startNew} />
           </div>
 
           {/* ------------------------------------------------------- chat */}
@@ -426,7 +561,12 @@ function AskContent() {
                 ref={listRef}
                 className="min-h-[45vh] flex-1 space-y-3 overflow-y-auto rounded-lg border bg-muted/30 p-3"
               >
-                {messages.length === 0 && !ask.isPending && (
+                {conversationId && stored.isLoading && messages.length === 0 && (
+                  <div className="flex h-full items-center justify-center py-8">
+                    <LoadingSpinner />
+                  </div>
+                )}
+                {messages.length === 0 && !ask.isPending && !(conversationId && stored.isLoading) && (
                   <div className="flex h-full flex-col items-center justify-center gap-4 py-8 text-center">
                     <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
                       <Sparkles className="h-6 w-6" />
@@ -434,8 +574,8 @@ function AskContent() {
                     <div>
                       <p className="text-sm font-medium">เริ่มถามได้เลย</p>
                       <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
-                        คำตอบจะอ้างอิงจากเอกสารในขอบเขตที่เลือกไว้ทางซ้าย ไม่เกิน 3 แหล่ง
-                        และมีเลขอ้างอิงให้ตรวจย้อนได้
+                        คำตอบจะอ้างอิงจากเอกสารในขอบเขตที่เลือกไว้ทางซ้าย ไม่เกิน 6 ข้อความ
+                        ถ้าถามนอกขอบเขตจะค้นเว็บเสริม และมีรายการอ้างอิงท้ายคำตอบให้ตรวจย้อนได้
                       </p>
                     </div>
                     <div className="flex w-full max-w-lg flex-col gap-1.5">
@@ -461,7 +601,15 @@ function AskContent() {
                         m.role === 'user' ? 'bg-primary text-primary-foreground' : 'border bg-background'
                       )}
                     >
-                      <p className="whitespace-pre-wrap">{m.content}</p>
+                      {m.role === 'assistant' ? (
+                        // The model answers in Markdown (bold, bullet lists); as plain
+                        // text the ** markers showed up literally.
+                        <div className="[&_.prose]:text-sm [&_p:last-child]:mb-0">
+                          <MarkdownRenderer>{m.content}</MarkdownRenderer>
+                        </div>
+                      ) : (
+                        <p className="whitespace-pre-wrap">{m.content}</p>
+                      )}
 
                       {m.role === 'assistant' && m.scopeLabel && (
                         <p className="mt-2 text-[11px] text-muted-foreground">
@@ -469,20 +617,8 @@ function AskContent() {
                         </p>
                       )}
 
-                      {m.citations && m.citations.length > 0 && (
-                        <div className="mt-2 space-y-1 border-t pt-2">
-                          {m.citations.map((c) => (
-                            <details key={c.index} className="group">
-                              <summary className="cursor-pointer list-none text-[11px] text-violet-700 hover:underline dark:text-violet-300">
-                                [{c.index}] {c.title}
-                                <span className="ml-1 text-muted-foreground group-open:hidden">· ดูข้อความ</span>
-                              </summary>
-                              <p className="mt-1 rounded-md bg-muted/60 p-2 text-[11px] leading-relaxed text-muted-foreground">
-                                {c.snippet}
-                              </p>
-                            </details>
-                          ))}
-                        </div>
+                      {m.role === 'assistant' && (
+                        <AnswerReferences citations={m.citations} webSources={m.webSources} />
                       )}
 
                       {m.role === 'assistant' && (m.charged ?? 0) > 0 && (
@@ -541,6 +677,22 @@ function AskContent() {
           </Card>
         </div>
       </div>
+
+      {/* Every role can add content: students to their private library, staff also
+          to a course library. New documents show up in the dropdown once ready. */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>เพิ่มเนื้อหาให้ AI อ่าน</DialogTitle>
+            <DialogDescription>
+              {isStaff(role)
+                ? 'เผยแพร่เข้าคลังรายวิชา (ทุกคนถามได้) หรือเก็บเป็นไฟล์ส่วนตัว'
+                : 'ไฟล์ที่อัปโหลดเป็นของคุณคนเดียว จะขึ้นในกลุ่ม “ไฟล์ของฉัน” เมื่อประมวลผลเสร็จ'}
+            </DialogDescription>
+          </DialogHeader>
+          <UploadCard isStaff={isStaff(role)} defaultCourseId={scopeCourseId} />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

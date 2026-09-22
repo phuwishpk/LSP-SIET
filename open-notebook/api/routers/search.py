@@ -64,8 +64,6 @@ def _resolve_owner_id(
         return str(state_owner)
     return DEFAULT_OWNER_ID
 
-router = APIRouter()
-
 
 @router.post("/search", response_model=SearchResponse)
 async def search_knowledge_base(search_request: SearchRequest):

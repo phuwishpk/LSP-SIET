@@ -58,3 +58,24 @@ def test_a_demoted_teacher_stops_sharing():
 )
 def test_is_valid_record_id(value, table, ok):
     assert is_valid_record_id(value, table) is ok
+
+
+# ---------------------------------------------------------------- admin sees everything
+from types import SimpleNamespace  # noqa: E402
+
+from open_notebook.community.library import classify_private_notebook, is_admin  # noqa: E402
+
+
+@pytest.mark.parametrize(
+    "role, expected", [("admin", True), ("teacher", False), ("student", False), (None, False)]
+)
+def test_only_an_admin_gets_the_private_notebooks(role, expected):
+    assert is_admin(SimpleNamespace(role=role)) is expected
+    assert is_admin(None) is False
+
+
+def test_private_notebooks_are_labelled_by_kind():
+    personal = {"notebook:lib1"}
+    assert classify_private_notebook("[ส่วนตัว] Student 1", "notebook:x", personal) == "personal"
+    assert classify_private_notebook("anything", "notebook:lib1", personal) == "personal"
+    assert classify_private_notebook("ห้องที่นักศึกษาสร้างเอง", "notebook:y", personal) == "student"

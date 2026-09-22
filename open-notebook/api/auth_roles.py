@@ -51,6 +51,10 @@ STAFF_PREFIXES: tuple[str, ...] = (
     # embedding one source costs a provider call and is only reachable from
     # the staff-only source page.
     "/api/embed",
+    # Mounted at /api (not /api/notebooks), so the prefix above does not cover
+    # it: it lists the notebooks and sources the caller opened recently, which
+    # is the staff research surface and was readable by students.
+    "/api/recently-viewed",
 )
 
 # Workspace-wide configuration: one careless change affects every user.
@@ -60,6 +64,12 @@ ADMIN_PREFIXES: tuple[str, ...] = (
     "/api/settings",
     "/api/models",
     "/api/embeddings",
+    # Everything under /api/config/ tunes the answer cache: resetting adaptive
+    # thresholds, clearing the tuner log and forcing the intent-validation
+    # circuit breaker open or closed. That is workspace-wide state, so it is
+    # admin-only. The BARE /api/config probe stays public via the middleware's
+    # exempt_paths, because the login page reads it before anyone has a token.
+    "/api/config",
 )
 
 DENIED_MESSAGE = {
@@ -73,10 +83,21 @@ DENIED_MESSAGE = {
 # back to off and every source a teacher added was invisible to the RAG.
 STAFF_READABLE_PATHS: tuple[str, ...] = ("/api/settings",)
 
+# Carved out of an ADMIN_PREFIXES entry: the bare /api/config probe is what the
+# login page reads before anyone has a token, while everything UNDER it tunes
+# the answer cache and is admin-only. The middleware also lists this path in
+# exempt_paths, but stating it here too means the policy is true on its own -
+# removing the middleware exemption must not silently lock students (or the
+# login page) out of the probe.
+ANY_USER_EXACT_PATHS: tuple[str, ...] = ("/api/config",)
+
 
 def required_role(path: str, method: str = "GET") -> Optional[str]:
     """Return the minimum role a path needs, or None when anyone signed in may use it."""
-    if method.upper() in ("GET", "HEAD") and path.rstrip("/") in STAFF_READABLE_PATHS:
+    exact = path.rstrip("/") or "/"
+    if exact in ANY_USER_EXACT_PATHS:
+        return None
+    if method.upper() in ("GET", "HEAD") and exact in STAFF_READABLE_PATHS:
         return USER_ROLE_TEACHER
     for prefix in ADMIN_PREFIXES:
         if path == prefix or path.startswith(prefix + "/"):

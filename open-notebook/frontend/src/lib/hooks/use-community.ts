@@ -399,10 +399,55 @@ export function useMaterials(courseId?: number, enabled = true) {
   })
 }
 
+export const ASK_HISTORY_KEYS = {
+  list: ['community', 'ask-history'] as const,
+  detail: (id: string) => ['community', 'ask-history', id] as const,
+}
+
 export function useAsk() {
   const refresh = useRefreshWallet()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: AskRequest) => communityApi.ask(body),
-    onSuccess: () => refresh(),
+    onSuccess: () => {
+      refresh()
+      // every answer lands in the stored history
+      queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.list })
+    },
+  })
+}
+
+/** The caller's stored RAG conversations, newest first. */
+export function useAskHistory() {
+  return useQuery({
+    queryKey: ASK_HISTORY_KEYS.list,
+    queryFn: () => communityApi.askHistory(),
+    staleTime: 15_000,
+  })
+}
+
+export function useAskConversation(id: string | null) {
+  return useQuery({
+    queryKey: ASK_HISTORY_KEYS.detail(id ?? ''),
+    queryFn: () => communityApi.askConversation(id as string),
+    enabled: !!id,
+  })
+}
+
+export function useDeleteConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => communityApi.deleteConversation(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.list }),
+    onError: (error) => toastApiError(error, 'ลบบทสนทนาไม่สำเร็จ'),
+  })
+}
+
+export function useRenameConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => communityApi.renameConversation(id, title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.list }),
+    onError: (error) => toastApiError(error, 'เปลี่ยนชื่อไม่สำเร็จ'),
   })
 }

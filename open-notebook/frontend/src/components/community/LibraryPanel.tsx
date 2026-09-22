@@ -142,7 +142,7 @@ export function LibraryPanel({ isStaff, courseId, onAskDocument }: LibraryPanelP
 
 // ---------------------------------------------------------------------------
 
-function UploadCard({ isStaff, defaultCourseId }: { isStaff: boolean; defaultCourseId: number | null }) {
+export function UploadCard({ isStaff, defaultCourseId }: { isStaff: boolean; defaultCourseId: number | null }) {
   const { data: courses } = useCourses()
   const upload = useUploadDocument()
   const fileRef = useRef<HTMLInputElement>(null)

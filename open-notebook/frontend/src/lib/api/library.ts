@@ -56,7 +56,10 @@ export interface KnowledgeNotebook {
   id: string
   name: string
   description: string
-  kind: 'staff' | 'course'
+  /** staff/course are shared with everyone; personal/student only reach an admin. */
+  kind: 'staff' | 'course' | 'personal' | 'student'
+  visibility: 'shared' | 'private'
+  archived: boolean
   owner_label: string
   source_count: number
   sources: KnowledgeSource[]
@@ -64,6 +67,8 @@ export interface KnowledgeNotebook {
 
 export interface KnowledgeResponse {
   notebooks: KnowledgeNotebook[]
+  /** True for admins: the list also contains every private notebook. */
+  sees_everything: boolean
   stats: { notebooks: number; sources: number }
 }
 

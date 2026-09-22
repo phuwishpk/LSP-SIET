@@ -489,11 +489,12 @@ async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
 
 
 # Include routers
-# NOTE: the legacy `api.routers.auth` module exposed only `/auth/status` which
-# always returned `{auth_enabled: false}` (only checked `OPEN_NOTEBOOK_PASSWORD`).
-# The richer `/auth/status` route is provided by `users_router` and reports
-# JWT auth state correctly. Keeping both caused the frontend to think auth
-# wasn't required while login/register were still 401-blocked.
+# NOTE: `/auth/status` is served by `users_router` and reports JWT auth state.
+# A second `api/routers/auth.py` used to define the same path but only checked
+# `OPEN_NOTEBOOK_PASSWORD`, so it always answered `{auth_enabled: false}` and
+# made the frontend think auth was off while login/register were 401-blocked.
+# It was never mounted here, and the module has since been deleted - do not
+# reintroduce a second auth status route.
 app.include_router(users_router.router, prefix="/api", tags=["users"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])

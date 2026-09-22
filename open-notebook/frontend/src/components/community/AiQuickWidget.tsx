@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Bot, Coins, ExternalLink, FileText, Lock, RotateCcw, Send, Users, X } from 'lucide-react'
+import { AnswerReferences } from '@/components/community/AnswerReferences'
+import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { useAsk, useCourses, useWallet, toastApiError } from '@/lib/hooks/use-community'
-import type { AskCitation } from '@/lib/api/community'
+import type { AskCitation, AskWebSource } from '@/lib/api/community'
 import { describeApiError } from '@/lib/api/community'
 import type { AskScope } from '@/lib/api/library'
 import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
@@ -18,6 +20,7 @@ interface Message {
   role: 'user' | 'assistant'
   content: string
   citations?: AskCitation[]
+  webSources?: AskWebSource[]
   charged?: number
   scopeLabel?: string
   grounded?: boolean
@@ -44,6 +47,8 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   const [scope, setScope] = useState<AskScope>('auto')
   const [scopeCourseId, setScopeCourseId] = useState<number | null>(courseId ?? null)
   const [sessionId, setSessionId] = useState<string | null>(null)
+  // The widget's exchanges are stored too; they show up in the history on /community/ask.
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [creditsLeft, setCreditsLeft] = useState<number | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
   const [question, setQuestion] = useState('')
@@ -105,15 +110,18 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
         scope: activeScope,
         course_id: activeScope === 'course' ? scopeCourseId : null,
         document_ids: focusDocument ? [focusDocument.id] : [],
+        conversation_id: conversationId,
       },
       {
         onSuccess: (data) => {
+          if (data.conversation_id) setConversationId(data.conversation_id)
           setMessages((prev) => [
             ...prev,
             {
               role: 'assistant',
               content: data.answer,
               citations: data.citations,
+              webSources: data.web_sources ?? [],
               charged: data.charged,
               scopeLabel: data.scope_label,
               grounded: data.grounded,
@@ -142,6 +150,7 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
     setSessionId(null)
     setCreditsLeft(null)
     setMessages([])
+    setConversationId(null)
   }
 
   const nextCost = sessionId ? 0 : mode === 'session' ? costs?.rag_session ?? 4 : costs?.rag_question ?? 1
@@ -155,10 +164,10 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
           </span>
           AI Quick Prompt
           <Link
-            href="/community/ask"
+            href={conversationId ? `/community/ask?c=${encodeURIComponent(conversationId)}` : '/community/ask'}
             className="ml-auto flex items-center gap-1 text-[11px] font-normal text-violet-700 hover:underline dark:text-violet-300"
           >
-            เปิดหน้าเต็ม <ExternalLink className="h-3 w-3" />
+            {conversationId ? 'ถามต่อในหน้าเต็ม' : 'เปิดหน้าเต็ม'} <ExternalLink className="h-3 w-3" />
           </Link>
         </CardTitle>
 
@@ -237,7 +246,7 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
           {messages.length === 0 && (
             <p className="p-2 text-xs text-muted-foreground">
               ถาม KMITL RAG AI ด่วน ๆ ได้เลย เช่น &ldquo;สรุป deadlock 4 เงื่อนไข&rdquo; คำตอบอ้างอิงจากเอกสาร
-              ในขอบเขตที่เลือก (ไม่เกิน 3 แหล่ง, 150–300 คำ)
+              ในขอบเขตที่เลือก (ไม่เกิน 6 ข้อความ, 150–350 คำ)
             </p>
           )}
           {messages.map((m, i) => (
@@ -248,20 +257,20 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
                   m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background border'
                 )}
               >
-                <p className="whitespace-pre-wrap">{m.content}</p>
+                {m.role === 'assistant' ? (
+                  <div className="[&_.prose]:text-xs [&_p:last-child]:mb-0">
+                    <MarkdownRenderer>{m.content}</MarkdownRenderer>
+                  </div>
+                ) : (
+                  <p className="whitespace-pre-wrap">{m.content}</p>
+                )}
                 {m.role === 'assistant' && m.scopeLabel && (
                   <p className="mt-1 text-[10px] text-muted-foreground">
                     {answerSourceNote(m.grounded, m.scopeLabel, m.citations?.length ?? 0)}
                   </p>
                 )}
-                {m.citations && m.citations.length > 0 && (
-                  <ul className="mt-1.5 space-y-0.5 border-t pt-1.5 text-[10px] text-muted-foreground">
-                    {m.citations.map((c) => (
-                      <li key={c.index} className="truncate" title={c.snippet}>
-                        [{c.index}] {c.title}
-                      </li>
-                    ))}
-                  </ul>
+                {m.role === 'assistant' && (
+                  <AnswerReferences citations={m.citations} webSources={m.webSources} compact />
                 )}
                 {m.role === 'assistant' && (m.charged ?? 0) > 0 && (
                   <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">

@@ -1235,6 +1235,142 @@ async def update_rag_session(
 
 
 # ---------------------------------------------------------------------------
+# RAG chat history (rag_conversations / rag_messages)
+# ---------------------------------------------------------------------------
+
+MAX_CONVERSATIONS_LISTED = 100
+MAX_MESSAGES_LOADED = 400
+TITLE_MAX = 200
+
+
+def conversation_title(question: str) -> str:
+    """First line of the first question, trimmed to fit the column."""
+    first = " ".join((question or "").strip().split())
+    return (first[: TITLE_MAX - 1] + "…") if len(first) > TITLE_MAX else (first or "บทสนทนาใหม่")
+
+
+async def create_conversation(user_id: int, title: str, scope_label: Optional[str] = None) -> str:
+    conversation_id = uuid.uuid4().hex
+    async with _mariadb_session() as session:
+        await session.execute(
+            text(
+                "INSERT INTO rag_conversations (id, user_id, title, scope_label) "
+                "VALUES (:id, :uid, :title, :scope)"
+            ),
+            {"id": conversation_id, "uid": user_id, "title": conversation_title(title),
+             "scope": (scope_label or None) and scope_label[:255]},
+        )
+    return conversation_id
+
+
+async def get_conversation(conversation_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+    """The conversation header, only for its owner."""
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT * FROM rag_conversations WHERE id = :id AND user_id = :uid"),
+                {"id": conversation_id, "uid": user_id},
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def list_conversations(user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT * FROM rag_conversations WHERE user_id = :uid "
+                    "ORDER BY updated_at DESC, id DESC LIMIT :limit"
+                ),
+                {"uid": user_id, "limit": max(1, min(int(limit), MAX_CONVERSATIONS_LISTED))},
+            )
+        ).all()
+    return [_row(r) for r in rows]
+
+
+async def list_messages(conversation_id: str) -> List[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT id, role, content, meta, created_at FROM rag_messages "
+                    "WHERE conversation_id = :cid ORDER BY id ASC LIMIT :limit"
+                ),
+                {"cid": conversation_id, "limit": MAX_MESSAGES_LOADED},
+            )
+        ).all()
+    out = []
+    for r in rows:
+        data = _row(r)
+        try:
+            data["meta"] = json.loads(data.get("meta") or "{}")
+        except (TypeError, ValueError):
+            data["meta"] = {}
+        out.append(data)
+    return out
+
+
+async def append_messages(conversation_id: str, messages: List[Dict[str, Any]]) -> None:
+    """Add a user/assistant pair (or more) and bump the header's counters."""
+    if not messages:
+        return
+    async with _mariadb_session() as session:
+        for m in messages:
+            await session.execute(
+                text(
+                    "INSERT INTO rag_messages (conversation_id, role, content, meta) "
+                    "VALUES (:cid, :role, :content, :meta)"
+                ),
+                {
+                    "cid": conversation_id,
+                    "role": str(m.get("role") or "user")[:16],
+                    "content": str(m.get("content") or ""),
+                    "meta": json.dumps(m.get("meta") or {}, ensure_ascii=False),
+                },
+            )
+        await session.execute(
+            text(
+                "UPDATE rag_conversations SET message_count = message_count + :n, "
+                "updated_at = CURRENT_TIMESTAMP WHERE id = :cid"
+            ),
+            {"n": len(messages), "cid": conversation_id},
+        )
+
+
+async def rename_conversation(conversation_id: str, user_id: int, title: str) -> bool:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                "UPDATE rag_conversations SET title = :title "
+                "WHERE id = :id AND user_id = :uid"
+            ),
+            {"title": conversation_title(title), "id": conversation_id, "uid": user_id},
+        )
+    return bool(result.rowcount)
+
+
+async def delete_conversation(conversation_id: str, user_id: int) -> bool:
+    """Delete a conversation and its messages; only the owner may do it."""
+    async with _mariadb_session() as session:
+        owned = (
+            await session.execute(
+                text("SELECT 1 FROM rag_conversations WHERE id = :id AND user_id = :uid"),
+                {"id": conversation_id, "uid": user_id},
+            )
+        ).first()
+        if not owned:
+            return False
+        await session.execute(
+            text("DELETE FROM rag_messages WHERE conversation_id = :id"), {"id": conversation_id}
+        )
+        await session.execute(
+            text("DELETE FROM rag_conversations WHERE id = :id"), {"id": conversation_id}
+        )
+    return True
+
+
+# ---------------------------------------------------------------------------
 # Notifications
 # ---------------------------------------------------------------------------
 
