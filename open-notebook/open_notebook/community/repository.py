@@ -49,6 +49,26 @@ def _like(q: str) -> str:
     return f"%{q.strip()}%"
 
 
+# The MariaDB columns were renamed (see ``schema.RENAMES``) but callers and the
+# API still use the older keys, so reads alias the new columns back to them.
+# Explicit lists rather than ``*`` so a row never carries both names.
+_POST_COLUMNS = """
+    p.id, p.author_id, p.room_id AS course_id, p.type, p.title, p.content, p.tags,
+    p.attachment_name, p.attachment_path, p.attachment_size, p.attachment_mime,
+    p.linked_type AS embed_type, p.linked_id AS embed_id, p.linked_snapshot AS embed_snapshot,
+    p.like_count, p.helpful_count, p.comment_count, p.share_count,
+    p.quiz_play_count AS play_count,
+    p.roadmap_follow_count AS follow_count,
+    p.cashback_earned, p.is_deleted, p.content_hash,
+    p.created_at, p.updated_at
+"""
+
+_ROOM_COLUMNS = """
+    id, code, name, description, kind, created_by, created_at,
+    library_notebook_id AS notebook_id
+"""
+
+
 def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
     """Shape a raw ``posts`` row (+joined author) into the API projection."""
     snapshot_raw = row.pop("embed_snapshot", None)
@@ -157,8 +177,8 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
     }
 
 
-_POST_SELECT = """
-    SELECT p.*,
+_POST_SELECT = f"""
+    SELECT {_POST_COLUMNS},
            u.username     AS author_username,
            u.display_name AS author_display_name,
            u.avatar_url   AS author_avatar_url,
@@ -168,14 +188,14 @@ _POST_SELECT = """
            c.kind         AS course_kind,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'like')    AS liked,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'helpful') AS marked_helpful,
-           EXISTS(SELECT 1 FROM saved_items s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
+           EXISTS(SELECT 1 FROM saved_posts s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
            EXISTS(SELECT 1 FROM post_shares ps WHERE ps.post_id = p.id AND ps.user_id = :viewer) AS shared,
-           (SELECT COUNT(*) FROM quiz_plays q WHERE q.post_id = p.id AND q.user_id = :viewer)                   AS my_plays,
-           (SELECT COUNT(*) FROM quiz_plays q WHERE q.post_id = p.id AND q.user_id = :viewer AND q.completed = 1) AS my_completed_plays,
+           (SELECT COUNT(*) FROM quiz_attempts q WHERE q.post_id = p.id AND q.user_id = :viewer)                   AS my_plays,
+           (SELECT COUNT(*) FROM quiz_attempts q WHERE q.post_id = p.id AND q.user_id = :viewer AND q.completed = 1) AS my_completed_plays,
            EXISTS(SELECT 1 FROM point_transactions t WHERE t.user_id = :viewer AND t.kind = 'quiz_import' AND t.ref_type = 'post' AND t.ref_id = CAST(p.id AS CHAR)) AS my_imported
       FROM posts p
       JOIN users u ON u.id = p.author_id
-      LEFT JOIN courses c ON c.id = p.course_id
+      LEFT JOIN rooms c ON c.id = p.room_id
 """
 
 
@@ -191,10 +211,10 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
                 """
                 SELECT c.id, c.code, c.name, c.description, c.kind,
                        c.created_by, c.created_at,
-                       (SELECT COUNT(*) FROM course_members m WHERE m.course_id = c.id) AS member_count,
-                       (SELECT COUNT(*) FROM posts p WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
-                       EXISTS(SELECT 1 FROM course_members m WHERE m.course_id = c.id AND m.user_id = :uid) AS joined
-                  FROM courses c
+                       (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
+                       (SELECT COUNT(*) FROM posts p WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
+                       EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :uid) AS joined
+                  FROM rooms c
                  ORDER BY c.kind ASC, c.code ASC
                 """
             ),
@@ -212,7 +232,9 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
 async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
-            await session.execute(text("SELECT * FROM courses WHERE id = :id"), {"id": course_id})
+            await session.execute(
+                text(f"SELECT {_ROOM_COLUMNS} FROM rooms WHERE id = :id"), {"id": course_id}
+            )
         ).first()
     return _row(row) if row else None
 
@@ -228,7 +250,7 @@ async def create_course(
         result = await session.execute(
             text(
                 """
-                INSERT INTO courses (code, name, description, created_by, kind)
+                INSERT INTO rooms (code, name, description, created_by, kind)
                 VALUES (:code, :name, :description, :created_by, :kind)
                 """
             ),
@@ -243,7 +265,7 @@ async def create_course(
         course_id = int(result.lastrowid)
         await session.execute(
             text(
-                "INSERT IGNORE INTO course_members (course_id, user_id) VALUES (:cid, :uid)"
+                "INSERT IGNORE INTO room_members (room_id, user_id) VALUES (:cid, :uid)"
             ),
             {"cid": course_id, "uid": created_by},
         )
@@ -258,7 +280,7 @@ async def ensure_course(code: str, name: str, description: Optional[str] = None)
         await session.execute(
             text(
                 """
-                INSERT IGNORE INTO courses (code, name, description)
+                INSERT IGNORE INTO rooms (code, name, description)
                 VALUES (:code, :name, :description)
                 """
             ),
@@ -289,7 +311,7 @@ async def update_course(
         return await get_course(course_id)
     async with _mariadb_session() as session:
         await session.execute(
-            text(f"UPDATE courses SET {', '.join(sets)} WHERE id = :cid"), values
+            text(f"UPDATE rooms SET {', '.join(sets)} WHERE id = :cid"), values
         )
     return await get_course(course_id)
 
@@ -302,13 +324,13 @@ async def courses_owned_by(user_id: int) -> List[Dict[str, Any]]:
                 text(
                     """
                     SELECT c.id, c.code, c.name, c.description, c.kind, c.created_at,
-                           (SELECT COUNT(*) FROM course_members m
-                             WHERE m.course_id = c.id) AS member_count,
+                           (SELECT COUNT(*) FROM room_members m
+                             WHERE m.room_id = c.id) AS member_count,
                            (SELECT COUNT(*) FROM posts p
-                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
+                             WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
                            (SELECT COUNT(*) FROM library_documents d
-                             WHERE d.course_id = c.id AND d.scope = 'course') AS document_count
-                      FROM courses c
+                             WHERE d.room_id = c.id AND d.scope = 'course') AS document_count
+                      FROM rooms c
                      WHERE c.created_by = :uid
                      ORDER BY c.kind ASC, c.code ASC
                     """
@@ -338,27 +360,27 @@ async def quiz_results_for_teacher(
     ]
     params: Dict[str, Any] = {"uid": user_id, "limit": int(limit)}
     if course_id:
-        where.append("p.course_id = :cid")
+        where.append("p.room_id = :cid")
         params["cid"] = int(course_id)
     async with _mariadb_session() as session:
         rows = _rows(
             await session.execute(
                 text(
                     f"""
-                    SELECT q.id, q.post_id, q.score, q.total, q.completed,
+                    SELECT q.id, q.post_id, q.score, q.question_count AS total, q.completed,
                            q.created_at, q.completed_at,
                            p.title        AS post_title,
-                           p.course_id    AS course_id,
+                           p.room_id      AS course_id,
                            c.code         AS course_code,
                            c.name         AS course_name,
                            u.id           AS student_id,
                            u.username     AS student_username,
                            u.display_name AS student_display_name,
-                           u.student_id   AS student_code
-                      FROM quiz_plays q
+                           u.student_code AS student_code
+                      FROM quiz_attempts q
                       JOIN posts p ON p.id = q.post_id
                       JOIN users u ON u.id = q.user_id
-                      LEFT JOIN courses c ON c.id = p.course_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
                      WHERE {' AND '.join(where)}
                      ORDER BY q.id DESC
                      LIMIT :limit
@@ -381,8 +403,8 @@ async def find_room_by_name(name: str, kind: str = KIND_CLUB) -> Optional[Dict[s
         row = (
             await session.execute(
                 text(
-                    """
-                    SELECT * FROM courses
+                    f"""
+                    SELECT {_ROOM_COLUMNS} FROM rooms
                      WHERE kind = :kind AND LOWER(name) = LOWER(:name)
                      LIMIT 1
                     """
@@ -400,25 +422,25 @@ async def delete_course(course_id: int) -> None:
     """
     async with _mariadb_session() as session:
         await session.execute(
-            text("UPDATE posts SET course_id = NULL WHERE course_id = :cid"),
+            text("UPDATE posts SET room_id = NULL WHERE room_id = :cid"),
             {"cid": course_id},
         )
         await session.execute(
-            text("DELETE FROM course_members WHERE course_id = :cid"), {"cid": course_id}
+            text("DELETE FROM room_members WHERE room_id = :cid"), {"cid": course_id}
         )
-        await session.execute(text("DELETE FROM courses WHERE id = :cid"), {"cid": course_id})
+        await session.execute(text("DELETE FROM rooms WHERE id = :cid"), {"cid": course_id})
 
 
 async def set_course_membership(course_id: int, user_id: int, joined: bool) -> None:
     async with _mariadb_session() as session:
         if joined:
             await session.execute(
-                text("INSERT IGNORE INTO course_members (course_id, user_id) VALUES (:cid, :uid)"),
+                text("INSERT IGNORE INTO room_members (room_id, user_id) VALUES (:cid, :uid)"),
                 {"cid": course_id, "uid": user_id},
             )
         else:
             await session.execute(
-                text("DELETE FROM course_members WHERE course_id = :cid AND user_id = :uid"),
+                text("DELETE FROM room_members WHERE room_id = :cid AND user_id = :uid"),
                 {"cid": course_id, "uid": user_id},
             )
 
@@ -450,9 +472,9 @@ async def create_post(
             text(
                 """
                 INSERT INTO posts
-                    (author_id, course_id, type, title, content, tags,
+                    (author_id, room_id, type, title, content, tags,
                      attachment_name, attachment_path, attachment_size, attachment_mime,
-                     embed_type, embed_id, embed_snapshot, content_hash)
+                     linked_type, linked_id, linked_snapshot, content_hash)
                 VALUES
                     (:author_id, :course_id, :type, :title, :content, :tags,
                      :att_name, :att_path, :att_size, :att_mime,
@@ -496,7 +518,7 @@ async def list_posts(
     where = ["p.is_deleted = 0"]
     params: Dict[str, Any] = {"viewer": viewer_id, "limit": max(1, min(int(limit), 100))}
     if course_id:
-        where.append("p.course_id = :course_id")
+        where.append("p.room_id = :course_id")
         params["course_id"] = course_id
     if post_type:
         where.append("p.type = :ptype")
@@ -508,19 +530,19 @@ async def list_posts(
         where.append("(p.title LIKE :q OR p.content LIKE :q OR p.tags LIKE :q OR u.display_name LIKE :q OR u.username LIKE :q)")
         params["q"] = _like(query)
     if saved_only:
-        where.append("EXISTS(SELECT 1 FROM saved_items s2 WHERE s2.post_id = p.id AND s2.user_id = :viewer)")
+        where.append("EXISTS(SELECT 1 FROM saved_posts s2 WHERE s2.post_id = p.id AND s2.user_id = :viewer)")
     if my_courses_only:
-        where.append("p.course_id IN (SELECT m.course_id FROM course_members m WHERE m.user_id = :viewer)")
+        where.append("p.room_id IN (SELECT m.room_id FROM room_members m WHERE m.user_id = :viewer)")
     if embed_types:
         types = [t for t in embed_types if t in ("quiz", "roadmap")]
         if types:
-            where.append("p.embed_type IN (" + ",".join(f"'{t}'" for t in types) + ")")
+            where.append("p.linked_type IN (" + ",".join(f"'{t}'" for t in types) + ")")
     if before_id:
         where.append("p.id < :before_id")
         params["before_id"] = int(before_id)
 
     if order == "popular":
-        order_by = "(p.like_count * 2 + p.helpful_count * 3 + p.follow_count * 2 + p.play_count + p.comment_count) DESC, p.id DESC"
+        order_by = "(p.like_count * 2 + p.helpful_count * 3 + p.roadmap_follow_count * 2 + p.quiz_play_count + p.comment_count) DESC, p.id DESC"
     else:
         order_by = "p.id DESC"
 
@@ -546,7 +568,7 @@ async def get_post_raw(post_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM posts WHERE id = :pid AND is_deleted = 0"),
+                text(f"SELECT {_POST_COLUMNS} FROM posts p WHERE p.id = :pid AND p.is_deleted = 0"),
                 {"pid": post_id},
             )
         ).first()
@@ -589,9 +611,9 @@ async def update_post(
         sets.append("tags = :tags")
         values["tags"] = ",".join(t.strip()[:40] for t in tags if t.strip())[:255] or None
     if clear_course:
-        sets.append("course_id = NULL")
+        sets.append("room_id = NULL")
     elif course_id is not None:
-        sets.append("course_id = :course_id")
+        sets.append("room_id = :course_id")
         values["course_id"] = course_id
     if not sets:
         return
@@ -651,7 +673,7 @@ async def admin_list_posts(
         where.append("p.type = :type")
         params["type"] = post_type
     if course_id:
-        where.append("p.course_id = :cid")
+        where.append("p.room_id = :cid")
         params["cid"] = int(course_id)
     if author_id:
         where.append("p.author_id = :aid")
@@ -686,7 +708,7 @@ async def admin_list_posts(
                            c.kind AS course_kind
                       FROM posts p
                       JOIN users u ON u.id = p.author_id
-                      LEFT JOIN courses c ON c.id = p.course_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
                       {clause}
                      ORDER BY p.id DESC
                      LIMIT :limit OFFSET :offset
@@ -746,14 +768,14 @@ async def admin_list_courses() -> List[Dict[str, Any]]:
                            u.username     AS owner_username,
                            u.display_name AS owner_display_name,
                            u.role         AS owner_role,
-                           (SELECT COUNT(*) FROM course_members m WHERE m.course_id = c.id) AS member_count,
+                           (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
                            (SELECT COUNT(*) FROM posts p
-                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
+                             WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
                            (SELECT COUNT(*) FROM library_documents d
-                             WHERE d.course_id = c.id AND d.scope = 'course') AS document_count,
+                             WHERE d.room_id = c.id AND d.scope = 'course') AS document_count,
                            (SELECT MAX(p.created_at) FROM posts p
-                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS last_post_at
-                      FROM courses c
+                             WHERE p.room_id = c.id AND p.is_deleted = 0) AS last_post_at
+                      FROM rooms c
                       LEFT JOIN users u ON u.id = c.created_by
                      ORDER BY c.kind ASC, c.code ASC
                     """
@@ -770,7 +792,7 @@ async def find_course_by_code(code: str) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM courses WHERE code = :code LIMIT 1"),
+                text(f"SELECT {_ROOM_COLUMNS} FROM rooms WHERE code = :code LIMIT 1"),
                 {"code": (code or "").strip().upper()[:32]},
             )
         ).first()
@@ -871,8 +893,8 @@ async def bump_counter(post_id: int, column: str, delta: int = 1) -> None:
         "helpful_count",
         "comment_count",
         "share_count",
-        "play_count",
-        "follow_count",
+        "quiz_play_count",
+        "roadmap_follow_count",
         "cashback_earned",
     }
     if column not in allowed:
@@ -1079,18 +1101,18 @@ async def toggle_saved(post_id: int, user_id: int) -> bool:
     async with _mariadb_session() as session:
         existing = (
             await session.execute(
-                text("SELECT 1 FROM saved_items WHERE post_id = :pid AND user_id = :uid"),
+                text("SELECT 1 FROM saved_posts WHERE post_id = :pid AND user_id = :uid"),
                 {"pid": post_id, "uid": user_id},
             )
         ).first()
         if existing:
             await session.execute(
-                text("DELETE FROM saved_items WHERE post_id = :pid AND user_id = :uid"),
+                text("DELETE FROM saved_posts WHERE post_id = :pid AND user_id = :uid"),
                 {"pid": post_id, "uid": user_id},
             )
             return False
         await session.execute(
-            text("INSERT INTO saved_items (post_id, user_id) VALUES (:pid, :uid)"),
+            text("INSERT INTO saved_posts (post_id, user_id) VALUES (:pid, :uid)"),
             {"pid": post_id, "uid": user_id},
         )
         return True
@@ -1099,7 +1121,7 @@ async def toggle_saved(post_id: int, user_id: int) -> bool:
 async def save_item(post_id: int, user_id: int) -> None:
     async with _mariadb_session() as session:
         await session.execute(
-            text("INSERT IGNORE INTO saved_items (post_id, user_id) VALUES (:pid, :uid)"),
+            text("INSERT IGNORE INTO saved_posts (post_id, user_id) VALUES (:pid, :uid)"),
             {"pid": post_id, "uid": user_id},
         )
 
@@ -1117,7 +1139,7 @@ async def count_plays(post_id: int, user_id: int) -> Dict[str, int]:
                     """
                     SELECT COUNT(*) AS total,
                            SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS completed
-                      FROM quiz_plays WHERE post_id = :pid AND user_id = :uid
+                      FROM quiz_attempts WHERE post_id = :pid AND user_id = :uid
                     """
                 ),
                 {"pid": post_id, "uid": user_id},
@@ -1130,12 +1152,12 @@ async def create_play(post_id: int, user_id: int, total: int) -> int:
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
-                "INSERT INTO quiz_plays (post_id, user_id, total) VALUES (:pid, :uid, :total)"
+                "INSERT INTO quiz_attempts (post_id, user_id, question_count) VALUES (:pid, :uid, :total)"
             ),
             {"pid": post_id, "uid": user_id, "total": total},
         )
         await session.execute(
-            text("UPDATE posts SET play_count = play_count + 1 WHERE id = :pid"), {"pid": post_id}
+            text("UPDATE posts SET quiz_play_count = quiz_play_count + 1 WHERE id = :pid"), {"pid": post_id}
         )
         return int(result.lastrowid)
 
@@ -1143,7 +1165,13 @@ async def create_play(post_id: int, user_id: int, total: int) -> int:
 async def get_play(play_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
-            await session.execute(text("SELECT * FROM quiz_plays WHERE id = :id"), {"id": play_id})
+            await session.execute(
+                text(
+                    "SELECT id, post_id, user_id, score, question_count AS total, completed, "
+                    "cashback_paid, created_at, completed_at FROM quiz_attempts WHERE id = :id"
+                ),
+                {"id": play_id},
+            )
         ).first()
     return _row(row) if row else None
 
@@ -1153,8 +1181,8 @@ async def complete_play(play_id: int, score: int, total: int, cashback_paid: boo
         await session.execute(
             text(
                 """
-                UPDATE quiz_plays
-                   SET score = :score, total = :total, completed = 1,
+                UPDATE quiz_attempts
+                   SET score = :score, question_count = :total, completed = 1,
                        cashback_paid = :cb, completed_at = NOW()
                  WHERE id = :id
                 """
@@ -1169,7 +1197,7 @@ async def has_completed_before(post_id: int, user_id: int, exclude_play_id: int)
             await session.execute(
                 text(
                     """
-                    SELECT 1 FROM quiz_plays
+                    SELECT 1 FROM quiz_attempts
                      WHERE post_id = :pid AND user_id = :uid AND completed = 1 AND id <> :pl
                      LIMIT 1
                     """
@@ -1191,7 +1219,7 @@ async def create_rag_session(user_id: int, credits: int) -> str:
         await session.execute(
             text(
                 """
-                INSERT INTO rag_sessions (id, user_id, credits_left, messages)
+                INSERT INTO rag_credit_sessions (id, user_id, credits_left, messages)
                 VALUES (:id, :uid, :credits, :messages)
                 """
             ),
@@ -1204,7 +1232,7 @@ async def get_rag_session(session_id: str, user_id: int) -> Optional[Dict[str, A
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM rag_sessions WHERE id = :id AND user_id = :uid"),
+                text("SELECT * FROM rag_credit_sessions WHERE id = :id AND user_id = :uid"),
                 {"id": session_id, "uid": user_id},
             )
         ).first()
@@ -1224,7 +1252,7 @@ async def update_rag_session(
     async with _mariadb_session() as session:
         await session.execute(
             text(
-                "UPDATE rag_sessions SET messages = :messages, credits_left = :credits WHERE id = :id"
+                "UPDATE rag_credit_sessions SET messages = :messages, credits_left = :credits WHERE id = :id"
             ),
             {
                 "messages": json.dumps(messages[-20:], ensure_ascii=False),
@@ -1294,7 +1322,7 @@ async def list_messages(conversation_id: str) -> List[Dict[str, Any]]:
         rows = (
             await session.execute(
                 text(
-                    "SELECT id, role, content, meta, created_at FROM rag_messages "
+                    "SELECT id, role, content, answer_meta AS meta, created_at FROM rag_messages "
                     "WHERE conversation_id = :cid ORDER BY id ASC LIMIT :limit"
                 ),
                 {"cid": conversation_id, "limit": MAX_MESSAGES_LOADED},
@@ -1319,7 +1347,7 @@ async def append_messages(conversation_id: str, messages: List[Dict[str, Any]]) 
         for m in messages:
             await session.execute(
                 text(
-                    "INSERT INTO rag_messages (conversation_id, role, content, meta) "
+                    "INSERT INTO rag_messages (conversation_id, role, content, answer_meta) "
                     "VALUES (:cid, :role, :content, :meta)"
                 ),
                 {
@@ -1389,7 +1417,7 @@ async def add_notification(
         await session.execute(
             text(
                 """
-                INSERT INTO notifications (user_id, kind, message, post_id, actor_id)
+                INSERT INTO notifications (recipient_id, kind, message, post_id, actor_id)
                 VALUES (:uid, :kind, :message, :pid, :actor)
                 """
             ),
@@ -1414,7 +1442,7 @@ async def list_notifications(user_id: int, limit: int = 20) -> Dict[str, Any]:
                            a.display_name AS actor_display_name, a.avatar_url AS actor_avatar_url
                       FROM notifications n
                       LEFT JOIN users a ON a.id = n.actor_id
-                     WHERE n.user_id = :uid
+                     WHERE n.recipient_id = :uid
                      ORDER BY n.id DESC
                      LIMIT :limit
                     """
@@ -1424,7 +1452,7 @@ async def list_notifications(user_id: int, limit: int = 20) -> Dict[str, Any]:
         )
         unread = (
             await session.execute(
-                text("SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND is_read = 0"),
+                text("SELECT COUNT(*) FROM notifications WHERE recipient_id = :uid AND is_read = 0"),
                 {"uid": user_id},
             )
         ).scalar()
@@ -1457,13 +1485,13 @@ async def mark_notifications_read(user_id: int, ids: Optional[List[int]] = None)
         if ids:
             await session.execute(
                 text(
-                    "UPDATE notifications SET is_read = 1 WHERE user_id = :uid AND id IN :ids"
+                    "UPDATE notifications SET is_read = 1 WHERE recipient_id = :uid AND id IN :ids"
                 ).bindparams(bindparam("ids", expanding=True)),
                 {"uid": user_id, "ids": [int(i) for i in ids]},
             )
         else:
             await session.execute(
-                text("UPDATE notifications SET is_read = 1 WHERE user_id = :uid"), {"uid": user_id}
+                text("UPDATE notifications SET is_read = 1 WHERE recipient_id = :uid"), {"uid": user_id}
             )
 
 
@@ -1478,9 +1506,9 @@ async def search_users(query: str, limit: int = 8) -> List[Dict[str, Any]]:
             await session.execute(
                 text(
                     """
-                    SELECT id, username, display_name, avatar_url, role, student_id
+                    SELECT id, username, display_name, avatar_url, role, student_code AS student_id
                       FROM users
-                     WHERE username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_id LIKE :q
+                     WHERE username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q
                      ORDER BY display_name ASC
                      LIMIT :limit
                     """
@@ -1498,7 +1526,7 @@ async def search_courses(query: str, limit: int = 8) -> List[Dict[str, Any]]:
                 text(
                     """
                     SELECT id, code, name, description, kind
-                      FROM courses
+                      FROM rooms
                      WHERE code LIKE :q OR name LIKE :q
                      ORDER BY kind ASC, code ASC
                      LIMIT :limit
@@ -1518,8 +1546,8 @@ async def user_stats(user_id: int) -> Dict[str, int]:
                     """
                     SELECT
                       (SELECT COUNT(*) FROM posts WHERE author_id = :uid AND is_deleted = 0) AS posts,
-                      (SELECT COUNT(*) FROM saved_items WHERE user_id = :uid) AS saved,
-                      (SELECT COUNT(*) FROM course_members WHERE user_id = :uid) AS courses,
+                      (SELECT COUNT(*) FROM saved_posts WHERE user_id = :uid) AS saved,
+                      (SELECT COUNT(*) FROM room_members WHERE user_id = :uid) AS courses,
                       (SELECT COALESCE(SUM(delta),0) FROM point_transactions WHERE user_id = :uid AND delta > 0 AND kind IN ('cashback','creator_bonus','helpful_bonus')) AS earned
                     """
                 ),

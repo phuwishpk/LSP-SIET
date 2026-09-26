@@ -42,7 +42,9 @@ class _UserRow(_Base):
     email         = Column(String(191), nullable=True, unique=True)
     google_sub    = Column(String(64), nullable=True, unique=True)
     avatar_url    = Column(String(512), nullable=True)
-    student_id    = Column(String(32), nullable=True)
+    # The column is student_code (the 8-digit student number, not a foreign
+    # key); the attribute keeps the name the rest of the code uses.
+    student_id    = Column("student_code", String(32), nullable=True)
     points_balance = Column(Integer, nullable=False, default=0)
     disabled       = Column(Integer, nullable=False, default=0)
     # Open Notebook notebook holding this user's private uploaded documents.
@@ -490,7 +492,7 @@ async def admin_list_users(
     params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
     if query:
         where.append(
-            "(username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_id LIKE :q)"
+            "(username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q)"
         )
         params["q"] = f"%{query.strip()}%"
     if role in USER_ROLES:
@@ -505,7 +507,7 @@ async def admin_list_users(
             await session.execute(
                 _text(
                     f"""
-                    SELECT id, username, display_name, role, email, student_id,
+                    SELECT id, username, display_name, role, email, student_code AS student_id,
                            avatar_url, points_balance, disabled,
                            created_at, last_login_at
                       FROM users {clause}
@@ -600,17 +602,17 @@ async def admin_delete_user(user_id: int) -> Dict[str, int]:
         await _run("DELETE FROM post_comments WHERE author_id = :uid", "comments")
         await _run("DELETE FROM post_reactions WHERE user_id = :uid", "reactions")
         await _run("DELETE FROM post_shares WHERE user_id = :uid", "shares")
-        await _run("DELETE FROM saved_items WHERE user_id = :uid", "saved")
-        await _run("DELETE FROM quiz_plays WHERE user_id = :uid", "quiz_plays")
-        await _run("DELETE FROM course_members WHERE user_id = :uid", "memberships")
+        await _run("DELETE FROM saved_posts WHERE user_id = :uid", "saved")
+        await _run("DELETE FROM quiz_attempts WHERE user_id = :uid", "quiz_plays")
+        await _run("DELETE FROM room_members WHERE user_id = :uid", "memberships")
         await _run("DELETE FROM library_documents WHERE owner_id = :uid", "documents")
-        await _run("DELETE FROM rag_sessions WHERE user_id = :uid", "rag_sessions")
+        await _run("DELETE FROM rag_credit_sessions WHERE user_id = :uid", "rag_sessions")
         await _run(
-            "DELETE FROM notifications WHERE user_id = :uid OR actor_id = :uid", "notifications"
+            "DELETE FROM notifications WHERE recipient_id = :uid OR actor_id = :uid", "notifications"
         )
         await _run("DELETE FROM point_transactions WHERE user_id = :uid", "point_rows")
         # A room outlives the person who opened it; it simply loses its owner.
-        await _run("UPDATE courses SET created_by = NULL WHERE created_by = :uid", "rooms_orphaned")
+        await _run("UPDATE rooms SET created_by = NULL WHERE created_by = :uid", "rooms_orphaned")
 
         for post_ids, sql in (
             (comment_posts, "comment_count = (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id)"),

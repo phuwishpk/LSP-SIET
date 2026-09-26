@@ -594,7 +594,7 @@ async def system_health(user: User = Depends(get_current_user)) -> Dict[str, Any
                       (SELECT COUNT(*) FROM library_documents WHERE status = 'failed') AS failed_docs,
                       (SELECT COUNT(*) FROM library_documents WHERE status = 'processing') AS processing_docs,
                       (SELECT COUNT(*) FROM posts WHERE is_deleted = 1) AS deleted_posts,
-                      (SELECT COUNT(*) FROM courses WHERE created_by IS NULL) AS ownerless_rooms
+                      (SELECT COUNT(*) FROM rooms WHERE created_by IS NULL) AS ownerless_rooms
                     """
                 )
             )
@@ -630,7 +630,7 @@ async def overview(user: User = Depends(get_current_user)) -> Dict[str, Any]:
                       (SELECT COUNT(*) FROM users WHERE disabled = 1) AS suspended,
                       (SELECT COUNT(*) FROM users WHERE last_login_at >= NOW() - INTERVAL 7 DAY) AS active_week,
                       (SELECT COUNT(*) FROM posts WHERE is_deleted = 0) AS posts,
-                      (SELECT COUNT(*) FROM courses) AS courses,
+                      (SELECT COUNT(*) FROM rooms) AS courses,
                       (SELECT COUNT(*) FROM library_documents WHERE status = 'ready') AS documents,
                       (SELECT COALESCE(SUM(points_balance), 0) FROM users) AS points_outstanding,
                       (SELECT COALESCE(SUM(-delta), 0) FROM point_transactions

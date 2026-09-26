@@ -925,7 +925,7 @@ async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -
         )
         await session.save()
         created = True
-        await repo.bump_counter(post_id, "follow_count", 1)
+        await repo.bump_counter(post_id, "roadmap_follow_count", 1)
         if int(post["author_id"]) != uid:
             await repo.add_notification(
                 int(post["author_id"]), "follow", f"{_display(user)} เริ่มเดินตาม Roadmap ของคุณ", post_id=post_id, actor_id=uid

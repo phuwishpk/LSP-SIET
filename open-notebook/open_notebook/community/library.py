@@ -81,7 +81,7 @@ async def ensure_course_notebook(course: Dict[str, Any]) -> str:
     await notebook.save()
     async with _mariadb_session() as session:
         await session.execute(
-            text("UPDATE courses SET notebook_id = :nb WHERE id = :cid"),
+            text("UPDATE rooms SET library_notebook_id = :nb WHERE id = :cid"),
             {"nb": str(notebook.id), "cid": course["id"]},
         )
     logger.info(f"Created course notebook {notebook.id} for course {course['code']}")
@@ -112,7 +112,10 @@ async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT id, code, name, kind, notebook_id FROM courses WHERE id = :cid"),
+                text(
+                    "SELECT id, code, name, kind, library_notebook_id AS notebook_id "
+                    "FROM rooms WHERE id = :cid"
+                ),
                 {"cid": course_id},
             )
         ).first()
@@ -166,7 +169,10 @@ async def notebook_ids_for_scope(
         if user.is_points_exempt:  # admins + teachers see every course library
             rows = (
                 await session.execute(
-                    text("SELECT notebook_id FROM courses WHERE notebook_id IS NOT NULL")
+                    text(
+                        "SELECT library_notebook_id FROM rooms "
+                        "WHERE library_notebook_id IS NOT NULL"
+                    )
                 )
             ).all()
         else:
@@ -174,10 +180,10 @@ async def notebook_ids_for_scope(
                 await session.execute(
                     text(
                         """
-                        SELECT c.notebook_id
-                          FROM courses c
-                          JOIN course_members m ON m.course_id = c.id
-                         WHERE m.user_id = :uid AND c.notebook_id IS NOT NULL
+                        SELECT c.library_notebook_id
+                          FROM rooms c
+                          JOIN room_members m ON m.room_id = c.id
+                         WHERE m.user_id = :uid AND c.library_notebook_id IS NOT NULL
                         """
                     ),
                     {"uid": uid},
@@ -271,7 +277,10 @@ async def _sharing_context() -> Dict[str, Any]:
         ).all()
         course_rows = (
             await session.execute(
-                text("SELECT id, code, name, notebook_id FROM courses WHERE kind = 'course'")
+                text(
+                    "SELECT id, code, name, library_notebook_id AS notebook_id "
+                    "FROM rooms WHERE kind = 'course'"
+                )
             )
         ).all()
         personal_rows = (
@@ -552,6 +561,27 @@ def _row(r: Any) -> Dict[str, Any]:
     return out
 
 
+# library_documents columns under the keys the rest of the code uses: the
+# room_id / chunk_count / char_count columns were renamed (schema.RENAMES).
+_DOC_COLUMNS = """
+    d.id, d.owner_id, d.scope, d.room_id AS course_id, d.notebook_id, d.source_id,
+    d.title, d.kind, d.filename, d.file_path, d.mime, d.size, d.status, d.error,
+    d.chunk_count AS chunks, d.char_count AS chars, d.post_id, d.content_hash,
+    d.created_at, d.updated_at
+"""
+
+# update_document() keys -> library_documents columns.
+_DOC_UPDATE_COLUMNS = {
+    "status": "status",
+    "error": "error",
+    "chunks": "chunk_count",
+    "chars": "char_count",
+    "source_id": "source_id",
+    "title": "title",
+    "post_id": "post_id",
+}
+
+
 async def create_document(
     *,
     owner_id: int,
@@ -571,7 +601,7 @@ async def create_document(
             text(
                 """
                 INSERT INTO library_documents
-                    (owner_id, scope, course_id, notebook_id, title, kind,
+                    (owner_id, scope, room_id, notebook_id, title, kind,
                      filename, file_path, mime, size, status, content_hash)
                 VALUES
                     (:owner_id, :scope, :course_id, :notebook_id, :title, :kind,
@@ -599,7 +629,8 @@ async def get_document(doc_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM library_documents WHERE id = :id"), {"id": doc_id}
+                text(f"SELECT {_DOC_COLUMNS} FROM library_documents d WHERE d.id = :id"),
+                {"id": doc_id},
             )
         ).first()
     return _row(row) if row else None
@@ -608,11 +639,10 @@ async def get_document(doc_id: int) -> Optional[Dict[str, Any]]:
 async def update_document(doc_id: int, **fields: Any) -> None:
     if not fields:
         return
-    allowed = {"status", "error", "chunks", "chars", "source_id", "title", "post_id"}
-    sets = {k: v for k, v in fields.items() if k in allowed}
+    sets = {k: v for k, v in fields.items() if k in _DOC_UPDATE_COLUMNS}
     if not sets:
         return
-    assignments = ", ".join(f"{k} = :{k}" for k in sets)
+    assignments = ", ".join(f"{_DOC_UPDATE_COLUMNS[k]} = :{k}" for k in sets)
     async with _mariadb_session() as session:
         await session.execute(
             text(f"UPDATE library_documents SET {assignments} WHERE id = :id"),
@@ -643,7 +673,8 @@ async def list_documents_by_ids(user: User, ids: Sequence[int]) -> List[Dict[str
         rows = (
             await session.execute(
                 text(
-                    f"SELECT * FROM library_documents WHERE id IN ({placeholders}) AND status = 'ready'"
+                    f"SELECT {_DOC_COLUMNS} FROM library_documents d "
+                    f"WHERE d.id IN ({placeholders}) AND d.status = 'ready'"
                 ),
                 params,
             )
@@ -667,7 +698,7 @@ async def list_documents(
         where.append("d.scope = :scope")
         params["scope"] = scope
     if course_id:
-        where.append("d.course_id = :course_id")
+        where.append("d.room_id = :course_id")
         params["course_id"] = course_id
 
     async with _mariadb_session() as session:
@@ -675,11 +706,11 @@ async def list_documents(
             await session.execute(
                 text(
                     f"""
-                    SELECT d.*, c.code AS course_code, c.name AS course_name,
+                    SELECT {_DOC_COLUMNS}, c.code AS course_code, c.name AS course_name,
                            u.username AS owner_username, u.display_name AS owner_display_name,
                            u.role AS owner_role
                       FROM library_documents d
-                      LEFT JOIN courses c ON c.id = d.course_id
+                      LEFT JOIN rooms c ON c.id = d.room_id
                       LEFT JOIN users u ON u.id = d.owner_id
                      WHERE {" AND ".join(where)}
                      ORDER BY d.id DESC

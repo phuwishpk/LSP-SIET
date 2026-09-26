@@ -54,6 +54,9 @@ export const KIND_LABELS: Record<string, string> = {
   share_bonus: 'มีคนแชร์โพสต์',
   edit_bonus: 'แก้ไขโพสต์ให้ดีขึ้น',
   refund: 'คืนแต้ม',
+  admin_grant: 'ผู้ดูแลเพิ่มแต้ม',
+  admin_deduct: 'ผู้ดูแลหักแต้ม',
+  balance_adjust: 'ปรับยอดยกมา',
 }
 
 export function kindLabel(kind: string): string {

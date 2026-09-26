@@ -1,0 +1,7 @@
+-- Rollback migration 24: recreate the dropped tables (empty - the rows are gone;
+-- restore surreal_data from a backup to get them back).
+DEFINE TABLE IF NOT EXISTS episode SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS episode_profile SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS podcast_config SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS speaker_profile SCHEMALESS;
+DEFINE TABLE IF NOT EXISTS user SCHEMALESS;
