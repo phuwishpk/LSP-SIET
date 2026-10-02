@@ -2,6 +2,7 @@
 
 import { useAuth } from '@/lib/hooks/use-auth'
 import { buildCrossAppLink } from '@/lib/cross-app'
+import { openRoadmapApp } from '@/lib/external-apps'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LogOut, BookOpen, GraduationCap, Map, ArrowRight, Sparkles, ExternalLink, Users } from 'lucide-react'
@@ -87,7 +88,10 @@ export default function DashboardHomePage() {
   const navigate = async (card: AppCard) => {
     setBusy(card.id)
     try {
-      if (card.external) {
+      if (card.id === 'roadmap') {
+        // Same tab, with a way back (see openRoadmapApp).
+        await openRoadmapApp()
+      } else if (card.external) {
         const link = await buildCrossAppLink({ href: card.href })
         window.open(link, '_blank', 'noopener,noreferrer')
       } else {

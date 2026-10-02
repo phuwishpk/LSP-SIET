@@ -9,6 +9,7 @@ existing password middleware plus an `owner_id` filter.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 
 from loguru import logger
@@ -127,6 +128,14 @@ class RoadmapSession(ObjectModel):
     notebook_id: Optional[str] = None
     model_id: Optional[str] = None
     prompt_hash: str
+    # Knowledge scope + web mode chosen at generation, reused when a node is
+    # expanded later: {scope, course_id, document_ids, notebook_ids, source_ids, web}.
+    settings: Optional[Dict[str, Any]] = None
+    # What the plan was grounded on: {library: bool, web: bool, label: str}.
+    grounding: Optional[Dict[str, Any]] = None
+    # The table keeps created_at / updated_at (not ObjectModel's created / updated).
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     @field_validator("title")
     @classmethod

@@ -269,6 +269,20 @@ export interface PopularRoadmap {
   created_at: string
 }
 
+/** One of the caller's roadmaps (generated, or copied by "follow"). */
+export interface MyRoadmap {
+  id: string
+  title: string
+  description: string
+  node_count: number
+  origin: 'own' | 'followed'
+  source_post_id: number | null
+  /** Set once the roadmap has been posted to the feed (one post per roadmap). */
+  shared_post_id: number | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export interface CommunityNotification {
   id: number
   kind: string
@@ -561,6 +575,8 @@ export const communityApi = {
     (
       await apiClient.get<PopularRoadmap[]>('/community/roadmaps/popular', { params: { limit } })
     ).data,
+  myRoadmaps: async () =>
+    (await apiClient.get<{ items: MyRoadmap[] }>('/community/roadmaps/mine')).data.items,
   notifications: async (limit = 20) =>
     (
       await apiClient.get<NotificationsResponse>('/community/notifications', { params: { limit } })

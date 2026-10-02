@@ -34,6 +34,7 @@ export const COMMUNITY_KEYS = {
   comments: (id: number) => ['community', 'comments', id] as const,
   leaderboard: ['community', 'leaderboard'] as const,
   popularRoadmaps: ['community', 'popular-roadmaps'] as const,
+  myRoadmaps: ['community', 'my-roadmaps'] as const,
   notifications: ['community', 'notifications'] as const,
   search: (q: string) => ['community', 'search', q] as const,
   materials: (courseId?: number) => ['community', 'materials', courseId ?? 'all'] as const,
@@ -191,6 +192,7 @@ export function useCreatePost() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.popularRoadmaps })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.myRoadmaps })
       refresh()
       toast.success(
         data.creator_bonus > 0
@@ -355,6 +357,18 @@ export function useLeaderboard(days = 7) {
     queryKey: [...COMMUNITY_KEYS.leaderboard, days],
     queryFn: () => communityApi.leaderboard(days),
     staleTime: 60_000,
+  })
+}
+
+/**
+ * Roadmaps the user may still post: their own (a followed copy is someone
+ * else's work) that are not in the feed yet (one post per roadmap).
+ */
+export function useShareableRoadmaps() {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.myRoadmaps,
+    queryFn: () => communityApi.myRoadmaps(),
+    select: (items) => items.filter((r) => r.origin === 'own' && !r.shared_post_id),
   })
 }
 

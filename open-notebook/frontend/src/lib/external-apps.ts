@@ -10,6 +10,10 @@
  *
  * Both apps accept the workspace JWT via `?token=` (see `buildCrossAppLink`),
  * so work created there is stored under the same account.
+ *
+ * The roadmap app opens in the SAME tab and is told where the user came from
+ * (`return`), so its "back to Community" button lands on that exact page; the
+ * quiz app still opens in a new tab.
  */
 import { buildCrossAppLink } from '@/lib/cross-app'
 
@@ -53,7 +57,27 @@ export async function openQuizApp() {
   return openExternalApp(quizUrl)
 }
 
-export async function openRoadmapApp() {
+export interface RoadmapLaunch {
+  /** Room whose library should be pre-selected as the knowledge source. */
+  course?: number | null
+  /** Library document to pre-select as the knowledge source. */
+  doc?: number | null
+  /** Page inside the roadmap app (default: its home). May carry a query. */
+  path?: string
+  /** Where "back to Community" returns to (default: the current page). */
+  returnTo?: string
+  /** Replace this history entry instead of adding one (used by the relay page). */
+  replace?: boolean
+}
+
+export async function openRoadmapApp(launch: RoadmapLaunch = {}) {
   const { roadmapUrl } = await resolveUrls()
-  return openExternalApp(roadmapUrl)
+  const path = launch.path && launch.path.startsWith('/') && launch.path !== '/' ? launch.path : ''
+  const target = new URL(roadmapUrl.replace(/\/$/, '') + path, window.location.origin)
+  target.searchParams.set('return', launch.returnTo || window.location.href)
+  if (launch.course) target.searchParams.set('course', String(launch.course))
+  if (launch.doc) target.searchParams.set('doc', String(launch.doc))
+  const link = await buildCrossAppLink({ href: target.toString() })
+  if (launch.replace) window.location.replace(link)
+  else window.location.assign(link)
 }

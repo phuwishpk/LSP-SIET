@@ -331,11 +331,14 @@ export function CourseSidebar({
           </button>
           <button
             type="button"
-            onClick={() => void openRoadmapApp()}
+            onClick={() =>
+              // Discussion rooms have no library, so only a course room is passed on.
+              void openRoadmapApp({ course: selected && selected.kind !== 'club' ? selected.id : null })
+            }
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
           >
             <Map className="h-4 w-4 text-orange-600" /> สร้าง AI Roadmap
-            <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม ↗</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม →</span>
           </button>
         </nav>
       </div>

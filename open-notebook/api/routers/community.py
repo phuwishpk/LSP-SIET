@@ -234,6 +234,7 @@ async def community_me(user: User = Depends(get_current_user)) -> Dict[str, Any]
         },
         "balance": await points.get_balance(uid),
         "exempt": user.is_points_exempt,
+        "costs": dict(points.COSTS),
         "stats": await repo.user_stats(uid),
     }
 
@@ -486,6 +487,21 @@ async def create_post(
                     title = session.topic
             elif embed_type == "roadmap":
                 session = await RoadmapSession.get_for_owner(session_id=embed_id, owner_id=_owner(user))
+                # A followed roadmap is somebody else's work: it stays private.
+                if _roadmap_origin(session)[0] == "followed":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Roadmap ที่เดินตามจากโพสต์ของคนอื่นแชร์ต่อไม่ได้ เปิดดูโพสต์ต้นทางแทน",
+                    )
+                # One post per roadmap; after sharing, the post is updated instead.
+                embed_id = str(session.id)
+                already = (await repo.roadmap_posts_for_author(uid, [embed_id])).get(embed_id)
+                if already:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Roadmap นี้แชร์ลงฟีดไปแล้ว",
+                        headers={"X-Duplicate-Of": str(already)},
+                    )
                 snapshot = {
                     "title": session.title,
                     "description": session.description,
@@ -932,6 +948,84 @@ async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -
             )
     await repo.save_item(post_id, uid)
     return {"session_id": session.id, "created": created, "charged": 0}
+
+
+# ---------------------------------------------------------------------------
+# "Roadmap ของฉัน" - what the roadmap app lists, opens and deletes
+# ---------------------------------------------------------------------------
+
+
+def _roadmap_origin(session: RoadmapSession) -> tuple[str, Optional[int]]:
+    """``("followed", source post id)`` for a copy made by Follow, else ``("own", None)``."""
+    marker = session.prompt_hash or ""
+    if marker.startswith("follow:"):
+        try:
+            return "followed", int(marker.split(":", 1)[1])
+        except ValueError:
+            return "followed", None
+    return "own", None
+
+
+def _iso_or_none(value: Any) -> Optional[str]:
+    return value.isoformat() if hasattr(value, "isoformat") else (str(value) if value else None)
+
+
+def _roadmap_summary(session: RoadmapSession, shared: Dict[str, int]) -> Dict[str, Any]:
+    origin, source_post_id = _roadmap_origin(session)
+    return {
+        "id": str(session.id),
+        "title": session.title,
+        "description": session.description,
+        "node_count": len(session.nodes or []),
+        "origin": origin,
+        "source_post_id": source_post_id,
+        "shared_post_id": shared.get(str(session.id)),
+        "grounding": session.grounding,
+        "created_at": _iso_or_none(session.created_at),
+        "updated_at": _iso_or_none(session.updated_at),
+    }
+
+
+async def _my_roadmap_or_404(session_id: str, user: User) -> RoadmapSession:
+    try:
+        return await RoadmapSession.get_for_owner(session_id=session_id, owner_id=_owner(user))
+    except (NotFoundError, InvalidInputError):
+        raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้ หรือไม่ใช่ของคุณ")
+    except Exception:
+        # A malformed id fails inside the database driver; to the caller that
+        # is the same thing as "no such roadmap".
+        raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้ หรือไม่ใช่ของคุณ")
+
+
+@router.get("/roadmaps/mine")
+async def my_roadmaps(
+    limit: int = Query(default=100, ge=1, le=200),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Every roadmap the caller generated or followed, newest first."""
+    sessions = await RoadmapSession.list_for_owner(_owner(user), limit=limit)
+    shared = await repo.roadmap_posts_for_author(_uid(user), [str(s.id) for s in sessions])
+    return {"items": [_roadmap_summary(s, shared) for s in sessions]}
+
+
+@router.get("/roadmaps/mine/{session_id}")
+async def my_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    session = await _my_roadmap_or_404(session_id, user)
+    shared = await repo.roadmap_posts_for_author(_uid(user), [str(session.id)])
+    return {
+        **_roadmap_summary(session, shared),
+        "nodes": session.nodes or [],
+        "edges": session.edges or [],
+        "settings": session.settings,
+    }
+
+
+@router.delete("/roadmaps/mine/{session_id}")
+async def delete_my_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Delete the roadmap. A post made from it keeps its own copy and stays."""
+    session = await _my_roadmap_or_404(session_id, user)
+    await session.delete_for_owner(_owner(user))
+    return {"ok": True}
 
 
 # ---------------------------------------------------------------------------

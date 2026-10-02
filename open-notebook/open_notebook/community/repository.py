@@ -623,6 +623,33 @@ async def update_post(
         )
 
 
+async def roadmap_posts_for_author(author_id: int, session_ids: Sequence[str]) -> Dict[str, int]:
+    """
+    ``{roadmap session id: post id}`` for the visible posts this author made
+    from those sessions. One roadmap is shared at most once, so this is what
+    tells the roadmap app to show "view post" instead of "share".
+    """
+    ids = [str(s) for s in session_ids if s]
+    if not ids:
+        return {}
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT linked_id, MAX(id) AS post_id
+                      FROM posts
+                     WHERE author_id = :uid AND linked_type = 'roadmap'
+                       AND is_deleted = 0 AND linked_id IN :ids
+                     GROUP BY linked_id
+                    """
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"uid": author_id, "ids": ids},
+            )
+        )
+    return {str(r["linked_id"]): int(r["post_id"]) for r in rows}
+
+
 async def post_exists(post_id: int) -> bool:
     """
     Does this post row exist at all?

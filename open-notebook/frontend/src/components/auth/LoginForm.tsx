@@ -7,6 +7,7 @@ import { useAuth } from '@/lib/hooks/use-auth'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { getApiUrl, getConfig } from '@/lib/config'
 import { authApi } from '@/lib/api/auth'
+import { peekPostLoginPath } from '@/lib/auth-redirect'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -67,8 +68,7 @@ export function LoginForm() {
 
   useEffect(() => {
     if (!hasHydrated) return
-    const destinationFor = (role?: string | null) =>
-      role === 'admin' ? '/admin' : '/community'
+    const destinationFor = (role?: string | null) => peekPostLoginPath(role)
     if (authRequired !== null) {
       if (!authRequired && isAuthenticated) {
         router.push(destinationFor(useAuthStore.getState().user?.role))
@@ -92,8 +92,7 @@ export function LoginForm() {
   // If the user is already signed in (token persisted), skip the form.
   useEffect(() => {
     if (hasHydrated && authRequired && isAuthenticated) {
-      const role = useAuthStore.getState().user?.role
-      router.replace(role === 'admin' ? '/admin' : '/community')
+      router.replace(peekPostLoginPath(useAuthStore.getState().user?.role))
     }
   }, [hasHydrated, authRequired, isAuthenticated, router])
 
@@ -142,13 +141,7 @@ export function LoginForm() {
     setGoogleError(null)
     try {
       const apiUrl = await getApiUrl()
-      let next = '/community'
-      try {
-        const stored = sessionStorage.getItem('redirectAfterLogin')
-        if (stored && stored.startsWith('/') && !stored.startsWith('//')) next = stored
-      } catch {
-        /* ignore */
-      }
+      const next = peekPostLoginPath()
       const data = await authApi.googleStart(apiUrl, next)
       if (data.mock) {
         router.push(data.url)

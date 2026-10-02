@@ -18,8 +18,8 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useQuizSessions, useRoadmapSessions } from '@/lib/hooks/use-features'
-import { useCourses, useCreatePost } from '@/lib/hooks/use-community'
+import { useQuizSessions } from '@/lib/hooks/use-features'
+import { useCourses, useCreatePost, useShareableRoadmaps } from '@/lib/hooks/use-community'
 import { notesApi } from '@/lib/api/notes'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { useAuthStore } from '@/lib/stores/auth-store'
@@ -63,7 +63,7 @@ export function ShareMyWorkDialog({
   const [courseId, setCourseId] = useState<number | null>(defaultCourseId)
 
   const { data: quizzes, isLoading: loadingQuizzes } = useQuizSessions()
-  const { data: roadmaps, isLoading: loadingRoadmaps } = useRoadmapSessions()
+  const { data: roadmaps, isLoading: loadingRoadmaps } = useShareableRoadmaps()
   // Notes live in Open Notebook, which students cannot reach, so the tab is
   // only offered to teachers/admins (and the API would refuse it anyway).
   const role = useAuthStore((s) => s.user?.role) as Role
@@ -100,7 +100,7 @@ export function ShareMyWorkDialog({
         kind: 'roadmap',
         id: r.id,
         title: r.title,
-        subtitle: `${r.node_count} ด่าน · ${timeAgo(r.created)}`,
+        subtitle: `${r.node_count} ด่าน${r.created_at ? ` · ${timeAgo(r.created_at)}` : ''}`,
         content: r.description,
       }))
     }
@@ -162,7 +162,7 @@ export function ShareMyWorkDialog({
     roadmap: {
       text: 'ยังไม่มี Roadmap ที่คุณสร้าง',
       action: () => void openRoadmapApp(),
-      label: 'ไปสร้างที่แอป AI Roadmap (15 แต้ม) ↗',
+      label: 'ไปสร้างที่แอป AI Roadmap (15 แต้ม)',
     },
     note: {
       text: 'ยังไม่มีโน้ตสรุปของคุณ · ใช้แท็บ “แชร์สรุป” ในกล่องโพสต์เพื่อพิมพ์หรือแนบไฟล์สรุปได้เลย',
