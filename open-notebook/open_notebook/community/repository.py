@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from sqlalchemy import bindparam, text
@@ -649,6 +649,149 @@ async def roadmap_posts_for_author(author_id: int, session_ids: Sequence[str]) -
             )
         )
     return {str(r["linked_id"]): int(r["post_id"]) for r in rows}
+
+
+async def roadmap_posts_by_session(session_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    """``{roadmap session id: {post_id, is_deleted, follow_count}}`` whoever the author is."""
+    ids = [str(s) for s in session_ids if s]
+    if not ids:
+        return {}
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT linked_id, id AS post_id, is_deleted, roadmap_follow_count
+                      FROM posts
+                     WHERE linked_type = 'roadmap' AND linked_id IN :ids
+                     ORDER BY id ASC
+                    """
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": ids},
+            )
+        )
+    # A re-share after the first post was deleted: the newest row wins.
+    return {
+        str(r["linked_id"]): {
+            "post_id": int(r["post_id"]),
+            "is_deleted": bool(r["is_deleted"]),
+            "follow_count": int(r["roadmap_follow_count"] or 0),
+        }
+        for r in rows
+    }
+
+
+async def admin_roadmap_posts(*, state: str = "visible", limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    """Roadmap posts for moderation: author, room, counters and the size of the plan."""
+    where = ["p.linked_type = 'roadmap'"]
+    if state == "visible":
+        where.append("p.is_deleted = 0")
+    elif state == "deleted":
+        where.append("p.is_deleted = 1")
+    clause = " AND ".join(where)
+    params = {"limit": int(limit), "offset": int(offset)}
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) FROM posts p WHERE {clause}"))).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT p.id, p.title, p.is_deleted, p.created_at, p.linked_id, p.linked_snapshot,
+                           p.like_count, p.helpful_count, p.comment_count, p.share_count,
+                           p.roadmap_follow_count,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           c.id AS room_id, c.code AS room_code, c.name AS room_name
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
+                     WHERE {clause}
+                     ORDER BY p.roadmap_follow_count DESC, p.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = []
+    for r in rows:
+        try:
+            snapshot = json.loads(r.get("linked_snapshot") or "{}")
+        except (TypeError, ValueError):
+            snapshot = {}
+        nodes = snapshot.get("nodes") or []
+        items.append(
+            {
+                "id": r["id"],
+                "title": r.get("title") or snapshot.get("title"),
+                "session_id": r.get("linked_id"),
+                "is_deleted": bool(r.get("is_deleted")),
+                "created_at": r.get("created_at"),
+                "node_count": len(nodes),
+                "sub_node_count": sum(1 for n in nodes if n.get("parent")),
+                "grounding_label": (snapshot.get("grounding") or {}).get("label"),
+                "counts": {
+                    "follow": int(r.get("roadmap_follow_count") or 0),
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                },
+                "author": {
+                    "id": r["author_id"],
+                    "username": r.get("author_username"),
+                    "display_name": r.get("author_display_name"),
+                    "role": r.get("author_role"),
+                },
+                "room": (
+                    {"id": r["room_id"], "code": r.get("room_code"), "name": r.get("room_name")}
+                    if r.get("room_id")
+                    else None
+                ),
+            }
+        )
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+async def roadmap_point_stats(since: datetime) -> Dict[str, int]:
+    """Points spent on roadmaps since ``since``, net of refunds, plus sharing totals."""
+    # created_at is a naive UTC DATETIME.
+    if since.tzinfo is not None:
+        since = since.astimezone(timezone.utc).replace(tzinfo=None)
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COALESCE(SUM(-t.delta), 0) FROM point_transactions t
+                        WHERE t.kind IN ('roadmap_generate', 'roadmap_expand')
+                          AND t.created_at >= :since) AS charged,
+                      (SELECT COALESCE(SUM(r.delta), 0) FROM point_transactions r
+                         JOIN point_transactions t
+                           ON r.ref_type = 'point_transaction' AND r.ref_id = CAST(t.id AS CHAR)
+                        WHERE r.kind = 'refund' AND t.kind IN ('roadmap_generate', 'roadmap_expand')
+                          AND t.created_at >= :since) AS refunded,
+                      (SELECT COUNT(*) FROM point_transactions t
+                        WHERE t.kind = 'roadmap_expand'
+                          AND t.created_at >= :since
+                          AND NOT EXISTS (SELECT 1 FROM point_transactions r
+                                           WHERE r.kind = 'refund' AND r.ref_type = 'point_transaction'
+                                             AND r.ref_id = CAST(t.id AS CHAR))) AS expansions,
+                      (SELECT COUNT(*) FROM posts WHERE linked_type = 'roadmap' AND is_deleted = 0) AS shared_posts,
+                      (SELECT COALESCE(SUM(roadmap_follow_count), 0) FROM posts
+                        WHERE linked_type = 'roadmap' AND is_deleted = 0) AS follows
+                    """
+                ),
+                {"since": since},
+            )
+        ).first()
+    return {
+        "points_spent": int((row.charged or 0) - (row.refunded or 0)) if row else 0,
+        "expansions": int(row.expansions or 0) if row else 0,
+        "shared_posts": int(row.shared_posts or 0) if row else 0,
+        "follows": int(row.follows or 0) if row else 0,
+    }
 
 
 async def update_post_snapshot(post_id: int, snapshot: Dict[str, Any]) -> None:

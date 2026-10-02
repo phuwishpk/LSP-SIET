@@ -222,6 +222,60 @@ class RoadmapSession(ObjectModel):
             raise NotFoundError("Roadmap session not found")
         return await self.delete()
 
+    @classmethod
+    async def admin_list(
+        cls,
+        *,
+        query: Optional[str] = None,
+        origin: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Every roadmap in the workspace, newest first, WITHOUT its nodes: the
+        admin console shows who made what, not the content of a private plan.
+        """
+        where: List[str] = []
+        params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+        if query and query.strip():
+            where.append("string::lowercase(title) CONTAINS $q")
+            params["q"] = query.strip().lower()
+        if origin == "followed":
+            where.append("string::starts_with(prompt_hash, 'follow:')")
+        elif origin == "own":
+            where.append("!string::starts_with(prompt_hash, 'follow:')")
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        try:
+            rows = await repo_query(
+                f"""
+                SELECT id, owner_id, title, node_count, prompt_hash, grounding, settings,
+                       created_at, updated_at
+                  FROM roadmap_session {clause}
+                 ORDER BY created_at DESC
+                 LIMIT $limit START $offset
+                """,
+                params,
+            )
+            total = await repo_query(
+                f"SELECT count() AS n FROM roadmap_session {clause} GROUP ALL", params
+            )
+        except Exception as exc:
+            logger.error(f"Failed listing roadmap sessions for admin: {exc}")
+            raise DatabaseOperationError(exc)
+        return {"items": rows or [], "total": int((total or [{}])[0].get("n") or 0)}
+
+    @classmethod
+    async def created_since(cls, since: datetime) -> List[Dict[str, Any]]:
+        """Creation time, origin marker and grounding of every roadmap made since ``since``."""
+        try:
+            return await repo_query(
+                "SELECT prompt_hash, grounding, created_at FROM roadmap_session WHERE created_at >= $since",
+                {"since": since},
+            ) or []
+        except Exception as exc:
+            logger.error(f"Failed reading roadmap statistics: {exc}")
+            raise DatabaseOperationError(exc)
+
     async def save_graph(self) -> None:
         """
         Persist the nodes, edges and grounding after the roadmap grew.

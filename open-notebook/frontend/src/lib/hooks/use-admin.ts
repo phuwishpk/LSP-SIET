@@ -17,6 +17,10 @@ export const ADMIN_KEYS = {
     ['admin', 'users', q, role, offset] as const,
   usersRoot: ['admin', 'users'] as const,
   user: (id: number) => ['admin', 'user', id] as const,
+  roadmapsRoot: ['admin', 'roadmaps'] as const,
+  roadmaps: (params: Record<string, unknown>) => ['admin', 'roadmaps', 'list', params] as const,
+  roadmapPosts: (params: Record<string, unknown>) => ['admin', 'roadmaps', 'posts', params] as const,
+  roadmapStats: (days: number) => ['admin', 'roadmaps', 'stats', days] as const,
 }
 
 export function useAdminOverview() {
@@ -164,6 +168,7 @@ export function useModeratePost() {
       action === 'delete' ? adminApi.deletePost(id) : adminApi.restorePost(id),
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.postsRoot })
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.roadmapsRoot })
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.overview })
       toast.success(vars.action === 'delete' ? 'ซ่อนโพสต์แล้ว' : 'กู้คืนโพสต์แล้ว')
     },
@@ -207,5 +212,48 @@ export function useCsvImport(kind: 'courses' | 'users') {
       toast.success(`นำเข้า ${data.created.length} รายการแล้ว`)
     },
     onError: (error) => toastApiError(error, 'นำเข้าไม่สำเร็จ'),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// AI Roadmaps
+// ---------------------------------------------------------------------------
+
+const ROADMAP_PAGE = 25
+
+export function useAdminRoadmaps(params: { q?: string; origin?: string; offset?: number }) {
+  const { q = '', origin = 'all', offset = 0 } = params
+  return useQuery({
+    queryKey: ADMIN_KEYS.roadmaps({ q, origin, offset }),
+    queryFn: () => adminApi.roadmaps({ q: q || undefined, origin, offset, limit: ROADMAP_PAGE }),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useDeleteRoadmap() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteRoadmap(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.roadmapsRoot })
+      toast.success('ลบ Roadmap แล้ว')
+    },
+    onError: (error) => toastApiError(error, 'ลบ Roadmap ไม่สำเร็จ'),
+  })
+}
+
+export function useAdminRoadmapPosts(params: { state?: 'visible' | 'deleted' | 'all'; offset?: number }) {
+  const { state = 'visible', offset = 0 } = params
+  return useQuery({
+    queryKey: ADMIN_KEYS.roadmapPosts({ state, offset }),
+    queryFn: () => adminApi.roadmapPosts({ state, offset, limit: ROADMAP_PAGE }),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useAdminRoadmapStats(days: number) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.roadmapStats(days),
+    queryFn: () => adminApi.roadmapStats(days),
   })
 }

@@ -107,6 +107,12 @@ ok("admin courses (rooms)", *call("GET", "/api/admin/courses", admin))
 ok("admin points log", *call("GET", "/api/admin/points/log", admin))
 ok("admin overview", *call("GET", "/api/admin/overview", admin))
 ok("admin health", *call("GET", "/api/admin/health", admin))
+maps = ok("admin roadmaps (summaries)", *call("GET", "/api/admin/roadmaps?limit=5", admin)) or {}
+check("admin roadmap list never carries the nodes of a plan", all("nodes" not in m and "edges" not in m for m in maps.get("items", [])), maps)
+ok("admin shared roadmap posts", *call("GET", "/api/admin/roadmaps/shared", admin))
+rstats = ok("admin roadmap stats (viewer time zone)", *call("GET", "/api/admin/roadmaps/stats?days=30&tz_offset=420", admin)) or {}
+check("roadmap stats: days add up to the generated total", sum(d["count"] for d in rstats.get("per_day", [])) == rstats.get("generated"), rstats)
+check("admin roadmap console is closed to students and teachers", [call("GET", "/api/admin/roadmaps", tok)[0] for tok in (s1, t1)] == [403, 403])
 
 # ---- writes ----------------------------------------------------------------
 room = ok("create discussion room (rooms, kind=club)", *call("POST", "/api/community/courses", s1, body={"name": f"ห้องทดสอบย้ายชื่อ {RUN}", "kind": "club"}))

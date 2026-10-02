@@ -163,8 +163,78 @@ export interface UserUpdateInput {
   disabled?: boolean
 }
 
+/** A roadmap as the admin console sees it: who, when, how grounded - never its nodes. */
+export interface AdminRoadmap {
+  id: string
+  title: string | null
+  node_count: number
+  origin: 'own' | 'followed'
+  source_post_id: number | null
+  /** null when the account no longer exists. */
+  owner: { id: number; username: string; display_name?: string | null; role: string } | null
+  owner_id: string
+  grounding_label?: string | null
+  scope?: string | null
+  shared_post: { post_id: number; is_deleted: boolean; follow_count: number } | null
+  created_at: string | null
+}
+
+export interface AdminRoadmapList {
+  items: AdminRoadmap[]
+  total: number
+  offset: number
+}
+
+export interface AdminRoadmapPost {
+  id: number
+  title?: string | null
+  session_id?: string | null
+  is_deleted: boolean
+  created_at: string
+  node_count: number
+  sub_node_count: number
+  grounding_label?: string | null
+  counts: { follow: number; like: number; helpful: number; comment: number; share: number }
+  author: { id: number; username: string; display_name?: string | null; role?: string | null }
+  room: { id: number; code?: string | null; name?: string | null } | null
+}
+
+export interface AdminRoadmapPostList {
+  items: AdminRoadmapPost[]
+  total: number
+  offset: number
+}
+
+export interface AdminRoadmapStats {
+  days: number
+  total: number
+  generated: number
+  followed: number
+  per_day: { day: string; count: number }[]
+  grounding: { library: number; library_web: number; web: number; none: number }
+  points_spent: number
+  expansions: number
+  shared_posts: number
+  follows: number
+  top_followed: Pick<AdminRoadmapPost, 'id' | 'title' | 'author' | 'counts' | 'node_count'>[]
+}
+
 export const adminApi = {
   overview: async () => (await apiClient.get<AdminOverview>('/admin/overview')).data,
+
+  roadmaps: async (params: { q?: string; origin?: string; limit?: number; offset?: number }) =>
+    (await apiClient.get<AdminRoadmapList>('/admin/roadmaps', { params })).data,
+  deleteRoadmap: async (id: string) =>
+    (await apiClient.delete(`/admin/roadmaps/${encodeURIComponent(id)}`)).data,
+  roadmapPosts: async (params: { state?: 'visible' | 'deleted' | 'all'; limit?: number; offset?: number }) =>
+    (await apiClient.get<AdminRoadmapPostList>('/admin/roadmaps/shared', { params })).data,
+  roadmapStats: async (days: number) =>
+    (
+      await apiClient.get<AdminRoadmapStats>('/admin/roadmaps/stats', {
+        // Days are counted in the viewer's time zone, not the server's.
+        params: { days, tz_offset: -new Date().getTimezoneOffset() },
+      })
+    ).data,
 
   listUsers: async (params: { q?: string; role?: string; limit?: number; offset?: number }) =>
     (await apiClient.get<AdminUserList>('/admin/users', { params })).data,
