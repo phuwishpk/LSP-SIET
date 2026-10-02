@@ -37,6 +37,30 @@ function Sources({ sources }) {
   )
 }
 
+/** What the whole plan was built from, shown before any node is selected. */
+function PlanGrounding({ grounding }) {
+  if (!grounding) return null
+  const pages = (grounding.web_sources || []).map((page) => ({ kind: 'web', ...page }))
+  return (
+    <>
+      <section className="panel-section">
+        <h3 className="panel-label">แหล่งความรู้ที่ใช้</h3>
+        <div className="source">
+          <span>
+            {grounding.label}
+            {grounding.scope_label && <span className="source-meta">{grounding.scope_label}</span>}
+          </span>
+        </div>
+        {grounding.web_mode !== 'off' && grounding.web_available === false && (
+          <p className="hint">โมเดลที่ตั้งค่าไว้ค้นเว็บไม่ได้ แผนนี้จึงไม่มีข้อมูลจากเว็บ</p>
+        )}
+        {grounding.web_empty && <p className="hint">ค้นเว็บแล้ว แต่ไม่พบหน้าที่ใช้อ้างอิงได้</p>}
+      </section>
+      <Sources sources={pages} />
+    </>
+  )
+}
+
 function hostOf(url) {
   try {
     return new URL(url).hostname.replace(/^www\./, '')
@@ -57,6 +81,7 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
           <h2 className="h3">{roadmap?.title}</h2>
           {roadmap?.description && <p className="body">{roadmap.description}</p>}
         </section>
+        <PlanGrounding grounding={roadmap?.grounding} />
         <p className="hint">กดที่ด่านในแผนเพื่อดูคำอธิบายและที่มา</p>
       </aside>
     )

@@ -205,9 +205,14 @@ class StudyRoadmapBody(BaseModel):
     title: Optional[str] = Field(default=None, max_length=200)
     node_count: int = Field(default=12, ge=3, le=50)
     language: str = "th"
-    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    # Same knowledge picker as POST /ask.
+    scope: Literal["auto", "course", "personal", "document", "notebook"] = "auto"
     course_id: Optional[int] = None
     document_ids: List[int] = Field(default_factory=list)
+    notebook_ids: List[str] = Field(default_factory=list, max_length=20)
+    source_ids: List[str] = Field(default_factory=list, max_length=20)
+    # Web support: "auto" = only for what the library does not cover.
+    web: Literal["auto", "always", "off"] = "auto"
 
 
 class NotificationsRead(BaseModel):
@@ -502,12 +507,7 @@ async def create_post(
                         detail="Roadmap นี้แชร์ลงฟีดไปแล้ว",
                         headers={"X-Duplicate-Of": str(already)},
                     )
-                snapshot = {
-                    "title": session.title,
-                    "description": session.description,
-                    "nodes": session.nodes,
-                    "edges": session.edges,
-                }
+                snapshot = _roadmap_snapshot(session)
                 post_type = "roadmap"
                 if not title:
                     title = session.title
@@ -938,6 +938,8 @@ async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -
             nodes=snapshot.get("nodes") or [],
             edges=snapshot.get("edges") or [],
             prompt_hash=marker,
+            grounding=snapshot.get("grounding") or None,
+            settings={"scope": "auto", "web": (snapshot.get("grounding") or {}).get("web_mode") or "auto"},
         )
         await session.save()
         created = True
@@ -966,6 +968,24 @@ def _roadmap_origin(session: RoadmapSession) -> tuple[str, Optional[int]]:
     return "own", None
 
 
+def _roadmap_snapshot(session: RoadmapSession) -> Dict[str, Any]:
+    """What a post stores of a roadmap: everything readers may see, nothing private."""
+    from open_notebook.community import roadmap_plan
+
+    grounding_info = session.grounding or {}
+    return {
+        "title": session.title,
+        "description": session.description,
+        "nodes": roadmap_plan.public_nodes(session.nodes or []),
+        "edges": session.edges,
+        "grounding": {
+            key: grounding_info[key]
+            for key in ("library", "web", "label", "web_mode", "web_sources")
+            if key in grounding_info
+        },
+    }
+
+
 def _iso_or_none(value: Any) -> Optional[str]:
     return value.isoformat() if hasattr(value, "isoformat") else (str(value) if value else None)
 
@@ -980,6 +1000,7 @@ def _roadmap_summary(session: RoadmapSession, shared: Dict[str, int]) -> Dict[st
         "origin": origin,
         "source_post_id": source_post_id,
         "shared_post_id": shared.get(str(session.id)),
+        "course_id": (session.settings or {}).get("course_id"),
         "grounding": session.grounding,
         "created_at": _iso_or_none(session.created_at),
         "updated_at": _iso_or_none(session.updated_at),
@@ -1532,17 +1553,33 @@ async def study_quiz(
     }
 
 
+async def _roadmap_scope(user: User, body: StudyRoadmapBody) -> tuple[List[str], Optional[List[str]], str]:
+    """The knowledge a roadmap request may read: ``(notebook_ids, source_ids, label)``."""
+    if body.scope in ("document", "notebook") and not (
+        body.document_ids or body.notebook_ids or body.source_ids
+    ):
+        raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อนสร้าง Roadmap")
+    pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
+    if pick is not None:
+        return pick
+    notebook_ids, label, _fallback = await _resolve_scope(
+        user, body.scope, body.course_id, body.document_ids
+    )
+    return notebook_ids, None, label
+
+
 @router.post("/study/roadmap")
 async def study_roadmap(
     body: StudyRoadmapBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Generate a roadmap grounded in the selected course material / own documents."""
-    from open_notebook.features import service as feature_service
+    """
+    Generate a learning plan from the chosen knowledge, with web support for
+    what the library does not cover (see ``community/roadmap_plan.py``).
+    """
+    from open_notebook.community import roadmap_plan
 
     uid = _uid(user)
-    notebook_ids, label, _fallback = await _resolve_scope(
-        user, body.scope, body.course_id, body.document_ids
-    )
+    notebook_ids, source_ids, label = await _roadmap_scope(user, body)
     try:
         charge = await points.charge(user, "roadmap_generate", ref_type="roadmap_generate")
     except points.InsufficientPoints as exc:
@@ -1550,15 +1587,26 @@ async def study_roadmap(
 
     report: Dict[str, Any] = {}
     try:
-        session = await feature_service.generate_roadmap(
+        session = await roadmap_plan.generate_plan(
             owner_id=_owner(user),
             description=body.description,
             title=body.title,
             language=body.language,
             node_count=body.node_count,
-            model_id=None,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            web_mode=body.web,
+            scope_label=label,
+            # Kept with the roadmap so "expand" can reuse the same sources.
+            settings={
+                "scope": body.scope,
+                "course_id": body.course_id,
+                "document_ids": body.document_ids,
+                "notebook_ids": body.notebook_ids,
+                "source_ids": body.source_ids,
+                "web": body.web,
+            },
             report=report,
-            notebook_ids=notebook_ids or None,
         )
     except (InvalidInputError, ConfigurationError) as exc:
         await points.refund(charge, "roadmap generation failed")
@@ -1576,13 +1624,15 @@ async def study_roadmap(
     else:
         await points.set_charge_ref(charge, "roadmap_session", session.id or "")
 
+    grounding_info = session.grounding or {}
     return {
         "session_id": session.id,
         "title": session.title,
         "nodes": session.nodes,
         "edges": session.edges,
         "scope_label": label,
-        "grounded": bool(notebook_ids),
+        "grounded": bool(grounding_info.get("library")),
+        "grounding": grounding_info,
         "cached": bool(report.get("cached")),
         "charged": 0 if report.get("cached") else charge.amount,
         "balance": await points.get_balance(uid),

@@ -58,6 +58,13 @@ export interface QuizEmbed {
   questions: QuizEmbedQuestion[]
 }
 
+export interface RoadmapGrounding {
+  library?: boolean
+  web?: boolean
+  label?: string
+  web_sources?: { title?: string; url: string }[]
+}
+
 export interface RoadmapEmbed {
   type: 'roadmap'
   id: string
@@ -65,6 +72,7 @@ export interface RoadmapEmbed {
   description?: string | null
   nodes: RoadmapNodePayload[]
   edges: RoadmapEdgePayload[]
+  grounding?: RoadmapGrounding | null
 }
 
 export type PostEmbed = QuizEmbed | RoadmapEmbed

@@ -389,6 +389,26 @@ textarea {
   resize: vertical;
 }
 
+.attached {
+  min-height: 44px;
+  padding: 0 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--field);
+  border: 1px solid #343434;
+  border-radius: 8px;
+  overflow-wrap: anywhere;
+}
+
+.attach-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
 .segmented {
   display: flex;
   flex-wrap: wrap;

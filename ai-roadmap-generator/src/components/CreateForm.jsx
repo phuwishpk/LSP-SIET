@@ -1,19 +1,54 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { toast } from 'react-toastify'
 import { ws } from '@/lib/api'
-import { communityUrl, sessionCode } from '@/lib/workspace'
+import { AUTO, loadKnowledgeOptions, PERSONAL, scopeFields, uploadToMyLibrary } from '@/lib/knowledge'
+import { clearLaunchContext, communityUrl, launchContext, sessionCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
+import { Share } from './icons'
 
 const NODE_COUNTS = [8, 12, 15, 20]
+const WEB_MODES = [
+  { value: 'auto', label: 'อัตโนมัติ', hint: 'ใช้คลังความรู้ก่อน แล้วค้นเว็บเฉพาะหัวข้อที่คลังไม่มี' },
+  { value: 'always', label: 'ใช้เว็บเสริมเสมอ', hint: 'ค้นเว็บเสริมทุกด่านหลัก แม้คลังความรู้จะครอบคลุมแล้ว' },
+  { value: 'off', label: 'ไม่ใช้เว็บ', hint: 'ใช้เฉพาะคลังความรู้ หัวข้อที่คลังไม่มีจะมาจากความรู้ทั่วไปของ AI' },
+]
+const FILE_TYPES = '.pdf,.docx,.pptx,.xlsx,.csv,.md,.txt'
 
 /** The "create a learning plan" form. */
 export default function CreateForm() {
   const router = useRouter()
+  const fileInput = useRef(null)
   const { balance, exempt, costs, refresh } = useWorkspace()
   const [topic, setTopic] = useState('')
   const [nodeCount, setNodeCount] = useState(12)
-  const [busy, setBusy] = useState(false)
+  const [source, setSource] = useState(AUTO)
+  const [groups, setGroups] = useState([])
+  const [web, setWeb] = useState('auto')
+  const [file, setFile] = useState(null)
+  const [stage, setStage] = useState(null)
+  const busy = stage !== null
+
+  // Load the picker, then pre-select the room or document the user came from.
+  useEffect(() => {
+    let alive = true
+    loadKnowledgeOptions().then(({ rooms, groups: loaded }) => {
+      if (!alive) return
+      const context = launchContext()
+      const wanted = context.doc ? `doc:${context.doc}` : context.course ? `course:${context.course}` : null
+      const known = loaded.some((group) => group.options.some((option) => option.value === wanted))
+      if (wanted && !known && context.course) {
+        // A course room the user has not joined can still be used as a source.
+        const room = rooms.find((item) => item.id === context.course)
+        if (room) loaded.unshift({ label: 'ห้องที่เปิดมา', options: [{ value: wanted, label: `คลังวิชา ${room.code} ${room.name}` }] })
+      }
+      setGroups(loaded)
+      if (wanted && loaded.some((group) => group.options.some((option) => option.value === wanted))) setSource(wanted)
+    })
+    return () => {
+      alive = false
+    }
+  }, [])
 
   const cost = Number(costs.roadmap_generate ?? 15)
   const missing = exempt ? 0 : Math.max(0, cost - balance)
@@ -22,18 +57,25 @@ export default function CreateForm() {
   const submit = async (event) => {
     event.preventDefault()
     if (!canSubmit) return
-    setBusy(true)
+    setStage('กำลังเตรียม…')
     try {
+      let scope = scopeFields(source)
+      if (file) {
+        const doc = await uploadToMyLibrary(file, { onStage: setStage })
+        scope = { scope: 'document', document_ids: [doc.id] }
+      }
+      setStage('AI กำลังอ่านแหล่งความรู้และวางแผน ใช้เวลาประมาณครึ่งนาทีถึงหนึ่งนาที')
       const result = await ws('community/study/roadmap', {
         method: 'POST',
-        json: { description: topic.trim(), node_count: nodeCount, language: 'th', scope: 'auto' },
+        json: { description: topic.trim(), node_count: nodeCount, language: 'th', web, ...scope },
       })
+      clearLaunchContext()
       refresh().catch(() => {})
       router.push(`/roadmap/${sessionCode(result.session_id)}`)
     } catch (error) {
       if (error?.status === 402) refresh().catch(() => {})
       toast.error(error?.message || 'สร้าง Roadmap ไม่สำเร็จ')
-      setBusy(false)
+      setStage(null)
     }
   }
 
@@ -53,6 +95,70 @@ export default function CreateForm() {
           disabled={busy}
         />
       </div>
+
+      <div className="field">
+        <label htmlFor="source">แหล่งความรู้</label>
+        {file ? (
+          <div className="attached">
+            <span>
+              ไฟล์ที่แนบ: <strong>{file.name}</strong>
+            </span>
+            <button type="button" className="link-button" onClick={() => setFile(null)} disabled={busy}>
+              เอาไฟล์ออก
+            </button>
+          </div>
+        ) : (
+          <select id="source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy}>
+            <option value={AUTO}>อัตโนมัติ (ทุกคลังที่ฉันเห็นได้)</option>
+            <option value={PERSONAL}>ไฟล์ของฉันทั้งหมด</option>
+            {groups.map((group) => (
+              <optgroup key={group.label} label={group.label}>
+                {group.options.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </optgroup>
+            ))}
+          </select>
+        )}
+        <div className="attach-row">
+          <input
+            ref={fileInput}
+            type="file"
+            accept={FILE_TYPES}
+            hidden
+            onChange={(event) => {
+              setFile(event.target.files?.[0] || null)
+              event.target.value = ''
+            }}
+          />
+          <button type="button" className="btn" onClick={() => fileInput.current?.click()} disabled={busy}>
+            <Share />
+            แนบไฟล์ใหม่
+          </button>
+          <span className="hint">ไฟล์ที่แนบจะถูกเก็บใน “ไฟล์ของฉัน” และใช้กับ RAG กับ Quiz ได้ด้วย</span>
+        </div>
+      </div>
+
+      <fieldset className="field">
+        <legend>การใช้ข้อมูลจากเว็บ</legend>
+        <div className="segmented">
+          {WEB_MODES.map((mode) => (
+            <button
+              key={mode.value}
+              type="button"
+              className={`segment ${mode.value === web ? 'segment-on' : ''}`}
+              aria-pressed={mode.value === web}
+              onClick={() => setWeb(mode.value)}
+              disabled={busy}
+            >
+              {mode.label}
+            </button>
+          ))}
+        </div>
+        <p className="hint">{WEB_MODES.find((mode) => mode.value === web)?.hint}</p>
+      </fieldset>
 
       <fieldset className="field">
         <legend>จำนวนด่าน</legend>
@@ -88,7 +194,7 @@ export default function CreateForm() {
       {busy && (
         <div className="progress" role="status">
           <div className="progress-bar" />
-          <span className="muted">AI กำลังอ่านคลังความรู้และวางแผน ใช้เวลาประมาณครึ่งนาทีถึงหนึ่งนาที</span>
+          <span className="muted">{stage}</span>
         </div>
       )}
     </form>

@@ -48,12 +48,24 @@ export interface QuizGenerateResponse {
   cached: boolean
 }
 
+/** Where a node's content came from. `private` = the author's own file (no title shown). */
+export interface RoadmapSource {
+  kind: 'library' | 'web' | 'private'
+  title?: string
+  origin?: string
+  url?: string
+}
+
 export interface RoadmapNodePayload {
   id: string
   label: string
   description?: string
   category?: string
   order?: number
+  /** Main node id this one details; absent/null for a main node. */
+  parent?: string | null
+  level?: number
+  sources?: RoadmapSource[]
 }
 
 export interface RoadmapEdgePayload {

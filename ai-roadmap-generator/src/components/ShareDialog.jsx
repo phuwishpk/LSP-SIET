@@ -24,14 +24,14 @@ export default function ShareDialog({ roadmap, onClose, onShared }) {
         const joined = (list || []).filter((room) => room.joined)
         setRooms(joined)
         // Default to the room whose library the plan was generated from.
-        const from = roadmap.settings?.course_id
+        const from = roadmap.settings?.course_id ?? roadmap.course_id
         if (from && joined.some((room) => room.id === from)) setRoomId(String(from))
       })
       .catch(() => setRooms([]))
     return () => {
       alive = false
     }
-  }, [roadmap.settings?.course_id])
+  }, [roadmap.settings?.course_id, roadmap.course_id])
 
   const submit = async (event) => {
     event.preventDefault()

@@ -111,6 +111,7 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
                 "description": snapshot.get("description"),
                 "nodes": snapshot.get("nodes") or [],
                 "edges": snapshot.get("edges") or [],
+                "grounding": snapshot.get("grounding"),
             }
 
     author = {

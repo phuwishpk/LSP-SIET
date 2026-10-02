@@ -20,10 +20,13 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
   const [expanded, setExpanded] = useState(false)
   const [followedSession, setFollowedSession] = useState<string | null>(null)
 
+  // The preview walks the main path; sub-nodes hang off it and are counted apart.
   const ordered = useMemo(
-    () => [...embed.nodes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    () =>
+      embed.nodes.filter((node) => !node.parent).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [embed.nodes]
   )
+  const subCount = embed.nodes.length - ordered.length
   const preview = ordered.slice(0, PREVIEW_COUNT)
   const remaining = Math.max(0, ordered.length - PREVIEW_COUNT)
 
@@ -35,8 +38,13 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
         </Badge>
         <p className="font-semibold">{embed.title || post.title}</p>
         <span className="text-xs text-muted-foreground">
-          {ordered.length} ด่าน · มีคนเดินตาม {post.counts.follow} คน
+          {ordered.length} ด่าน{subCount > 0 ? ` · ${subCount} ด่านย่อย` : ''} · มีคนเดินตาม {post.counts.follow} คน
         </span>
+        {embed.grounding?.label && (
+          <Badge variant="outline" className="font-normal">
+            {embed.grounding.label}
+          </Badge>
+        )}
       </div>
       {embed.description && (
         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{embed.description}</p>

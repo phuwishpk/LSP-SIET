@@ -723,6 +723,42 @@ async def list_documents(
     return [_row(r) for r in rows]
 
 
+async def source_metadata(source_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    """
+    ``{source id: {title, scope, room_code}}`` for the sources that are uploaded
+    library documents. Used to say where a cited passage came from (a course
+    library or somebody's private file); a source with no row here belongs to a
+    notebook shared by staff.
+    """
+    ids = list(dict.fromkeys(str(s) for s in source_ids if s))
+    if not ids:
+        return {}
+    placeholders = ", ".join(f":s{i}" for i in range(len(ids)))
+    params = {f"s{i}": value for i, value in enumerate(ids)}
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT d.source_id, d.title, d.scope, c.code AS room_code
+                      FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                     WHERE d.source_id IN ({placeholders})
+                    """
+                ),
+                params,
+            )
+        ).all()
+    return {
+        str(r._mapping["source_id"]): {
+            "title": r._mapping["title"],
+            "scope": r._mapping["scope"],
+            "room_code": r._mapping["room_code"],
+        }
+        for r in rows
+    }
+
+
 async def library_stats(user: User) -> Dict[str, int]:
     uid = int(user.id or 0)
     async with _mariadb_session() as session:
