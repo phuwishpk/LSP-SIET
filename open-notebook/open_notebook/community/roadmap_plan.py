@@ -716,18 +716,61 @@ def graph_fingerprint(nodes: Sequence[Dict[str, Any]]) -> str:
 
 
 def _expand_prompt(
-    session: RoadmapSession, parent: Dict[str, Any], siblings: Sequence[Dict[str, Any]], passages: Sequence[Dict[str, Any]]
+    session: RoadmapSession,
+    parent: Dict[str, Any],
+    siblings: Sequence[Dict[str, Any]],
+    passages: Sequence[Dict[str, Any]],
+    *,
+    short_by: int = 0,
 ) -> str:
     already = "; ".join(str(s.get("label")) for s in siblings) or "none"
+    again = (
+        f"Your last answer had too few new steps. Give at least {short_by} steps that are not in "
+        "the list above.\n"
+        if short_by
+        else ""
+    )
     return (
         f'Learning plan: "{session.title}".\n'
         f'Step to break down: "{parent.get("label")}" — {parent.get("description") or ""}\n'
-        f"Steps it already has (do not repeat them): {already}\n\n"
+        f"Steps it already has (do not repeat them): {already}\n{again}\n"
         f"Write {EXPAND_MIN} to {EXPAND_MAX} smaller steps that explain this step in more detail, "
         f"in learning order, in language code {session.language}.\n"
         "- label: a short name, at most 40 characters. description: 1-3 sentences on what to "
         "learn and how the learner can tell they have got it.\n\n" + _passage_block(passages)
     )
+
+
+async def _draft_children(
+    session: RoadmapSession,
+    nodes: Sequence[Dict[str, Any]],
+    parent: Dict[str, Any],
+    passages: Sequence[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """
+    Ask the model for the sub-nodes, once more if it came back short.
+
+    An expansion is sold as 3-5 new steps: an answer with fewer (the model wrote
+    two, or repeated steps the node already has) is not saved, so the caller
+    refunds it. Only the room left under the node cap lowers that minimum.
+    """
+    wanted = min(EXPAND_MIN, MAX_NODES - len(nodes))
+    siblings = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
+    children: List[Dict[str, Any]] = []
+    for attempt in range(2):
+        raw = await _invoke_chat(
+            prompt=_expand_prompt(session, parent, siblings, passages, short_by=wanted if attempt else 0),
+            system=EXPAND_SYSTEM_PROMPT,
+            owner_id=session.owner_id,
+        )
+        try:
+            children = build_children(await _extract_json(raw), nodes, parent, len(passages))
+        except ExternalServiceError:
+            children = []
+        if len(children) >= wanted:
+            return children
+        logger.warning(f"roadmap: expansion of {parent['id']} gave {len(children)} of {wanted} steps (try {attempt + 1})")
+    raise ExternalServiceError("AI ขยายด่านนี้ได้ไม่ครบ ลองใหม่อีกครั้ง")
 
 
 async def expand_node(
@@ -763,13 +806,7 @@ async def expand_node(
         )
         passages = relevant_passages(found, picked=bool(source_ids))
 
-    siblings = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
-    raw = await _invoke_chat(
-        prompt=_expand_prompt(session, parent, siblings, passages),
-        system=EXPAND_SYSTEM_PROMPT,
-        owner_id=session.owner_id,
-    )
-    children = build_children(await _extract_json(raw), nodes, parent, len(passages))
+    children = await _draft_children(session, nodes, parent, passages)
     meta = await library.source_metadata([p["id"] for p in passages])
     attach_library_sources(children, passages, meta)
 

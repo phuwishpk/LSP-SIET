@@ -1,5 +1,8 @@
 """Shaping of AI learning plans: stages, sub-nodes, sources and what a shared post may show."""
 
+import asyncio
+from types import SimpleNamespace
+
 import pytest
 
 from open_notebook.community import grounding, roadmap_plan
@@ -264,6 +267,50 @@ def test_children_are_capped_by_the_room_left_in_the_roadmap():
     assert len(children) == 2  # 48 nodes + 2 = the 50 cap
     with pytest.raises(ExternalServiceError):
         roadmap_plan.build_children({"nodes": [{"label": ""}]}, nodes, nodes[0], passages=0)
+
+
+def _expansion_answers(monkeypatch, *answers):
+    """Feed ``_draft_children`` canned model answers; returns the prompts it sent."""
+    queue, prompts = list(answers), []
+
+    async def fake_chat(*, prompt, system, owner_id):
+        prompts.append(prompt)
+        return queue.pop(0)
+
+    async def fake_json(raw):
+        return {"nodes": [{"label": label, "description": "รายละเอียด"} for label in raw]}
+
+    monkeypatch.setattr(roadmap_plan, "_invoke_chat", fake_chat)
+    monkeypatch.setattr(roadmap_plan, "_extract_json", fake_json)
+    return prompts
+
+
+def _draft(nodes, parent):
+    session = SimpleNamespace(title="แผน", language="th", owner_id="1")
+    return asyncio.run(roadmap_plan._draft_children(session, nodes, parent, []))
+
+
+def test_expansion_asks_again_when_the_answer_is_short(monkeypatch):
+    nodes = _tree()
+    # "break" is already a sub-node of n2, so the first answer has only two new steps.
+    prompts = _expansion_answers(monkeypatch, ["break", "continue", "ลูปซ้อน"], ["continue", "ลูปซ้อน", "else ของลูป"])
+    children = _draft(nodes, nodes[1])
+    assert [c["label"] for c in children] == ["continue", "ลูปซ้อน", "else ของลูป"]
+    assert len(prompts) == 2 and "too few" not in prompts[0] and "too few" in prompts[1]
+
+
+def test_expansion_with_too_few_steps_twice_is_not_saved(monkeypatch):
+    nodes = _tree()
+    prompts = _expansion_answers(monkeypatch, ["continue", "ลูปซ้อน"], [])
+    with pytest.raises(ExternalServiceError):
+        _draft(nodes, nodes[1])
+    assert len(prompts) == 2
+
+
+def test_expansion_minimum_shrinks_only_at_the_node_cap(monkeypatch):
+    nodes = [{"id": f"n{i}", "label": str(i), "parent": None} for i in range(1, roadmap_plan.MAX_NODES - 1)]
+    prompts = _expansion_answers(monkeypatch, ["ก", "ข", "ค", "ง"])
+    assert len(_draft(nodes, nodes[0])) == 2 and len(prompts) == 1  # room for two, two is enough
 
 
 def test_fingerprint_tracks_the_graph_not_the_sources():
