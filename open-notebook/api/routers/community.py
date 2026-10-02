@@ -203,7 +203,8 @@ class StudyQuizBody(BaseModel):
 class StudyRoadmapBody(BaseModel):
     description: str = Field(..., min_length=1, max_length=2000)
     title: Optional[str] = Field(default=None, max_length=200)
-    node_count: int = Field(default=12, ge=3, le=50)
+    # None = the model decides how big the plan is.
+    node_count: Optional[int] = Field(default=None, ge=3, le=200)
     language: str = "th"
     # Same knowledge picker as POST /ask.
     scope: Literal["auto", "course", "personal", "document", "notebook"] = "auto"
@@ -1089,7 +1090,7 @@ async def _expansion_scope(user: User, session: RoadmapSession) -> tuple[List[st
 async def expand_my_roadmap(
     session_id: str, body: RoadmapExpandBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Break one node into 3-5 sub-nodes (charged per expansion)."""
+    """Break one node into sub-nodes - as many as the model finds it needs (charged per expansion)."""
     from open_notebook.community import roadmap_plan
 
     uid = _uid(user)

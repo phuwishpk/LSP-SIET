@@ -186,11 +186,12 @@ async def _invoke_chat(
     owner_id: str,
     default_type: str = "chat",
     model_id: Optional[str] = None,
+    max_tokens: Optional[int] = None,
 ) -> str:
     """Single entry point that talks to whichever provider the user configured."""
     # Esperanto models default to max_tokens=850, which truncates long Thai
     # JSON (e.g. a 15-node roadmap) and makes the response unparseable.
-    max_tokens = int(os.getenv("FEATURES_LLM_MAX_TOKENS", "8192") or 8192)
+    max_tokens = max_tokens or int(os.getenv("FEATURES_LLM_MAX_TOKENS", "8192") or 8192)
     try:
         if model_id:
             model = await model_manager.get_model(model_id, max_tokens=max_tokens)

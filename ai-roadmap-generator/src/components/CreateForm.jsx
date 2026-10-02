@@ -7,7 +7,8 @@ import { clearLaunchContext, communityUrl, launchContext, sessionCode } from '@/
 import { useWorkspace } from '@/lib/workspace-context'
 import { Share } from './icons'
 
-const NODE_COUNTS = [8, 12, 15, 20]
+// null = the AI decides how big the plan is; a number asks for exactly that many.
+const NODE_COUNTS = [null, 8, 12, 15, 20]
 const WEB_MODES = [
   { value: 'auto', label: 'อัตโนมัติ', hint: 'ใช้คลังความรู้ก่อน แล้วค้นเว็บเฉพาะหัวข้อที่คลังไม่มี' },
   { value: 'always', label: 'ใช้เว็บเสริมเสมอ', hint: 'ค้นเว็บเสริมทุกด่านหลัก แม้คลังความรู้จะครอบคลุมแล้ว' },
@@ -21,7 +22,7 @@ export default function CreateForm() {
   const fileInput = useRef(null)
   const { balance, exempt, costs, refresh } = useWorkspace()
   const [topic, setTopic] = useState('')
-  const [nodeCount, setNodeCount] = useState(12)
+  const [nodeCount, setNodeCount] = useState(null)
   const [source, setSource] = useState(AUTO)
   const [groups, setGroups] = useState([])
   const [web, setWeb] = useState('auto')
@@ -67,7 +68,7 @@ export default function CreateForm() {
       setStage('AI กำลังอ่านแหล่งความรู้และวางแผน ใช้เวลาประมาณครึ่งนาทีถึงหนึ่งนาที')
       const result = await ws('community/study/roadmap', {
         method: 'POST',
-        json: { description: topic.trim(), node_count: nodeCount, language: 'th', web, ...scope },
+        json: { description: topic.trim(), ...(nodeCount ? { node_count: nodeCount } : {}), language: 'th', web, ...scope },
       })
       clearLaunchContext()
       refresh().catch(() => {})
@@ -165,17 +166,22 @@ export default function CreateForm() {
         <div className="segmented">
           {NODE_COUNTS.map((count) => (
             <button
-              key={count}
+              key={count ?? 'auto'}
               type="button"
               className={`segment ${count === nodeCount ? 'segment-on' : ''}`}
               aria-pressed={count === nodeCount}
               onClick={() => setNodeCount(count)}
               disabled={busy}
             >
-              {count}
+              {count ?? 'AI กำหนดเอง'}
             </button>
           ))}
         </div>
+        <p className="hint">
+          {nodeCount
+            ? `ขอแผนขนาด ${nodeCount} ด่านพอดี`
+            : 'AI ดูจากหัวข้อและแหล่งความรู้ แล้วตัดสินใจเองว่าควรมีกี่ด่าน'}
+        </p>
       </fieldset>
 
       <div className="submit-row">

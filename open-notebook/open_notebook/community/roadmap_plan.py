@@ -34,13 +34,25 @@ from open_notebook.exceptions import ExternalServiceError, InvalidInputError
 from open_notebook.features.service import _extract_json, _hash_prompt, _invoke_chat
 
 STAGES: Tuple[str, ...] = ("พื้นฐาน", "แนวคิดหลัก", "ฝึกปฏิบัติ", "ประยุกต์", "ทบทวน/ประเมิน")
-MAX_NODES = 50
+# How big a plan is, and how far a node is broken down, is the model's call.
+# This is only a ceiling against a runaway answer being stored and drawn.
+MAX_NODES = 200
 MIN_MAIN_NODES = 3
-MAX_SUBS_PER_MAIN = 4
 MAX_LABEL_CHARS = 80
 MAX_DESCRIPTION_CHARS = 900
 MAX_WEB_TOPICS = 12
 PASSAGE_CHARS = 1200
+
+
+def _plan_max_tokens() -> int:
+    """
+    Output budget for a whole plan. The shared default (8192) fits about forty
+    Thai nodes; a plan whose size the model chooses must not be cut off mid-JSON.
+    """
+    try:
+        return max(8192, int(os.getenv("ROADMAP_LLM_MAX_TOKENS", "32768")))
+    except ValueError:
+        return 32768
 
 
 def _min_similarity() -> float:
@@ -115,9 +127,14 @@ def _int_refs(raw: Any, available: int) -> List[int]:
     return out
 
 
-def normalize_plan(payload: Dict[str, Any], node_count: int, passages: int = 0) -> Dict[str, Any]:
+def normalize_plan(
+    payload: Dict[str, Any], node_count: Optional[int] = None, passages: int = 0
+) -> Dict[str, Any]:
     """
     Turn the model's JSON into the stored shape.
+
+    ``node_count`` is the size the learner asked for; without it the plan keeps
+    every node the model wrote.
 
     Ids are reissued (``n1``, ``n2``…), main nodes are put in stage order and
     numbered, sub-nodes inherit their parent's stage, and the edges are derived
@@ -156,7 +173,7 @@ def normalize_plan(payload: Dict[str, Any], node_count: int, passages: int = 0) 
     if len(mains) < MIN_MAIN_NODES:
         raise ExternalServiceError("AI สร้างแผนได้ไม่ครบ ลองใหม่อีกครั้งหรือปรับหัวข้อให้ชัดขึ้น")
 
-    limit = max(MIN_MAIN_NODES, min(int(node_count), MAX_NODES))
+    limit = max(MIN_MAIN_NODES, min(int(node_count), MAX_NODES)) if node_count else MAX_NODES
     mains = mains[:limit]
     # Stages the model left out or misnamed are filled in by position, then the
     # main nodes are sorted so the plan never steps back to an earlier stage.
@@ -193,8 +210,6 @@ def normalize_plan(payload: Dict[str, Any], node_count: int, passages: int = 0) 
         if not parent_id:
             continue  # its main node was trimmed away
         child_count[parent_id] = child_count.get(parent_id, 0) + 1
-        if child_count[parent_id] > MAX_SUBS_PER_MAIN:
-            continue
         node_id = f"n{len(nodes) + 1}"
         nodes.append(
             {
@@ -337,17 +352,31 @@ def _passage_block(passages: Sequence[Dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
-def _plan_prompt(description: str, language: str, node_count: int, passages: Sequence[Dict[str, Any]]) -> str:
-    mains = max(MIN_MAIN_NODES, min(node_count, round(node_count * 0.6)))
+def _plan_prompt(
+    description: str, language: str, node_count: Optional[int], passages: Sequence[Dict[str, Any]]
+) -> str:
+    if node_count:
+        mains = max(MIN_MAIN_NODES, min(node_count, round(node_count * 0.6)))
+        size = f"Produce exactly {node_count} nodes: about {mains} main nodes and the rest sub-nodes.\n"
+    else:
+        # Without "be thorough" the model returns a flat list of 6-9 main nodes
+        # for almost any goal; with it the plans branch and grow with the subject.
+        size = (
+            "You decide how many nodes the plan needs; there is no limit. Be thorough: use as "
+            "many main nodes as it takes to go from the basics to being assessed without "
+            "skipping a step, and break every main node that holds more than one idea into "
+            "sub-nodes. Let the size follow the subject: a narrow goal stays short, a broad one "
+            "is long. Never repeat a node to make the plan look bigger.\n"
+        )
     return (
         f"Learner's goal:\n{description}\n\n"
         f"Write everything in language code {language}.\n"
-        f"Produce exactly {node_count} nodes: about {mains} main nodes and the rest sub-nodes.\n"
+        + size +
         "- Main nodes have parent null and are listed in learning order. Each main node's "
         f"category is exactly one of: {', '.join(STAGES)}. Move through those stages in that "
         "order; a stage may hold several main nodes.\n"
         "- A sub-node has parent = the id of the main node it explains in more detail. Give "
-        f"sub-nodes to the main nodes that are hardest to grasp, at most {MAX_SUBS_PER_MAIN} each.\n"
+        "sub-nodes to the main nodes that need breaking down, as many as each one needs.\n"
         "- label: a short name, at most 40 characters. description: 1-3 sentences on what to "
         "learn and how the learner can tell they have got it.\n\n"
         + _passage_block(passages)
@@ -424,9 +453,12 @@ async def research_on_web(
     reply: Dict[str, Any] = {}
     sources: List[Dict[str, Any]] = []
     chunk_map: Dict[int, int] = {}
-    # The model sometimes answers from memory without searching; ask once more
-    # before giving up on web support.
-    for attempt in (1, 2):
+    # The model sometimes answers from memory without searching, and does so in
+    # streaks when calls come close together; wait a moment and ask again
+    # (twice at most) before giving up on web support.
+    for attempt in (1, 2, 3):
+        if attempt > 1:
+            await asyncio.sleep(2)
         try:
             reply = await grounding.invoke_chat(
                 prompt=prompt if attempt == 1 else prompt + "\n\nYou must run Google Search for every topic.",
@@ -511,7 +543,7 @@ async def generate_plan(
     owner_id: str,
     description: str,
     language: str = "th",
-    node_count: int = 12,
+    node_count: Optional[int] = None,
     title: Optional[str] = None,
     notebook_ids: Optional[Sequence[str]] = None,
     source_ids: Optional[Sequence[str]] = None,
@@ -520,13 +552,17 @@ async def generate_plan(
     settings: Optional[Dict[str, Any]] = None,
     report: Optional[Dict[str, Any]] = None,
 ) -> RoadmapSession:
-    """Generate, ground and store a learning plan for ``owner_id``."""
+    """
+    Generate, ground and store a learning plan for ``owner_id``.
+
+    Without ``node_count`` the model decides how many nodes the subject needs.
+    """
     from open_notebook.community import library
 
     description = (description or "").strip()
     if not description:
         raise InvalidInputError("กรุณาบอกหัวข้อหรือเป้าหมายที่อยากเรียน")
-    if node_count < MIN_MAIN_NODES or node_count > MAX_NODES:
+    if node_count is not None and (node_count < MIN_MAIN_NODES or node_count > MAX_NODES):
         raise InvalidInputError(f"จำนวนด่านต้องอยู่ระหว่าง {MIN_MAIN_NODES} ถึง {MAX_NODES}")
     web_mode = grounding.effective_web_mode(web_mode)
 
@@ -540,9 +576,9 @@ async def generate_plan(
 
     prompt_hash = _hash_prompt(
         {
-            "kind": "learning-plan-v1",
+            "kind": "learning-plan-v2",
             "desc": description.lower(),
-            "n": node_count,
+            "n": node_count or "auto",
             "lang": language,
             "web": web_mode,
             "scope": sorted(notebook_ids or []),
@@ -561,6 +597,7 @@ async def generate_plan(
             prompt=_plan_prompt(description, language, node_count, passages),
             system=SYSTEM_PROMPT,
             owner_id=owner_id,
+            max_tokens=_plan_max_tokens(),
         )
         plan = normalize_plan(await _extract_json(raw), node_count, len(passages))
         nodes = plan["nodes"]
@@ -622,7 +659,6 @@ async def generate_plan(
 # ---------------------------------------------------------------------------
 
 MAX_DEPTH = 2  # levels below a main node: main -> sub-node -> detail
-EXPAND_MIN, EXPAND_MAX = 3, 5
 
 EXPAND_SYSTEM_PROMPT = (
     "You break one step of a learning plan into smaller steps. Reply with ONE JSON object "
@@ -668,8 +704,8 @@ def next_node_ids(nodes: Sequence[Dict[str, Any]], count: int) -> List[str]:
 def build_children(
     payload: Dict[str, Any], nodes: Sequence[Dict[str, Any]], parent: Dict[str, Any], passages: int
 ) -> List[Dict[str, Any]]:
-    """The model's steps as child nodes of ``parent``, capped by the roadmap's room."""
-    room = min(EXPAND_MAX, MAX_NODES - len(nodes))
+    """The model's steps as child nodes of ``parent`` - all of them, up to the node ceiling."""
+    room = MAX_NODES - len(nodes)
     existing = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
     known = {_one_line(n.get("label"), MAX_LABEL_CHARS) for n in existing}
     picked: List[Dict[str, Any]] = []
@@ -721,21 +757,17 @@ def _expand_prompt(
     siblings: Sequence[Dict[str, Any]],
     passages: Sequence[Dict[str, Any]],
     *,
-    short_by: int = 0,
+    retry: bool = False,
 ) -> str:
     already = "; ".join(str(s.get("label")) for s in siblings) or "none"
-    again = (
-        f"Your last answer had too few new steps. Give at least {short_by} steps that are not in "
-        "the list above.\n"
-        if short_by
-        else ""
-    )
+    again = "Your last answer had no step that is not already in the list above.\n" if retry else ""
     return (
         f'Learning plan: "{session.title}".\n'
         f'Step to break down: "{parent.get("label")}" — {parent.get("description") or ""}\n'
         f"Steps it already has (do not repeat them): {already}\n{again}\n"
-        f"Write {EXPAND_MIN} to {EXPAND_MAX} smaller steps that explain this step in more detail, "
-        f"in learning order, in language code {session.language}.\n"
+        "Write the smaller steps a learner needs to understand this step in detail, in learning "
+        f"order, in language code {session.language}. You decide how many: as many as the step "
+        "needs, without padding.\n"
         "- label: a short name, at most 40 characters. description: 1-3 sentences on what to "
         "learn and how the learner can tell they have got it.\n\n" + _passage_block(passages)
     )
@@ -748,29 +780,25 @@ async def _draft_children(
     passages: Sequence[Dict[str, Any]],
 ) -> List[Dict[str, Any]]:
     """
-    Ask the model for the sub-nodes, once more if it came back short.
+    Ask the model for the sub-nodes; how many is its call.
 
-    An expansion is sold as 3-5 new steps: an answer with fewer (the model wrote
-    two, or repeated steps the node already has) is not saved, so the caller
-    refunds it. Only the room left under the node cap lowers that minimum.
+    The one answer that is not accepted is an empty one (nothing usable, or only
+    steps the node already has): it is asked again once, then raised so the
+    caller refunds the expansion.
     """
-    wanted = min(EXPAND_MIN, MAX_NODES - len(nodes))
     siblings = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
-    children: List[Dict[str, Any]] = []
     for attempt in range(2):
         raw = await _invoke_chat(
-            prompt=_expand_prompt(session, parent, siblings, passages, short_by=wanted if attempt else 0),
+            prompt=_expand_prompt(session, parent, siblings, passages, retry=bool(attempt)),
             system=EXPAND_SYSTEM_PROMPT,
             owner_id=session.owner_id,
+            max_tokens=_plan_max_tokens(),
         )
         try:
-            children = build_children(await _extract_json(raw), nodes, parent, len(passages))
+            return build_children(await _extract_json(raw), nodes, parent, len(passages))
         except ExternalServiceError:
-            children = []
-        if len(children) >= wanted:
-            return children
-        logger.warning(f"roadmap: expansion of {parent['id']} gave {len(children)} of {wanted} steps (try {attempt + 1})")
-    raise ExternalServiceError("AI ขยายด่านนี้ได้ไม่ครบ ลองใหม่อีกครั้ง")
+            logger.warning(f"roadmap: expansion of {parent['id']} gave no new step (try {attempt + 1})")
+    raise ExternalServiceError("AI ขยายด่านนี้ไม่สำเร็จ ลองใหม่อีกครั้ง")
 
 
 async def expand_node(
@@ -782,7 +810,7 @@ async def expand_node(
     web_mode: str = grounding.WEB_AUTO,
 ) -> List[Dict[str, Any]]:
     """
-    Add 3-5 sub-nodes under ``node_id`` and save the roadmap. Returns the new nodes.
+    Break ``node_id`` into sub-nodes and save the roadmap. Returns the new nodes.
 
     Uses the same order of knowledge as generation: the library inside the
     given scope, then the web, then the model.

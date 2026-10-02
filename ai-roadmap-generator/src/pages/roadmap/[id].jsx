@@ -11,7 +11,8 @@ import { seg, ws } from '@/lib/api'
 import { communityUrl, sessionIdFromCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
 
-const MAX_NODES = 50
+// A safety ceiling shared with the server, not a size the plan is expected to reach.
+const MAX_NODES = 200
 const MAX_DEPTH = 2
 
 /** 0 for a main node, 1 for its sub-node, 2 for a detail of that. */

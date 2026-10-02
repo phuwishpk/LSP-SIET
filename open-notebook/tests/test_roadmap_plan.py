@@ -81,6 +81,26 @@ def test_normalize_fills_missing_stages_by_position_and_trims():
     assert stages[0] == "พื้นฐาน"
 
 
+def test_without_a_requested_size_the_plan_keeps_every_node_the_model_wrote():
+    mains = [_node(f"m{i}", f"หัวข้อ {i}", "พื้นฐาน") for i in range(30)]
+    subs = [_node(f"s{i}", f"ย่อย {i}", parent="m0") for i in range(9)]
+    plan = roadmap_plan.normalize_plan({"nodes": mains + subs})
+    assert len(plan["nodes"]) == 39
+    assert sum(1 for n in plan["nodes"] if n["parent"] == "n1") == 9  # no per-node cap
+    # asking for a size still trims to it
+    assert len(roadmap_plan.normalize_plan({"nodes": mains + subs}, node_count=12)["nodes"]) == 12
+    # and a runaway answer stops at the safety ceiling
+    flood = [_node(f"x{i}", f"ข้อ {i}", "พื้นฐาน") for i in range(roadmap_plan.MAX_NODES + 40)]
+    assert len(roadmap_plan.normalize_plan({"nodes": flood})["nodes"]) == roadmap_plan.MAX_NODES
+
+
+def test_the_prompt_leaves_the_size_to_the_model_unless_one_is_asked_for():
+    free = roadmap_plan._plan_prompt("เรียน Python", "th", None, [])
+    assert "You decide how many nodes" in free and "Produce exactly" not in free
+    fixed = roadmap_plan._plan_prompt("เรียน Python", "th", 12, [])
+    assert "Produce exactly 12 nodes" in fixed and "You decide" not in fixed
+
+
 def test_normalize_rejects_a_plan_that_is_too_small():
     with pytest.raises(ExternalServiceError):
         roadmap_plan.normalize_plan({"nodes": [_node("a", "หนึ่ง"), _node("b", "สอง")]}, node_count=8)
@@ -259,21 +279,30 @@ def test_children_take_the_parents_stage_and_skip_repeats():
     assert children[0]["refs"] == [1] and children[1]["refs"] == []
 
 
-def test_children_are_capped_by_the_room_left_in_the_roadmap():
-    nodes = [{"id": f"n{i}", "label": str(i), "parent": None} for i in range(1, roadmap_plan.MAX_NODES - 1)]
-    children = roadmap_plan.build_children(
-        {"nodes": [{"label": f"ใหม่ {i}"} for i in range(5)]}, nodes, nodes[0], passages=0
+def test_children_are_capped_only_by_the_node_ceiling():
+    nodes = _tree()
+    # No fixed number per expansion: every step the model wrote is kept.
+    many = roadmap_plan.build_children(
+        {"nodes": [{"label": f"ใหม่ {i}"} for i in range(9)]}, nodes, nodes[0], passages=0
     )
-    assert len(children) == 2  # 48 nodes + 2 = the 50 cap
+    assert len(many) == 9
+    one = roadmap_plan.build_children({"nodes": [{"label": "ขั้นเดียว"}]}, nodes, nodes[0], passages=0)
+    assert len(one) == 1
+
+    nearly_full = [{"id": f"n{i}", "label": str(i), "parent": None} for i in range(1, roadmap_plan.MAX_NODES - 1)]
+    children = roadmap_plan.build_children(
+        {"nodes": [{"label": f"ใหม่ {i}"} for i in range(5)]}, nearly_full, nearly_full[0], passages=0
+    )
+    assert len(children) == 2  # only two fit under the ceiling
     with pytest.raises(ExternalServiceError):
-        roadmap_plan.build_children({"nodes": [{"label": ""}]}, nodes, nodes[0], passages=0)
+        roadmap_plan.build_children({"nodes": [{"label": ""}]}, nearly_full, nearly_full[0], passages=0)
 
 
 def _expansion_answers(monkeypatch, *answers):
     """Feed ``_draft_children`` canned model answers; returns the prompts it sent."""
     queue, prompts = list(answers), []
 
-    async def fake_chat(*, prompt, system, owner_id):
+    async def fake_chat(*, prompt, system, owner_id, max_tokens=None):
         prompts.append(prompt)
         return queue.pop(0)
 
@@ -290,27 +319,27 @@ def _draft(nodes, parent):
     return asyncio.run(roadmap_plan._draft_children(session, nodes, parent, []))
 
 
-def test_expansion_asks_again_when_the_answer_is_short(monkeypatch):
+def test_expansion_keeps_however_many_steps_the_model_wrote(monkeypatch):
     nodes = _tree()
-    # "break" is already a sub-node of n2, so the first answer has only two new steps.
-    prompts = _expansion_answers(monkeypatch, ["break", "continue", "ลูปซ้อน"], ["continue", "ลูปซ้อน", "else ของลูป"])
-    children = _draft(nodes, nodes[1])
-    assert [c["label"] for c in children] == ["continue", "ลูปซ้อน", "else ของลูป"]
-    assert len(prompts) == 2 and "too few" not in prompts[0] and "too few" in prompts[1]
+    # "break" is already a sub-node of n2; the two new steps are accepted as they are.
+    prompts = _expansion_answers(monkeypatch, ["break", "continue", "ลูปซ้อน"])
+    assert [c["label"] for c in _draft(nodes, nodes[1])] == ["continue", "ลูปซ้อน"]
+    assert len(prompts) == 1 and "You decide how many" in prompts[0]
+
+    prompts = _expansion_answers(monkeypatch, [f"ขั้น {i}" for i in range(1, 8)])
+    assert len(_draft(nodes, nodes[1])) == 7
 
 
-def test_expansion_with_too_few_steps_twice_is_not_saved(monkeypatch):
+def test_expansion_with_nothing_new_is_asked_again_then_refused(monkeypatch):
     nodes = _tree()
-    prompts = _expansion_answers(monkeypatch, ["continue", "ลูปซ้อน"], [])
+    prompts = _expansion_answers(monkeypatch, ["break"], ["continue"])
+    assert [c["label"] for c in _draft(nodes, nodes[1])] == ["continue"]
+    assert len(prompts) == 2 and "no step" not in prompts[0] and "no step" in prompts[1]
+
+    prompts = _expansion_answers(monkeypatch, ["break"], [])
     with pytest.raises(ExternalServiceError):
         _draft(nodes, nodes[1])
     assert len(prompts) == 2
-
-
-def test_expansion_minimum_shrinks_only_at_the_node_cap(monkeypatch):
-    nodes = [{"id": f"n{i}", "label": str(i), "parent": None} for i in range(1, roadmap_plan.MAX_NODES - 1)]
-    prompts = _expansion_answers(monkeypatch, ["ก", "ข", "ค", "ง"])
-    assert len(_draft(nodes, nodes[0])) == 2 and len(prompts) == 1  # room for two, two is enough
 
 
 def test_fingerprint_tracks_the_graph_not_the_sources():
