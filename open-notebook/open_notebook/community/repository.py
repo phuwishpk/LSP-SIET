@@ -651,6 +651,15 @@ async def roadmap_posts_for_author(author_id: int, session_ids: Sequence[str]) -
     return {str(r["linked_id"]): int(r["post_id"]) for r in rows}
 
 
+async def update_post_snapshot(post_id: int, snapshot: Dict[str, Any]) -> None:
+    """Replace the roadmap/quiz copy a post carries (the author pushed a newer version)."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE posts SET linked_snapshot = :snapshot WHERE id = :pid"),
+            {"snapshot": json.dumps(snapshot, ensure_ascii=False), "pid": post_id},
+        )
+
+
 async def post_exists(post_id: int) -> bool:
     """
     Does this post row exist at all?

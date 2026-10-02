@@ -4,9 +4,13 @@ import { useMemo, useState } from 'react'
 import { ArrowRight, ChevronDown, ChevronUp, Footprints, Map, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { RoadmapGraph } from '@/app/(dashboard)/features/components/RoadmapGraph'
+import { RoadmapPlanView } from '@/components/community/RoadmapPlanView'
 import type { CommunityPost, RoadmapEmbed as RoadmapEmbedData } from '@/lib/api/community'
+import { openRoadmapApp } from '@/lib/external-apps'
 import { useRoadmapFollow } from '@/lib/hooks/use-community'
+
+/** `roadmap_session:abc` -> the page of that roadmap inside the roadmap app. */
+const roadmapPath = (sessionId: string) => `/roadmap/${sessionId.replace(':', '-')}`
 
 interface RoadmapEmbedProps {
   post: CommunityPost
@@ -75,7 +79,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
         </div>
       ) : (
         <div className="mt-3 overflow-x-auto rounded-lg border bg-background p-3">
-          <RoadmapGraph nodes={embed.nodes} edges={embed.edges} />
+          <RoadmapPlanView nodes={embed.nodes} grounding={embed.grounding} />
         </div>
       )}
 
@@ -94,9 +98,28 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           {expanded ? 'ย่อ' : 'ดูแผนผังเต็ม'}
         </Button>
+        {post.is_author ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void openRoadmapApp({ path: roadmapPath(embed.id) })}
+          >
+            เปิดในแอป AI Roadmap
+          </Button>
+        ) : (
+          followedSession && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void openRoadmapApp({ path: roadmapPath(followedSession) })}
+            >
+              เปิดแผนของฉันในแอป AI Roadmap
+            </Button>
+          )
+        )}
         {(followedSession || post.viewer.saved) && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ในรายการของคุณแล้ว (ดูได้ที่ “สรุปที่บันทึกไว้”)
+            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ใน “Roadmap ของฉัน” แล้ว ขยายด่านต่อได้ในแอป AI Roadmap
           </span>
         )}
       </div>

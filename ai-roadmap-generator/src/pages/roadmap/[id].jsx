@@ -9,6 +9,22 @@ import ShareDialog from '@/components/ShareDialog'
 import { Download, Share } from '@/components/icons'
 import { seg, ws } from '@/lib/api'
 import { communityUrl, sessionIdFromCode } from '@/lib/workspace'
+import { useWorkspace } from '@/lib/workspace-context'
+
+const MAX_NODES = 50
+const MAX_DEPTH = 2
+
+/** 0 for a main node, 1 for its sub-node, 2 for a detail of that. */
+function depthOf(nodes, node) {
+  const byId = new Map(nodes.map((item) => [String(item.id), item]))
+  let depth = 0
+  let current = node
+  while (current?.parent != null && depth <= nodes.length) {
+    current = byId.get(String(current.parent))
+    depth += 1
+  }
+  return depth
+}
 
 function groundingLabel(grounding) {
   if (!grounding) return null
@@ -21,11 +37,14 @@ function groundingLabel(grounding) {
 
 export default function RoadmapPage() {
   const { query, isReady } = useRouter()
+  const { balance, exempt, costs, refresh } = useWorkspace()
   const graphRef = useRef(null)
   const [roadmap, setRoadmap] = useState(null)
   const [error, setError] = useState(null)
   const [selectedId, setSelectedId] = useState(null)
   const [sharing, setSharing] = useState(false)
+  const [expanding, setExpanding] = useState(false)
+  const [syncing, setSyncing] = useState(false)
 
   useEffect(() => {
     if (!isReady || !query.id) return
@@ -46,6 +65,44 @@ export default function RoadmapPage() {
     return mains.findIndex((node) => String(node.id) === selectedId) + 1
   }, [nodes, selected, selectedId])
   const childCount = selected ? nodes.filter((node) => String(node.parent) === String(selected.id)).length : 0
+
+  const expandCost = Number(costs.roadmap_expand ?? 2)
+  let expandBlocked = null
+  if (selected) {
+    if (depthOf(nodes, selected) >= MAX_DEPTH) expandBlocked = 'ด่านนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากด่านหลัก)'
+    else if (nodes.length >= MAX_NODES) expandBlocked = `Roadmap นี้มีครบ ${MAX_NODES} ด่านแล้ว`
+    else if (!exempt && balance < expandCost) expandBlocked = `ขาดอีก ${expandCost - balance} แต้ม`
+  }
+
+  const expand = async () => {
+    setExpanding(true)
+    try {
+      const result = await ws(`community/roadmaps/mine/${seg(roadmap.id)}/expand`, {
+        method: 'POST',
+        json: { node_id: selected.id },
+      })
+      setRoadmap(result)
+      toast.success(`เพิ่ม ${result.added.length} ด่านย่อยแล้ว`)
+    } catch (err) {
+      toast.error(err?.message || 'ขยายด่านไม่สำเร็จ')
+    } finally {
+      refresh().catch(() => {})
+      setExpanding(false)
+    }
+  }
+
+  const syncPost = async () => {
+    setSyncing(true)
+    try {
+      await ws(`community/posts/${roadmap.shared_post_id}/roadmap/sync`, { method: 'POST' })
+      setRoadmap((current) => ({ ...current, post_outdated: false }))
+      toast.success('อัปเดตโพสต์ในฟีดแล้ว')
+    } catch (err) {
+      toast.error(err?.message || 'อัปเดตโพสต์ไม่สำเร็จ')
+    } finally {
+      setSyncing(false)
+    }
+  }
 
   const download = async () => {
     try {
@@ -107,9 +164,17 @@ export default function RoadmapPage() {
               </a>
             )
           ) : roadmap.shared_post_id ? (
-            <a className="btn btn-outline-accent" href={communityUrl(`?post=${roadmap.shared_post_id}`)}>
-              ดูโพสต์ในฟีด
-            </a>
+            <>
+              {roadmap.post_outdated && (
+                <button type="button" className="btn btn-primary" onClick={syncPost} disabled={syncing}>
+                  <Share />
+                  {syncing ? 'กำลังอัปเดต…' : 'อัปเดตโพสต์ในฟีด'}
+                </button>
+              )}
+              <a className="btn btn-outline-accent" href={communityUrl(`?post=${roadmap.shared_post_id}`)}>
+                ดูโพสต์ในฟีด
+              </a>
+            </>
           ) : (
             <button type="button" className="btn btn-primary" onClick={() => setSharing(true)}>
               <Share />
@@ -121,7 +186,13 @@ export default function RoadmapPage() {
 
       <div className="viewer-body">
         <RoadmapGraph ref={graphRef} nodes={nodes} selectedId={selectedId} onSelect={setSelectedId} />
-        <NodePanel roadmap={roadmap} node={selected} mainIndex={mainIndex} childCount={childCount} />
+        <NodePanel
+          roadmap={roadmap}
+          node={selected}
+          mainIndex={mainIndex}
+          childCount={childCount}
+          expand={{ cost: expandCost, exempt, busy: expanding, disabledReason: expandBlocked, onExpand: expand }}
+        />
       </div>
 
       {sharing && (

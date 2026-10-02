@@ -45,6 +45,7 @@ export const KIND_LABELS: Record<string, string> = {
   rag_session: 'เซสชัน RAG AI',
   quiz_generate: 'สร้าง AI Quiz',
   roadmap_generate: 'สร้าง AI Roadmap',
+  roadmap_expand: 'ขยายด่าน Roadmap',
   quiz_import: 'นำเข้าควิซของเพื่อน',
   cashback: 'แต้มคืน (เพื่อนทำควิซ)',
   creator_bonus: 'Creator Points (แชร์สรุป)',

@@ -221,3 +221,26 @@ class RoadmapSession(ObjectModel):
         if self.owner_id != owner_id:
             raise NotFoundError("Roadmap session not found")
         return await self.delete()
+
+    async def save_graph(self) -> None:
+        """
+        Persist the nodes, edges and grounding after the roadmap grew.
+
+        A targeted update instead of ``save()``: only what expansion changes is
+        written, so nothing else on the record can be clobbered by it.
+        """
+        self.node_count = len(self.nodes)
+        try:
+            await repo_query(
+                "UPDATE $id SET nodes = $nodes, edges = $edges, node_count = $count, grounding = $grounding",
+                {
+                    "id": ensure_record_id(self.id),
+                    "nodes": self.nodes,
+                    "edges": self.edges,
+                    "count": self.node_count,
+                    "grounding": self.grounding,
+                },
+            )
+        except Exception as exc:
+            logger.error(f"Failed updating roadmap session {self.id}: {exc}")
+            raise DatabaseOperationError(exc)

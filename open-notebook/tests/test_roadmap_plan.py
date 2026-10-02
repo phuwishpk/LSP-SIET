@@ -201,3 +201,74 @@ def test_grounding_label():
     assert roadmap_plan.grounding_label(True, False) == "อ้างอิง: คลังความรู้"
     assert roadmap_plan.grounding_label(False, True) == "อ้างอิง: เว็บ"
     assert roadmap_plan.grounding_label(False, False) == "ไม่ได้อ้างอิงคลังความรู้"
+
+
+# ---------------------------------------------------------------------------
+# Expanding a node
+# ---------------------------------------------------------------------------
+
+
+def _tree():
+    return [
+        {"id": "n1", "label": "ตัวแปร", "category": "พื้นฐาน", "parent": None, "order": 1},
+        {"id": "n2", "label": "ลูป", "category": "แนวคิดหลัก", "parent": None, "order": 2},
+        {"id": "n3", "label": "break", "category": "แนวคิดหลัก", "parent": "n2", "order": 1},
+        {"id": "n4", "label": "ตัวอย่าง break", "category": "แนวคิดหลัก", "parent": "n3", "order": 1},
+    ]
+
+
+def test_depth_and_what_blocks_an_expansion():
+    nodes = _tree()
+    assert [roadmap_plan.depth_of(nodes, i) for i in ("n1", "n3", "n4")] == [0, 1, 2]
+    assert roadmap_plan.expansion_block(nodes, "n2") is None
+    assert roadmap_plan.expansion_block(nodes, "n3") is None
+    assert "ลึกสุด" in roadmap_plan.expansion_block(nodes, "n4")
+    assert "ไม่พบ" in roadmap_plan.expansion_block(nodes, "nope")
+    full = [{"id": f"n{i}", "parent": None} for i in range(1, roadmap_plan.MAX_NODES + 1)]
+    assert "ครบ" in roadmap_plan.expansion_block(full, "n1")
+
+
+def test_new_ids_never_clash_even_with_old_style_ids():
+    assert roadmap_plan.next_node_ids(_tree(), 2) == ["n5", "n6"]
+    legacy = [{"id": "node_1"}, {"id": "intro"}, {"id": "n3"}]
+    assert roadmap_plan.next_node_ids(legacy, 2) == ["n4", "n5"]
+
+
+def test_children_take_the_parents_stage_and_skip_repeats():
+    nodes = _tree()
+    children = roadmap_plan.build_children(
+        {
+            "nodes": [
+                {"label": "break", "description": "ซ้ำกับที่มีอยู่"},
+                {"label": "continue", "description": "ข้ามรอบ", "refs": [1], "from_library": True},
+                {"label": "ลูปซ้อน", "description": "ลูปในลูป"},
+                {"label": "", "description": "ไม่มีชื่อ"},
+            ]
+        },
+        nodes,
+        nodes[1],
+        passages=1,
+    )
+    assert [c["label"] for c in children] == ["continue", "ลูปซ้อน"]
+    assert [c["id"] for c in children] == ["n5", "n6"]
+    assert all(c["parent"] == "n2" and c["level"] == 1 and c["category"] == "แนวคิดหลัก" for c in children)
+    assert [c["order"] for c in children] == [2, 3]  # after the existing sub-node
+    assert children[0]["refs"] == [1] and children[1]["refs"] == []
+
+
+def test_children_are_capped_by_the_room_left_in_the_roadmap():
+    nodes = [{"id": f"n{i}", "label": str(i), "parent": None} for i in range(1, roadmap_plan.MAX_NODES - 1)]
+    children = roadmap_plan.build_children(
+        {"nodes": [{"label": f"ใหม่ {i}"} for i in range(5)]}, nodes, nodes[0], passages=0
+    )
+    assert len(children) == 2  # 48 nodes + 2 = the 50 cap
+    with pytest.raises(ExternalServiceError):
+        roadmap_plan.build_children({"nodes": [{"label": ""}]}, nodes, nodes[0], passages=0)
+
+
+def test_fingerprint_tracks_the_graph_not_the_sources():
+    nodes = _tree()
+    same = [{**n, "sources": [{"kind": "private"}]} for n in reversed(nodes)]
+    assert roadmap_plan.graph_fingerprint(nodes) == roadmap_plan.graph_fingerprint(same)
+    grown = nodes + [{"id": "n5", "label": "ใหม่", "parent": "n1"}]
+    assert roadmap_plan.graph_fingerprint(nodes) != roadmap_plan.graph_fingerprint(grown)

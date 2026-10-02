@@ -615,3 +615,187 @@ async def generate_plan(
         f"library={payload['grounding']['library']} web={payload['grounding']['web']}"
     )
     return session
+
+
+# ---------------------------------------------------------------------------
+# Expanding one node into sub-nodes
+# ---------------------------------------------------------------------------
+
+MAX_DEPTH = 2  # levels below a main node: main -> sub-node -> detail
+EXPAND_MIN, EXPAND_MAX = 3, 5
+
+EXPAND_SYSTEM_PROMPT = (
+    "You break one step of a learning plan into smaller steps. Reply with ONE JSON object "
+    'and nothing else, shaped as {"nodes": [{"label": str, "description": str, '
+    '"refs": [int], "from_library": bool}]}.'
+)
+
+
+def depth_of(nodes: Sequence[Dict[str, Any]], node_id: str) -> int:
+    """0 for a main node, 1 for its sub-node, 2 for a detail of that."""
+    by_id = {str(n["id"]): n for n in nodes}
+    depth, current = 0, by_id.get(str(node_id))
+    while current is not None and current.get("parent") and depth <= len(nodes):
+        current = by_id.get(str(current["parent"]))
+        depth += 1
+    return depth
+
+
+def expansion_block(nodes: Sequence[Dict[str, Any]], node_id: str) -> Optional[str]:
+    """Why this node cannot be expanded (shown to the user), or None when it can."""
+    if not any(str(n["id"]) == str(node_id) for n in nodes):
+        return "ไม่พบด่านนี้ใน Roadmap"
+    if depth_of(nodes, node_id) >= MAX_DEPTH:
+        return "ด่านนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากด่านหลัก)"
+    if len(nodes) >= MAX_NODES:
+        return f"Roadmap นี้มีครบ {MAX_NODES} ด่านแล้ว"
+    return None
+
+
+def next_node_ids(nodes: Sequence[Dict[str, Any]], count: int) -> List[str]:
+    """Fresh ``n<number>`` ids that do not clash with any id already in the roadmap."""
+    taken = {str(n["id"]) for n in nodes}
+    numbers = [int(m.group(1)) for m in (re.fullmatch(r"n(\d+)", i) for i in taken) if m]
+    out: List[str] = []
+    candidate = max(numbers, default=len(nodes))
+    while len(out) < count:
+        candidate += 1
+        if f"n{candidate}" not in taken:
+            out.append(f"n{candidate}")
+    return out
+
+
+def build_children(
+    payload: Dict[str, Any], nodes: Sequence[Dict[str, Any]], parent: Dict[str, Any], passages: int
+) -> List[Dict[str, Any]]:
+    """The model's steps as child nodes of ``parent``, capped by the roadmap's room."""
+    room = min(EXPAND_MAX, MAX_NODES - len(nodes))
+    existing = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
+    known = {_one_line(n.get("label"), MAX_LABEL_CHARS) for n in existing}
+    picked: List[Dict[str, Any]] = []
+    for raw in payload.get("nodes") or []:
+        if not isinstance(raw, dict) or len(picked) >= room:
+            continue
+        label = _one_line(raw.get("label") or raw.get("title"), MAX_LABEL_CHARS)
+        if not label or label in known:
+            continue
+        known.add(label)
+        from_library = bool(raw.get("from_library")) and passages > 0
+        picked.append(
+            {
+                "label": label,
+                "description": _clip(raw.get("description"), MAX_DESCRIPTION_CHARS),
+                "refs": _int_refs(raw.get("refs"), passages) if from_library else [],
+                "from_library": from_library,
+            }
+        )
+    if not picked:
+        raise ExternalServiceError("AI ขยายด่านนี้ไม่สำเร็จ ลองใหม่อีกครั้ง")
+
+    level = depth_of(nodes, parent["id"]) + 1
+    children = []
+    for offset, (node_id, child) in enumerate(zip(next_node_ids(nodes, len(picked)), picked), start=1):
+        children.append(
+            {
+                "id": node_id,
+                **child,
+                "category": parent.get("category"),
+                "parent": str(parent["id"]),
+                "level": level,
+                "order": len(existing) + offset,
+            }
+        )
+    return children
+
+
+def graph_fingerprint(nodes: Sequence[Dict[str, Any]]) -> str:
+    """Changes whenever a node is added, removed or reworded (sources are ignored)."""
+    return _hash_prompt(
+        {"nodes": sorted((str(n.get("id")), n.get("label"), n.get("description"), str(n.get("parent") or "")) for n in nodes)}
+    )
+
+
+def _expand_prompt(
+    session: RoadmapSession, parent: Dict[str, Any], siblings: Sequence[Dict[str, Any]], passages: Sequence[Dict[str, Any]]
+) -> str:
+    already = "; ".join(str(s.get("label")) for s in siblings) or "none"
+    return (
+        f'Learning plan: "{session.title}".\n'
+        f'Step to break down: "{parent.get("label")}" — {parent.get("description") or ""}\n'
+        f"Steps it already has (do not repeat them): {already}\n\n"
+        f"Write {EXPAND_MIN} to {EXPAND_MAX} smaller steps that explain this step in more detail, "
+        f"in learning order, in language code {session.language}.\n"
+        "- label: a short name, at most 40 characters. description: 1-3 sentences on what to "
+        "learn and how the learner can tell they have got it.\n\n" + _passage_block(passages)
+    )
+
+
+async def expand_node(
+    *,
+    session: RoadmapSession,
+    node_id: str,
+    notebook_ids: Optional[Sequence[str]] = None,
+    source_ids: Optional[Sequence[str]] = None,
+    web_mode: str = grounding.WEB_AUTO,
+) -> List[Dict[str, Any]]:
+    """
+    Add 3-5 sub-nodes under ``node_id`` and save the roadmap. Returns the new nodes.
+
+    Uses the same order of knowledge as generation: the library inside the
+    given scope, then the web, then the model.
+    """
+    from open_notebook.community import library
+
+    nodes: List[Dict[str, Any]] = list(session.nodes or [])
+    blocked = expansion_block(nodes, node_id)
+    if blocked:
+        raise InvalidInputError(blocked)
+    parent = next(n for n in nodes if str(n["id"]) == str(node_id))
+    web_mode = grounding.effective_web_mode(web_mode)
+
+    passages: List[Dict[str, Any]] = []
+    if notebook_ids:
+        found = await rag.retrieve(
+            f"{parent.get('label')} {parent.get('description') or ''}".strip(),
+            list(notebook_ids),
+            allow_global_fallback=False,
+            source_ids=source_ids,
+        )
+        passages = relevant_passages(found, picked=bool(source_ids))
+
+    siblings = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
+    raw = await _invoke_chat(
+        prompt=_expand_prompt(session, parent, siblings, passages),
+        system=EXPAND_SYSTEM_PROMPT,
+        owner_id=session.owner_id,
+    )
+    children = build_children(await _extract_json(raw), nodes, parent, len(passages))
+    meta = await library.source_metadata([p["id"] for p in passages])
+    attach_library_sources(children, passages, meta)
+
+    web_used, web_available, pages = False, True, []
+    topics = web_topics(children, web_mode)
+    if topics:
+        research = await research_on_web(
+            title=session.title, language=session.language, topics=topics, owner_id=session.owner_id
+        )
+        web_available = research["available"]
+        web_used = merge_research(children, research)
+        pages = research["sources"] if web_used else []
+
+    info = dict(session.grounding or {})
+    info["library"] = bool(info.get("library")) or any(
+        s.get("kind") == "library" for child in children for s in child["sources"]
+    )
+    info["web"] = bool(info.get("web")) or web_used
+    info["label"] = grounding_label(info["library"], info["web"])
+    info["web_available"] = web_available
+    known_urls = {p.get("url") for p in info.get("web_sources") or []}
+    info["web_sources"] = (info.get("web_sources") or []) + [p for p in pages if p["url"] not in known_urls]
+
+    session.nodes = nodes + children
+    session.edges = list(session.edges or []) + [{"source": str(parent["id"]), "target": c["id"]} for c in children]
+    session.grounding = info
+    await session.save_graph()
+    logger.info(f"roadmap: expanded {node_id} of {session.id} with {len(children)} nodes (web={web_used})")
+    return children

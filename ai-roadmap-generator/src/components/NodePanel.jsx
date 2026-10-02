@@ -118,7 +118,11 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
             <Plus />
             {expand.busy ? 'กำลังขยาย…' : expand.exempt ? 'ขยายด่านนี้' : `ขยายด่านนี้ · ${expand.cost} แต้ม`}
           </button>
-          <p className="hint center">{expand.disabledReason || 'เพิ่มด่านย่อย 3–5 ด่าน โดยใช้แหล่งความรู้ชุดเดิม'}</p>
+          <p className="hint center">
+            {expand.busy
+              ? 'AI กำลังค้นแหล่งความรู้และแตกด่านย่อย ใช้เวลาประมาณครึ่งนาที'
+              : expand.disabledReason || 'เพิ่มด่านย่อย 3–5 ด่าน โดยใช้แหล่งความรู้ชุดเดิม'}
+          </p>
         </section>
       )}
     </aside>

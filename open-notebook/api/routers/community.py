@@ -1033,11 +1033,101 @@ async def my_roadmaps(
 async def my_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     session = await _my_roadmap_or_404(session_id, user)
     shared = await repo.roadmap_posts_for_author(_uid(user), [str(session.id)])
+    return await _roadmap_detail(session, shared)
+
+
+async def _roadmap_detail(session: RoadmapSession, shared: Dict[str, int]) -> Dict[str, Any]:
+    from open_notebook.community import roadmap_plan
+
+    # The post keeps its own copy; after an expansion it lags behind until the
+    # author pushes the new version.
+    outdated = False
+    post_id = shared.get(str(session.id))
+    if post_id:
+        post = await repo.get_post_raw(post_id)
+        copy = ((post or {}).get("embed_snapshot") or {}).get("nodes") or []
+        outdated = roadmap_plan.graph_fingerprint(copy) != roadmap_plan.graph_fingerprint(session.nodes or [])
     return {
         **_roadmap_summary(session, shared),
         "nodes": session.nodes or [],
         "edges": session.edges or [],
         "settings": session.settings,
+        "post_outdated": outdated,
+    }
+
+
+class RoadmapExpandBody(BaseModel):
+    node_id: str = Field(..., min_length=1, max_length=64)
+
+
+async def _expansion_scope(user: User, session: RoadmapSession) -> tuple[List[str], Optional[List[str]]]:
+    """
+    The knowledge an expansion may read: the scope saved with the roadmap, as
+    long as the user may still read it - otherwise their own "auto" scope.
+    """
+    saved = session.settings or {}
+    try:
+        body = StudyRoadmapBody(
+            description="-",
+            scope=saved.get("scope") or "auto",
+            course_id=saved.get("course_id"),
+            document_ids=saved.get("document_ids") or [],
+            notebook_ids=saved.get("notebook_ids") or [],
+            source_ids=saved.get("source_ids") or [],
+        )
+        notebook_ids, source_ids, _label = await _roadmap_scope(user, body)
+        return notebook_ids, source_ids
+    except Exception as exc:
+        # A deleted document, a room the user left, settings from an older
+        # version: fall back rather than refuse to expand.
+        logger.info(f"roadmap expand: saved scope unusable for {session.id} ({exc}); using auto")
+        notebook_ids, _label, _fallback = await _resolve_scope(user, "auto", None, [])
+        return notebook_ids, None
+
+
+@router.post("/roadmaps/mine/{session_id}/expand")
+async def expand_my_roadmap(
+    session_id: str, body: RoadmapExpandBody, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Break one node into 3-5 sub-nodes (charged per expansion)."""
+    from open_notebook.community import roadmap_plan
+
+    uid = _uid(user)
+    session = await _my_roadmap_or_404(session_id, user)
+    blocked = roadmap_plan.expansion_block(session.nodes or [], body.node_id)
+    if blocked:
+        raise HTTPException(status_code=400, detail=blocked)
+    notebook_ids, source_ids = await _expansion_scope(user, session)
+    try:
+        charge = await points.charge(user, "roadmap_expand", ref_type="roadmap_session", ref_id=str(session.id))
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+    try:
+        added = await roadmap_plan.expand_node(
+            session=session,
+            node_id=body.node_id,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            web_mode=(session.settings or {}).get("web") or "auto",
+        )
+    except (InvalidInputError, ConfigurationError) as exc:
+        await points.refund(charge, "roadmap expansion failed")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except ExternalServiceError as exc:
+        await points.refund(charge, "roadmap expansion failed")
+        raise HTTPException(status_code=502, detail=str(exc))
+    except Exception as exc:
+        await points.refund(charge, "roadmap expansion failed")
+        logger.exception("roadmap expansion failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    shared = await repo.roadmap_posts_for_author(uid, [str(session.id)])
+    return {
+        **await _roadmap_detail(session, shared),
+        "added": [node["id"] for node in added],
+        "charged": charge.amount,
+        "balance": await points.get_balance(uid),
     }
 
 
@@ -1047,6 +1137,26 @@ async def delete_my_roadmap(session_id: str, user: User = Depends(get_current_us
     session = await _my_roadmap_or_404(session_id, user)
     await session.delete_for_owner(_owner(user))
     return {"ok": True}
+
+
+@router.post("/posts/{post_id}/roadmap/sync")
+async def sync_roadmap_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Replace the post's copy of a roadmap with the author's current version
+    (after expanding it). Never automatic: the author decides what readers see.
+    """
+    uid = _uid(user)
+    post = await _post_or_404(post_id)
+    if int(post["author_id"]) != uid:
+        raise HTTPException(status_code=403, detail="อัปเดตได้เฉพาะโพสต์ของตัวเอง")
+    if post.get("embed_type") != "roadmap" or not post.get("embed_id"):
+        raise HTTPException(status_code=400, detail="โพสต์นี้ไม่มี Roadmap")
+    try:
+        session = await RoadmapSession.get_for_owner(session_id=post["embed_id"], owner_id=_owner(user))
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Roadmap ต้นฉบับถูกลบไปแล้ว จึงอัปเดตโพสต์ไม่ได้")
+    await repo.update_post_snapshot(post_id, _roadmap_snapshot(session))
+    return {"post": await repo.get_post(post_id, uid)}
 
 
 # ---------------------------------------------------------------------------
