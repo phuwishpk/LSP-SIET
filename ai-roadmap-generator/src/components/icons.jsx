@@ -16,6 +16,21 @@ export const ArrowLeft = () => (
   </svg>
 )
 
+export const ChevronLeft = () => (
+  <svg {...base} strokeWidth={2}>
+    <path d="M10 3L5 8l5 5" />
+  </svg>
+)
+
+/** A path through three stops: the roadmap app itself. */
+export const Route = () => (
+  <svg {...base} strokeWidth={1.6}>
+    <circle cx="3.5" cy="12.5" r="1.5" />
+    <circle cx="12.5" cy="3.5" r="1.5" />
+    <path d="M5 12.5h4.5a2.5 2.5 0 000-5h-3a2.5 2.5 0 010-5H11" />
+  </svg>
+)
+
 export const Coin = () => (
   <svg {...base} strokeWidth={1.6}>
     <circle cx="8" cy="8" r="6" />

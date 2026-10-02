@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/router'
 import { returnUrl } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
-import { ArrowLeft, Coin } from './icons'
+import { ArrowLeft, Coin, Route } from './icons'
 
 function initials(name) {
   const parts = String(name || '').trim().split(/\s+/).filter(Boolean)
@@ -16,6 +17,7 @@ function initials(name) {
 /** Sticky bar on every page: back to Community, balance, who is signed in. */
 export default function TopBar() {
   const { user, balance, exempt } = useWorkspace()
+  const atHome = useRouter().pathname === '/'
   // The back target lives in sessionStorage, so resolve it after mount.
   const [back, setBack] = useState('#')
   useEffect(() => setBack(returnUrl()), [])
@@ -32,7 +34,13 @@ export default function TopBar() {
           </span>
         </a>
         <span className="topbar-divider" />
-        <Link className="app-name" href="/">
+        <Link
+          className="app-name"
+          href="/"
+          aria-current={atHome ? 'page' : undefined}
+          title={atHome ? undefined : 'หน้าหลัก Roadmap'}
+        >
+          <Route />
           AI Roadmap
         </Link>
       </div>

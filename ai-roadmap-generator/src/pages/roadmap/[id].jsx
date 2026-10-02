@@ -6,7 +6,7 @@ import { toast } from 'react-toastify'
 import NodePanel from '@/components/NodePanel'
 import RoadmapGraph from '@/components/RoadmapGraph'
 import ShareDialog from '@/components/ShareDialog'
-import { Download, Share } from '@/components/icons'
+import { ChevronLeft, Download, Share } from '@/components/icons'
 import { seg, ws } from '@/lib/api'
 import { communityUrl, sessionIdFromCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
@@ -124,7 +124,8 @@ export default function RoadmapPage() {
         <h1 className="h2">เปิด Roadmap ไม่ได้</h1>
         <p className="muted">{error}</p>
         <Link className="btn btn-primary" href="/">
-          กลับไปหน้า Roadmap ของฉัน
+          <ChevronLeft />
+          กลับหน้าหลัก Roadmap
         </Link>
       </main>
     )
@@ -145,12 +146,21 @@ export default function RoadmapPage() {
       </Head>
 
       <div className="viewer-head">
-        <div>
-          <h1 className="h2">{roadmap.title}</h1>
-          <div className="chips">
-            <span className="chip">{nodes.length} ด่าน</span>
-            {label && <span className={`chip ${roadmap.grounding?.library || roadmap.grounding?.web ? 'chip-green' : ''}`}>{label}</span>}
-            {roadmap.origin === 'followed' && <span className="chip chip-violet">เดินตามจากฟีด</span>}
+        <div className="viewer-title">
+          {/* Inside the app: back to the create form and "Roadmap ของฉัน". The pill in the top bar leaves the app. */}
+          <Link className="home-back" href="/" aria-label="กลับหน้าหลัก Roadmap">
+            <ChevronLeft />
+            <span>
+              หน้าหลัก<span className="home-back-long"> Roadmap</span>
+            </span>
+          </Link>
+          <div className="viewer-title-text">
+            <h1 className="h2">{roadmap.title}</h1>
+            <div className="chips">
+              <span className="chip">{nodes.length} ด่าน</span>
+              {label && <span className={`chip ${roadmap.grounding?.library || roadmap.grounding?.web ? 'chip-green' : ''}`}>{label}</span>}
+              {roadmap.origin === 'followed' && <span className="chip chip-violet">เดินตามจากฟีด</span>}
+            </div>
           </div>
         </div>
         <div className="viewer-actions">

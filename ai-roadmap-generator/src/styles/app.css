@@ -184,11 +184,29 @@ textarea {
 }
 
 .app-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 10px;
+  margin: 0 -10px;
+  border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
   color: #bdbdbd;
   text-decoration: none;
   white-space: nowrap;
+}
+
+.app-name:hover {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+/* Already on the roadmap home: a label, not a way to get there. */
+.app-name[aria-current='page'] {
+  color: #f2f2f2;
+  pointer-events: none;
 }
 
 .balance-chip {
@@ -567,6 +585,53 @@ textarea {
   margin-bottom: 6px;
 }
 
+.viewer-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+}
+
+.viewer-title-text {
+  min-width: 0;
+  padding-left: 16px;
+  border-left: 1px solid var(--line);
+}
+
+/*
+ * Back to the roadmap home. Square corners and a chevron, so it does not read
+ * as the round "back to Community" pill in the top bar, which leaves the app.
+ */
+.home-back {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 44px;
+  padding: 0 14px 0 10px;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: #d6d6d6;
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.home-back svg {
+  transition: transform 0.15s ease;
+}
+
+.home-back:hover {
+  background: #1c1c1c;
+  border-color: #6a6a6a;
+  color: #ffffff;
+}
+
+.home-back:hover svg {
+  transform: translateX(-2px);
+}
+
 .viewer-actions {
   display: flex;
   flex-wrap: wrap;
@@ -816,10 +881,19 @@ textarea {
   }
 
   .back-long,
+  .home-back-long,
   .topbar-divider,
   .app-name,
   .who-name {
     display: none;
+  }
+
+  .viewer-title {
+    gap: 12px;
+  }
+
+  .viewer-title-text {
+    padding-left: 12px;
   }
 
   .back-button {
