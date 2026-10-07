@@ -31,6 +31,7 @@ from open_notebook.community.retrieval import content_key
 from open_notebook.config import DEFAULT_CACHE_TTL
 from open_notebook.domain.features import RoadmapSession
 from open_notebook.exceptions import ExternalServiceError, InvalidInputError
+from open_notebook.community import usage
 from open_notebook.features.service import _extract_json, _hash_prompt, _invoke_chat
 
 STAGES: Tuple[str, ...] = ("พื้นฐาน", "แนวคิดหลัก", "ฝึกปฏิบัติ", "ประยุกต์", "ทบทวน/ประเมิน")
@@ -557,6 +558,7 @@ async def generate_plan(
 
     Without ``node_count`` the model decides how many nodes the subject needs.
     """
+    usage.set_context(feature="roadmap")
     from open_notebook.community import library
 
     description = (description or "").strip()
@@ -594,7 +596,6 @@ async def generate_plan(
             report["cached"] = True
     else:
         raw = await _invoke_chat(
-            feature="roadmap",
             prompt=_plan_prompt(description, language, node_count, passages),
             system=SYSTEM_PROMPT,
             owner_id=owner_id,
@@ -787,10 +788,10 @@ async def _draft_children(
     steps the node already has): it is asked again once, then raised so the
     caller refunds the expansion.
     """
+    usage.set_context(feature="roadmap_expand")
     siblings = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
     for attempt in range(2):
         raw = await _invoke_chat(
-            feature="roadmap_expand",
             prompt=_expand_prompt(session, parent, siblings, passages, retry=bool(attempt)),
             system=EXPAND_SYSTEM_PROMPT,
             owner_id=session.owner_id,

@@ -468,7 +468,6 @@ async def generate_quiz(
     )
 
     raw = await _invoke_chat(
-        feature="quiz",
         prompt=user_prompt,
         system=system_prompt,
         owner_id=owner_id,
@@ -603,7 +602,6 @@ async def generate_roadmap(
     )
 
     raw = await _invoke_chat(
-        feature="roadmap",
         prompt=user_prompt,
         system=system_prompt,
         owner_id=owner_id,
