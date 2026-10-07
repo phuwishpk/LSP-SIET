@@ -331,6 +331,9 @@ function DailyCostChart({ rows, days }: { rows: UsageBucket[]; days: number }) {
   const step = plotW / series.length
   const barW = Math.max(3, Math.min(18, step - 2)) // >= 2px gap between bars
   const ticks = [0, max / 2, max]
+  // tick precision follows the scale: ฿0.08 days need two decimals, ฿120 days none
+  const decimals = max >= 100 ? 0 : max >= 10 ? 1 : max >= 1 ? 1 : 2
+  const fmtTick = (t: number) => new Intl.NumberFormat('th-TH', { minimumFractionDigits: decimals, maximumFractionDigits: decimals }).format(t)
   const maxIdx = series.reduce((best, s, i) => (s.cost > series[best].cost ? i : best), 0)
   const total = series.reduce((a, s) => a + s.cost, 0)
 
@@ -344,7 +347,7 @@ function DailyCostChart({ rows, days }: { rows: UsageBucket[]; days: number }) {
               <g key={i}>
                 <line x1={padL} x2={W - 8} y1={y} y2={y} className="stroke-border" strokeWidth={1} />
                 <text x={padL - 6} y={y + 3} textAnchor="end" className="fill-muted-foreground text-[10px]">
-                  {t >= 100 ? Math.round(t) : t.toFixed(t >= 10 ? 0 : 1)}
+                  {fmtTick(t)}
                 </text>
               </g>
             )
