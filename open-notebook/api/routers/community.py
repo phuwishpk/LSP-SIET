@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import asyncio
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
@@ -1791,6 +1792,13 @@ async def list_knowledge(user: User = Depends(get_current_user)) -> Dict[str, An
 # ---------------------------------------------------------------------------
 
 
+# Identical questions that arrive at the same moment (a whole class asking
+# "สรุปสไลด์วันนี้" right after the lecture) all miss the cache, because the first
+# answer is not written yet when the others look. The first request becomes the
+# leader; the others wait for its result instead of each calling the provider.
+_INFLIGHT: Dict[str, "asyncio.Future[Optional[Dict[str, Any]]]"] = {}
+
+
 async def _store_exchange(
     uid: int,
     body: AskBody,
@@ -1979,6 +1987,18 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         if not isinstance(cached_result, dict) or "answer" not in cached_result:
             cached_result = None
 
+    leader: Optional["asyncio.Future[Optional[Dict[str, Any]]]"] = None
+    if cache_key and cached_result is None:
+        pending = _INFLIGHT.get(cache_key)
+        if pending is not None:
+            # shield: a follower that disconnects must not cancel the leader's call
+            followed = await asyncio.shield(pending)
+            if isinstance(followed, dict) and "answer" in followed:
+                cached_result = followed
+        if cached_result is None:
+            leader = asyncio.get_running_loop().create_future()
+            _INFLIGHT[cache_key] = leader
+
     try:
         if cached_result is not None:
             result = cached_result
@@ -2010,6 +2030,12 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         await points.refund(charge, "ask failed")
         logger.exception("quick ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if leader is not None:
+            _INFLIGHT.pop(cache_key or "", None)
+            if not leader.done():
+                # None = "ask on your own": the leader failed or was cancelled
+                leader.set_result(result if "result" in locals() else None)
 
     if cached_result is not None:
         await points.refund(charge, "cached answer – no compute cost")

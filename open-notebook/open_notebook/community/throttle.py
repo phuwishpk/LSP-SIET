@@ -11,7 +11,7 @@ only a sustained overload reaches the user, as a 503 with a retry hint.
 Lanes (concurrency is per API process; ``LLM_*`` env vars tune them):
 
 * ``chat``      – answer / quiz / roadmap generation   (default 10 in flight)
-* ``embedding`` – question embeddings + document ingestion (default 4 in flight)
+* ``embedding`` – question embeddings + document ingestion (default 8 in flight)
 
 Every call is counted in :data:`stats` so an admin can see how often the queue
 and the retries actually kick in (``GET /api/admin/llm-throttle``).
@@ -50,7 +50,7 @@ def _env_float(name: str, default: float, low: float, high: float) -> float:
 
 LANE_LIMITS: Dict[str, int] = {
     "chat": _env_int("LLM_MAX_CONCURRENT_CHAT", 10, 1, 200),
-    "embedding": _env_int("LLM_MAX_CONCURRENT_EMBED", 4, 1, 200),
+    "embedding": _env_int("LLM_MAX_CONCURRENT_EMBED", 8, 1, 200),
 }
 # How long a caller may sit in the queue before we give up and answer 503.
 QUEUE_TIMEOUT = _env_float("LLM_QUEUE_TIMEOUT_SECONDS", 45.0, 1.0, 600.0)

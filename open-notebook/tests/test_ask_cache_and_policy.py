@@ -40,3 +40,9 @@ def test_ask_policy_counts_stored_questions_of_the_caller():
     assert ask.cooldown_seconds >= 1 and ask.per_minute >= 1 and ask.per_hour >= ask.per_minute
     # existing policies are untouched by the new fields
     assert ratelimit.LIMITS["post"].per_minute == 0 and ratelimit.LIMITS["post"].time_column == "created_at"
+
+
+def test_inflight_registry_exists_for_request_coalescing():
+    from api.routers import community
+
+    assert isinstance(community._INFLIGHT, dict) and not community._INFLIGHT
