@@ -29,6 +29,7 @@ from typing import Any, Dict, List, Optional, Sequence
 from loguru import logger
 from sqlalchemy import text
 
+from open_notebook.community import usage
 from open_notebook.config import DATA_FOLDER
 from open_notebook.database.repository import ensure_record_id, repo_insert, repo_query
 from open_notebook.domain.notebook import Asset, Notebook, Source
@@ -853,6 +854,7 @@ async def ingest_document(doc_id: int, raw_text: Optional[str] = None) -> None:
     if not doc:
         logger.warning(f"library: document {doc_id} vanished before ingestion")
         return
+    usage.set_context(feature="ingest", user_id=doc.get("owner_id"))
 
     try:
         if raw_text is not None:

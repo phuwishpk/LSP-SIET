@@ -259,6 +259,31 @@ STATEMENTS: list[str] = RENAMES + [
         INDEX idx_rm_conv (conversation_id, id)
     ) {_TABLE_OPTS}
     """,
+    # ------------------------------------------------- provider usage (tokens / cost)
+    # One row per call to the LLM provider: who, which feature, which model,
+    # tokens in/out (estimated for embeddings), search queries, estimated USD.
+    f"""
+    CREATE TABLE IF NOT EXISTS llm_usage (
+        id              BIGINT AUTO_INCREMENT PRIMARY KEY,
+        created_at      DATETIME DEFAULT CURRENT_TIMESTAMP,
+        user_id         INT NULL,
+        feature         VARCHAR(32) NOT NULL,
+        kind            VARCHAR(16) NOT NULL,
+        provider        VARCHAR(32) NULL,
+        model           VARCHAR(96) NULL,
+        input_tokens    INT NOT NULL DEFAULT 0,
+        output_tokens   INT NOT NULL DEFAULT 0,
+        cached_tokens   INT NOT NULL DEFAULT 0,
+        thinking_tokens INT NOT NULL DEFAULT 0,
+        search_queries  INT NOT NULL DEFAULT 0,
+        cost_usd        DECIMAL(12, 6) NOT NULL DEFAULT 0,
+        latency_ms      INT NULL,
+        estimated       TINYINT(1) NOT NULL DEFAULT 0,
+        INDEX idx_usage_time (created_at),
+        INDEX idx_usage_user (user_id, created_at),
+        INDEX idx_usage_feature (feature, created_at)
+    ) {_TABLE_OPTS}
+    """,
     # ------------------------------------------------- knowledge library
     f"""
     CREATE TABLE IF NOT EXISTS library_documents (

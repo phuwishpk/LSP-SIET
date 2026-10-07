@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { UsagePanel } from '@/components/admin/UsagePanel'
 import { HealthPanel } from '@/components/admin/HealthPanel'
 import { ModerationPanel } from '@/components/admin/ModerationPanel'
 import { RoomsPanel } from '@/components/admin/RoomsPanel'
@@ -105,6 +106,7 @@ export default function AdminPage() {
               <TabsTrigger value="content">เนื้อหา</TabsTrigger>
               <TabsTrigger value="rooms">ห้อง</TabsTrigger>
               <TabsTrigger value="points">แต้ม</TabsTrigger>
+              <TabsTrigger value="usage">การใช้ AI</TabsTrigger>
               <TabsTrigger value="import">นำเข้า CSV</TabsTrigger>
             </TabsList>
 
@@ -290,6 +292,9 @@ export default function AdminPage() {
             </TabsContent>
             <TabsContent value="points" className="mt-4">
               <PointsLogPanel />
+            </TabsContent>
+            <TabsContent value="usage" className="mt-4">
+              <UsagePanel />
             </TabsContent>
             <TabsContent value="import" className="mt-4">
               <ImportPanel />

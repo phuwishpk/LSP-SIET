@@ -594,6 +594,7 @@ async def generate_plan(
             report["cached"] = True
     else:
         raw = await _invoke_chat(
+            feature="roadmap",
             prompt=_plan_prompt(description, language, node_count, passages),
             system=SYSTEM_PROMPT,
             owner_id=owner_id,
@@ -789,6 +790,7 @@ async def _draft_children(
     siblings = [n for n in nodes if str(n.get("parent")) == str(parent["id"])]
     for attempt in range(2):
         raw = await _invoke_chat(
+            feature="roadmap_expand",
             prompt=_expand_prompt(session, parent, siblings, passages, retry=bool(attempt)),
             system=EXPAND_SYSTEM_PROMPT,
             owner_id=session.owner_id,

@@ -135,7 +135,7 @@ async def invoke_chat(
     so a misconfigured model costs a retry, not an error for the student.
     """
     from open_notebook.ai.models import model_manager
-    from open_notebook.community import throttle
+    from open_notebook.community import throttle, usage
     from open_notebook.exceptions import ConfigurationError, ExternalServiceError
     from open_notebook.utils.text_utils import extract_text_content
 
@@ -158,15 +158,30 @@ async def invoke_chat(
     runnable = model.to_langchain() if hasattr(model, "to_langchain") else model
     full_prompt = f"{system}\n\n{prompt}"
     search_available = use_search and supports_search(runnable)
+    model_name = getattr(model, "model_name", None) or getattr(runnable, "model", None) or model_id
+    provider = getattr(model, "provider", None)
+
+    async def account(message: Any, metadata: Optional[Dict[str, Any]], ms: int) -> None:
+        await usage.record(
+            kind=usage.KIND_CHAT,
+            model=model_name,
+            provider=provider,
+            search_queries=usage.search_queries_from_metadata(metadata),
+            latency_ms=ms,
+            user_id=owner_id,
+            **usage.chat_usage_from_message(message),
+        )
 
     if search_available:
         try:
-            message = await throttle.run(
-                "chat",
-                lambda: runnable.ainvoke(full_prompt, tools=[{"google_search": {}}]),
-                label="quick-ask+search",
-            )
+            with usage.Timer() as timer:
+                message = await throttle.run(
+                    "chat",
+                    lambda: runnable.ainvoke(full_prompt, tools=[{"google_search": {}}]),
+                    label="quick-ask+search",
+                )
             metadata = (getattr(message, "response_metadata", None) or {}).get("grounding_metadata")
+            await account(message, metadata if isinstance(metadata, dict) else None, timer.ms)
             return {
                 "text": extract_text_content(message.content),
                 "metadata": metadata if isinstance(metadata, dict) else None,
@@ -181,14 +196,16 @@ async def invoke_chat(
             search_available = False
 
     try:
-        message = await throttle.run(
-            "chat", lambda: runnable.ainvoke(full_prompt), label="quick-ask"
-        )
+        with usage.Timer() as timer:
+            message = await throttle.run(
+                "chat", lambda: runnable.ainvoke(full_prompt), label="quick-ask"
+            )
     except (throttle.ProviderBusy, RateLimitError):
         raise
     except Exception as exc:
         logger.exception(f"LLM call failed for owner {owner_id}: {exc}")
         raise ExternalServiceError(f"LLM call failed: {exc}")
+    await account(message, None, timer.ms)
     return {
         "text": extract_text_content(message.content),
         "metadata": None,

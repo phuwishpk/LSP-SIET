@@ -219,8 +219,86 @@ export interface AdminRoadmapStats {
   top_followed: Pick<AdminRoadmapPost, 'id' | 'title' | 'author' | 'counts' | 'node_count'>[]
 }
 
+/** One aggregated bucket of provider usage (a day, a feature, a model, a user...). */
+export interface UsageBucket {
+  calls: number
+  input_tokens: number
+  output_tokens: number
+  cached_tokens: number
+  thinking_tokens: number
+  search_queries: number
+  tokens: number
+  cost_usd: number
+  cost_thb: number
+  day?: string
+  feature?: string
+  kind?: 'chat' | 'embedding'
+  model?: string
+  estimated?: number
+  user_id?: number
+  username?: string | null
+  display_name?: string | null
+  role?: string | null
+  search_cost_usd?: number
+  total_cost_usd?: number
+  total_cost_thb?: number
+}
+
+export interface AdminUsage {
+  generated_at: string
+  tz_offset_hours: number
+  days: number
+  today: UsageBucket
+  month: UsageBucket
+  window: UsageBucket
+  all_time: UsageBucket
+  by_day: UsageBucket[]
+  by_feature: UsageBucket[]
+  by_model: UsageBucket[]
+  top_users: UsageBucket[]
+  search: {
+    queries_this_month: number
+    free_per_month: number
+    free_remaining: number
+    usd_per_1000: number
+    cost_usd_this_month: number
+  }
+  pricing: {
+    models: Record<string, { input: number; output: number; cached?: number; note?: string }>
+    search: { free_per_month: number; usd_per_1000: number }
+    usd_thb_rate: number
+    source: string
+  }
+  note: string
+}
+
+export interface LlmThrottle {
+  uptime_s: number
+  queue_timeout_s: number
+  retry: { attempts: number; base_s: number; max_delay_s: number; retry_after_cap_s: number }
+  lanes: Record<
+    string,
+    {
+      limit: number
+      in_flight: number
+      calls: number
+      waited: number
+      wait_avg_s: number
+      wait_max_s: number
+      queue_timeouts: number
+      rate_limit_retries: number
+      rate_limit_failures: number
+      other_failures: number
+      last_rate_limit_at: number | null
+    }
+  >
+  per_user_ask_policy: { cooldown_seconds: number; per_minute: number; per_hour: number; per_day: number; staff_multiplier: number }
+}
+
 export const adminApi = {
   overview: async () => (await apiClient.get<AdminOverview>('/admin/overview')).data,
+  usage: async (days = 30) => (await apiClient.get<AdminUsage>('/admin/usage', { params: { days } })).data,
+  throttle: async () => (await apiClient.get<LlmThrottle>('/admin/llm-throttle')).data,
 
   roadmaps: async (params: { q?: string; origin?: string; limit?: number; offset?: number }) =>
     (await apiClient.get<AdminRoadmapList>('/admin/roadmaps', { params })).data,

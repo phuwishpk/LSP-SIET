@@ -31,7 +31,7 @@ from pydantic import BaseModel, Field
 
 from open_notebook.ai.models import model_manager
 from open_notebook.cache.service import cache_service
-from open_notebook.community import throttle
+from open_notebook.community import throttle, usage
 from open_notebook.config import DEFAULT_CACHE_TTL
 from open_notebook.exceptions import (
     ConfigurationError,
@@ -189,6 +189,7 @@ async def _invoke_chat(
     default_type: str = "chat",
     model_id: Optional[str] = None,
     max_tokens: Optional[int] = None,
+    feature: Optional[str] = None,
 ) -> str:
     """Single entry point that talks to whichever provider the user configured."""
     # Esperanto models default to max_tokens=850, which truncates long Thai
@@ -220,8 +221,18 @@ async def _invoke_chat(
         # runnable interface (some providers, e.g. GoogleLanguageModel, do not
         # expose ``ainvoke`` themselves).
         runnable = model.to_langchain() if hasattr(model, "to_langchain") else model
-        ai_message = await throttle.run(
-            "chat", lambda: runnable.ainvoke(prompt), label=f"feature:{default_type}"
+        with usage.Timer() as timer:
+            ai_message = await throttle.run(
+                "chat", lambda: runnable.ainvoke(prompt), label=f"feature:{feature or default_type}"
+            )
+        await usage.record(
+            kind=usage.KIND_CHAT,
+            model=getattr(model, "model_name", None) or getattr(runnable, "model", None) or model_id,
+            provider=getattr(model, "provider", None),
+            latency_ms=timer.ms,
+            feature=feature,
+            user_id=owner_id,
+            **usage.chat_usage_from_message(ai_message),
         )
         return extract_text_content(ai_message.content)
     except (throttle.ProviderBusy, RateLimitError):
@@ -395,6 +406,7 @@ async def generate_quiz(
     ``report`` (optional dict) receives ``{"cached": bool}`` so callers can
     tell whether an LLM call actually happened (used by the point wallet).
     """
+    usage.set_context(feature="quiz", user_id=owner_id if str(owner_id).isdigit() else None)
     if not owner_id:
         raise InvalidInputError("owner_id is required")
     topic = (topic or "").strip()
@@ -456,6 +468,7 @@ async def generate_quiz(
     )
 
     raw = await _invoke_chat(
+        feature="quiz",
         prompt=user_prompt,
         system=system_prompt,
         owner_id=owner_id,
@@ -526,6 +539,7 @@ async def generate_roadmap(
     ``report`` (optional dict) receives ``{"cached": bool}`` so callers can
     tell whether an LLM call actually happened (used by the point wallet).
     """
+    usage.set_context(feature="roadmap", user_id=owner_id if str(owner_id).isdigit() else None)
     if not owner_id:
         raise InvalidInputError("owner_id is required")
     description = (description or "").strip()
@@ -589,6 +603,7 @@ async def generate_roadmap(
     )
 
     raw = await _invoke_chat(
+        feature="roadmap",
         prompt=user_prompt,
         system=system_prompt,
         owner_id=owner_id,
@@ -864,8 +879,18 @@ async def _invoke_direct_answer(
         f"own knowledge. Language: {language}.\n\nQuestion: {question}"
     )
     try:
-        ai_message = await throttle.run(
-            "chat", lambda: model.ainvoke(f"{system_prompt}\n\n{user_prompt}"), label="direct"
+        with usage.Timer() as timer:
+            ai_message = await throttle.run(
+                "chat", lambda: model.ainvoke(f"{system_prompt}\n\n{user_prompt}"), label="direct"
+            )
+        await usage.record(
+            kind=usage.KIND_CHAT,
+            model=getattr(model, "model_name", None) or getattr(model, "model", None),
+            provider=getattr(model, "provider", None),
+            latency_ms=timer.ms,
+            feature="direct",
+            user_id=owner_id,
+            **usage.chat_usage_from_message(ai_message),
         )
         return extract_text_content(ai_message.content)
     except (throttle.ProviderBusy, RateLimitError):

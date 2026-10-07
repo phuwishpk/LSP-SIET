@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
-from open_notebook.community import grounding
+from open_notebook.community import grounding, usage
 from open_notebook.community.retrieval import (
     content_key,
     search_in_notebooks,
@@ -333,6 +333,7 @@ async def quick_ask(
     question = (question or "").strip()
     if not question:
         raise ValueError("question is required")
+    usage.set_context(feature="ask", user_id=owner_id if str(owner_id).isdigit() else None)
     citations = await retrieve(
         question,
         notebook_ids,

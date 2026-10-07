@@ -23,6 +23,22 @@ export const ADMIN_KEYS = {
   roadmapStats: (days: number) => ['admin', 'roadmaps', 'stats', days] as const,
 }
 
+export function useAdminUsage(days: number) {
+  return useQuery({
+    queryKey: [...ADMIN_KEYS.overview, 'usage', days] as const,
+    queryFn: () => adminApi.usage(days),
+    refetchInterval: 60_000,
+  })
+}
+
+export function useLlmThrottle() {
+  return useQuery({
+    queryKey: [...ADMIN_KEYS.overview, 'throttle'] as const,
+    queryFn: () => adminApi.throttle(),
+    refetchInterval: 10_000,
+  })
+}
+
 export function useAdminOverview() {
   return useQuery({ queryKey: ADMIN_KEYS.overview, queryFn: () => adminApi.overview() })
 }

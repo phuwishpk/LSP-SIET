@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, List, Optional
 import numpy as np
 from loguru import logger
 
-from open_notebook.community import throttle
+from open_notebook.community import throttle, usage
 from open_notebook.exceptions import RateLimitError
 
 from .chunking import CHUNK_SIZE, ContentType, chunk_text
@@ -183,10 +183,19 @@ async def generate_embeddings(
             try:
                 # Through the shared gate: a few batches in flight at a time, and a
                 # provider 429 is retried there with backoff before it surfaces here.
-                batch_embeddings = await throttle.run(
-                    "embedding",
-                    lambda batch=batch: embedding_model.aembed(batch),
-                    label=f"embed x{len(batch)}",
+                with usage.Timer() as timer:
+                    batch_embeddings = await throttle.run(
+                        "embedding",
+                        lambda batch=batch: embedding_model.aembed(batch),
+                        label=f"embed x{len(batch)}",
+                    )
+                await usage.record(
+                    kind=usage.KIND_EMBEDDING,
+                    model=getattr(embedding_model, "model_name", None),
+                    provider=getattr(embedding_model, "provider", None),
+                    input_tokens=usage.estimate_tokens(batch),
+                    latency_ms=timer.ms,
+                    estimated=True,
                 )
                 all_embeddings.extend(batch_embeddings)
                 break

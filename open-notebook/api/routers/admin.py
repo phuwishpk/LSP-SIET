@@ -16,12 +16,14 @@ from typing import Any, Dict, List, Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import text
+import os
+from datetime import datetime, timedelta
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
 from api.login_guard import clear_login_failures
-from open_notebook.community import points, ratelimit, throttle
+from open_notebook.community import points, pricing, ratelimit, throttle
 from open_notebook.community import repository as repo
 from open_notebook.domain.user import (
     USER_ROLE_ADMIN,
@@ -688,6 +690,119 @@ async def import_users(body: CsvImport, user: User = Depends(get_current_user)) 
 # ---------------------------------------------------------------------------
 # System health
 # ---------------------------------------------------------------------------
+
+
+USAGE_TZ_OFFSET_HOURS = int(os.getenv("USAGE_TZ_OFFSET_HOURS", "7") or 7)
+
+
+def _local_now() -> datetime:
+    return datetime.utcnow() + timedelta(hours=USAGE_TZ_OFFSET_HOURS)
+
+
+def _to_utc(local: datetime) -> datetime:
+    return local - timedelta(hours=USAGE_TZ_OFFSET_HOURS)
+
+
+_USAGE_SUMS = """
+    COUNT(*)                           AS calls,
+    COALESCE(SUM(input_tokens), 0)     AS input_tokens,
+    COALESCE(SUM(output_tokens), 0)    AS output_tokens,
+    COALESCE(SUM(cached_tokens), 0)    AS cached_tokens,
+    COALESCE(SUM(thinking_tokens), 0)  AS thinking_tokens,
+    COALESCE(SUM(search_queries), 0)   AS search_queries,
+    COALESCE(SUM(cost_usd), 0)         AS cost_usd
+"""
+
+
+def _usage_row(row: Any) -> Dict[str, Any]:
+    m = row._mapping
+    out = {k: (float(v) if k == "cost_usd" else int(v or 0)) for k, v in m.items()
+           if k in ("calls", "input_tokens", "output_tokens", "cached_tokens", "thinking_tokens", "search_queries", "cost_usd")}
+    out["cost_usd"] = round(out.get("cost_usd", 0.0), 6)
+    out["cost_thb"] = round(out["cost_usd"] * pricing.USD_THB_RATE, 2)
+    out["tokens"] = out.get("input_tokens", 0) + out.get("output_tokens", 0)
+    for k, v in m.items():
+        if k not in out:
+            out[k] = v if not hasattr(v, "isoformat") else v.isoformat()
+    return out
+
+
+@router.get("/usage")
+async def llm_usage(
+    days: int = Query(default=30, ge=1, le=365),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Tokens and estimated cost of every provider call, for the admin page.
+
+    "Today" and "this month" follow the campus clock (USAGE_TZ_OFFSET_HOURS,
+    default UTC+7). Costs are estimates from the price list in pricing.py; the
+    provider's billing page is the invoice.
+    """
+    _require_admin(user)
+    now_local = _local_now()
+    day_start = _to_utc(now_local.replace(hour=0, minute=0, second=0, microsecond=0))
+    month_start = _to_utc(now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0))
+    window_start = datetime.utcnow() - timedelta(days=days)
+    off = USAGE_TZ_OFFSET_HOURS
+
+    async with _mariadb_session() as session:
+        async def totals(since: datetime) -> Dict[str, Any]:
+            row = (await session.execute(
+                text(f"SELECT {_USAGE_SUMS} FROM llm_usage WHERE created_at >= :since"), {"since": since}
+            )).first()
+            return _usage_row(row)
+
+        today, month, window = await totals(day_start), await totals(month_start), await totals(window_start)
+        all_time = await totals(datetime(2000, 1, 1))
+
+        by_day = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT DATE(created_at + INTERVAL :off HOUR) AS day, {_USAGE_SUMS}
+                       FROM llm_usage WHERE created_at >= :since
+                      GROUP BY day ORDER BY day"""), {"since": window_start, "off": off})).all()]
+        by_feature = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT feature, kind, {_USAGE_SUMS} FROM llm_usage WHERE created_at >= :since
+                      GROUP BY feature, kind ORDER BY cost_usd DESC, calls DESC"""), {"since": window_start})).all()]
+        by_model = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT COALESCE(model, '?') AS model, kind, MAX(estimated) AS estimated, {_USAGE_SUMS}
+                       FROM llm_usage WHERE created_at >= :since
+                      GROUP BY model, kind ORDER BY cost_usd DESC"""), {"since": window_start})).all()]
+        top_users = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT u.id AS user_id, u.username, u.display_name, u.role, {_USAGE_SUMS}
+                       FROM llm_usage l JOIN users u ON u.id = l.user_id
+                      WHERE l.created_at >= :since
+                      GROUP BY u.id, u.username, u.display_name, u.role
+                      ORDER BY cost_usd DESC, calls DESC LIMIT 20"""), {"since": window_start})).all()]
+
+    search_month = int(month.get("search_queries", 0))
+    search_cost = pricing.search_cost_usd(search_month)
+    for bucket in (month,):
+        bucket["search_cost_usd"] = search_cost
+        bucket["total_cost_usd"] = round(bucket["cost_usd"] + search_cost, 6)
+        bucket["total_cost_thb"] = round(bucket["total_cost_usd"] * pricing.USD_THB_RATE, 2)
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "tz_offset_hours": off,
+        "days": days,
+        "today": today,
+        "month": month,
+        "window": window,
+        "all_time": all_time,
+        "by_day": by_day,
+        "by_feature": by_feature,
+        "by_model": by_model,
+        "top_users": top_users,
+        "search": {
+            "queries_this_month": search_month,
+            "free_per_month": pricing.SEARCH_FREE_PER_MONTH,
+            "free_remaining": max(0, pricing.SEARCH_FREE_PER_MONTH - search_month),
+            "usd_per_1000": pricing.SEARCH_USD_PER_1000,
+            "cost_usd_this_month": search_cost,
+        },
+        "pricing": pricing.price_table(),
+        "note": "ค่าใช้จ่ายเป็นการประมาณจากตารางราคาในระบบ ยอดจริงดูที่ Google Cloud Billing",
+    }
 
 
 @router.get("/llm-throttle")
