@@ -45,6 +45,10 @@ import {
   Sparkles,
   Users,
   Coins,
+  MessageSquare,
+  BrainCircuit,
+  Map,
+  Database,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { isAdmin, isStaff, type Role } from '@/lib/roles'
@@ -90,6 +94,10 @@ const getNavigation = (t: TFunction, role: Role) => [
       ...(isAdmin(role)
         ? [
             { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },
+            { name: t('navigation.adminCommunity', 'จัดการ Community'), href: '/admin/community', icon: MessageSquare },
+            { name: t('navigation.adminQuiz', 'จัดการ Quiz AI'), href: '/admin/quiz', icon: BrainCircuit },
+            { name: t('navigation.adminRoadmap', 'จัดการ Road Map'), href: '/admin/roadmap', icon: Map },
+            { name: t('navigation.adminRag', 'จัดการ RAG AI'), href: '/admin/rag', icon: Database },
             { name: t('navigation.settings'), href: '/settings', icon: Settings },
             { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
           ]
