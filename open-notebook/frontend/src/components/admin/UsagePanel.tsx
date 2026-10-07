@@ -370,11 +370,13 @@ function DailyCostChart({ rows, days }: { rows: UsageBucket[]; days: number }) {
                 {h > 0 && (
                   <path
                     d={`M${x},${y + r} a${r},${r} 0 0 1 ${r},-${r} h${barW - 2 * r} a${r},${r} 0 0 1 ${r},${r} v${h - r} h-${barW} z`}
-                    className={cn('fill-violet-500 dark:fill-violet-400', active && 'fill-violet-700 dark:fill-violet-300')}
+                    // the bar sits above its hit rect: let the pointer fall through so
+                    // hovering the bar itself still opens the tooltip
+                    className={cn('pointer-events-none fill-violet-500 dark:fill-violet-400', active && 'fill-violet-700 dark:fill-violet-300')}
                   />
                 )}
                 {(i === maxIdx && s.cost > 0) && !active && (
-                  <text x={x + barW / 2} y={y - 4} textAnchor="middle" className="fill-foreground text-[10px]">
+                  <text x={x + barW / 2} y={y - 4} textAnchor="middle" className="pointer-events-none fill-foreground text-[10px]">
                     {fmtThb(s.cost)}
                   </text>
                 )}
