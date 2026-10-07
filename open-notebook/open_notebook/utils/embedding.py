@@ -17,6 +17,9 @@ from typing import TYPE_CHECKING, List, Optional
 import numpy as np
 from loguru import logger
 
+from open_notebook.community import throttle
+from open_notebook.exceptions import RateLimitError
+
 from .chunking import CHUNK_SIZE, ContentType, chunk_text
 from .token_utils import token_count
 
@@ -178,9 +181,19 @@ async def generate_embeddings(
 
         for attempt in range(1, EMBEDDING_MAX_RETRIES + 1):
             try:
-                batch_embeddings = await embedding_model.aembed(batch)
+                # Through the shared gate: a few batches in flight at a time, and a
+                # provider 429 is retried there with backoff before it surfaces here.
+                batch_embeddings = await throttle.run(
+                    "embedding",
+                    lambda batch=batch: embedding_model.aembed(batch),
+                    label=f"embed x{len(batch)}",
+                )
                 all_embeddings.extend(batch_embeddings)
                 break
+            except (throttle.ProviderBusy, RateLimitError):
+                # The gate already waited and retried; repeating that here would
+                # only hold the request open longer.
+                raise
             except Exception as e:
                 cmd_context = f" (command: {command_id})" if command_id else ""
                 if attempt < EMBEDDING_MAX_RETRIES:

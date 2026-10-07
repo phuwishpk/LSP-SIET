@@ -31,6 +31,47 @@ from open_notebook.community.retrieval import (
 )
 from open_notebook.domain.notebook import text_search, vector_search
 
+ANSWER_CACHE_TTL = int(os.getenv("RAG_ANSWER_CACHE_TTL", "600") or 600)
+
+
+def answer_cache_key(
+    *,
+    question: str,
+    notebook_ids: Optional[Sequence[str]],
+    source_ids: Optional[Sequence[str]],
+    allow_global_fallback: bool,
+    web: Optional[str],
+    language: str,
+    model_id: Optional[str],
+) -> str:
+    """
+    Cache key for a single (history-free) question.
+
+    Identical questions are common right after a lecture ("สรุปสไลด์สัปดาห์นี้").
+    The key carries everything that changes the answer - the exact notebooks and
+    sources the caller may search, the web mode, the language and the model - so
+    two users share an entry only when they would get the same answer anyway;
+    a personal library is a per-user notebook id and never collides.
+    """
+    import hashlib
+    import json
+
+    normalised = " ".join((question or "").strip().lower().split())
+    payload = json.dumps(
+        [
+            normalised,
+            sorted(str(n) for n in (notebook_ids or [])),
+            sorted(str(s) for s in (source_ids or [])) if source_ids is not None else None,
+            bool(allow_global_fallback),
+            (web or "auto").lower(),
+            (language or "th").lower(),
+            model_id or "",
+        ],
+        ensure_ascii=False,
+    )
+    return "rag:answer:v1:" + hashlib.sha1(payload.encode("utf-8")).hexdigest()
+
+
 def _env_int(name: str, default: int, low: int, high: int) -> int:
     try:
         return max(low, min(high, int(os.getenv(name, default))))

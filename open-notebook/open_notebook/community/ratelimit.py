@@ -54,9 +54,29 @@ class Limit:
     per_day: int
     label: str
     extra_where: str = ""
+    # Burst ceiling inside one minute (0 = none). Hour/day quotas catch the
+    # heavy user; this catches the script that fires ten requests per second.
+    per_minute: int = 0
+    # Qualified when ``table`` is a join and ``created_at`` would be ambiguous.
+    time_column: str = "created_at"
 
 
 LIMITS = {
+    # KMITL RAG AI questions. Every one is a provider call that is paid for and
+    # rate-limited per project, so one student cannot monopolise the queue.
+    # Counting the stored questions (rag_messages.role = 'user') needs the
+    # conversation table for the owner.
+    "ask": Limit(
+        table="rag_messages m JOIN rag_conversations c ON c.id = m.conversation_id",
+        user_column="c.user_id",
+        time_column="m.created_at",
+        extra_where=" AND m.role = 'user'",
+        cooldown_seconds=_env_int("ASK_COOLDOWN_SECONDS", 3),
+        per_minute=_env_int("ASK_PER_MINUTE", 8),
+        per_hour=_env_int("ASK_PER_HOUR", 60),
+        per_day=_env_int("ASK_PER_DAY", 300),
+        label="คำถาม",
+    ),
     "post": Limit(
         table="posts",
         user_column="author_id",
@@ -139,8 +159,10 @@ async def check_rate(user: User, action: str) -> None:
     if limit is None or user.id is None:
         return
     uid = int(user.id)
+    per_minute = _quota(limit.per_minute, user)
     per_hour = _quota(limit.per_hour, user)
     per_day = _quota(limit.per_day, user)
+    t = limit.time_column
 
     async with _mariadb_session() as session:
         row = (
@@ -149,10 +171,11 @@ async def check_rate(user: User, action: str) -> None:
                     f"""
                     SELECT
                       COALESCE(TIMESTAMPDIFF(
-                        SECOND, MAX(created_at), NOW()
+                        SECOND, MAX({t}), NOW()
                       ), 999999) AS since_last,
-                      SUM(created_at >= NOW() - INTERVAL 1 HOUR) AS last_hour,
-                      SUM(created_at >= NOW() - INTERVAL 1 DAY)  AS last_day
+                      SUM({t} >= NOW() - INTERVAL 1 MINUTE) AS last_minute,
+                      SUM({t} >= NOW() - INTERVAL 1 HOUR) AS last_hour,
+                      SUM({t} >= NOW() - INTERVAL 1 DAY)  AS last_day
                     FROM {limit.table}
                     WHERE {limit.user_column} = :uid{limit.extra_where}
                     """
@@ -166,6 +189,7 @@ async def check_rate(user: User, action: str) -> None:
     # NOTE: `row.since_last or default` would be wrong here - a 0-second gap
     # (exactly the spam case) is falsy and would silently pass the cooldown.
     since_last = 999999 if row.since_last is None else int(row.since_last)
+    last_minute = 0 if row.last_minute is None else int(row.last_minute)
     last_hour = 0 if row.last_hour is None else int(row.last_hour)
     last_day = 0 if row.last_day is None else int(row.last_day)
 
@@ -174,6 +198,11 @@ async def check_rate(user: User, action: str) -> None:
         raise RateLimited(
             f"ช้าลงอีกนิด — รออีก {wait} วินาทีแล้วค่อยส่ง{limit.label}ถัดไป",
             retry_after=wait,
+        )
+    if per_minute and last_minute >= per_minute:
+        raise RateLimited(
+            f"คุณส่ง{limit.label}ถี่มาก ({per_minute} รายการในหนึ่งนาที) พักสักครู่แล้วลองใหม่",
+            retry_after=20,
         )
     if per_hour and last_hour >= per_hour:
         raise RateLimited(

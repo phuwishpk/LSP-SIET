@@ -81,6 +81,35 @@ async def notebook_record_ids(notebook_ids: Sequence[str]) -> Dict[str, List[Any
     }
 
 
+QUESTION_EMBEDDING_TTL = 3600
+
+
+async def question_embedding(query: str) -> List[float]:
+    """
+    Embed a question, reusing a recent vector for the same text.
+
+    The embedding call is the first thing every question spends on the
+    provider; the same question asked twice in an hour (or by two students in
+    the same class) should cost it once.
+    """
+    from open_notebook.cache.service import cache_service
+    from open_notebook.utils.embedding import generate_embedding
+
+    key = "rag:qemb:v1:" + hashlib.sha1(" ".join(query.split()).lower().encode("utf-8")).hexdigest()
+    try:
+        cached = await cache_service.get_json(key)
+        if isinstance(cached, list) and cached:
+            return cached
+    except Exception as exc:  # cache is a convenience, never a dependency
+        logger.debug(f"question embedding cache read skipped: {exc}")
+    vector = await generate_embedding(query)
+    try:
+        await cache_service.set_json(key, vector, ttl=QUESTION_EMBEDDING_TTL)
+    except Exception as exc:
+        logger.debug(f"question embedding cache write skipped: {exc}")
+    return vector
+
+
 async def search_in_notebooks(
     query: str,
     notebook_ids: Sequence[str],
@@ -114,9 +143,7 @@ async def search_in_notebooks(
     if not source_rids and not note_ids:
         return []
 
-    from open_notebook.utils.embedding import generate_embedding
-
-    embedding = await generate_embedding(query)
+    embedding = await question_embedding(query)
     hits: List[Dict[str, Any]] = []
     candidates = max(int(results) * OVERFETCH_FACTOR, MIN_CANDIDATES)
 

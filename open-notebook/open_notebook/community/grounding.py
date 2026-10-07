@@ -20,6 +20,8 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
+from open_notebook.exceptions import RateLimitError
+
 WEB_OFF, WEB_AUTO, WEB_ALWAYS = "off", "auto", "always"
 WEB_MODES = (WEB_OFF, WEB_AUTO, WEB_ALWAYS)
 _RANK = {WEB_OFF: 0, WEB_AUTO: 1, WEB_ALWAYS: 2}
@@ -133,6 +135,7 @@ async def invoke_chat(
     so a misconfigured model costs a retry, not an error for the student.
     """
     from open_notebook.ai.models import model_manager
+    from open_notebook.community import throttle
     from open_notebook.exceptions import ConfigurationError, ExternalServiceError
     from open_notebook.utils.text_utils import extract_text_content
 
@@ -158,19 +161,31 @@ async def invoke_chat(
 
     if search_available:
         try:
-            message = await runnable.ainvoke(full_prompt, tools=[{"google_search": {}}])
+            message = await throttle.run(
+                "chat",
+                lambda: runnable.ainvoke(full_prompt, tools=[{"google_search": {}}]),
+                label="quick-ask+search",
+            )
             metadata = (getattr(message, "response_metadata", None) or {}).get("grounding_metadata")
             return {
                 "text": extract_text_content(message.content),
                 "metadata": metadata if isinstance(metadata, dict) else None,
                 "search_available": True,
             }
+        except (throttle.ProviderBusy, RateLimitError):
+            # Overload is not "grounding unsupported": retrying without the tool
+            # would just add a second call to a provider that is already saturated.
+            raise
         except Exception as exc:
             logger.warning(f"quick-ask: search grounding unavailable, answering without it: {exc}")
             search_available = False
 
     try:
-        message = await runnable.ainvoke(full_prompt)
+        message = await throttle.run(
+            "chat", lambda: runnable.ainvoke(full_prompt), label="quick-ask"
+        )
+    except (throttle.ProviderBusy, RateLimitError):
+        raise
     except Exception as exc:
         logger.exception(f"LLM call failed for owner {owner_id}: {exc}")
         raise ExternalServiceError(f"LLM call failed: {exc}")

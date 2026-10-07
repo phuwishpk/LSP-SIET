@@ -45,6 +45,7 @@ import {
   toastApiError,
 } from '@/lib/hooks/use-community'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from 'sonner'
 import { useKnowledge, useLibrary } from '@/lib/hooks/use-library'
 import {
   describeApiError,
@@ -66,6 +67,7 @@ interface Message {
   citations?: AskCitation[]
   webSources?: AskWebSource[]
   coverage?: 'full' | 'partial' | 'none'
+  cached?: boolean
   charged?: number
   scopeLabel?: string
   grounded?: boolean
@@ -146,6 +148,10 @@ function AskContent() {
   const [question, setQuestion] = useState('')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  // One automatic retry when the server says it is overloaded (503 / 429 with
+  // Retry-After); the ref lets the error handler call the latest submit.
+  const submitRef = useRef<(raw?: string) => void>(() => {})
+  const autoRetried = useRef(false)
 
   const costs = wallet?.rules.costs
   const sessionMessages = wallet?.rules.rag_session_messages ?? 5
@@ -254,6 +260,7 @@ function AskContent() {
         },
         {
           onSuccess: (data) => {
+            autoRetried.current = false
             if (data.conversation_id && data.conversation_id !== conversationId) {
               setConversationId(data.conversation_id)
               router.replace(`/community/ask?c=${encodeURIComponent(data.conversation_id)}`)
@@ -270,6 +277,7 @@ function AskContent() {
                 citations: data.citations,
                 webSources: data.web_sources ?? [],
                 coverage: data.coverage,
+                cached: data.cached,
                 charged: data.charged,
                 scopeLabel: data.scope_label,
                 grounded: data.grounded,
@@ -282,12 +290,24 @@ function AskContent() {
             }
           },
           onError: (error) => {
-            if (describeApiError(error).kind === 'rag_session_exhausted') {
+            const info = describeApiError(error)
+            if (info.kind === 'rag_session_exhausted') {
               setSessionId(null)
               setCreditsLeft(null)
             }
-            toastApiError(error)
             setMessages((prev) => prev.slice(0, -1))
+            const overloaded = info.kind === 'llm_busy' || info.kind === 'provider_rate_limit'
+            if (overloaded && !autoRetried.current) {
+              autoRetried.current = true
+              const wait = Math.min(Math.max(info.retryAfter ?? 5, 2), 15)
+              toast.info('ระบบมีผู้ใช้พร้อมกันจำนวนมาก', {
+                description: `กำลังส่งคำถามใหม่อัตโนมัติในอีก ${wait} วินาที`,
+              })
+              window.setTimeout(() => submitRef.current(q), wait * 1000)
+              return
+            }
+            autoRetried.current = false
+            toastApiError(error)
             setQuestion(q)
           },
         }
@@ -295,6 +315,8 @@ function AskContent() {
     },
     [ask, conversationId, mode, pick, queryClient, question, router, scope, scopeCourseId, sessionId, webMode]
   )
+
+  submitRef.current = submit
 
   // "แชทใหม่": the old conversation stays in the history, the transcript resets.
   const startNew = useCallback(() => {
@@ -621,6 +643,11 @@ function AskContent() {
                         <AnswerReferences citations={m.citations} webSources={m.webSources} />
                       )}
 
+                      {m.role === 'assistant' && m.cached && (
+                        <p className="mt-2 text-[11px] text-muted-foreground">
+                          คำตอบเดียวกับที่เพิ่งถามไปเมื่อสักครู่ ไม่ตัดแต้ม
+                        </p>
+                      )}
                       {m.role === 'assistant' && (m.charged ?? 0) > 0 && (
                         <p className="mt-2 flex items-center gap-1 text-[11px] text-muted-foreground">
                           <Coins className="h-3 w-3" /> ใช้ {m.charged} แต้ม

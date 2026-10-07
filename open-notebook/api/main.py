@@ -40,6 +40,7 @@ from api.routers import community as community_router
 from api.routers import features as features_router
 from api.routers import google_auth as google_auth_router
 from api.routers import users as users_router
+from open_notebook.community.throttle import ProviderBusy
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -445,10 +446,27 @@ async def authentication_error_handler(request: Request, exc: AuthenticationErro
 
 @app.exception_handler(RateLimitError)
 async def rate_limit_error_handler(request: Request, exc: RateLimitError):
+    # The provider kept answering 429 even after the gate's retries: tell the
+    # client when to try again instead of leaving it to guess.
     return JSONResponse(
         status_code=429,
         content={"detail": str(exc)},
-        headers=_cors_headers(request),
+        headers={**_cors_headers(request), "Retry-After": "15", "X-Points-Kind": "provider_rate_limit"},
+    )
+
+
+@app.exception_handler(ProviderBusy)
+async def provider_busy_handler(request: Request, exc: ProviderBusy):
+    # Our own queue stayed full for the whole timeout: a temporary overload,
+    # not a client fault, so 503 + Retry-After (clients retry automatically).
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc)},
+        headers={
+            **_cors_headers(request),
+            "Retry-After": str(exc.retry_after),
+            "X-Points-Kind": "llm_busy",
+        },
     )
 
 

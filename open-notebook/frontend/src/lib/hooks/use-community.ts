@@ -59,6 +59,8 @@ export function toastApiError(error: unknown, fallback = 'เกิดข้อ�
     toast.warning('ส่งถี่เกินไป', { description: [info.message, wait].filter(Boolean).join(' · ') })
   } else if (info.status === 409) {
     toast.warning('เนื้อหาซ้ำ', { description: info.message || fallback })
+  } else if (info.status === 503) {
+    toast.warning('ระบบกำลังคิวอยู่', { description: info.message || fallback })
   } else {
     toast.error(info.message || fallback)
   }

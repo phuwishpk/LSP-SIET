@@ -29,9 +29,10 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
-from open_notebook.community import library, points, ratelimit
+from open_notebook.community import library, points, ratelimit, throttle
 from open_notebook.community import repository as repo
-from open_notebook.community.ask import quick_ask
+from open_notebook.cache.service import cache_service
+from open_notebook.community.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
 from open_notebook.config import DATA_FOLDER
 from open_notebook.domain.features import QuizSession, RoadmapSession
 from open_notebook.domain.user import USER_ROLE_ADMIN, USER_ROLE_TEACHER, User
@@ -40,6 +41,7 @@ from open_notebook.exceptions import (
     ExternalServiceError,
     InvalidInputError,
     NotFoundError,
+    RateLimitError,
 )
 
 router = APIRouter(prefix="/community", tags=["community"])
@@ -1118,6 +1120,9 @@ async def expand_my_roadmap(
     except ExternalServiceError as exc:
         await points.refund(charge, "roadmap expansion failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "roadmap expansion failed")
+        raise
     except Exception as exc:
         await points.refund(charge, "roadmap expansion failed")
         logger.exception("roadmap expansion failed")
@@ -1642,6 +1647,9 @@ async def study_quiz(
     except ExternalServiceError as exc:
         await points.refund(charge, "quiz generation failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "quiz generation failed")
+        raise
     except Exception as exc:
         await points.refund(charge, "quiz generation failed")
         logger.exception("study quiz failed")
@@ -1725,6 +1733,9 @@ async def study_roadmap(
     except ExternalServiceError as exc:
         await points.refund(charge, "roadmap generation failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "roadmap generation failed")
+        raise
     except Exception as exc:
         await points.refund(charge, "roadmap generation failed")
         logger.exception("study roadmap failed")
@@ -1900,6 +1911,9 @@ async def delete_ask_conversation(
 @router.post("/ask")
 async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
+    # Burst guard per user (3 s cooldown, 8/min, 60/h, 300/day; staff x4). Checked
+    # first so a blocked request costs neither points nor a provider call.
+    await _guard_spam(user, "ask")
     source_ids: Optional[List[str]] = None
     if body.scope in ("document", "notebook") and not (
         body.document_ids or body.notebook_ids or body.source_ids
@@ -1942,29 +1956,69 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             raise _insufficient(exc)
 
     history = list(session["messages"]) if session else []
-    try:
-        result = await quick_ask(
-            owner_id=_owner(user),
+
+    # Identical single questions (no conversation context) share one answer for
+    # RAG_ANSWER_CACHE_TTL seconds; a hit costs no provider call and no points.
+    cache_key: Optional[str] = None
+    cached_result: Optional[Dict[str, Any]] = None
+    if not session:
+        cache_key = answer_cache_key(
             question=body.question,
-            history=history,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            allow_global_fallback=allow_fallback,
+            web=body.web,
             language=body.language,
             model_id=body.model_id,
-            notebook_ids=notebook_ids or None,
-            scope_label=scope_label,
-            allow_global_fallback=allow_fallback,
-            source_ids=source_ids,
-            web=body.web,
         )
+        try:
+            cached_result = await cache_service.get_json(cache_key)
+        except Exception as exc:  # the cache is optional
+            logger.debug(f"answer cache read skipped: {exc}")
+            cached_result = None
+        if not isinstance(cached_result, dict) or "answer" not in cached_result:
+            cached_result = None
+
+    try:
+        if cached_result is not None:
+            result = cached_result
+        else:
+            result = await quick_ask(
+                owner_id=_owner(user),
+                question=body.question,
+                history=history,
+                language=body.language,
+                model_id=body.model_id,
+                notebook_ids=notebook_ids or None,
+                scope_label=scope_label,
+                allow_global_fallback=allow_fallback,
+                source_ids=source_ids,
+                web=body.web,
+            )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
         raise HTTPException(status_code=400, detail=str(exc))
     except ExternalServiceError as exc:
         await points.refund(charge, "ask failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        # Queue full / provider rate limit: the global handlers answer 503 / 429
+        # with Retry-After; the student keeps the point.
+        await points.refund(charge, "ask throttled")
+        raise
     except Exception as exc:
         await points.refund(charge, "ask failed")
         logger.exception("quick ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
+
+    if cached_result is not None:
+        await points.refund(charge, "cached answer – no compute cost")
+        charge = None
+    elif cache_key:
+        try:
+            await cache_service.set_json(cache_key, result, ttl=ANSWER_CACHE_TTL)
+        except Exception as exc:
+            logger.debug(f"answer cache write skipped: {exc}")
 
     credits_left: Optional[int] = None
     if session:
@@ -1981,6 +2035,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
 
     return {
         "conversation_id": conversation_id,
+        "cached": cached_result is not None,
         "answer": result["answer"],
         "citations": result["citations"],
         "web_sources": result.get("web_sources", []),

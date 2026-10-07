@@ -364,6 +364,8 @@ export interface RagConversationDetail extends RagConversation {
 export interface AskResponse {
   /** The stored conversation this exchange was appended to. */
   conversation_id?: string | null
+  /** True when an identical recent question was answered from the cache (no points taken). */
+  cached?: boolean
   answer: string
   citations: AskCitation[]
   web_sources?: AskWebSource[]

@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
 from api.login_guard import clear_login_failures
-from open_notebook.community import points
+from open_notebook.community import points, ratelimit, throttle
 from open_notebook.community import repository as repo
 from open_notebook.domain.user import (
     USER_ROLE_ADMIN,
@@ -688,6 +688,27 @@ async def import_users(body: CsvImport, user: User = Depends(get_current_user)) 
 # ---------------------------------------------------------------------------
 # System health
 # ---------------------------------------------------------------------------
+
+
+@router.get("/llm-throttle")
+async def llm_throttle(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    How hard the provider gate is working: in-flight calls per lane, how often
+    requests queued, how long they waited, 429 retries, and the per-user ask
+    policy. Counters start at zero when the API process starts.
+    """
+    _require_admin(user)
+    ask = ratelimit.LIMITS["ask"]
+    return {
+        **throttle.gate.snapshot(),
+        "per_user_ask_policy": {
+            "cooldown_seconds": ask.cooldown_seconds,
+            "per_minute": ask.per_minute,
+            "per_hour": ask.per_hour,
+            "per_day": ask.per_day,
+            "staff_multiplier": ratelimit.STAFF_MULTIPLIER,
+        },
+    }
 
 
 @router.get("/health")

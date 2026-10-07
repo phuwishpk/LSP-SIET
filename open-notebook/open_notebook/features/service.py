@@ -31,12 +31,14 @@ from pydantic import BaseModel, Field
 
 from open_notebook.ai.models import model_manager
 from open_notebook.cache.service import cache_service
+from open_notebook.community import throttle
 from open_notebook.config import DEFAULT_CACHE_TTL
 from open_notebook.exceptions import (
     ConfigurationError,
     ExternalServiceError,
     InvalidInputError,
 )
+from open_notebook.exceptions import RateLimitError  # noqa: E402
 from open_notebook.domain.features import QuizSession, RoadmapSession
 from open_notebook.domain.notebook import Notebook, text_search, vector_search_in_notebook
 from open_notebook.utils.text_utils import extract_text_content
@@ -218,8 +220,12 @@ async def _invoke_chat(
         # runnable interface (some providers, e.g. GoogleLanguageModel, do not
         # expose ``ainvoke`` themselves).
         runnable = model.to_langchain() if hasattr(model, "to_langchain") else model
-        ai_message = await runnable.ainvoke(prompt)
+        ai_message = await throttle.run(
+            "chat", lambda: runnable.ainvoke(prompt), label=f"feature:{default_type}"
+        )
         return extract_text_content(ai_message.content)
+    except (throttle.ProviderBusy, RateLimitError):
+        raise
     except Exception as exc:
         logger.exception(f"LLM call failed for owner {owner_id}: {exc}")
         raise ExternalServiceError(f"LLM call failed: {exc}")
@@ -858,8 +864,12 @@ async def _invoke_direct_answer(
         f"own knowledge. Language: {language}.\n\nQuestion: {question}"
     )
     try:
-        ai_message = await model.ainvoke(f"{system_prompt}\n\n{user_prompt}")
+        ai_message = await throttle.run(
+            "chat", lambda: model.ainvoke(f"{system_prompt}\n\n{user_prompt}"), label="direct"
+        )
         return extract_text_content(ai_message.content)
+    except (throttle.ProviderBusy, RateLimitError):
+        raise
     except Exception as exc:
         logger.exception(f"Direct LLM call failed for owner {owner_id}: {exc}")
         raise ExternalServiceError(f"LLM call failed: {exc}")
