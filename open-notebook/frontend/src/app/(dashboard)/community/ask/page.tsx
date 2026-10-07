@@ -86,6 +86,7 @@ function fromStored(stored: RagStoredMessage[]): Message[] {
       webSources: m.meta.web_sources,
       coverage: m.meta.coverage,
       charged: m.meta.charged,
+      cached: m.meta.cached,
       scopeLabel: m.meta.scope_label,
       grounded: m.meta.grounded,
       at,

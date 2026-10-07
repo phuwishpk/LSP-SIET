@@ -349,6 +349,7 @@ export interface RagStoredMessage {
     scope_label?: string
     grounded?: boolean
     charged?: number
+    cached?: boolean
     session_id?: string | null
     credits_left?: number | null
     scope?: string

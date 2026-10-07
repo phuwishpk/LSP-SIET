@@ -1808,6 +1808,7 @@ async def _store_exchange(
     charged: int,
     session_id: Optional[str],
     credits_left: Optional[int],
+    cached: bool = False,
 ) -> Optional[str]:
     """
     Append the question and answer to the caller's chat history.
@@ -1840,6 +1841,7 @@ async def _store_exchange(
                         "scope_label": scope_label,
                         "grounded": grounded,
                         "charged": charged,
+                        "cached": cached,
                         "session_id": session_id,
                         "credits_left": credits_left,
                     },
@@ -2057,6 +2059,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     conversation_id = await _store_exchange(
         uid, body, result, scope_label, bool(notebook_ids), charged_amount,
         session_id if session else None, credits_left,
+        cached=cached_result is not None,
     )
 
     return {
