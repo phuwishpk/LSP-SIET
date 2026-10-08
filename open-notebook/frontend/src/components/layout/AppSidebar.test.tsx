@@ -59,6 +59,35 @@ describe('AppSidebar', () => {
     expect(screen.getByText('navigation.models')).toBeDefined()
   })
 
+  it('groups the admin consoles into community, AI and quiz', () => {
+    mockRole.mockReturnValue('admin')
+    render(<AppSidebar />)
+
+    const linksUnder = (heading: string) =>
+      Array.from(screen.getByText(heading).parentElement?.querySelectorAll('a') ?? []).map((a) => [
+        a.textContent,
+        a.getAttribute('href'),
+      ])
+    expect(linksUnder('navigation.manageCommunity')).toEqual([['navigation.adminCommunity', '/admin/community']])
+    expect(linksUnder('navigation.manageAi')).toEqual([
+      ['navigation.adminRag', '/admin/rag'],
+      ['navigation.adminRoadmap', '/admin/roadmap'],
+    ])
+    expect(linksUnder('navigation.manageQuiz')).toEqual([['navigation.adminQuiz', '/admin/quiz']])
+    // what belongs to no single area stays with the other management links
+    expect(linksUnder('navigation.manage').map(([, href]) => href)).toContain('/admin')
+  })
+
+  it('keeps the admin groups away from teachers', () => {
+    mockRole.mockReturnValue('teacher')
+    render(<AppSidebar />)
+
+    expect(screen.getByText('navigation.teacherConsole')).toBeDefined()
+    for (const key of ['navigation.manageCommunity', 'navigation.manageAi', 'navigation.manageQuiz', 'navigation.adminConsole']) {
+      expect(screen.queryByText(key)).toBeNull()
+    }
+  })
+
   it('marks only the most specific entry as the current page', () => {
     mockRole.mockReturnValue('admin')
     mockPathname.mockReturnValue('/admin/quiz')

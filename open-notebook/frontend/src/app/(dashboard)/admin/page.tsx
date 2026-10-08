@@ -18,8 +18,6 @@ import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UsagePanel } from '@/components/admin/UsagePanel'
 import { HealthPanel } from '@/components/admin/HealthPanel'
-import { ModerationPanel } from '@/components/admin/ModerationPanel'
-import { RoomsPanel } from '@/components/admin/RoomsPanel'
 import { PointsLogPanel } from '@/components/admin/PointsLogPanel'
 import { ImportPanel } from '@/components/admin/ImportPanel'
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog'
@@ -94,7 +92,7 @@ export default function AdminPage() {
           <AdminPageHeader
             icon={ShieldCheck}
             title="จัดการระบบ"
-            description="บัญชี เนื้อหา ห้อง แต้ม และสถานะระบบ — ทุกอย่างที่เคยต้องเข้า MariaDB เอง"
+            description="บัญชีผู้ใช้ แต้ม การใช้ AI และสถานะระบบ — เรื่องที่ใช้ร่วมกันทั้ง Community, AI และ Quiz"
           >
             <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
               <UserPlus className="h-4 w-4" /> สร้างบัญชี
@@ -105,8 +103,6 @@ export default function AdminPage() {
             <TabsList className="flex-wrap whitespace-nowrap">
               <TabsTrigger value="overview">ภาพรวม</TabsTrigger>
               <TabsTrigger value="users">ผู้ใช้</TabsTrigger>
-              <TabsTrigger value="content">เนื้อหา</TabsTrigger>
-              <TabsTrigger value="rooms">ห้อง</TabsTrigger>
               <TabsTrigger value="points">แต้ม</TabsTrigger>
               <TabsTrigger value="usage">การใช้ AI</TabsTrigger>
               <TabsTrigger value="import">นำเข้า CSV</TabsTrigger>
@@ -286,12 +282,6 @@ export default function AdminPage() {
           </Card>
             </TabsContent>
 
-            <TabsContent value="content" className="mt-4">
-              <ModerationPanel />
-            </TabsContent>
-            <TabsContent value="rooms" className="mt-4">
-              <RoomsPanel />
-            </TabsContent>
             <TabsContent value="points" className="mt-4">
               <PointsLogPanel />
             </TabsContent>

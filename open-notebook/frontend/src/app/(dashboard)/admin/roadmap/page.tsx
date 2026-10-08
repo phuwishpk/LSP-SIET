@@ -15,7 +15,7 @@ export default function AdminRoadmapPage() {
         <div className="mx-auto max-w-6xl space-y-5 p-6">
           <AdminPageHeader
             icon={MapIcon}
-            title="จัดการ Road Map"
+            title="จัดการ AI Roadmap"
             description="การใช้งาน AI Roadmap ทั้งระบบ รายการของผู้ใช้ทุกคน และโพสต์ Roadmap ที่อยู่ในฟีด"
           />
 

@@ -84,6 +84,29 @@ const getNavigation = (t: TFunction, role: Role) => [
       { name: t('navigation.features', 'AI Features'), href: '/features', icon: Sparkles },
     ],
   },
+  // The admin consoles, one group per area. What belongs to no single area
+  // (accounts, points, AI cost, health) stays under "จัดการระบบ" in Manage.
+  ...(isAdmin(role)
+    ? [
+        {
+          title: t('navigation.manageCommunity', 'จัดการ Community'),
+          items: [
+            { name: t('navigation.adminCommunity', 'Community'), href: '/admin/community', icon: MessageSquare },
+          ],
+        },
+        {
+          title: t('navigation.manageAi', 'จัดการ AI'),
+          items: [
+            { name: t('navigation.adminRag', 'RAG AI'), href: '/admin/rag', icon: Database },
+            { name: t('navigation.adminRoadmap', 'AI Roadmap'), href: '/admin/roadmap', icon: Map },
+          ],
+        },
+        {
+          title: t('navigation.manageQuiz', 'จัดการ Quiz'),
+          items: [{ name: t('navigation.adminQuiz', 'Quiz'), href: '/admin/quiz', icon: BrainCircuit }],
+        },
+      ]
+    : []),
   ...(isStaff(role) ? [{
     title: t('navigation.manage'),
     items: [
@@ -93,10 +116,6 @@ const getNavigation = (t: TFunction, role: Role) => [
       ...(isAdmin(role)
         ? [
             { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },
-            { name: t('navigation.adminCommunity', 'จัดการ Community'), href: '/admin/community', icon: MessageSquare },
-            { name: t('navigation.adminQuiz', 'จัดการ Quiz AI'), href: '/admin/quiz', icon: BrainCircuit },
-            { name: t('navigation.adminRoadmap', 'จัดการ Road Map'), href: '/admin/roadmap', icon: Map },
-            { name: t('navigation.adminRag', 'จัดการ RAG AI'), href: '/admin/rag', icon: Database },
             { name: t('navigation.settings'), href: '/settings', icon: Settings },
             { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
           ]

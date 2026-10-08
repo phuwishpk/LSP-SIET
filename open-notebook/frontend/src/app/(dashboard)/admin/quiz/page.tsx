@@ -15,7 +15,7 @@ export default function AdminQuizPage() {
         <div className="mx-auto max-w-6xl space-y-5 p-6">
           <AdminPageHeader
             icon={BrainCircuit}
-            title="จัดการ Quiz AI"
+            title="จัดการ Quiz"
             description="การใช้งาน AI Quiz ทั้งระบบ รายการของผู้ใช้ทุกคน และโพสต์ Quiz ที่อยู่ในฟีดพร้อมผลการทำ"
           />
 

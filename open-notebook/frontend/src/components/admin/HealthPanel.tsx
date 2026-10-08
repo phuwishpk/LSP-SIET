@@ -69,7 +69,7 @@ export function HealthPanel() {
                 hint="กด retry ในหน้าคลังความรู้"
               />
               <Tile label="กำลังประมวลผล" value={data.content.processing_documents} />
-              <Tile label="โพสต์ที่ซ่อนไว้" value={data.content.deleted_posts} hint="กู้คืนได้ในแท็บเนื้อหา" />
+              <Tile label="โพสต์ที่ซ่อนไว้" value={data.content.deleted_posts} hint="กู้คืนได้ที่ จัดการ Community › โพสต์" />
               <Tile
                 label="ห้องไม่มีเจ้าของ"
                 value={data.content.ownerless_rooms}
