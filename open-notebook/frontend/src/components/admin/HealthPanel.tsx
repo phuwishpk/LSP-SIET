@@ -17,14 +17,8 @@ export function HealthPanel() {
         <CardTitle className="flex items-center gap-2 text-base">
           สถานะระบบ
           {data && (
-            <span
-              className={cn(
-                'rounded-full px-2 py-0.5 text-[11px] font-medium',
-                data.healthy
-                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200'
-                  : 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200'
-              )}
-            >
+            <span className="inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[11px] font-medium">
+              <span className={cn('h-1.5 w-1.5 rounded-full', data.healthy ? 'bg-emerald-500' : 'bg-destructive')} />
               {data.healthy ? 'พร้อมใช้งาน' : 'มีปัญหา'}
             </span>
           )}
@@ -102,7 +96,7 @@ function Tile({
   warn?: boolean
 }) {
   return (
-    <div className={cn('rounded-lg border p-2.5', warn && 'border-amber-400/60 bg-amber-50/60 dark:bg-amber-950/20')}>
+    <div className={cn('rounded-lg border p-2.5', warn && 'bg-muted')}>
       <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
         {warn && <AlertTriangle className="h-3 w-3 text-amber-600" />}
         {label}

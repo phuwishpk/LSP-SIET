@@ -14,16 +14,16 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Literal, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import text
 import os
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
 from api.login_guard import clear_login_failures
-from open_notebook.community import points, pricing, ratelimit, throttle
+from open_notebook.community import library, points, pricing, ratelimit, throttle
 from open_notebook.community import repository as repo
 from open_notebook.domain.user import (
     USER_ROLE_ADMIN,
@@ -429,6 +429,57 @@ def _roadmap_origin(prompt_hash: Any) -> tuple[str, Optional[int]]:
     return "own", None
 
 
+def _quiz_origin(prompt_hash: Any) -> tuple[str, Optional[int]]:
+    """A quiz copied out of the feed carries ``import:<post id>`` instead of a hash."""
+    marker = str(prompt_hash or "")
+    if marker.startswith("import:"):
+        try:
+            return "imported", int(marker.split(":", 1)[1])
+        except ValueError:
+            return "imported", None
+    return "own", None
+
+
+async def _session_owners(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
+    """
+    ``{owner_id: account}`` for quiz / roadmap sessions. owner_id is the MariaDB
+    user id as text (older rows may hold something else); a missing key means
+    the account no longer exists.
+    """
+    owner_ids = sorted({int(r["owner_id"]) for r in rows if str(r.get("owner_id") or "").isdigit()})
+    if not owner_ids:
+        return {}
+    placeholders = ", ".join(f":u{i}" for i in range(len(owner_ids)))
+    async with _mariadb_session() as session:
+        found = (
+            await session.execute(
+                text(f"SELECT id, username, display_name, role FROM users WHERE id IN ({placeholders})"),
+                {f"u{i}": value for i, value in enumerate(owner_ids)},
+            )
+        ).all()
+    return {str(r.id): {"id": r.id, "username": r.username, "display_name": r.display_name, "role": r.role} for r in found}
+
+
+def _viewer_window(days: int, tz_offset: int) -> tuple[datetime, timezone]:
+    """
+    ``days`` whole calendar days ending today *for the viewer*, as the UTC
+    instant it starts at, plus the viewer's zone. The server runs in UTC, and
+    something done at 00:30 in Bangkok would otherwise land on the day before.
+    """
+    viewer_zone = timezone(timedelta(minutes=tz_offset))
+    today = datetime.now(viewer_zone).replace(hour=0, minute=0, second=0, microsecond=0)
+    return (today - timedelta(days=days - 1)).astimezone(timezone.utc), viewer_zone
+
+
+def _viewer_day(created: Any, viewer_zone: timezone) -> Optional[str]:
+    """The viewer's calendar day of a SurrealDB timestamp (naive ones are UTC)."""
+    if not hasattr(created, "astimezone"):
+        return None
+    if created.tzinfo is None:
+        created = created.replace(tzinfo=timezone.utc)
+    return created.astimezone(viewer_zone).strftime("%Y-%m-%d")
+
+
 @router.get("/roadmaps")
 async def list_all_roadmaps(
     q: Optional[str] = Query(default=None, max_length=200),
@@ -444,19 +495,7 @@ async def list_all_roadmaps(
     page = await RoadmapSession.admin_list(query=q, origin=origin, limit=limit, offset=offset)
     rows = page["items"]
 
-    # owner_id is the MariaDB user id as text (older rows may hold something else).
-    owner_ids = sorted({int(r["owner_id"]) for r in rows if str(r.get("owner_id") or "").isdigit()})
-    owners: Dict[str, Dict[str, Any]] = {}
-    if owner_ids:
-        placeholders = ", ".join(f":u{i}" for i in range(len(owner_ids)))
-        async with _mariadb_session() as session:
-            found = (
-                await session.execute(
-                    text(f"SELECT id, username, display_name, role FROM users WHERE id IN ({placeholders})"),
-                    {f"u{i}": value for i, value in enumerate(owner_ids)},
-                )
-            ).all()
-        owners = {str(r.id): {"id": r.id, "username": r.username, "display_name": r.display_name, "role": r.role} for r in found}
+    owners = await _session_owners(rows)
     posts = await repo.roadmap_posts_by_session([str(r["id"]) for r in rows])
 
     items = []
@@ -571,6 +610,258 @@ async def roadmap_stats(
             for p in top
         ],
     }
+
+
+# ---------------------------------------------------------------------------
+# AI Quizzes
+#
+# Same line as the roadmaps: who made which quiz and how it is doing, never the
+# questions and answers of a quiz its owner has not shared.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/quizzes")
+async def list_all_quizzes(
+    q: Optional[str] = Query(default=None, max_length=200),
+    origin: Literal["all", "own", "imported"] = "all",
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Every quiz in the workspace as a summary (no questions), newest first."""
+    _require_admin(user)
+    from open_notebook.domain.features import QuizSession
+
+    page = await QuizSession.admin_list(query=q, origin=origin, limit=limit, offset=offset)
+    rows = page["items"]
+    owners = await _session_owners(rows)
+    posts = await repo.quiz_posts_by_session([str(r["id"]) for r in rows])
+
+    items = []
+    for r in rows:
+        kind, source_post_id = _quiz_origin(r.get("prompt_hash"))
+        items.append(
+            {
+                "id": str(r["id"]),
+                "topic": r.get("topic"),
+                "language": r.get("language"),
+                "question_count": int(r.get("question_count") or 0),
+                "origin": kind,
+                "source_post_id": source_post_id,
+                # None = the account no longer exists.
+                "owner": owners.get(str(r.get("owner_id"))),
+                "owner_id": str(r.get("owner_id") or ""),
+                "from_library": bool(r.get("notebook_id")),
+                "shared_post": posts.get(str(r["id"])),
+                "created_at": _iso(r.get("created_at")),
+            }
+        )
+    return {"items": items, "total": page["total"], "offset": offset}
+
+
+@router.delete("/quizzes/{session_id}")
+async def delete_any_quiz(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Delete a quiz for good. A post made from it keeps its own copy."""
+    _require_admin(user)
+    from open_notebook.domain.features import QuizSession
+
+    if not session_id.startswith("quiz_session:"):
+        raise HTTPException(status_code=404, detail="ไม่พบ Quiz นี้")
+    try:
+        session = await QuizSession.get(session_id)
+    except Exception:
+        raise HTTPException(status_code=404, detail="ไม่พบ Quiz นี้")
+    await session.delete()
+    logger.info(f"admin {user.username} deleted quiz {session_id} of owner {session.owner_id}")
+    return {"ok": True, "deleted": session_id}
+
+
+@router.get("/quizzes/shared")
+async def list_shared_quizzes(
+    state: Literal["visible", "deleted", "all"] = "visible",
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Quiz posts, most played first. Hide/restore with the /posts routes."""
+    _require_admin(user)
+    return await repo.admin_quiz_posts(state=state, limit=limit, offset=offset)
+
+
+@router.get("/quizzes/stats")
+async def quiz_stats(
+    days: int = Query(default=30, ge=1, le=180),
+    tz_offset: int = Query(default=0, ge=-840, le=840, description="Viewer's offset from UTC in minutes"),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """How much the quiz feature is used: made per day, played, scored, and what it cost."""
+    _require_admin(user)
+    from open_notebook.domain.features import QuizSession
+
+    since, viewer_zone = _viewer_window(days, tz_offset)
+    per_day: Dict[str, int] = {}
+    generated = imported = from_library = 0
+    for r in await QuizSession.created_since(since):
+        if _quiz_origin(r.get("prompt_hash"))[0] == "imported":
+            imported += 1
+            continue
+        generated += 1
+        if r.get("notebook_id"):
+            from_library += 1
+        day = _viewer_day(r.get("created_at"), viewer_zone)
+        if day:
+            per_day[day] = per_day.get(day, 0) + 1
+
+    total = (await QuizSession.admin_list(limit=1))["total"]
+    top = (await repo.admin_quiz_posts(state="visible", limit=5))["items"]
+    return {
+        "days": days,
+        "total": total,
+        "generated": generated,
+        "imported": imported,
+        "per_day": [{"day": day, "count": per_day[day]} for day in sorted(per_day)],
+        "grounding": {"library": from_library, "none": generated - from_library},
+        **await repo.quiz_stats(since),
+        "top_played": [
+            {
+                "id": p["id"],
+                "title": p["title"],
+                "author": p["author"],
+                "counts": p["counts"],
+                "attempts": p["attempts"],
+                "question_count": p["question_count"],
+            }
+            for p in top
+        ],
+    }
+
+
+# ---------------------------------------------------------------------------
+# Community
+# ---------------------------------------------------------------------------
+
+
+@router.get("/community/stats")
+async def community_stats(
+    days: int = Query(default=30, ge=1, le=180),
+    tz_offset: int = Query(default=0, ge=-840, le=840, description="Viewer's offset from UTC in minutes"),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Feed activity: posts per day, by type, who takes part and what draws a response."""
+    _require_admin(user)
+    since, _zone = _viewer_window(days, tz_offset)
+    return {"days": days, **await repo.community_stats(since, tz_offset)}
+
+
+@router.get("/comments")
+async def list_all_comments(
+    q: Optional[str] = Query(default=None, max_length=200),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Every comment in the workspace, newest first - the feed only shows them post by post."""
+    _require_admin(user)
+    return await repo.admin_list_comments(query=q, limit=limit, offset=offset)
+
+
+@router.delete("/comments/{comment_id}")
+async def moderate_delete_comment(comment_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Remove a comment for good (comments are not flagged like posts). Unlike the
+    feed's own route this also reaches comments under a hidden post.
+    """
+    _require_admin(user)
+    comment = await repo.get_comment(comment_id)
+    if not comment:
+        raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นนี้")
+    await repo.delete_comment(comment_id, int(comment["post_id"]))
+    logger.info(f"admin {user.username} deleted comment {comment_id} on post {comment['post_id']}")
+    return {"ok": True, "deleted": comment_id}
+
+
+# ---------------------------------------------------------------------------
+# KMITL RAG AI
+#
+# Statistics and the document library only. What people asked and what the AI
+# answered stays private to each user - the console never reads it.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/rag/stats")
+async def rag_stats(
+    days: int = Query(default=30, ge=1, le=180),
+    tz_offset: int = Query(default=0, ge=-840, le=840, description="Viewer's offset from UTC in minutes"),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Questions per day, how well the library covered them, cost, and the per-user limits."""
+    _require_admin(user)
+    since, _zone = _viewer_window(days, tz_offset)
+    stats = await repo.rag_stats(since, tz_offset)
+    stats["usage"]["cost_thb"] = round(stats["usage"]["cost_usd"] * pricing.USD_THB_RATE, 2)
+    ask = ratelimit.LIMITS["ask"]
+    return {
+        "days": days,
+        **stats,
+        "costs": {
+            "question": points.COSTS["rag_question"],
+            "session": points.COSTS["rag_session"],
+            "session_messages": points.RAG_SESSION_MESSAGES,
+        },
+        "policy": {
+            "cooldown_seconds": ask.cooldown_seconds,
+            "per_minute": ask.per_minute,
+            "per_hour": ask.per_hour,
+            "per_day": ask.per_day,
+            "staff_multiplier": ratelimit.STAFF_MULTIPLIER,
+        },
+    }
+
+
+@router.get("/rag/documents")
+async def list_all_documents(
+    q: Optional[str] = Query(default=None, max_length=200),
+    status: Optional[Literal["processing", "ready", "failed"]] = None,
+    scope: Optional[Literal["course", "personal"]] = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Every document people gave the AI to read, personal ones included (never the content)."""
+    _require_admin(user)
+    return await library.admin_list_documents(query=q, status=status, scope=scope, limit=limit, offset=offset)
+
+
+async def _document_or_404(doc_id: int) -> Dict[str, Any]:
+    doc = await library.get_document(doc_id)
+    if not doc:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+    return doc
+
+
+@router.post("/rag/documents/{doc_id}/retry")
+async def retry_any_document(
+    doc_id: int, background: BackgroundTasks, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Index a document again. The library's own route only reaches documents the caller can read."""
+    _require_admin(user)
+    doc = await _document_or_404(doc_id)
+    if doc["kind"] == "text":
+        raise HTTPException(status_code=400, detail="เอกสารแบบข้อความต้องอัปโหลดใหม่")
+    await library.update_document(doc_id, status="processing", error=None)
+    background.add_task(library.ingest_document, doc_id, None)
+    logger.info(f"admin {user.username} re-indexed library document {doc_id}")
+    return {"ok": True}
+
+
+@router.delete("/rag/documents/{doc_id}")
+async def delete_any_document(doc_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Remove a document with its embeddings and uploaded file, whoever owns it."""
+    _require_admin(user)
+    doc = await _document_or_404(doc_id)
+    await library.delete_document(doc)
+    logger.info(f"admin {user.username} deleted library document {doc_id} of owner {doc.get('owner_id')}")
+    return {"ok": True, "deleted": doc_id}
 
 
 # ---------------------------------------------------------------------------

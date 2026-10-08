@@ -36,7 +36,7 @@ export const ptBR = {
     podcast: "Podcast",
     quickActions: "Ações rápidas",
     quickActionsDesc: "Navegação, busca, perguntar, tema",
-    appName: "Open Notebook",
+    appName: "LSP-SIET",
     add: "Adicionar",
     remove: "Remover",
     confirm: "Confirmar",

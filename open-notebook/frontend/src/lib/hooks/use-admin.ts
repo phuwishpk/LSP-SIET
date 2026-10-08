@@ -2,7 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { adminApi, type UserCreateInput, type UserUpdateInput } from '@/lib/api/admin'
+import { adminApi, type DocumentStatus, type UserCreateInput, type UserUpdateInput } from '@/lib/api/admin'
 import { toastApiError } from '@/lib/hooks/use-community'
 
 export const ADMIN_KEYS = {
@@ -21,6 +21,16 @@ export const ADMIN_KEYS = {
   roadmaps: (params: Record<string, unknown>) => ['admin', 'roadmaps', 'list', params] as const,
   roadmapPosts: (params: Record<string, unknown>) => ['admin', 'roadmaps', 'posts', params] as const,
   roadmapStats: (days: number) => ['admin', 'roadmaps', 'stats', days] as const,
+  quizzesRoot: ['admin', 'quizzes'] as const,
+  quizzes: (params: Record<string, unknown>) => ['admin', 'quizzes', 'list', params] as const,
+  quizPosts: (params: Record<string, unknown>) => ['admin', 'quizzes', 'posts', params] as const,
+  quizStats: (days: number) => ['admin', 'quizzes', 'stats', days] as const,
+  communityStats: (days: number) => ['admin', 'community', 'stats', days] as const,
+  commentsRoot: ['admin', 'comments'] as const,
+  comments: (params: Record<string, unknown>) => ['admin', 'comments', params] as const,
+  ragStats: (days: number) => ['admin', 'rag', 'stats', days] as const,
+  documentsRoot: ['admin', 'rag', 'documents'] as const,
+  documents: (params: Record<string, unknown>) => ['admin', 'rag', 'documents', params] as const,
 }
 
 export function useAdminUsage(days: number) {
@@ -185,6 +195,8 @@ export function useModeratePost() {
     onSuccess: (_data, vars) => {
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.postsRoot })
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.roadmapsRoot })
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.quizzesRoot })
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.commentsRoot })
       queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.overview })
       toast.success(vars.action === 'delete' ? 'ซ่อนโพสต์แล้ว' : 'กู้คืนโพสต์แล้ว')
     },
@@ -271,5 +283,124 @@ export function useAdminRoadmapStats(days: number) {
   return useQuery({
     queryKey: ADMIN_KEYS.roadmapStats(days),
     queryFn: () => adminApi.roadmapStats(days),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// AI Quizzes
+// ---------------------------------------------------------------------------
+
+const CONSOLE_PAGE = 25
+
+export function useAdminQuizzes(params: { q?: string; origin?: string; offset?: number }) {
+  const { q = '', origin = 'all', offset = 0 } = params
+  return useQuery({
+    queryKey: ADMIN_KEYS.quizzes({ q, origin, offset }),
+    queryFn: () => adminApi.quizzes({ q: q || undefined, origin, offset, limit: CONSOLE_PAGE }),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useDeleteQuiz() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => adminApi.deleteQuiz(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.quizzesRoot })
+      toast.success('ลบ Quiz แล้ว')
+    },
+    onError: (error) => toastApiError(error, 'ลบ Quiz ไม่สำเร็จ'),
+  })
+}
+
+export function useAdminQuizPosts(params: { state?: 'visible' | 'deleted' | 'all'; offset?: number }) {
+  const { state = 'visible', offset = 0 } = params
+  return useQuery({
+    queryKey: ADMIN_KEYS.quizPosts({ state, offset }),
+    queryFn: () => adminApi.quizPosts({ state, offset, limit: CONSOLE_PAGE }),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useAdminQuizStats(days: number) {
+  return useQuery({ queryKey: ADMIN_KEYS.quizStats(days), queryFn: () => adminApi.quizStats(days) })
+}
+
+// ---------------------------------------------------------------------------
+// Community: activity and comments
+// ---------------------------------------------------------------------------
+
+export function useAdminCommunityStats(days: number) {
+  return useQuery({
+    queryKey: ADMIN_KEYS.communityStats(days),
+    queryFn: () => adminApi.communityStats(days),
+  })
+}
+
+export function useAdminComments(params: { q?: string; offset?: number }) {
+  const { q = '', offset = 0 } = params
+  return useQuery({
+    queryKey: ADMIN_KEYS.comments({ q, offset }),
+    queryFn: () => adminApi.comments({ q: q || undefined, offset, limit: CONSOLE_PAGE }),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function useDeleteComment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => adminApi.deleteComment(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.commentsRoot })
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.postsRoot })
+      toast.success('ลบความคิดเห็นแล้ว')
+    },
+    onError: (error) => toastApiError(error, 'ลบความคิดเห็นไม่สำเร็จ'),
+  })
+}
+
+// ---------------------------------------------------------------------------
+// KMITL RAG AI: usage and the document library
+// ---------------------------------------------------------------------------
+
+export function useAdminRagStats(days: number) {
+  return useQuery({ queryKey: ADMIN_KEYS.ragStats(days), queryFn: () => adminApi.ragStats(days) })
+}
+
+export function useAdminDocuments(params: {
+  q?: string
+  status?: DocumentStatus | ''
+  scope?: 'course' | 'personal' | ''
+  offset?: number
+}) {
+  const { q = '', status = '', scope = '', offset = 0 } = params
+  return useQuery({
+    queryKey: ADMIN_KEYS.documents({ q, status, scope, offset }),
+    queryFn: () =>
+      adminApi.documents({
+        q: q || undefined,
+        status: status || undefined,
+        scope: scope || undefined,
+        offset,
+        limit: CONSOLE_PAGE,
+      }),
+    placeholderData: (previous) => previous,
+    // Indexing runs in the background: keep looking while something is in progress.
+    refetchInterval: (query) => ((query.state.data?.by_status.processing ?? 0) > 0 ? 4000 : false),
+  })
+}
+
+export function useDocumentAction() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, action }: { id: number; action: 'retry' | 'delete' }) =>
+      action === 'retry' ? adminApi.retryDocument(id) : adminApi.deleteDocument(id),
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.documentsRoot })
+      queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.health })
+      queryClient.invalidateQueries({ queryKey: ['community', 'library'] })
+      toast.success(vars.action === 'retry' ? 'กำลังทำดัชนีเอกสารใหม่' : 'ลบเอกสารแล้ว')
+    },
+    onError: (error) => toastApiError(error, 'ดำเนินการกับเอกสารไม่สำเร็จ'),
   })
 }

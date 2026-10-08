@@ -219,6 +219,182 @@ export interface AdminRoadmapStats {
   top_followed: Pick<AdminRoadmapPost, 'id' | 'title' | 'author' | 'counts' | 'node_count'>[]
 }
 
+export interface DayCount {
+  day: string
+  count: number
+}
+
+interface Person {
+  id: number
+  username?: string | null
+  display_name?: string | null
+  role?: string | null
+}
+
+/** A quiz as the admin console sees it: who, when, how big - never its questions. */
+export interface AdminQuiz {
+  id: string
+  topic: string | null
+  language?: string | null
+  question_count: number
+  origin: 'own' | 'imported'
+  source_post_id: number | null
+  /** null when the account no longer exists. */
+  owner: Person | null
+  owner_id: string
+  /** Generated from library documents rather than the model's general knowledge. */
+  from_library: boolean
+  shared_post: { post_id: number; is_deleted: boolean; play_count: number } | null
+  created_at: string | null
+}
+
+export interface AdminQuizList {
+  items: AdminQuiz[]
+  total: number
+  offset: number
+}
+
+export interface QuizAttempts {
+  total: number
+  completed: number
+  players: number
+  /** null until somebody finishes the quiz. */
+  avg_score_pct: number | null
+}
+
+export interface AdminQuizPost {
+  id: number
+  title?: string | null
+  session_id?: string | null
+  is_deleted: boolean
+  created_at: string
+  question_count: number
+  counts: { play: number; like: number; helpful: number; comment: number; share: number; cashback: number }
+  attempts: QuizAttempts
+  author: Person
+  room: { id: number; code?: string | null; name?: string | null } | null
+}
+
+export interface AdminQuizPostList {
+  items: AdminQuizPost[]
+  total: number
+  offset: number
+}
+
+export interface AdminQuizStats {
+  days: number
+  total: number
+  generated: number
+  imported: number
+  per_day: DayCount[]
+  grounding: { library: number; none: number }
+  attempts: number
+  completed: number
+  players: number
+  avg_score_pct: number | null
+  cashback_paid: number
+  shared_posts: number
+  plays: number
+  points_spent: number
+  top_played: Pick<AdminQuizPost, 'id' | 'title' | 'author' | 'counts' | 'attempts' | 'question_count'>[]
+}
+
+export interface AdminCommunityStats {
+  days: number
+  posts: number
+  comments: number
+  reactions: number
+  shares: number
+  saves: number
+  room_joins: number
+  /** All hidden posts, not only the ones from this window. */
+  hidden_posts: number
+  contributors: number
+  per_day: DayCount[]
+  by_type: Record<AdminPost['type'], number>
+  top_contributors: { user: Person; posts: number; comments: number }[]
+  top_posts: {
+    id: number
+    type: AdminPost['type']
+    title?: string | null
+    author: Person
+    counts: AdminPost['counts']
+  }[]
+}
+
+export interface AdminComment {
+  id: number
+  content: string
+  created_at: string
+  author: Person
+  post: { id: number; title?: string | null; type: AdminPost['type']; is_deleted: boolean }
+}
+
+export interface AdminCommentList {
+  items: AdminComment[]
+  total: number
+  offset: number
+}
+
+/** RAG usage as counts only: what people asked is private to them. */
+export interface AdminRagStats {
+  days: number
+  questions: number
+  conversations: number
+  askers: number
+  per_day: DayCount[]
+  answers: number
+  coverage: { full: number; partial: number; none: number; unknown: number }
+  web_used: number
+  cached: number
+  top_documents: { id?: string | null; title: string; count: number }[]
+  top_askers: { user: Person; questions: number }[]
+  points_spent: number
+  usage: {
+    calls: number
+    tokens: number
+    search_queries: number
+    cost_usd: number
+    cost_thb: number
+    avg_latency_ms: number | null
+  }
+  library: { ready: number; processing: number; failed: number; course: number; personal: number; chunks: number }
+  costs: { question: number; session: number; session_messages: number }
+  policy: LlmThrottle['per_user_ask_policy']
+}
+
+export type DocumentStatus = 'processing' | 'ready' | 'failed'
+
+export interface AdminDocument {
+  id: number
+  title: string
+  kind: 'file' | 'url' | 'text'
+  filename?: string | null
+  mime?: string | null
+  size?: number | null
+  scope: 'course' | 'personal'
+  status: DocumentStatus
+  error?: string | null
+  chunks: number
+  chars: number
+  created_at: string
+  updated_at?: string | null
+  course_id?: number | null
+  course_code?: string | null
+  course_name?: string | null
+  owner_id: number
+  owner_username?: string | null
+  owner_display_name?: string | null
+  owner_role?: string | null
+}
+
+export interface AdminDocumentList {
+  items: AdminDocument[]
+  total: number
+  offset: number
+  by_status: Record<DocumentStatus, number>
+}
+
 /** One aggregated bucket of provider usage (a day, a feature, a model, a user...). */
 export interface UsageBucket {
   calls: number
@@ -295,6 +471,11 @@ export interface LlmThrottle {
   per_user_ask_policy: { cooldown_seconds: number; per_minute: number; per_hour: number; per_day: number; staff_multiplier: number }
 }
 
+type Visibility = 'visible' | 'deleted' | 'all'
+
+/** Days are counted in the viewer's time zone, not the server's. */
+const viewerWindow = (days: number) => ({ days, tz_offset: -new Date().getTimezoneOffset() })
+
 export const adminApi = {
   overview: async () => (await apiClient.get<AdminOverview>('/admin/overview')).data,
   usage: async (days = 30) => (await apiClient.get<AdminUsage>('/admin/usage', { params: { days } })).data,
@@ -304,15 +485,37 @@ export const adminApi = {
     (await apiClient.get<AdminRoadmapList>('/admin/roadmaps', { params })).data,
   deleteRoadmap: async (id: string) =>
     (await apiClient.delete(`/admin/roadmaps/${encodeURIComponent(id)}`)).data,
-  roadmapPosts: async (params: { state?: 'visible' | 'deleted' | 'all'; limit?: number; offset?: number }) =>
+  roadmapPosts: async (params: { state?: Visibility; limit?: number; offset?: number }) =>
     (await apiClient.get<AdminRoadmapPostList>('/admin/roadmaps/shared', { params })).data,
   roadmapStats: async (days: number) =>
-    (
-      await apiClient.get<AdminRoadmapStats>('/admin/roadmaps/stats', {
-        // Days are counted in the viewer's time zone, not the server's.
-        params: { days, tz_offset: -new Date().getTimezoneOffset() },
-      })
-    ).data,
+    (await apiClient.get<AdminRoadmapStats>('/admin/roadmaps/stats', { params: viewerWindow(days) })).data,
+
+  quizzes: async (params: { q?: string; origin?: string; limit?: number; offset?: number }) =>
+    (await apiClient.get<AdminQuizList>('/admin/quizzes', { params })).data,
+  deleteQuiz: async (id: string) =>
+    (await apiClient.delete(`/admin/quizzes/${encodeURIComponent(id)}`)).data,
+  quizPosts: async (params: { state?: Visibility; limit?: number; offset?: number }) =>
+    (await apiClient.get<AdminQuizPostList>('/admin/quizzes/shared', { params })).data,
+  quizStats: async (days: number) =>
+    (await apiClient.get<AdminQuizStats>('/admin/quizzes/stats', { params: viewerWindow(days) })).data,
+
+  communityStats: async (days: number) =>
+    (await apiClient.get<AdminCommunityStats>('/admin/community/stats', { params: viewerWindow(days) })).data,
+  comments: async (params: { q?: string; limit?: number; offset?: number }) =>
+    (await apiClient.get<AdminCommentList>('/admin/comments', { params })).data,
+  deleteComment: async (id: number) => (await apiClient.delete(`/admin/comments/${id}`)).data,
+
+  ragStats: async (days: number) =>
+    (await apiClient.get<AdminRagStats>('/admin/rag/stats', { params: viewerWindow(days) })).data,
+  documents: async (params: {
+    q?: string
+    status?: DocumentStatus
+    scope?: 'course' | 'personal'
+    limit?: number
+    offset?: number
+  }) => (await apiClient.get<AdminDocumentList>('/admin/rag/documents', { params })).data,
+  retryDocument: async (id: number) => (await apiClient.post(`/admin/rag/documents/${id}/retry`)).data,
+  deleteDocument: async (id: number) => (await apiClient.delete(`/admin/rag/documents/${id}`)).data,
 
   listUsers: async (params: { q?: string; role?: string; limit?: number; offset?: number }) =>
     (await apiClient.get<AdminUserList>('/admin/users', { params })).data,

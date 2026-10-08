@@ -724,6 +724,74 @@ async def list_documents(
     return [_row(r) for r in rows]
 
 
+DOCUMENT_STATUSES = ("processing", "ready", "failed")
+
+
+async def admin_list_documents(
+    *,
+    query: Optional[str] = None,
+    status: Optional[str] = None,
+    scope: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """
+    Every library document in the workspace, personal ones included, for the
+    admin console: what it is, whose it is and whether it was indexed. Never its
+    content, and not where the file sits on disk.
+    """
+    where: List[str] = []
+    params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if query and query.strip():
+        where.append("(d.title LIKE :q OR d.filename LIKE :q OR u.username LIKE :q OR c.code LIKE :q)")
+        params["q"] = f"%{query.strip()}%"
+    if status in DOCUMENT_STATUSES:
+        where.append("d.status = :status")
+        params["status"] = status
+    if scope in (SCOPE_COURSE, SCOPE_PERSONAL):
+        where.append("d.scope = :scope")
+        params["scope"] = scope
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    joins = """
+          FROM library_documents d
+          LEFT JOIN rooms c ON c.id = d.room_id
+          LEFT JOIN users u ON u.id = d.owner_id
+    """
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) {joins} {clause}"), params)).scalar()
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT d.id, d.title, d.kind, d.filename, d.mime, d.size, d.scope, d.status, d.error,
+                           d.chunk_count AS chunks, d.char_count AS chars, d.created_at, d.updated_at,
+                           d.room_id AS course_id, c.code AS course_code, c.name AS course_name,
+                           d.owner_id, u.username AS owner_username,
+                           u.display_name AS owner_display_name, u.role AS owner_role
+                      {joins} {clause}
+                     ORDER BY d.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        ).all()
+        by_status = (
+            await session.execute(
+                text("SELECT status, COUNT(*) AS n FROM library_documents GROUP BY status")
+            )
+        ).all()
+    counts = {name: 0 for name in DOCUMENT_STATUSES}
+    for r in by_status:
+        counts[r._mapping["status"]] = int(r._mapping["n"] or 0)
+    return {
+        "items": [_row(r) for r in rows],
+        "total": int(total or 0),
+        "offset": int(offset),
+        "by_status": counts,
+    }
+
+
 async def source_metadata(source_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
     """
     ``{source id: {title, scope, room_code}}`` for the sources that are uploaded

@@ -23,6 +23,8 @@ import { RoomsPanel } from '@/components/admin/RoomsPanel'
 import { PointsLogPanel } from '@/components/admin/PointsLogPanel'
 import { ImportPanel } from '@/components/admin/ImportPanel'
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { StatTile } from '@/components/admin/StatTile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -38,7 +40,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { ScrollArea } from '@/components/ui/scroll-area'
 import { useDebounce } from 'use-debounce'
 import {
   useAdjustPoints,
@@ -56,10 +57,14 @@ import { cn } from '@/lib/utils'
 
 const PAGE_SIZE = 50
 
+// Initials on a neutral disc instead of the app-wide coloured ones.
+const AVATAR_STYLE = 'border bg-secondary text-foreground'
+
+// Monochrome on purpose: the weight of the chip, not a hue, ranks the role.
 const ROLE_STYLE: Record<UserRole, string> = {
-  admin: 'bg-rose-100 text-rose-800 dark:bg-rose-950/50 dark:text-rose-200',
-  teacher: 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200',
-  student: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+  admin: 'bg-foreground text-background',
+  teacher: 'border bg-card text-foreground',
+  student: 'bg-muted text-muted-foreground',
 }
 
 export default function AdminPage() {
@@ -86,21 +91,18 @@ export default function AdminPage() {
     <AppShell>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl space-y-5 p-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <ShieldCheck className="h-6 w-6 text-primary" />
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold">จัดการระบบ</h1>
-              <p className="text-sm text-muted-foreground">
-                บัญชี เนื้อหา ห้อง แต้ม และสถานะระบบ — ทุกอย่างที่เคยต้องเข้า MariaDB เอง
-              </p>
-            </div>
-            <Button size="sm" className="ml-auto gap-1.5" onClick={() => setCreateOpen(true)}>
+          <AdminPageHeader
+            icon={ShieldCheck}
+            title="จัดการระบบ"
+            description="บัญชี เนื้อหา ห้อง แต้ม และสถานะระบบ — ทุกอย่างที่เคยต้องเข้า MariaDB เอง"
+          >
+            <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
               <UserPlus className="h-4 w-4" /> สร้างบัญชี
             </Button>
-          </div>
+          </AdminPageHeader>
 
           <Tabs defaultValue="overview">
-            <TabsList className="flex-wrap">
+            <TabsList className="flex-wrap whitespace-nowrap">
               <TabsTrigger value="overview">ภาพรวม</TabsTrigger>
               <TabsTrigger value="users">ผู้ใช้</TabsTrigger>
               <TabsTrigger value="content">เนื้อหา</TabsTrigger>
@@ -112,12 +114,12 @@ export default function AdminPage() {
 
             <TabsContent value="overview" className="mt-4 space-y-4">
           {overview && (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-              <StatCard icon={Users} label="ผู้ใช้ทั้งหมด" value={overview.users} hint={`ใช้งานใน 7 วัน ${overview.active_week}`} />
-              <StatCard icon={UserX} label="บัญชีที่ระงับ" value={overview.suspended} />
-              <StatCard icon={FileText} label="โพสต์ในฟีด" value={overview.posts} hint={`${overview.courses} รายวิชา`} />
-              <StatCard icon={BookOpen} label="เอกสารในคลัง" value={overview.documents} />
-              <StatCard icon={Coins} label="แต้มคงเหลือรวม" value={overview.points_outstanding} hint={`ใช้ไป 7 วัน ${overview.points_spent_week}`} />
+            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+              <StatTile icon={Users} label="ผู้ใช้ทั้งหมด" value={overview.users} hint={`ใช้งานใน 7 วัน ${overview.active_week}`} />
+              <StatTile icon={UserX} label="บัญชีที่ระงับ" value={overview.suspended} />
+              <StatTile icon={FileText} label="โพสต์ในฟีด" value={overview.posts} hint={`${overview.courses} รายวิชา`} />
+              <StatTile icon={BookOpen} label="เอกสารในคลัง" value={overview.documents} />
+              <StatTile icon={Coins} accent label="แต้มคงเหลือรวม" value={overview.points_outstanding} hint={`ใช้ไป 7 วัน ${overview.points_spent_week}`} />
             </div>
           )}
               <HealthPanel />
@@ -212,7 +214,7 @@ export default function AdminPage() {
                   >
                     <input
                       type="checkbox"
-                      className="h-4 w-4 shrink-0 accent-destructive"
+                      className="h-4 w-4 shrink-0 accent-primary"
                       checked={picked.includes(u.id)}
                       disabled={u.id === data.me || u.role === 'admin'}
                       title={
@@ -234,7 +236,7 @@ export default function AdminPage() {
                       onClick={() => setSelected(u)}
                       className="flex min-w-0 flex-1 items-center gap-3 text-left"
                     >
-                    <Avatar size="sm" src={u.avatar_url} name={displayName(u)} />
+                    <Avatar size="sm" src={u.avatar_url} name={displayName(u)} className={AVATAR_STYLE} />
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <span className={cn('truncate font-medium', u.disabled && 'line-through opacity-60')}>
@@ -257,11 +259,11 @@ export default function AdminPage() {
                         {u.last_login_at ? ` · เข้าล่าสุด ${timeAgo(u.last_login_at)}` : ' · ยังไม่เคยเข้าใช้'}
                       </p>
                     </div>
-                    <span className="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums text-amber-700 dark:text-amber-300">
+                    <span className="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums text-ai">
                       <Coins className="h-3.5 w-3.5" />
                       {u.points_balance}
                     </span>
-                    <UserCog className="h-4 w-4 shrink-0 text-muted-foreground" />
+                    <UserCog className="h-4 w-4 shrink-0 text-subtle-foreground" />
                     </button>
                   </div>
                 ))}
@@ -316,30 +318,6 @@ export default function AdminPage() {
   )
 }
 
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value: number
-  hint?: string
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Icon className="h-3.5 w-3.5" /> {label}
-        </div>
-        <p className="mt-1 text-2xl font-bold tabular-nums">{value.toLocaleString()}</p>
-        {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
-  )
-}
-
 function UserDialog({
   user,
   isSelf,
@@ -365,10 +343,10 @@ function UserDialog({
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Avatar size="sm" src={current.avatar_url} name={displayName(current)} />
+            <Avatar size="sm" src={current.avatar_url} name={displayName(current)} className={AVATAR_STYLE} />
             {displayName(current)}
           </DialogTitle>
           <DialogDescription>
@@ -377,7 +355,7 @@ function UserDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="space-y-1.5">
             <Label>สิทธิ์การใช้งาน</Label>
             <div className="flex flex-wrap gap-2">
@@ -471,11 +449,11 @@ function UserDialog({
           {detail?.points_history && detail.points_history.length > 0 && (
             <div className="space-y-1.5">
               <Label>ประวัติแต้มล่าสุด</Label>
-              <ScrollArea className="max-h-40 rounded-md border">
+              <div className="max-h-40 overflow-y-auto rounded-md border">
                 <ul className="divide-y text-xs">
                   {detail.points_history.map((tx) => (
                     <li key={tx.id} className="flex items-center justify-between px-3 py-1.5">
-                      <span className="truncate">
+                      <span className="min-w-0 truncate">
                         {kindLabel(tx.kind)}
                         {tx.note ? ` · ${tx.note}` : ''}
                       </span>
@@ -486,7 +464,7 @@ function UserDialog({
                     </li>
                   ))}
                 </ul>
-              </ScrollArea>
+              </div>
             </div>
           )}
         </div>

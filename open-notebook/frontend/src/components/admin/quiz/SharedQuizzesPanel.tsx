@@ -1,68 +1,57 @@
 'use client'
 
 /**
- * Roadmaps that were shared into the feed, most followed first.
+ * Quizzes that were shared into the feed, most played first, with how people
+ * did on them.
  *
  * Hiding is the same flag the moderation list uses: the post leaves the feed
- * but stays in the database, and people who already followed it keep their copy.
+ * but stays in the database, and the attempts already made are kept.
  */
 import { useState } from 'react'
 import Link from 'next/link'
-import { ExternalLink, EyeOff, Footprints, RotateCcw, Trash2 } from 'lucide-react'
+import { ExternalLink, EyeOff, Gamepad2, RotateCcw, Trash2 } from 'lucide-react'
+import { EmptyState, Pager, Segmented, VISIBILITY_OPTIONS, type Visibility } from '@/components/admin/controls'
 import { PostCounts } from '@/components/admin/PostCounts'
+import { scoreLabel } from '@/components/admin/quiz/QuizStatsPanel'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { useAdminRoadmapPosts, useModeratePost } from '@/lib/hooks/use-admin'
+import { useAdminQuizPosts, useModeratePost } from '@/lib/hooks/use-admin'
 import { displayName, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 const PAGE = 25
 
-export function SharedRoadmapsPanel() {
-  const [state, setState] = useState<'visible' | 'deleted' | 'all'>('visible')
+export function SharedQuizzesPanel() {
+  const [state, setState] = useState<Visibility>('visible')
   const [offset, setOffset] = useState(0)
-  const { data, isLoading } = useAdminRoadmapPosts({ state, offset })
+  const { data, isLoading } = useAdminQuizPosts({ state, offset })
   const moderate = useModeratePost()
-
-  const pages = Math.ceil((data?.total ?? 0) / PAGE)
-  const page = Math.floor(offset / PAGE)
 
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-base">Roadmap ที่แชร์ในฟีด</CardTitle>
+        <CardTitle className="text-base">Quiz ที่แชร์ในฟีด</CardTitle>
         <CardDescription>
           {data ? `${data.total.toLocaleString()} โพสต์ · ` : ''}
-          เรียงตามจำนวนคนเดินตาม · ซ่อนแล้วกู้คืนได้ และคนที่เดินตามไปแล้วยังมีสำเนาของตัวเอง
+          เรียงตามจำนวนครั้งที่เล่น · ซ่อนแล้วกู้คืนได้ และผลการทำที่ผ่านมายังเก็บไว้
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex w-fit rounded-md border p-0.5">
-          {(['visible', 'deleted', 'all'] as const).map((item) => (
-            <button
-              key={item}
-              type="button"
-              onClick={() => {
-                setState(item)
-                setOffset(0)
-              }}
-              className={cn(
-                'rounded-sm px-2.5 py-1 text-xs transition',
-                state === item ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
-              )}
-            >
-              {item === 'visible' ? 'แสดงอยู่' : item === 'deleted' ? 'ซ่อนไว้' : 'ทั้งหมด'}
-            </button>
-          ))}
-        </div>
+        <Segmented
+          label="สถานะโพสต์"
+          value={state}
+          options={VISIBILITY_OPTIONS}
+          onChange={(value) => {
+            setState(value)
+            setOffset(0)
+          }}
+        />
 
         {isLoading && <Skeleton className="h-40 w-full" />}
         {!isLoading && (data?.items.length ?? 0) === 0 && (
-          <p className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
-            {state === 'deleted' ? 'ไม่มีโพสต์ Roadmap ที่ซ่อนไว้' : 'ยังไม่มี Roadmap ที่แชร์ในฟีด'}
-          </p>
+          <EmptyState>{state === 'deleted' ? 'ไม่มีโพสต์ Quiz ที่ซ่อนไว้' : 'ยังไม่มี Quiz ที่แชร์ในฟีด'}</EmptyState>
         )}
 
         {(data?.items.length ?? 0) > 0 && (
@@ -89,16 +78,16 @@ export function SharedRoadmapsPanel() {
                     {post.room ? ` · ${post.room.code || post.room.name}` : ''}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {post.node_count} ด่าน
-                    {post.sub_node_count > 0 ? ` (ด่านย่อย ${post.sub_node_count})` : ''}
-                    {post.grounding_label ? ` · ${post.grounding_label}` : ''}
+                    {post.question_count} ข้อ · ทำจนจบ {post.attempts.completed} จาก {post.attempts.total} ครั้ง ·{' '}
+                    {post.attempts.players} คน · คะแนนเฉลี่ย {scoreLabel(post.attempts.avg_score_pct)}
+                    {post.counts.cashback > 0 ? ` · คืนแต้มเจ้าของ ${post.counts.cashback}` : ''}
                     {' · '}
                     <PostCounts counts={post.counts} />
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <span className="flex items-center gap-1 text-xs tabular-nums" title="จำนวนคนเดินตาม">
-                    <Footprints className="h-3.5 w-3.5 text-subtle-foreground" /> {post.counts.follow} คนเดินตาม
+                  <span className="flex items-center gap-1 text-xs tabular-nums" title="จำนวนครั้งที่เล่น">
+                    <Gamepad2 className="h-3.5 w-3.5 text-subtle-foreground" /> เล่น {post.counts.play} ครั้ง
                   </span>
                   {!post.is_deleted && (
                     <Button asChild variant="ghost" size="sm" className="h-8 px-2" aria-label="เปิดโพสต์">
@@ -134,19 +123,7 @@ export function SharedRoadmapsPanel() {
           </div>
         )}
 
-        {pages > 1 && (
-          <div className="flex items-center justify-between text-sm">
-            <Button variant="outline" size="sm" disabled={page === 0} onClick={() => setOffset(offset - PAGE)}>
-              ก่อนหน้า
-            </Button>
-            <span className="text-muted-foreground">
-              หน้า {page + 1} จาก {pages}
-            </span>
-            <Button variant="outline" size="sm" disabled={page + 1 >= pages} onClick={() => setOffset(offset + PAGE)}>
-              ถัดไป
-            </Button>
-          </div>
-        )}
+        <Pager offset={offset} pageSize={PAGE} total={data?.total ?? 0} onChange={setOffset} />
       </CardContent>
     </Card>
   )

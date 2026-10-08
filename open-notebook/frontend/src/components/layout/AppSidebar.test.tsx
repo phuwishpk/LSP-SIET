@@ -12,6 +12,14 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
+// The current path decides which entry is highlighted.
+const mockPathname = vi.fn(() => '')
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
+  usePathname: () => mockPathname(),
+  useSearchParams: () => new URLSearchParams(),
+}))
+
 // The navigation is role-aware (see lib/roles.ts): students only get the
 // community, everything else belongs to staff. The store decides which.
 const mockRole = vi.fn<() => string | undefined>(() => 'teacher')
@@ -49,6 +57,20 @@ describe('AppSidebar', () => {
     expect(screen.getByText('navigation.teacherConsole')).toBeDefined()
     expect(screen.getByText('navigation.adminConsole')).toBeDefined()
     expect(screen.getByText('navigation.models')).toBeDefined()
+  })
+
+  it('marks only the most specific entry as the current page', () => {
+    mockRole.mockReturnValue('admin')
+    mockPathname.mockReturnValue('/admin/quiz')
+    render(<AppSidebar />)
+
+    const isCurrent = (key: string) =>
+      /(^|\s)bg-sidebar-accent(\s|$)/.test(screen.getByText(key).closest('button')?.className ?? '')
+    // /admin is a prefix of /admin/quiz, but it is not the page being shown
+    expect(isCurrent('navigation.adminQuiz')).toBe(true)
+    expect(isCurrent('navigation.adminConsole')).toBe(false)
+    expect(isCurrent('navigation.adminRoadmap')).toBe(false)
+    mockPathname.mockReturnValue('')
   })
 
   it('toggles collapse state when clicking handle', () => {

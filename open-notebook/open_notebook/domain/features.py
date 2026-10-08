@@ -113,6 +113,61 @@ class QuizSession(ObjectModel):
             raise NotFoundError("Quiz session not found")
         return await self.delete()
 
+    @classmethod
+    async def admin_list(
+        cls,
+        *,
+        query: Optional[str] = None,
+        origin: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Every quiz in the workspace, newest first, WITHOUT its questions: the
+        admin console shows who made what, not the answers of a private quiz.
+        """
+        where: List[str] = []
+        params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+        if query and query.strip():
+            where.append("string::lowercase(topic) CONTAINS $q")
+            params["q"] = query.strip().lower()
+        if origin == "imported":
+            where.append("string::starts_with(prompt_hash, 'import:')")
+        elif origin == "own":
+            where.append("!string::starts_with(prompt_hash, 'import:')")
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        try:
+            rows = await repo_query(
+                f"""
+                SELECT id, owner_id, topic, language, question_count, prompt_hash,
+                       notebook_id, created_at
+                  FROM quiz_session {clause}
+                 ORDER BY created_at DESC
+                 LIMIT $limit START $offset
+                """,
+                params,
+            )
+            total = await repo_query(
+                f"SELECT count() AS n FROM quiz_session {clause} GROUP ALL", params
+            )
+        except Exception as exc:
+            logger.error(f"Failed listing quiz sessions for admin: {exc}")
+            raise DatabaseOperationError(exc)
+        return {"items": rows or [], "total": int((total or [{}])[0].get("n") or 0)}
+
+    @classmethod
+    async def created_since(cls, since: datetime) -> List[Dict[str, Any]]:
+        """Creation time, origin marker and size of every quiz made since ``since``."""
+        try:
+            return await repo_query(
+                "SELECT prompt_hash, question_count, notebook_id, created_at "
+                "FROM quiz_session WHERE created_at >= $since",
+                {"since": since},
+            ) or []
+        except Exception as exc:
+            logger.error(f"Failed reading quiz statistics: {exc}")
+            raise DatabaseOperationError(exc)
+
 
 class RoadmapSession(ObjectModel):
     table_name: ClassVar[str] = "roadmap_session"

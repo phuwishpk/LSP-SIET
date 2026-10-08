@@ -3,6 +3,7 @@
 import { Map as MapIcon } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { RoadmapListPanel } from '@/components/admin/roadmap/RoadmapListPanel'
 import { RoadmapStatsPanel } from '@/components/admin/roadmap/RoadmapStatsPanel'
 import { SharedRoadmapsPanel } from '@/components/admin/roadmap/SharedRoadmapsPanel'
@@ -12,15 +13,11 @@ export default function AdminRoadmapPage() {
     <AppShell>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-6xl space-y-5 p-6">
-          <div className="flex flex-wrap items-center gap-3">
-            <MapIcon className="h-6 w-6 text-primary" />
-            <div className="min-w-0">
-              <h1 className="text-2xl font-bold">จัดการ Road Map</h1>
-              <p className="text-sm text-muted-foreground">
-                การใช้งาน AI Roadmap ทั้งระบบ รายการของผู้ใช้ทุกคน และโพสต์ Roadmap ที่อยู่ในฟีด
-              </p>
-            </div>
-          </div>
+          <AdminPageHeader
+            icon={MapIcon}
+            title="จัดการ Road Map"
+            description="การใช้งาน AI Roadmap ทั้งระบบ รายการของผู้ใช้ทุกคน และโพสต์ Roadmap ที่อยู่ในฟีด"
+          />
 
           <Tabs defaultValue="overview">
             <TabsList className="flex-wrap">

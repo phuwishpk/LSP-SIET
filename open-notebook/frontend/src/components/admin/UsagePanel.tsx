@@ -9,6 +9,7 @@
  */
 import { useMemo, useState } from 'react'
 import { Activity, Coins, Cpu, Globe2, Users } from 'lucide-react'
+import { StatTile } from '@/components/admin/StatTile'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import type { UsageBucket } from '@/lib/api/admin'
@@ -54,13 +55,15 @@ export function UsagePanel() {
     <div className="space-y-4">
       {/* ------------------------------------------------ headline numbers */}
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Kpi
+        <StatTile
+          accent
           icon={Coins}
           label="ค่าใช้จ่ายวันนี้"
           value={fmtThb(data.today.cost_thb)}
           hint={`${fmtUsd(data.today.cost_usd)} · ${fmtInt(data.today.calls)} ครั้ง`}
         />
-        <Kpi
+        <StatTile
+          accent
           icon={Coins}
           label="ค่าใช้จ่ายเดือนนี้"
           value={fmtThb(data.month.total_cost_thb ?? data.month.cost_thb)}
@@ -70,13 +73,15 @@ export function UsagePanel() {
               : `${fmtUsd(data.month.total_cost_usd ?? data.month.cost_usd)} · ${fmtInt(data.month.calls)} ครั้ง`
           }
         />
-        <Kpi
+        <StatTile
+          accent
           icon={Cpu}
           label={`โทเค็น ${days} วัน`}
           value={fmtTokens(data.window.tokens)}
           hint={`เข้า ${fmtTokens(data.window.input_tokens)} · ออก ${fmtTokens(data.window.output_tokens)}`}
         />
-        <Kpi
+        <StatTile
+          accent
           icon={Globe2}
           label="ค้นเว็บเดือนนี้"
           value={fmtInt(data.search.queries_this_month)}
@@ -99,7 +104,7 @@ export function UsagePanel() {
                   onClick={() => setDays(r)}
                   className={cn(
                     'rounded-md border px-2 py-0.5 text-xs transition',
-                    days === r ? 'border-primary bg-primary/10 text-primary' : 'hover:bg-accent'
+                    days === r ? 'border-ai bg-ai-soft text-ai' : 'hover:bg-accent'
                   )}
                 >
                   {r} วัน
@@ -218,30 +223,6 @@ export function UsagePanel() {
         </a>
       </p>
     </div>
-  )
-}
-
-function Kpi({
-  icon: Icon,
-  label,
-  value,
-  hint,
-}: {
-  icon: React.ComponentType<{ className?: string }>
-  label: string
-  value: string
-  hint?: string
-}) {
-  return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Icon className="h-3.5 w-3.5" /> {label}
-        </div>
-        <p className="mt-1 text-2xl font-semibold tabular-nums">{value}</p>
-        {hint && <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p>}
-      </CardContent>
-    </Card>
   )
 }
 
@@ -375,7 +356,7 @@ function DailyCostChart({ rows, days }: { rows: UsageBucket[]; days: number }) {
                     d={`M${x},${y + r} a${r},${r} 0 0 1 ${r},-${r} h${barW - 2 * r} a${r},${r} 0 0 1 ${r},${r} v${h - r} h-${barW} z`}
                     // the bar sits above its hit rect: let the pointer fall through so
                     // hovering the bar itself still opens the tooltip
-                    className={cn('pointer-events-none fill-violet-500 dark:fill-violet-400', active && 'fill-violet-700 dark:fill-violet-300')}
+                    className={cn('pointer-events-none', active ? 'fill-ai' : 'fill-ai/70')}
                   />
                 )}
                 {(i === maxIdx && s.cost > 0) && !active && (

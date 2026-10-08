@@ -11,13 +11,14 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { useDebounce } from 'use-debounce'
 import { ExternalLink, Eye, EyeOff, Paperclip, RotateCcw, Search, Trash2 } from 'lucide-react'
+import { PostCounts } from '@/components/admin/PostCounts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAdminPosts, useModeratePost } from '@/lib/hooks/use-admin'
-import { displayName, kindLabel, timeAgo } from '@/lib/utils/community-format'
+import { displayName, postTypeLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 const TYPES = [
@@ -88,7 +89,7 @@ export function ModerationPanel() {
                   setOffset(0)
                 }}
                 className={cn(
-                  'rounded px-2.5 py-1 text-xs transition',
+                  'rounded-sm px-2.5 py-1 text-xs transition',
                   state === s ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
                 )}
               >
@@ -114,7 +115,7 @@ export function ModerationPanel() {
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-1.5">
                   <Badge variant="outline" className="text-[10px]">
-                    {kindLabel(post.type)}
+                    {postTypeLabel(post.type)}
                   </Badge>
                   <span className={cn('truncate text-sm font-medium', post.is_deleted && 'line-through opacity-70')}>
                     {post.title || '(ไม่มีหัวข้อ)'}
@@ -130,7 +131,8 @@ export function ModerationPanel() {
                 <p className="mt-1 text-[11px] text-muted-foreground">
                   {displayName(post.author)} (@{post.author.username}) · {timeAgo(post.created_at)}
                   {post.course ? ` · ${post.course.kind === 'club' ? post.course.name : post.course.code}` : ''}
-                  {' · '}❤️ {post.counts.like} 💬 {post.counts.comment} 🔁 {post.counts.share}
+                  {' · '}
+                  <PostCounts counts={post.counts} />
                 </p>
               </div>
               <div className="flex shrink-0 items-center gap-1">
@@ -153,7 +155,7 @@ export function ModerationPanel() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 gap-1 px-2 text-xs text-destructive hover:text-destructive"
+                    className="h-8 gap-1 px-2 text-xs text-muted-foreground hover:text-destructive"
                     disabled={moderate.isPending}
                     onClick={() => moderate.mutate({ id: post.id, action: 'delete' })}
                   >

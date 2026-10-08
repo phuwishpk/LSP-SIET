@@ -64,6 +64,18 @@ export function kindLabel(kind: string): string {
   return KIND_LABELS[kind] || kind
 }
 
+export const POST_TYPE_LABELS: Record<string, string> = {
+  summary: 'สรุป',
+  question: 'คำถาม',
+  quiz: 'ควิซ',
+  roadmap: 'Roadmap',
+  material: 'สื่อการสอน',
+}
+
+export function postTypeLabel(type: string): string {
+  return POST_TYPE_LABELS[type] || type
+}
+
 export function formatBytes(size?: number | null): string {
   if (!size || size <= 0) return ''
   if (size < 1024) return `${size} B`

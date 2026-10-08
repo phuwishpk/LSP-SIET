@@ -39,7 +39,7 @@ export const deDE = {
     podcast: "Podcast",
     quickActions: "Schnellaktionen",
     quickActionsDesc: "Navigation, Suche, Fragen, Design",
-    appName: "Open Notebook",
+    appName: "LSP-SIET",
     add: "Hinzufügen",
     remove: "Entfernen",
     confirm: "Bestätigen",

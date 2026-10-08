@@ -794,6 +794,196 @@ async def roadmap_point_stats(since: datetime) -> Dict[str, int]:
     }
 
 
+def _naive_utc(value: datetime) -> datetime:
+    """MariaDB keeps naive UTC DATETIMEs, so that is what a bound must be."""
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _pct(ratio: Any) -> Optional[int]:
+    """An average score ratio (0-1) as a whole percentage; None when nobody finished."""
+    return None if ratio is None else int(round(float(ratio) * 100))
+
+
+async def _points_spent(session: Any, kinds: Sequence[str], since: datetime) -> int:
+    """Points charged for ``kinds`` since ``since``, minus what was refunded."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT
+                  (SELECT COALESCE(SUM(-t.delta), 0) FROM point_transactions t
+                    WHERE t.kind IN :kinds AND t.created_at >= :since) AS charged,
+                  (SELECT COALESCE(SUM(r.delta), 0) FROM point_transactions r
+                     JOIN point_transactions t
+                       ON r.ref_type = 'point_transaction' AND r.ref_id = CAST(t.id AS CHAR)
+                    WHERE r.kind = 'refund' AND t.kind IN :kinds
+                      AND t.created_at >= :since) AS refunded
+                """
+            ).bindparams(bindparam("kinds", expanding=True)),
+            {"kinds": list(kinds), "since": since},
+        )
+    ).first()
+    return int((row.charged or 0) - (row.refunded or 0)) if row else 0
+
+
+async def quiz_posts_by_session(session_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    """``{quiz session id: {post_id, is_deleted, play_count}}`` whoever the author is."""
+    ids = [str(s) for s in session_ids if s]
+    if not ids:
+        return {}
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT linked_id, id AS post_id, is_deleted, quiz_play_count
+                      FROM posts
+                     WHERE linked_type = 'quiz' AND linked_id IN :ids
+                     ORDER BY id ASC
+                    """
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": ids},
+            )
+        )
+    # The same quiz can be posted again: the newest row wins.
+    return {
+        str(r["linked_id"]): {
+            "post_id": int(r["post_id"]),
+            "is_deleted": bool(r["is_deleted"]),
+            "play_count": int(r["quiz_play_count"] or 0),
+        }
+        for r in rows
+    }
+
+
+async def admin_quiz_posts(*, state: str = "visible", limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    """Quiz posts for moderation: author, room, counters and how people scored."""
+    where = ["p.linked_type = 'quiz'"]
+    if state == "visible":
+        where.append("p.is_deleted = 0")
+    elif state == "deleted":
+        where.append("p.is_deleted = 1")
+    clause = " AND ".join(where)
+    params = {"limit": int(limit), "offset": int(offset)}
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) FROM posts p WHERE {clause}"))).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT p.id, p.title, p.is_deleted, p.created_at, p.linked_id, p.linked_snapshot,
+                           p.like_count, p.helpful_count, p.comment_count, p.share_count,
+                           p.quiz_play_count, p.cashback_earned,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           c.id AS room_id, c.code AS room_code, c.name AS room_name,
+                           a.attempts, a.completed, a.players, a.avg_ratio
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
+                      LEFT JOIN (
+                            SELECT post_id,
+                                   COUNT(*) AS attempts,
+                                   SUM(completed) AS completed,
+                                   COUNT(DISTINCT user_id) AS players,
+                                   AVG(CASE WHEN completed = 1 AND question_count > 0
+                                            THEN score / question_count END) AS avg_ratio
+                              FROM quiz_attempts
+                             GROUP BY post_id
+                           ) a ON a.post_id = p.id
+                     WHERE {clause}
+                     ORDER BY p.quiz_play_count DESC, p.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = []
+    for r in rows:
+        try:
+            snapshot = json.loads(r.get("linked_snapshot") or "{}")
+        except (TypeError, ValueError):
+            snapshot = {}
+        items.append(
+            {
+                "id": r["id"],
+                "title": r.get("title") or snapshot.get("topic"),
+                "session_id": r.get("linked_id"),
+                "is_deleted": bool(r.get("is_deleted")),
+                "created_at": r.get("created_at"),
+                "question_count": len(snapshot.get("questions") or []),
+                "counts": {
+                    "play": int(r.get("quiz_play_count") or 0),
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                    "cashback": int(r.get("cashback_earned") or 0),
+                },
+                "attempts": {
+                    "total": int(r.get("attempts") or 0),
+                    "completed": int(r.get("completed") or 0),
+                    "players": int(r.get("players") or 0),
+                    "avg_score_pct": _pct(r.get("avg_ratio")),
+                },
+                "author": {
+                    "id": r["author_id"],
+                    "username": r.get("author_username"),
+                    "display_name": r.get("author_display_name"),
+                    "role": r.get("author_role"),
+                },
+                "room": (
+                    {"id": r["room_id"], "code": r.get("room_code"), "name": r.get("room_name")}
+                    if r.get("room_id")
+                    else None
+                ),
+            }
+        )
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+async def quiz_stats(since: datetime) -> Dict[str, Any]:
+    """Quiz activity since ``since``: attempts, scores, points spent and cashback paid."""
+    since = _naive_utc(since)
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COUNT(*) FROM quiz_attempts WHERE created_at >= :since) AS attempts,
+                      (SELECT COUNT(*) FROM quiz_attempts
+                        WHERE created_at >= :since AND completed = 1) AS completed,
+                      (SELECT COUNT(DISTINCT user_id) FROM quiz_attempts
+                        WHERE created_at >= :since) AS players,
+                      (SELECT AVG(score / question_count) FROM quiz_attempts
+                        WHERE created_at >= :since AND completed = 1 AND question_count > 0) AS avg_ratio,
+                      (SELECT COALESCE(SUM(delta), 0) FROM point_transactions
+                        WHERE kind = 'cashback' AND created_at >= :since) AS cashback,
+                      (SELECT COUNT(*) FROM posts WHERE linked_type = 'quiz' AND is_deleted = 0) AS shared_posts,
+                      (SELECT COALESCE(SUM(quiz_play_count), 0) FROM posts
+                        WHERE linked_type = 'quiz' AND is_deleted = 0) AS plays
+                    """
+                ),
+                {"since": since},
+            )
+        ).first()
+        spent = await _points_spent(session, ("quiz_generate", "quiz_import"), since)
+    return {
+        "attempts": int(row.attempts or 0) if row else 0,
+        "completed": int(row.completed or 0) if row else 0,
+        "players": int(row.players or 0) if row else 0,
+        "avg_score_pct": _pct(row.avg_ratio) if row else None,
+        "cashback_paid": int(row.cashback or 0) if row else 0,
+        "shared_posts": int(row.shared_posts or 0) if row else 0,
+        "plays": int(row.plays or 0) if row else 0,
+        "points_spent": spent,
+    }
+
+
 async def update_post_snapshot(post_id: int, snapshot: Dict[str, Any]) -> None:
     """Replace the roadmap/quiz copy a post carries (the author pushed a newer version)."""
     async with _mariadb_session() as session:
@@ -1058,6 +1248,378 @@ async def admin_points_log(
         r["spent"] = int(r.get("spent") or 0)
         r["earned"] = int(r.get("earned") or 0)
     return {"items": items, "by_kind": by_kind, "top_spenders": top, "days": int(days)}
+
+
+async def admin_list_comments(
+    *,
+    query: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Every comment in the workspace, newest first, with the post it sits under."""
+    where: List[str] = []
+    params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if query:
+        where.append("(c.content LIKE :q OR u.username LIKE :q OR u.display_name LIKE :q)")
+        params["q"] = _like(query)
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    joins = "FROM post_comments c JOIN users u ON u.id = c.author_id JOIN posts p ON p.id = c.post_id"
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) {joins} {clause}"), params)).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT c.id, c.post_id, c.content, c.created_at,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           p.title AS post_title, p.type AS post_type, p.is_deleted AS post_is_deleted
+                      {joins} {clause}
+                     ORDER BY c.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = [
+        {
+            "id": r["id"],
+            "content": r["content"],
+            "created_at": r.get("created_at"),
+            "author": {
+                "id": r["author_id"],
+                "username": r.get("author_username"),
+                "display_name": r.get("author_display_name"),
+                "role": r.get("author_role"),
+            },
+            "post": {
+                "id": r["post_id"],
+                "title": r.get("post_title"),
+                "type": r.get("post_type"),
+                "is_deleted": bool(r.get("post_is_deleted")),
+            },
+        }
+        for r in rows
+    ]
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+def _author(r: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": r["user_id"],
+        "username": r.get("username"),
+        "display_name": r.get("display_name"),
+        "role": r.get("role"),
+    }
+
+
+def _per_day(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [{"day": str(r["day"]), "count": int(r["count"] or 0)} for r in rows]
+
+
+async def community_stats(since: datetime, tz_minutes: int = 0) -> Dict[str, Any]:
+    """
+    What happened in the feed since ``since``: how much, who took part and which
+    posts drew a response. Days are cut on the viewer's clock (``tz_minutes``
+    east of UTC). Hidden posts are left out of everything but their own count.
+    """
+    params = {"since": _naive_utc(since), "tz": int(tz_minutes)}
+    async with _mariadb_session() as session:
+        totals = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COUNT(*) FROM posts WHERE created_at >= :since AND is_deleted = 0) AS posts,
+                      (SELECT COUNT(*) FROM post_comments WHERE created_at >= :since) AS comments,
+                      (SELECT COUNT(*) FROM post_reactions WHERE created_at >= :since) AS reactions,
+                      (SELECT COUNT(*) FROM post_shares WHERE created_at >= :since) AS shares,
+                      (SELECT COUNT(*) FROM saved_posts WHERE created_at >= :since) AS saves,
+                      (SELECT COUNT(*) FROM room_members WHERE joined_at >= :since) AS room_joins,
+                      (SELECT COUNT(*) FROM posts WHERE is_deleted = 1) AS hidden_posts,
+                      (SELECT COUNT(*) FROM (
+                            SELECT author_id FROM posts WHERE created_at >= :since AND is_deleted = 0
+                            UNION
+                            SELECT author_id FROM post_comments WHERE created_at >= :since
+                       ) AS active) AS contributors
+                    """
+                ),
+                params,
+            )
+        ).first()
+        per_day = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT DATE(DATE_ADD(created_at, INTERVAL :tz MINUTE)) AS day, COUNT(*) AS count
+                      FROM posts
+                     WHERE created_at >= :since AND is_deleted = 0
+                     GROUP BY day ORDER BY day
+                    """
+                ),
+                params,
+            )
+        )
+        by_type = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT type, COUNT(*) AS count FROM posts
+                     WHERE created_at >= :since AND is_deleted = 0
+                     GROUP BY type
+                    """
+                ),
+                params,
+            )
+        )
+        contributors = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT u.id AS user_id, u.username, u.display_name, u.role, a.posts, a.comments
+                      FROM (
+                            SELECT author_id, SUM(posts) AS posts, SUM(comments) AS comments
+                              FROM (
+                                    SELECT author_id, COUNT(*) AS posts, 0 AS comments FROM posts
+                                     WHERE created_at >= :since AND is_deleted = 0 GROUP BY author_id
+                                    UNION ALL
+                                    SELECT author_id, 0 AS posts, COUNT(*) AS comments FROM post_comments
+                                     WHERE created_at >= :since GROUP BY author_id
+                                   ) AS activity
+                             GROUP BY author_id
+                           ) AS a
+                      JOIN users u ON u.id = a.author_id
+                     ORDER BY (a.posts + a.comments) DESC, u.id ASC
+                     LIMIT 8
+                    """
+                ),
+                params,
+            )
+        )
+        top_posts = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT p.id, p.type, p.title, p.like_count, p.helpful_count, p.comment_count,
+                           p.share_count, u.id AS user_id, u.username, u.display_name, u.role
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                     WHERE p.created_at >= :since AND p.is_deleted = 0
+                       AND (p.like_count + p.helpful_count + p.comment_count + p.share_count) > 0
+                     ORDER BY (p.like_count + p.helpful_count + p.comment_count + p.share_count) DESC,
+                              p.id DESC
+                     LIMIT 5
+                    """
+                ),
+                params,
+            )
+        )
+
+    counted = {r["type"]: int(r["count"] or 0) for r in by_type}
+    return {
+        **{
+            key: int(getattr(totals, key) or 0) if totals else 0
+            for key in ("posts", "comments", "reactions", "shares", "saves", "room_joins",
+                        "hidden_posts", "contributors")
+        },
+        "per_day": _per_day(per_day),
+        "by_type": {kind: counted.get(kind, 0) for kind in POST_TYPES},
+        "top_contributors": [
+            {"user": _author(r), "posts": int(r["posts"] or 0), "comments": int(r["comments"] or 0)}
+            for r in contributors
+        ],
+        "top_posts": [
+            {
+                "id": r["id"],
+                "type": r["type"],
+                "title": r.get("title"),
+                "author": _author(r),
+                "counts": {
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                },
+            }
+            for r in top_posts
+        ],
+    }
+
+
+# The answers of one window are folded in Python (their details live in a JSON
+# column); a cap keeps a very busy term from loading the whole table.
+RAG_STATS_MAX_ANSWERS = 5000
+RAG_COVERAGE_LEVELS = ("full", "partial", "none")
+
+
+def summarize_rag_answers(metas: Iterable[Any]) -> Dict[str, Any]:
+    """
+    Fold the stored ``answer_meta`` of RAG answers into coverage counts and the
+    most cited documents.
+
+    Tolerant on purpose: the column is JSON text written by several versions of
+    the ask route, so a row that cannot be read counts as "unknown" coverage
+    instead of failing the page. A document cited twice in one answer counts once.
+    """
+    coverage = {level: 0 for level in (*RAG_COVERAGE_LEVELS, "unknown")}
+    web_used = cached = 0
+    cited: Dict[str, Dict[str, Any]] = {}
+    for raw in metas:
+        try:
+            meta = json.loads(raw) if isinstance(raw, (str, bytes)) else (raw or {})
+        except (TypeError, ValueError):
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        level = str(meta.get("coverage") or "").lower()
+        coverage[level if level in RAG_COVERAGE_LEVELS else "unknown"] += 1
+        if meta.get("web_used") or meta.get("web_sources"):
+            web_used += 1
+        if meta.get("cached"):
+            cached += 1
+        seen: set[str] = set()
+        for citation in meta.get("citations") or []:
+            if not isinstance(citation, dict) or not citation.get("cited"):
+                continue
+            key = str(citation.get("id") or citation.get("title") or "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            entry = cited.setdefault(
+                key, {"id": citation.get("id"), "title": citation.get("title") or "(ไม่มีชื่อ)", "count": 0}
+            )
+            entry["count"] += 1
+    return {
+        "answers": sum(coverage.values()),
+        "coverage": coverage,
+        "web_used": web_used,
+        "cached": cached,
+        "top_documents": sorted(cited.values(), key=lambda e: (-e["count"], str(e["title"])))[:8],
+    }
+
+
+async def rag_stats(since: datetime, tz_minutes: int = 0) -> Dict[str, Any]:
+    """
+    How KMITL RAG AI is used since ``since``.
+
+    Counts and document titles only - never a question or an answer: the chat
+    history stays private to its owner, admins included. Questions are counted
+    from that history, so a conversation its owner deleted is no longer in here.
+    """
+    params = {"since": _naive_utc(since), "tz": int(tz_minutes)}
+    asked = "FROM rag_messages m WHERE m.role = 'user' AND m.created_at >= :since"
+    async with _mariadb_session() as session:
+        totals = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT
+                      (SELECT COUNT(*) {asked}) AS questions,
+                      (SELECT COUNT(DISTINCT m.conversation_id) {asked}) AS conversations,
+                      (SELECT COUNT(DISTINCT c.user_id)
+                         FROM rag_messages m JOIN rag_conversations c ON c.id = m.conversation_id
+                        WHERE m.role = 'user' AND m.created_at >= :since) AS askers
+                    """
+                ),
+                params,
+            )
+        ).first()
+        per_day = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT DATE(DATE_ADD(m.created_at, INTERVAL :tz MINUTE)) AS day, COUNT(*) AS count
+                      {asked}
+                     GROUP BY day ORDER BY day
+                    """
+                ),
+                params,
+            )
+        )
+        metas = (
+            await session.execute(
+                text(
+                    """
+                    SELECT answer_meta FROM rag_messages
+                     WHERE role = 'assistant' AND created_at >= :since
+                     ORDER BY id DESC LIMIT :cap
+                    """
+                ),
+                {**params, "cap": RAG_STATS_MAX_ANSWERS},
+            )
+        ).scalars().all()
+        askers = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT u.id AS user_id, u.username, u.display_name, u.role, COUNT(*) AS questions
+                      FROM rag_messages m
+                      JOIN rag_conversations c ON c.id = m.conversation_id
+                      JOIN users u ON u.id = c.user_id
+                     WHERE m.role = 'user' AND m.created_at >= :since
+                     GROUP BY u.id, u.username, u.display_name, u.role
+                     ORDER BY questions DESC, u.id ASC
+                     LIMIT 8
+                    """
+                ),
+                params,
+            )
+        )
+        usage = (
+            await session.execute(
+                text(
+                    """
+                    SELECT COUNT(*) AS calls,
+                           COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
+                           COALESCE(SUM(search_queries), 0) AS search_queries,
+                           COALESCE(SUM(cost_usd), 0) AS cost_usd,
+                           AVG(CASE WHEN kind = 'chat' THEN latency_ms END) AS avg_latency_ms
+                      FROM llm_usage
+                     WHERE feature = 'ask' AND created_at >= :since
+                    """
+                ),
+                params,
+            )
+        ).first()
+        library = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT status, scope, COUNT(*) AS documents, COALESCE(SUM(chunk_count), 0) AS chunks
+                      FROM library_documents GROUP BY status, scope
+                    """
+                )
+            )
+        )
+        spent = await _points_spent(session, ("rag_question", "rag_session"), params["since"])
+
+    docs = {"ready": 0, "processing": 0, "failed": 0, "course": 0, "personal": 0, "chunks": 0}
+    for r in library:
+        count = int(r["documents"] or 0)
+        docs[r["status"]] = docs.get(r["status"], 0) + count
+        if r["status"] == "ready":
+            docs[r["scope"]] = docs.get(r["scope"], 0) + count
+            docs["chunks"] += int(r["chunks"] or 0)
+    return {
+        "questions": int(totals.questions or 0) if totals else 0,
+        "conversations": int(totals.conversations or 0) if totals else 0,
+        "askers": int(totals.askers or 0) if totals else 0,
+        "per_day": _per_day(per_day),
+        **summarize_rag_answers(metas),
+        "top_askers": [{"user": _author(r), "questions": int(r["questions"] or 0)} for r in askers],
+        "points_spent": spent,
+        "usage": {
+            "calls": int(usage.calls or 0) if usage else 0,
+            "tokens": int(usage.tokens or 0) if usage else 0,
+            "search_queries": int(usage.search_queries or 0) if usage else 0,
+            "cost_usd": round(float(usage.cost_usd or 0), 6) if usage else 0.0,
+            "avg_latency_ms": (
+                int(round(float(usage.avg_latency_ms))) if usage and usage.avg_latency_ms is not None else None
+            ),
+        },
+        "library": docs,
+    }
 
 
 async def soft_delete_post(post_id: int) -> None:
