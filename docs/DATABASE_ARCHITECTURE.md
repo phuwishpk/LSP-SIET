@@ -140,6 +140,21 @@
 #### 1.10 `notifications`
 *   **`notifications`**: `id` (BIGINT PK), `recipient_id` (INT), `kind` (VARCHAR 32), `message` (VARCHAR 255), `post_id` (BIGINT NULL), `actor_id` (INT NULL), `is_read` (TINYINT 0/1), `created_at`
 
+#### 1.11 `llm_usage` (บันทึกการเรียกโมเดล AI — หนึ่งแถวต่อหนึ่งครั้ง)
+| Column | Type | Null | Default | Description |
+| :--- | :--- | :---: | :--- | :--- |
+| `id` | BIGINT | ❌ | AUTO_INCREMENT | PK |
+| `created_at` | DATETIME | ❌ | NOW() | เวลาเรียก |
+| `user_id` | INT | ✅ | NULL | ผู้ใช้ที่ทำให้เกิดการเรียก (NULL = งานเบื้องหลัง) |
+| `feature` | VARCHAR(32) | ❌ | - | ฟีเจอร์: ask / quiz / roadmap / roadmap_expand / ingest / chat |
+| `kind` | VARCHAR(16) | ❌ | - | chat / embedding |
+| `provider`, `model` | VARCHAR(32), VARCHAR(96) | ✅ | NULL | ผู้ให้บริการและชื่อโมเดล |
+| `input_tokens`, `output_tokens`, `cached_tokens`, `thinking_tokens` | INT | ❌ | 0 | จำนวนโทเค็น |
+| `search_queries` | INT | ❌ | 0 | จำนวนครั้งที่ใช้เครื่องมือค้นเว็บ |
+| `cost_usd` | DECIMAL(12,6) | ❌ | 0 | ค่าใช้จ่ายประมาณการ |
+| `latency_ms` | INT | ✅ | NULL | เวลาตอบ |
+| `estimated` | TINYINT(1) | ❌ | 0 | 1 = โทเค็นเป็นค่าประมาณ (embedding) |
+
 ---
 
 ### 🌌 2. SurrealDB (NoSQL & Vector Database)
@@ -173,19 +188,21 @@
 | Property | Type | Description |
 | :--- | :--- | :--- |
 | `id` | RecordID | รหัส Chunk |
-| `content` | String | เนื้อหาที่ถูกหั่นแล้ว (ไม่เกิน 400 Token) |
-| `[HIDDEN]` | Array(Float)| ข้อมูล Vector Embedding ที่ซ่อนอยู่หลังบ้าน SurrealDB |
-*(มี Edge Relation `<-reference->` เชื่อมไปยัง `source`)*
+| `source` | record<source> | เอกสารต้นทาง (ฟิลด์อ้างอิงตรง ไม่ใช่ relation; มีดัชนี `idx_source_embedding_source`) |
+| `order` | Integer | ลำดับชิ้นในเอกสาร |
+| `content` | String | เนื้อหาที่ถูกหั่นแล้ว (400 โทเค็น ซ้อนทับ 60; มีดัชนี BM25) |
+| `embedding` | Array(Float) | เวกเตอร์ 3,072 มิติ (gemini-embedding-001) ค้นด้วย `vector::similarity::cosine` แบบ exact scan ไม่มี HNSW |
+*(relation `reference` เชื่อม `source` → `notebook`; ลบ `source` แล้ว chunk ถูกลบตามด้วย `DEFINE EVENT source_delete`)*
 
 #### 2.4 `source_insight` และ `note`
-*   **`source_insight`**: `id`, `insight_type` (String), `content` (String)
-*   **`note`**: `id`, `title` (String), `note_type` (String: human/ai), `content` (String), `owner_id` (String)
+*   **`source_insight`**: `id`, `source` (record<source>), `insight_type` (String), `content` (String), `embedding` (option Array(Float))
+*   **`note`**: `id`, `title` (String), `note_type` (String: human/ai), `content` (String), `embedding` (option Array(Float)) — ฟิลด์ `owner_id` มีใน Pydantic model แต่ไม่มีระเบียนใดใช้ (ตรวจ 19 ต.ค. 2569)
 
 #### 2.5 กลุ่ม Chat & Background Sessions
 *   **`chat_session`**: `id`, `title`, `model_override` (String), `owner_id` (String)
 *   **`global_chat_session`**: `id`, `title`, `model_override` (String), `owner_id` (String)
-*   **`quiz_session`**: `id` (ใช้เก็บ State ว่า AI กำลังสร้าง Quiz ถึงไหนแล้ว)
-*   **`roadmap_session`**: `id` (ใช้เก็บ State ของ AI ตอนสร้าง Roadmap)
+*   **`quiz_session`**: `id`, `owner_id` (String = users.id), `topic`, `language`, `question_count`, `questions` (Array(Object)), `notebook_id` (option record<notebook>), `prompt_hash` (`import:<post id>` เมื่อคัดลอกจากฟีด)
+*   **`roadmap_session`**: `id`, `owner_id` (String = users.id), `title`, `description`, `node_count`, `nodes`/`edges` (Array(Object)), `notebook_id`, `prompt_hash` (`follow:<post id>` เมื่อเดินตามจากฟีด), `settings`, `grounding`
 
 ---
 
@@ -536,9 +553,28 @@ Table "surreal_source" {
 
 Table "surreal_source_embedding" {
   "id" RecordID [pk]
-  "source_id" RecordID [note: 'Virtual Edge to Source']
-  "content" String [note: 'ไม่เกิน 400 Token']
-  "vector_embedding" Array(Float) [note: 'HIDDEN in backend']
+  "source" RecordID [note: 'record<source>']
+  "order" Integer
+  "content" String [note: '400 tokens, overlap 60']
+  "embedding" Array(Float) [note: '3072 dims, cosine exact scan']
+}
+
+Table "llm_usage" {
+  "id" BIGINT [pk]
+  "created_at" DATETIME
+  "user_id" INT [null]
+  "feature" VARCHAR(32)
+  "kind" VARCHAR(16)
+  "provider" VARCHAR(32)
+  "model" VARCHAR(96)
+  "input_tokens" INT
+  "output_tokens" INT
+  "cached_tokens" INT
+  "thinking_tokens" INT
+  "search_queries" INT
+  "cost_usd" DECIMAL(12,6)
+  "latency_ms" INT [null]
+  "estimated" TINYINT
 }
 
 Table "surreal_source_insight" {
@@ -672,11 +708,11 @@ Ref: "rooms"."library_notebook_id" - "surreal_notebook"."id"
 // 2. โยงเอกสารข้ามระหว่าง MariaDB และ SurrealDB
 Ref: "library_documents"."notebook_id" > "surreal_notebook"."id"
 Ref: "library_documents"."source_id" - "surreal_source"."id"
+Ref: "users"."id" < "llm_usage"."user_id"
 
 // 3. ให้ SurrealDB อ้างอิงเจ้าของกลับมาที่ MariaDB
 Ref: "surreal_notebook"."owner_id" > "users"."id"
 Ref: "surreal_source"."owner_id" > "users"."id"
-Ref: "surreal_note"."owner_id" > "users"."id"
 Ref: "surreal_chat_session"."owner_id" > "users"."id"
 Ref: "surreal_global_chat_session"."owner_id" > "users"."id"
 

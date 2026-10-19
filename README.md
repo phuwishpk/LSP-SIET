@@ -24,19 +24,28 @@ model you configure in **Settings → Models**.
 
 ## Quick start
 
+macOS / Linux / Git Bash:
+
 ```bash
 make up
 ```
 
-⚠️ **บน Windows ให้ตรวจ line ending ก่อน `make up` ครั้งแรก** — ถ้าเชลล์สคริปต์ถูก
+Windows PowerShell (ไม่มี `make`): คำสั่งเดียวกับที่ `make up` เรียก
+
+```powershell
+Copy-Item .env.example .env    # ครั้งแรกเท่านั้น แล้วแก้คีย์ใน .env ก่อน
+docker compose -p kmitlai -f docker-compose.yml --env-file .env up -d --build
+```
+
+⚠️ **บน Windows ให้ตรวจ line ending ก่อน start ครั้งแรก** — ถ้าเชลล์สคริปต์ถูก
 checkout เป็น CRLF เว็บที่พอร์ต 3000 จะไม่ขึ้นทั้งที่ `docker ps` รายงานว่าปกติ
-รายละเอียดอยู่ที่ [RUNBOOK ข้อ 2.2](docs/RUNBOOK.md)
+รายละเอียดอยู่ที่ [RUNBOOK ข้อ 2.3](docs/RUNBOOK.md)
 
 ```bash
 git ls-files --eol docker/open-notebook/wait-for-api.sh    # ต้องได้ w/lf
 ```
 
-That target will:
+`make up` จะทำให้:
 1. Copy `.env.example` to `.env` if missing
 2. Build all images
 3. Start the entire stack in detached mode
