@@ -19,6 +19,8 @@ model you configure in **Settings → Models**.
 >
 > **คู่มือโครงสร้างระบบฉบับเต็ม (ภาษาไทย): [`docs/SYSTEM-GUIDE.md`](docs/SYSTEM-GUIDE.md)**
 > — สถาปัตยกรรม, tech stack, วิธีรัน, โครงสร้างเนื้อหา และสิทธิ์ของแต่ละบทบาท
+>
+> **ส่วนผู้ดูแล `/admin` (หน้า, API, ธีม, การทดสอบ) สำหรับทีมและ agent: [`docs/admin/README.md`](docs/admin/README.md)**
 
 ## Quick start
 

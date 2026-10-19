@@ -1,0 +1,9 @@
+{
+  "name": "LSP-SIET Admin - build remaining screens",
+  "id": "lsp-siet-admin-build-screens",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "networkAccess": { "allowedDomains": ["none"] }
+}
