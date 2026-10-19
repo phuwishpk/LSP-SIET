@@ -4,9 +4,13 @@ import { useMemo, useState } from 'react'
 import { ArrowRight, ChevronDown, ChevronUp, Footprints, Map, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { RoadmapGraph } from '@/app/(dashboard)/features/components/RoadmapGraph'
+import { RoadmapPlanView } from '@/components/community/RoadmapPlanView'
 import type { CommunityPost, RoadmapEmbed as RoadmapEmbedData } from '@/lib/api/community'
+import { openRoadmapApp } from '@/lib/external-apps'
 import { useRoadmapFollow } from '@/lib/hooks/use-community'
+
+/** `roadmap_session:abc` -> the page of that roadmap inside the roadmap app. */
+const roadmapPath = (sessionId: string) => `/roadmap/${sessionId.replace(':', '-')}`
 
 interface RoadmapEmbedProps {
   post: CommunityPost
@@ -20,10 +24,13 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
   const [expanded, setExpanded] = useState(false)
   const [followedSession, setFollowedSession] = useState<string | null>(null)
 
+  // The preview walks the main path; sub-nodes hang off it and are counted apart.
   const ordered = useMemo(
-    () => [...embed.nodes].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    () =>
+      embed.nodes.filter((node) => !node.parent).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
     [embed.nodes]
   )
+  const subCount = embed.nodes.length - ordered.length
   const preview = ordered.slice(0, PREVIEW_COUNT)
   const remaining = Math.max(0, ordered.length - PREVIEW_COUNT)
 
@@ -35,8 +42,13 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
         </Badge>
         <p className="font-semibold">{embed.title || post.title}</p>
         <span className="text-xs text-muted-foreground">
-          {ordered.length} ด่าน · มีคนเดินตาม {post.counts.follow} คน
+          {ordered.length} ด่าน{subCount > 0 ? ` · ${subCount} ด่านย่อย` : ''} · มีคนเดินตาม {post.counts.follow} คน
         </span>
+        {embed.grounding?.label && (
+          <Badge variant="outline" className="font-normal">
+            {embed.grounding.label}
+          </Badge>
+        )}
       </div>
       {embed.description && (
         <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{embed.description}</p>
@@ -67,7 +79,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
         </div>
       ) : (
         <div className="mt-3 overflow-x-auto rounded-lg border bg-background p-3">
-          <RoadmapGraph nodes={embed.nodes} edges={embed.edges} />
+          <RoadmapPlanView nodes={embed.nodes} grounding={embed.grounding} />
         </div>
       )}
 
@@ -86,9 +98,28 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
           {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
           {expanded ? 'ย่อ' : 'ดูแผนผังเต็ม'}
         </Button>
+        {post.is_author ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void openRoadmapApp({ path: roadmapPath(embed.id) })}
+          >
+            เปิดในแอป AI Roadmap
+          </Button>
+        ) : (
+          followedSession && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void openRoadmapApp({ path: roadmapPath(followedSession) })}
+            >
+              เปิดแผนของฉันในแอป AI Roadmap
+            </Button>
+          )
+        )}
         {(followedSession || post.viewer.saved) && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ในรายการของคุณแล้ว (ดูได้ที่ “สรุปที่บันทึกไว้”)
+            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ใน “Roadmap ของฉัน” แล้ว ขยายด่านต่อได้ในแอป AI Roadmap
           </span>
         )}
       </div>

@@ -1,13 +1,14 @@
--- Migration 20: User accounts for the multi-app workspace
--- This table is managed by MariaDB (user service).
--- All other tables (notebook, cell, podcast, etc.) stay in SurrealDB.
+-- First-boot seed for the MariaDB volume (runs once, on an empty volume).
+-- Only the users table is created here; every other table, and every later
+-- column, is created and upgraded by open_notebook/community/schema.py on
+-- each API start. Keep this in step with that file.
 
 CREATE TABLE IF NOT EXISTS users (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     username      VARCHAR(32)  NOT NULL UNIQUE,
-    password_hash VARCHAR(255) NOT NULL,
+    password_hash VARCHAR(255) NULL,          -- NULL for Google sign-in accounts
     display_name  VARCHAR(128) DEFAULT NULL,
-    role          ENUM('admin', 'student') NOT NULL DEFAULT 'student',
+    role          ENUM('admin', 'student', 'teacher') NOT NULL DEFAULT 'student',
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     last_login_at DATETIME DEFAULT NULL,

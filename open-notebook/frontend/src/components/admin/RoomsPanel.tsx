@@ -50,9 +50,9 @@ export function RoomsPanel() {
                     <td className="py-2 pr-3">
                       <div className="flex items-center gap-1.5">
                         {isClub ? (
-                          <MessagesSquare className="h-3.5 w-3.5 shrink-0 text-sky-600" />
+                          <MessagesSquare className="h-3.5 w-3.5 shrink-0 text-subtle-foreground" />
                         ) : (
-                          <Hash className="h-3.5 w-3.5 shrink-0 text-primary" />
+                          <Hash className="h-3.5 w-3.5 shrink-0 text-subtle-foreground" />
                         )}
                         <span className="font-medium text-foreground">
                           {isClub ? room.name : `${room.code} ${room.name}`}
@@ -90,7 +90,7 @@ export function RoomsPanel() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-7 px-2 text-destructive hover:text-destructive"
+                          className="h-7 px-2 text-muted-foreground hover:text-destructive"
                           disabled={remove.isPending}
                           onClick={() => {
                             if (
@@ -114,7 +114,7 @@ export function RoomsPanel() {
           </table>
         </div>
         {(totals?.ownerless ?? 0) > 0 && (
-          <p className="rounded-md border border-amber-400/50 bg-amber-50/60 p-2 text-[11px] text-muted-foreground dark:bg-amber-950/20">
+          <p className="rounded-lg bg-muted p-2.5 text-[11px] text-muted-foreground">
             ห้องที่ &ldquo;ไม่มีเจ้าของ&rdquo; คือห้องตัวอย่างที่ระบบสร้างตอนติดตั้ง หรือห้องที่เจ้าของถูกลบบัญชีไป —
             อาจารย์จะแก้ไข/ปิดห้องเหล่านี้เองไม่ได้ ต้องให้ผู้ดูแลทำ
           </p>

@@ -1,0 +1,4 @@
+-- Rollback migration 25.
+REMOVE FIELD IF EXISTS settings  ON TABLE roadmap_session;
+REMOVE FIELD IF EXISTS grounding ON TABLE roadmap_session;
+DEFINE FIELD OVERWRITE updated_at ON TABLE roadmap_session TYPE datetime DEFAULT time::now();

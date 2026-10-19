@@ -7,6 +7,7 @@ Rates (override any of them with ``POINTS_*`` environment variables):
 * ``rag_session``       4 pt  – a 5-message context-aware RAG session
 * ``quiz_generate``     8 pt  – generate one AI quiz set
 * ``roadmap_generate`` 15 pt  – generate one AI roadmap
+* ``roadmap_expand``    2 pt  – break one roadmap node into 3-5 sub-nodes
 * ``quiz_import``       1 pt  – copy a friend's shared quiz into your library
 
 Rewards:
@@ -48,6 +49,7 @@ COSTS: Dict[str, int] = {
     "rag_session": _env_int("POINTS_COST_RAG_SESSION", 4),
     "quiz_generate": _env_int("POINTS_COST_QUIZ_GENERATE", 8),
     "roadmap_generate": _env_int("POINTS_COST_ROADMAP_GENERATE", 15),
+    "roadmap_expand": _env_int("POINTS_COST_ROADMAP_EXPAND", 2),
     "quiz_import": _env_int("POINTS_COST_QUIZ_IMPORT", 1),
 }
 

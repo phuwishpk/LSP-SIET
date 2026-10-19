@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 import { cn } from '@/lib/utils'
@@ -30,7 +29,6 @@ import { Separator } from '@/components/ui/separator'
 import {
   Book,
   Search,
-  Mic,
   Bot,
   Shuffle,
   Settings,
@@ -46,6 +44,10 @@ import {
   Sparkles,
   Users,
   Coins,
+  MessageSquare,
+  BrainCircuit,
+  Map,
+  Database,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { isAdmin, isStaff, type Role } from '@/lib/roles'
@@ -79,10 +81,32 @@ const getNavigation = (t: TFunction, role: Role) => [
   {
     title: t('navigation.create'),
     items: [
-      ...(isStaff(role) ? [{ name: t('navigation.podcasts'), href: '/podcasts', icon: Mic }] : []),
       { name: t('navigation.features', 'AI Features'), href: '/features', icon: Sparkles },
     ],
   },
+  // The admin consoles, one group per area. What belongs to no single area
+  // (accounts, points, AI cost, health) stays under "จัดการระบบ" in Manage.
+  ...(isAdmin(role)
+    ? [
+        {
+          title: t('navigation.manageCommunity', 'จัดการ Community'),
+          items: [
+            { name: t('navigation.adminCommunity', 'Community'), href: '/admin/community', icon: MessageSquare },
+          ],
+        },
+        {
+          title: t('navigation.manageAi', 'จัดการ AI'),
+          items: [
+            { name: t('navigation.adminRag', 'RAG AI'), href: '/admin/rag', icon: Database },
+            { name: t('navigation.adminRoadmap', 'AI Roadmap'), href: '/admin/roadmap', icon: Map },
+          ],
+        },
+        {
+          title: t('navigation.manageQuiz', 'จัดการ Quiz'),
+          items: [{ name: t('navigation.adminQuiz', 'Quiz'), href: '/admin/quiz', icon: BrainCircuit }],
+        },
+      ]
+    : []),
   ...(isStaff(role) ? [{
     title: t('navigation.manage'),
     items: [
@@ -101,7 +125,7 @@ const getNavigation = (t: TFunction, role: Role) => [
     : []),
 ]
 
-type CreateTarget = 'source' | 'notebook' | 'podcast'
+type CreateTarget = 'source' | 'notebook'
 
 export function AppSidebar() {
   const { t } = useTranslation()
@@ -110,7 +134,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()
-  const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
+  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [isMac, setIsMac] = useState(true) // Default to Mac for SSR
@@ -120,6 +144,13 @@ export function AppSidebar() {
     setIsMac(navigator.platform.toLowerCase().includes('mac'))
   }, [])
 
+  // Entries can share a prefix (/admin and /admin/quiz, /settings and
+  // /settings/api-keys): only the longest match is the page being shown.
+  const activeHref = navigation
+    .flatMap((section) => section.items.map((item) => item.href))
+    .filter((href) => pathname === href || pathname?.startsWith(`${href}/`))
+    .sort((a, b) => b.length - a.length)[0]
+
   const handleCreateSelection = (target: CreateTarget) => {
     setCreateMenuOpen(false)
 
@@ -127,8 +158,6 @@ export function AppSidebar() {
       openSourceDialog()
     } else if (target === 'notebook') {
       openNotebookDialog()
-    } else if (target === 'podcast') {
-      openPodcastDialog()
     }
   }
 
@@ -142,36 +171,24 @@ export function AppSidebar() {
       >
         <div
           className={cn(
-            'flex h-16 items-center group',
+            'flex h-16 shrink-0 items-center',
             isCollapsed ? 'justify-center px-2' : 'justify-between px-4'
           )}
         >
           {isCollapsed ? (
-            <div className="relative flex items-center justify-center w-full">
-              <Image
-                src="/logo.svg"
-                alt="Open Notebook"
-                width={32}
-                height={32}
-                className="transition-opacity group-hover:opacity-0"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={toggleCollapse}
-                className="absolute text-sidebar-foreground hover:bg-sidebar-accent opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <Menu className="h-4 w-4" />
-              </Button>
-            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleCollapse}
+              className="text-sidebar-foreground hover:bg-sidebar-accent"
+            >
+              <Menu className="h-4 w-4" />
+            </Button>
           ) : (
             <>
-              <div className="flex items-center gap-2">
-                <Image src="/logo.svg" alt={t('common.appName')} width={32} height={32} />
-                <span className="text-base font-medium text-sidebar-foreground">
-                  {t('common.appName')}
-                </span>
-              </div>
+              <span className="text-base font-semibold tracking-tight text-sidebar-foreground">
+                {t('common.appName')}
+              </span>
               <Button
                 variant="ghost"
                 size="sm"
@@ -187,7 +204,7 @@ export function AppSidebar() {
 
         <nav
           className={cn(
-            'flex-1 space-y-1 py-4',
+            'min-h-0 flex-1 space-y-1 overflow-y-auto py-4',
             isCollapsed ? 'px-2' : 'px-3'
           )}
         >
@@ -254,16 +271,6 @@ export function AppSidebar() {
                    <Book className="h-4 w-4" />
                   {t('common.notebook')}
                 </DropdownMenuItem>
-                <DropdownMenuItem
-                  onSelect={(event) => {
-                    event.preventDefault()
-                    handleCreateSelection('podcast')
-                  }}
-                  className="gap-2"
-                >
-                   <Mic className="h-4 w-4" />
-                  {t('common.podcast')}
-                </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -281,7 +288,7 @@ export function AppSidebar() {
                 )}
 
                 {section.items.map((item) => {
-                  const isActive = pathname?.startsWith(item.href) || false
+                  const isActive = item.href === activeHref
                   const button = (
                     <Button
                       variant={isActive ? 'secondary' : 'ghost'}
@@ -322,7 +329,7 @@ export function AppSidebar() {
 
         <div
           className={cn(
-            'border-t border-sidebar-border p-3 space-y-2',
+            'shrink-0 border-t border-sidebar-border p-3 space-y-2',
             isCollapsed && 'px-2'
           )}
         >

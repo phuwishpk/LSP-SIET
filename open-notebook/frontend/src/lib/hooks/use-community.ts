@@ -34,6 +34,7 @@ export const COMMUNITY_KEYS = {
   comments: (id: number) => ['community', 'comments', id] as const,
   leaderboard: ['community', 'leaderboard'] as const,
   popularRoadmaps: ['community', 'popular-roadmaps'] as const,
+  myRoadmaps: ['community', 'my-roadmaps'] as const,
   notifications: ['community', 'notifications'] as const,
   search: (q: string) => ['community', 'search', q] as const,
   materials: (courseId?: number) => ['community', 'materials', courseId ?? 'all'] as const,
@@ -58,6 +59,8 @@ export function toastApiError(error: unknown, fallback = 'เกิดข้อ�
     toast.warning('ส่งถี่เกินไป', { description: [info.message, wait].filter(Boolean).join(' · ') })
   } else if (info.status === 409) {
     toast.warning('เนื้อหาซ้ำ', { description: info.message || fallback })
+  } else if (info.status === 503) {
+    toast.warning('ระบบกำลังคิวอยู่', { description: info.message || fallback })
   } else {
     toast.error(info.message || fallback)
   }
@@ -191,6 +194,7 @@ export function useCreatePost() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.popularRoadmaps })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.myRoadmaps })
       refresh()
       toast.success(
         data.creator_bonus > 0
@@ -259,6 +263,20 @@ export function useAddComment() {
     onSuccess: (data, vars) => {
       queryClient.setQueryData(COMMUNITY_KEYS.comments(vars.postId), data.comments)
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+    },
+    onError: (error) => toastApiError(error),
+  })
+}
+
+export function useDeleteComment() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ postId, commentId }: { postId: number; commentId: number }) =>
+      communityApi.deleteComment(postId, commentId),
+    onSuccess: (data, vars) => {
+      queryClient.setQueryData(COMMUNITY_KEYS.comments(vars.postId), data.comments)
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('ลบความคิดเห็นแล้ว')
     },
     onError: (error) => toastApiError(error),
   })
@@ -344,6 +362,18 @@ export function useLeaderboard(days = 7) {
   })
 }
 
+/**
+ * Roadmaps the user may still post: their own (a followed copy is someone
+ * else's work) that are not in the feed yet (one post per roadmap).
+ */
+export function useShareableRoadmaps() {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.myRoadmaps,
+    queryFn: () => communityApi.myRoadmaps(),
+    select: (items) => items.filter((r) => r.origin === 'own' && !r.shared_post_id),
+  })
+}
+
 export function usePopularRoadmaps() {
   return useQuery({
     queryKey: COMMUNITY_KEYS.popularRoadmaps,
@@ -385,10 +415,55 @@ export function useMaterials(courseId?: number, enabled = true) {
   })
 }
 
+export const ASK_HISTORY_KEYS = {
+  list: ['community', 'ask-history'] as const,
+  detail: (id: string) => ['community', 'ask-history', id] as const,
+}
+
 export function useAsk() {
   const refresh = useRefreshWallet()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (body: AskRequest) => communityApi.ask(body),
-    onSuccess: () => refresh(),
+    onSuccess: () => {
+      refresh()
+      // every answer lands in the stored history
+      queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.list })
+    },
+  })
+}
+
+/** The caller's stored RAG conversations, newest first. */
+export function useAskHistory() {
+  return useQuery({
+    queryKey: ASK_HISTORY_KEYS.list,
+    queryFn: () => communityApi.askHistory(),
+    staleTime: 15_000,
+  })
+}
+
+export function useAskConversation(id: string | null) {
+  return useQuery({
+    queryKey: ASK_HISTORY_KEYS.detail(id ?? ''),
+    queryFn: () => communityApi.askConversation(id as string),
+    enabled: !!id,
+  })
+}
+
+export function useDeleteConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => communityApi.deleteConversation(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.list }),
+    onError: (error) => toastApiError(error, 'ลบบทสนทนาไม่สำเร็จ'),
+  })
+}
+
+export function useRenameConversation() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, title }: { id: string; title: string }) => communityApi.renameConversation(id, title),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.list }),
+    onError: (error) => toastApiError(error, 'เปลี่ยนชื่อไม่สำเร็จ'),
   })
 }

@@ -1,0 +1,19 @@
+# core.autocrlf=true on Windows checkouts turns LF into CRLF, which breaks any
+# file that a Linux container executes or parses: a shebang followed by \r makes
+# the kernel look for the interpreter "/bin/sh\r" and the script exits 127.
+# Pin everything that runs inside the images to LF.
+* text=auto
+
+*.sh            text eol=lf
+*.surrealql     text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+Makefile        text eol=lf
+*.yml           text eol=lf
+*.yaml          text eol=lf
+*.conf          text eol=lf
+
+*.png binary
+*.jpg binary
+*.ico binary
+*.db  binary

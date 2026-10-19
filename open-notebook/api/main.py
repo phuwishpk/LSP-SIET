@@ -23,18 +23,15 @@ from api.routers import (
     credentials,
     embedding,
     embedding_rebuild,
-    episode_profiles,
     insights,
     languages,
     models,
     notebooks,
     notes,
-    podcasts,
     search,
     settings,
     source_chat,
     sources,
-    speaker_profiles,
     transformations,
 )
 from api.routers import admin as admin_router
@@ -43,6 +40,7 @@ from api.routers import community as community_router
 from api.routers import features as features_router
 from api.routers import google_auth as google_auth_router
 from api.routers import users as users_router
+from open_notebook.community.throttle import ProviderBusy
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -190,15 +188,6 @@ async def lifespan(app: FastAPI):
         logger.exception(e)
         # Fail fast - don't start the API with an outdated database schema
         raise RuntimeError(f"Failed to run database migrations: {str(e)}") from e
-
-    # Run podcast profile data migration (legacy strings -> Model registry)
-    try:
-        from open_notebook.podcasts.migration import migrate_podcast_profiles
-
-        await migrate_podcast_profiles()
-    except Exception as e:
-        logger.warning(f"Podcast profile migration encountered errors: {e}")
-        # Non-fatal: profiles can be migrated manually via UI
 
     # Community / point-wallet schema (idempotent) – must run before seeding.
     try:
@@ -457,10 +446,27 @@ async def authentication_error_handler(request: Request, exc: AuthenticationErro
 
 @app.exception_handler(RateLimitError)
 async def rate_limit_error_handler(request: Request, exc: RateLimitError):
+    # The provider kept answering 429 even after the gate's retries: tell the
+    # client when to try again instead of leaving it to guess.
     return JSONResponse(
         status_code=429,
         content={"detail": str(exc)},
-        headers=_cors_headers(request),
+        headers={**_cors_headers(request), "Retry-After": "15", "X-Points-Kind": "provider_rate_limit"},
+    )
+
+
+@app.exception_handler(ProviderBusy)
+async def provider_busy_handler(request: Request, exc: ProviderBusy):
+    # Our own queue stayed full for the whole timeout: a temporary overload,
+    # not a client fault, so 503 + Retry-After (clients retry automatically).
+    return JSONResponse(
+        status_code=503,
+        content={"detail": str(exc)},
+        headers={
+            **_cors_headers(request),
+            "Retry-After": str(exc.retry_after),
+            "X-Points-Kind": "llm_busy",
+        },
     )
 
 
@@ -501,11 +507,12 @@ async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
 
 
 # Include routers
-# NOTE: the legacy `api.routers.auth` module exposed only `/auth/status` which
-# always returned `{auth_enabled: false}` (only checked `OPEN_NOTEBOOK_PASSWORD`).
-# The richer `/auth/status` route is provided by `users_router` and reports
-# JWT auth state correctly. Keeping both caused the frontend to think auth
-# wasn't required while login/register were still 401-blocked.
+# NOTE: `/auth/status` is served by `users_router` and reports JWT auth state.
+# A second `api/routers/auth.py` used to define the same path but only checked
+# `OPEN_NOTEBOOK_PASSWORD`, so it always answered `{auth_enabled: false}` and
+# made the frontend think auth was off while login/register were 401-blocked.
+# It was never mounted here, and the module has since been deleted - do not
+# reintroduce a second auth status route.
 app.include_router(users_router.router, prefix="/api", tags=["users"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])
@@ -522,9 +529,6 @@ app.include_router(context.router, prefix="/api", tags=["context"])
 app.include_router(sources.router, prefix="/api", tags=["sources"])
 app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(commands_router.router, prefix="/api", tags=["commands"])
-app.include_router(podcasts.router, prefix="/api", tags=["podcasts"])
-app.include_router(episode_profiles.router, prefix="/api", tags=["episode-profiles"])
-app.include_router(speaker_profiles.router, prefix="/api", tags=["speaker-profiles"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])

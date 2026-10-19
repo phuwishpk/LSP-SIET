@@ -19,13 +19,39 @@ NOT for an explicit course/personal/document scope).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+import hashlib
+import re
+from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
 from open_notebook.database.repository import ensure_record_id, repo_query
 
 DEFAULT_MIN_SIMILARITY = 0.1
+
+# A source that was embedded more than once leaves identical rows behind (the
+# curriculum PDF had every chunk three times). Without over-fetching, "top 3"
+# was the same paragraph three times and the model saw a single chunk.
+OVERFETCH_FACTOR = 6
+MIN_CANDIDATES = 24
+
+_WS_RE = re.compile(r"\s+")
+
+
+def content_key(text: Any) -> str:
+    """Whitespace-insensitive fingerprint of a whole chunk (not just its first line:
+    PDF pages share a running header, so a prefix would merge different pages)."""
+    return hashlib.sha1(_WS_RE.sub(" ", str(text or "")).strip().encode("utf-8")).hexdigest()
+
+
+def dedupe_hits(hits: Sequence[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Keep the best-scoring copy of each distinct chunk, best first."""
+    best: Dict[str, Dict[str, Any]] = {}
+    for hit in hits:
+        key = content_key(hit.get("content"))
+        if key not in best or hit["similarity"] > best[key]["similarity"]:
+            best[key] = hit
+    return sorted(best.values(), key=lambda h: h["similarity"], reverse=True)
 
 
 async def notebook_record_ids(notebook_ids: Sequence[str]) -> Dict[str, List[Any]]:
@@ -55,6 +81,35 @@ async def notebook_record_ids(notebook_ids: Sequence[str]) -> Dict[str, List[Any
     }
 
 
+QUESTION_EMBEDDING_TTL = 3600
+
+
+async def question_embedding(query: str) -> List[float]:
+    """
+    Embed a question, reusing a recent vector for the same text.
+
+    The embedding call is the first thing every question spends on the
+    provider; the same question asked twice in an hour (or by two students in
+    the same class) should cost it once.
+    """
+    from open_notebook.cache.service import cache_service
+    from open_notebook.utils.embedding import generate_embedding
+
+    key = "rag:qemb:v1:" + hashlib.sha1(" ".join(query.split()).lower().encode("utf-8")).hexdigest()
+    try:
+        cached = await cache_service.get_json(key)
+        if isinstance(cached, list) and cached:
+            return cached
+    except Exception as exc:  # cache is a convenience, never a dependency
+        logger.debug(f"question embedding cache read skipped: {exc}")
+    vector = await generate_embedding(query)
+    try:
+        await cache_service.set_json(key, vector, ttl=QUESTION_EMBEDDING_TTL)
+    except Exception as exc:
+        logger.debug(f"question embedding cache write skipped: {exc}")
+    return vector
+
+
 async def search_in_notebooks(
     query: str,
     notebook_ids: Sequence[str],
@@ -62,9 +117,15 @@ async def search_in_notebooks(
     results: int = 8,
     minimum_score: float = DEFAULT_MIN_SIMILARITY,
     include_notes: bool = True,
+    source_ids: Optional[Sequence[str]] = None,
 ) -> List[Dict[str, Any]]:
     """
     Cosine search restricted to the documents inside ``notebook_ids``.
+
+    ``source_ids`` narrows it further to exactly those sources (they must still
+    belong to ``notebook_ids`` — the notebooks are the permission boundary, the
+    sources only a filter inside it). Notebook notes are skipped in that mode:
+    "answer from this one document" must not quote something else.
 
     Returns dicts shaped like the rest of the search helpers
     (``id``, ``title``, ``matches``, ``similarity``) so callers can treat the
@@ -74,21 +135,24 @@ async def search_in_notebooks(
         return []
 
     linked = await notebook_record_ids(notebook_ids)
-    source_ids, note_ids = linked["sources"], linked["notes"]
-    if not source_ids and not note_ids:
+    source_rids, note_ids = linked["sources"], linked["notes"]
+    if source_ids is not None:
+        wanted = {str(s) for s in source_ids}
+        source_rids = [s for s in source_rids if str(s) in wanted]
+        note_ids = []
+    if not source_rids and not note_ids:
         return []
 
-    from open_notebook.utils.embedding import generate_embedding
-
-    embedding = await generate_embedding(query)
+    embedding = await question_embedding(query)
     hits: List[Dict[str, Any]] = []
+    candidates = max(int(results) * OVERFETCH_FACTOR, MIN_CANDIDATES)
 
-    if source_ids:
+    if source_rids:
         params = {
-            "ids": source_ids,
+            "ids": source_rids,
             "q": embedding,
             "min": minimum_score,
-            "k": int(results),
+            "k": candidates,
         }
         try:
             rows = await repo_query(
@@ -107,7 +171,7 @@ async def search_in_notebooks(
                 """,
                 params,
             )
-            hits.extend(rows or [])
+            hits.extend({**r, "kind": "chunk"} for r in rows or [] if isinstance(r, dict))
         except Exception as exc:
             logger.warning(f"scoped retrieval: source_embedding search failed: {exc}")
 
@@ -128,7 +192,7 @@ async def search_in_notebooks(
                 """,
                 params,
             )
-            hits.extend(rows or [])
+            hits.extend({**r, "kind": "insight"} for r in rows or [] if isinstance(r, dict))
         except Exception as exc:
             logger.debug(f"scoped retrieval: source_insight search skipped: {exc}")
 
@@ -146,9 +210,9 @@ async def search_in_notebooks(
                  ORDER BY similarity DESC
                  LIMIT $k
                 """,
-                {"ids": note_ids, "q": embedding, "min": minimum_score, "k": int(results)},
+                {"ids": note_ids, "q": embedding, "min": minimum_score, "k": candidates},
             )
-            hits.extend(rows or [])
+            hits.extend({**r, "kind": "note"} for r in rows or [] if isinstance(r, dict))
         except Exception as exc:
             logger.debug(f"scoped retrieval: note search skipped: {exc}")
 
@@ -164,7 +228,48 @@ async def search_in_notebooks(
                 "matches": [content] if content else [],
                 "content": content,
                 "similarity": float(hit.get("similarity") or 0.0),
+                "kind": str(hit.get("kind") or "chunk"),
             }
         )
-    normalised.sort(key=lambda h: h["similarity"], reverse=True)
-    return normalised[:results]
+    return dedupe_hits(normalised)[:results]
+
+
+async def source_summaries(source_ids: Sequence[str], *, limit: int = 2) -> List[Dict[str, Any]]:
+    """
+    Stored insights (e.g. "Dense Summary") of the given sources, newest first.
+
+    A broad question ("what does this programme teach?") is closest, by cosine,
+    to the introduction, not to the pages that answer it. The summary gives the
+    model the whole document's outline so it can answer and cite sensibly.
+    """
+    ids = [ensure_record_id(s) for s in source_ids if s]
+    if not ids:
+        return []
+    try:
+        rows = await repo_query(
+            # SurrealDB only orders by fields that are part of the selection.
+            "SELECT id, insight_type, content, created, source.title AS source_title "
+            "FROM source_insight WHERE source IN $ids ORDER BY created DESC LIMIT $k",
+            {"ids": ids, "k": int(limit)},
+        )
+    except Exception as exc:
+        logger.warning(f"scoped retrieval: summary lookup failed: {exc}")
+        return []
+    out: List[Dict[str, Any]] = []
+    for row in rows or []:
+        content = row.get("content") if isinstance(row, dict) else None
+        if not content:
+            continue
+        label = str(row.get("insight_type") or "สรุปเอกสาร")
+        title = str(row.get("source_title") or "").strip()
+        out.append(
+            {
+                "id": str(row.get("id") or ""),
+                "title": f"{label} · {title}" if title else label,
+                "matches": [content],
+                "content": content,
+                "similarity": 0.0,
+                "kind": "insight",
+            }
+        )
+    return out
