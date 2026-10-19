@@ -38,6 +38,11 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-canvas: var(--canvas);
+  --color-subtle-foreground: var(--subtle-foreground);
+  --color-ai: var(--ai);
+  --color-ai-soft: var(--ai-soft);
+  --color-ai-foreground: var(--ai-foreground);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -77,6 +82,11 @@
   --sidebar-accent-foreground: oklch(0.21 0.006 285.885);
   --sidebar-border: oklch(0.92 0.004 286.32);
   --sidebar-ring: oklch(0.623 0.214 259.815);
+  --canvas: var(--background);
+  --subtle-foreground: var(--muted-foreground);
+  --ai: oklch(0.541 0.281 293.009);
+  --ai-soft: oklch(0.969 0.016 293.756);
+  --ai-foreground: oklch(1 0 0);
 }
 
 .dark {
@@ -111,6 +121,106 @@
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.488 0.243 264.376);
+  --ai: oklch(0.606 0.25 292.717);
+  --ai-soft: oklch(0.606 0.25 292.717 / 16%);
+  --ai-foreground: oklch(0.141 0.005 285.823);
+}
+
+/*
+ * SIET minimal theme: a clean light look on a white / grey / near-black base.
+ * Purple (--ai) is the only accent and is kept for AI features and credits.
+ *
+ * Scoped, not global: it applies inside any element carrying `theme-siet`.
+ * admin/layout.tsx puts it on its wrapper and, while an admin page is open, on
+ * <body> too, because dialogs, menus and tooltips are portaled there.
+ */
+.theme-siet {
+  --radius: 0.75rem;
+  --canvas: #f8f9fb;
+  --background: #ffffff;
+  --foreground: #262626;
+  --card: #ffffff;
+  --card-foreground: #262626;
+  --popover: #ffffff;
+  --popover-foreground: #262626;
+  --primary: #262626;
+  --primary-foreground: #ffffff;
+  --secondary: #f2f2f2;
+  --secondary-foreground: #262626;
+  --muted: #f2f2f2;
+  --muted-foreground: #686868;
+  --subtle-foreground: #8a8a8a;
+  --accent: #f2f2f2;
+  --accent-foreground: #262626;
+  --border: #e7e7e7;
+  --input: #e7e7e7;
+  --ring: #8a8a8a;
+  --ai: #7c3aed;
+  --ai-soft: #f3effe;
+  --ai-foreground: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #262626;
+  --sidebar-primary: #262626;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #f2f2f2;
+  --sidebar-accent-foreground: #262626;
+  --sidebar-border: #e7e7e7;
+  --sidebar-ring: #8a8a8a;
+  color: var(--foreground);
+}
+
+/* The theme is a light one; this keeps the dark-mode toggle usable inside it. */
+.dark .theme-siet {
+  --canvas: #141414;
+  --background: #1c1c1c;
+  --foreground: #f2f2f2;
+  --card: #1c1c1c;
+  --card-foreground: #f2f2f2;
+  --popover: #1c1c1c;
+  --popover-foreground: #f2f2f2;
+  --primary: #f2f2f2;
+  --primary-foreground: #1c1c1c;
+  --secondary: #2a2a2a;
+  --secondary-foreground: #f2f2f2;
+  --muted: #2a2a2a;
+  --muted-foreground: #a3a3a3;
+  --subtle-foreground: #8a8a8a;
+  --accent: #2a2a2a;
+  --accent-foreground: #f2f2f2;
+  --border: #333333;
+  --input: #3a3a3a;
+  --ring: #8a8a8a;
+  --ai: #9b78f8;
+  --ai-soft: rgb(155 120 248 / 16%);
+  --ai-foreground: #1c1c1c;
+  --sidebar: #1c1c1c;
+  --sidebar-foreground: #f2f2f2;
+  --sidebar-primary: #f2f2f2;
+  --sidebar-primary-foreground: #1c1c1c;
+  --sidebar-accent: #2a2a2a;
+  --sidebar-accent-foreground: #f2f2f2;
+  --sidebar-border: #333333;
+  --sidebar-ring: #8a8a8a;
+}
+
+/* Inter for Latin and UI; Thai glyphs fall through to IBM Plex Sans Thai, then
+   Noto Sans Thai. `body.theme-siet` outranks next/font's own class on <body>. */
+.theme-siet,
+body.theme-siet {
+  font-family: var(--font-inter), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+}
+
+/* Flat surfaces: a thin border separates, not a shadow. Only the drop shadow is
+   cleared, so focus rings (which share box-shadow) still show. */
+.theme-siet :is(
+  [data-slot='card'],
+  [data-slot='tabs-list'],
+  [data-slot='tabs-trigger'],
+  [data-slot='button'],
+  [data-slot='input'],
+  [data-slot='textarea']
+) {
+  --tw-shadow: 0 0 #0000;
 }
 
 @layer base {
@@ -166,6 +276,12 @@
 
   .dark .sidebar-menu-item:hover {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  }
+
+  /* The minimal theme keeps the hover tint and drops the lift. */
+  .theme-siet .sidebar-menu-item:hover {
+    scale: none;
+    box-shadow: none;
   }
 
   /* Enhanced hover effects for cards */

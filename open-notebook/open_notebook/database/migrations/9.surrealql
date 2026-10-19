@@ -80,7 +80,7 @@ DEFINE FUNCTION IF NOT EXISTS fn::vector_search_in_notebook(
         SELECT in as sid FROM reference
         WHERE out = $notebook_id
     );
-    let $source_id_set = array::slice(array::sort::uniq([$source_ids.sid]), 0, 1000);
+    let $source_id_set = array::slice(array::sort(array::distinct([$source_ids.sid])), 0, 1000);
 
     let $source_embedding_search = IF $sources AND array::len($source_id_set) > 0 {(
         SELECT

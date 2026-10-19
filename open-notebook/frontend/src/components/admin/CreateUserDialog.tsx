@@ -47,7 +47,7 @@ export function CreateUserDialog({ open, onOpenChange }: { open: boolean; onOpen
         onOpenChange(o)
       }}
     >
-      <DialogContent>
+      <DialogContent className="sm:max-w-lg">
         <DialogHeader>
           <DialogTitle>สร้างบัญชีใหม่</DialogTitle>
           <DialogDescription>

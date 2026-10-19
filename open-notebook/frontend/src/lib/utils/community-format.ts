@@ -45,6 +45,7 @@ export const KIND_LABELS: Record<string, string> = {
   rag_session: 'เซสชัน RAG AI',
   quiz_generate: 'สร้าง AI Quiz',
   roadmap_generate: 'สร้าง AI Roadmap',
+  roadmap_expand: 'ขยายด่าน Roadmap',
   quiz_import: 'นำเข้าควิซของเพื่อน',
   cashback: 'แต้มคืน (เพื่อนทำควิซ)',
   creator_bonus: 'Creator Points (แชร์สรุป)',
@@ -54,10 +55,25 @@ export const KIND_LABELS: Record<string, string> = {
   share_bonus: 'มีคนแชร์โพสต์',
   edit_bonus: 'แก้ไขโพสต์ให้ดีขึ้น',
   refund: 'คืนแต้ม',
+  admin_grant: 'ผู้ดูแลเพิ่มแต้ม',
+  admin_deduct: 'ผู้ดูแลหักแต้ม',
+  balance_adjust: 'ปรับยอดยกมา',
 }
 
 export function kindLabel(kind: string): string {
   return KIND_LABELS[kind] || kind
+}
+
+export const POST_TYPE_LABELS: Record<string, string> = {
+  summary: 'สรุป',
+  question: 'คำถาม',
+  quiz: 'ควิซ',
+  roadmap: 'Roadmap',
+  material: 'สื่อการสอน',
+}
+
+export function postTypeLabel(type: string): string {
+  return POST_TYPE_LABELS[type] || type
 }
 
 export function formatBytes(size?: number | null): string {

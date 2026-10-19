@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import os
 import re
+import asyncio
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
@@ -29,9 +30,10 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
-from open_notebook.community import library, points, ratelimit
+from open_notebook.community import library, points, ratelimit, throttle
 from open_notebook.community import repository as repo
-from open_notebook.community.ask import quick_ask
+from open_notebook.cache.service import cache_service
+from open_notebook.community.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
 from open_notebook.config import DATA_FOLDER
 from open_notebook.domain.features import QuizSession, RoadmapSession
 from open_notebook.domain.user import USER_ROLE_ADMIN, USER_ROLE_TEACHER, User
@@ -40,6 +42,7 @@ from open_notebook.exceptions import (
     ExternalServiceError,
     InvalidInputError,
     NotFoundError,
+    RateLimitError,
 )
 
 router = APIRouter(prefix="/community", tags=["community"])
@@ -171,10 +174,24 @@ class AskBody(BaseModel):
     mode: Literal["single", "session"] = "single"
     language: str = "th"
     model_id: Optional[str] = None
-    # Knowledge scope: auto = my courses + my uploads
-    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    # Knowledge scope: auto = my courses + my uploads + shared staff notebooks
+    scope: Literal["auto", "course", "personal", "document", "notebook"] = "auto"
     course_id: Optional[int] = None
     document_ids: List[int] = Field(default_factory=list)
+    # Picks from GET /community/knowledge (validated server-side, never trusted):
+    # whole shared notebooks, or single sources inside a readable notebook.
+    notebook_ids: List[str] = Field(default_factory=list, max_length=20)
+    source_ids: List[str] = Field(default_factory=list, max_length=20)
+    # Google Search grounding: "auto" = only when the library does not cover the
+    # question, "always" = also to support the answer, "off" = library only.
+    web: Literal["auto", "always", "off"] = "auto"
+    # Stored chat history: append to this conversation (must be the caller's);
+    # omitted = a new conversation titled after the question.
+    conversation_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class RenameConversationBody(BaseModel):
+    title: str = Field(..., min_length=1, max_length=200)
 
 
 class StudyQuizBody(BaseModel):
@@ -189,11 +206,17 @@ class StudyQuizBody(BaseModel):
 class StudyRoadmapBody(BaseModel):
     description: str = Field(..., min_length=1, max_length=2000)
     title: Optional[str] = Field(default=None, max_length=200)
-    node_count: int = Field(default=12, ge=3, le=50)
+    # None = the model decides how big the plan is.
+    node_count: Optional[int] = Field(default=None, ge=3, le=200)
     language: str = "th"
-    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    # Same knowledge picker as POST /ask.
+    scope: Literal["auto", "course", "personal", "document", "notebook"] = "auto"
     course_id: Optional[int] = None
     document_ids: List[int] = Field(default_factory=list)
+    notebook_ids: List[str] = Field(default_factory=list, max_length=20)
+    source_ids: List[str] = Field(default_factory=list, max_length=20)
+    # Web support: "auto" = only for what the library does not cover.
+    web: Literal["auto", "always", "off"] = "auto"
 
 
 class NotificationsRead(BaseModel):
@@ -220,6 +243,7 @@ async def community_me(user: User = Depends(get_current_user)) -> Dict[str, Any]
         },
         "balance": await points.get_balance(uid),
         "exempt": user.is_points_exempt,
+        "costs": dict(points.COSTS),
         "stats": await repo.user_stats(uid),
     }
 
@@ -472,12 +496,22 @@ async def create_post(
                     title = session.topic
             elif embed_type == "roadmap":
                 session = await RoadmapSession.get_for_owner(session_id=embed_id, owner_id=_owner(user))
-                snapshot = {
-                    "title": session.title,
-                    "description": session.description,
-                    "nodes": session.nodes,
-                    "edges": session.edges,
-                }
+                # A followed roadmap is somebody else's work: it stays private.
+                if _roadmap_origin(session)[0] == "followed":
+                    raise HTTPException(
+                        status_code=403,
+                        detail="Roadmap ที่เดินตามจากโพสต์ของคนอื่นแชร์ต่อไม่ได้ เปิดดูโพสต์ต้นทางแทน",
+                    )
+                # One post per roadmap; after sharing, the post is updated instead.
+                embed_id = str(session.id)
+                already = (await repo.roadmap_posts_for_author(uid, [embed_id])).get(embed_id)
+                if already:
+                    raise HTTPException(
+                        status_code=409,
+                        detail="Roadmap นี้แชร์ลงฟีดไปแล้ว",
+                        headers={"X-Duplicate-Of": str(already)},
+                    )
+                snapshot = _roadmap_snapshot(session)
                 post_type = "roadmap"
                 if not title:
                     title = session.title
@@ -637,10 +671,27 @@ async def react(post_id: int, body: ReactionBody, user: User = Depends(get_curre
     return {"active": active, "counts": fresh["counts"] if fresh else {}, "viewer": fresh["viewer"] if fresh else {}}
 
 
+def _mark_deletable(
+    comments: List[Dict[str, Any]], user: User, post: Dict[str, Any]
+) -> List[Dict[str, Any]]:
+    """
+    Flag the comments this viewer is allowed to remove.
+
+    Three people can: whoever wrote it, whoever owns the post (moderating their
+    own thread, as on any social feed), and an admin.
+    """
+    uid = _uid(user)
+    owns_post = int(post.get("author_id") or 0) == uid
+    is_admin = user.role == USER_ROLE_ADMIN
+    for c in comments:
+        c["can_delete"] = bool(int(c.get("author_id") or 0) == uid or owns_post or is_admin)
+    return comments
+
+
 @router.get("/posts/{post_id}/comments")
 async def list_comments(post_id: int, user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    await _post_or_404(post_id)
-    return await repo.list_comments(post_id)
+    post = await _post_or_404(post_id)
+    return _mark_deletable(await repo.list_comments(post_id), user, post)
 
 
 @router.post("/posts/{post_id}/comments", status_code=201)
@@ -653,7 +704,36 @@ async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_
         int(post["author_id"]), "comment",
         f"{_display(user)} แสดงความคิดเห็นในโพสต์ของคุณ", post_id=post_id, actor_id=uid,
     )
-    return {"comments": await repo.list_comments(post_id)}
+    return {"comments": _mark_deletable(await repo.list_comments(post_id), user, post)}
+
+
+@router.delete("/posts/{post_id}/comments/{comment_id}")
+async def delete_comment(
+    post_id: int, comment_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Remove a comment. Unlike a post, this really deletes the row."""
+    post = await _post_or_404(post_id)
+    comment = await repo.get_comment(comment_id)
+    if not comment or int(comment["post_id"]) != post_id:
+        raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นนี้")
+
+    uid = _uid(user)
+    allowed = (
+        int(comment["author_id"]) == uid
+        or int(post.get("author_id") or 0) == uid
+        or user.role == USER_ROLE_ADMIN
+    )
+    if not allowed:
+        raise HTTPException(
+            status_code=403, detail="ลบได้เฉพาะความคิดเห็นของตัวเอง หรือในโพสต์ของคุณเอง"
+        )
+
+    await repo.delete_comment(comment_id, post_id)
+    return {
+        "ok": True,
+        "deleted": comment_id,
+        "comments": _mark_deletable(await repo.list_comments(post_id), user, post),
+    }
 
 
 @router.post("/posts/{post_id}/save")
@@ -862,16 +942,228 @@ async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -
             nodes=snapshot.get("nodes") or [],
             edges=snapshot.get("edges") or [],
             prompt_hash=marker,
+            grounding=snapshot.get("grounding") or None,
+            settings={"scope": "auto", "web": (snapshot.get("grounding") or {}).get("web_mode") or "auto"},
         )
         await session.save()
         created = True
-        await repo.bump_counter(post_id, "follow_count", 1)
+        await repo.bump_counter(post_id, "roadmap_follow_count", 1)
         if int(post["author_id"]) != uid:
             await repo.add_notification(
                 int(post["author_id"]), "follow", f"{_display(user)} เริ่มเดินตาม Roadmap ของคุณ", post_id=post_id, actor_id=uid
             )
     await repo.save_item(post_id, uid)
     return {"session_id": session.id, "created": created, "charged": 0}
+
+
+# ---------------------------------------------------------------------------
+# "Roadmap ของฉัน" - what the roadmap app lists, opens and deletes
+# ---------------------------------------------------------------------------
+
+
+def _roadmap_origin(session: RoadmapSession) -> tuple[str, Optional[int]]:
+    """``("followed", source post id)`` for a copy made by Follow, else ``("own", None)``."""
+    marker = session.prompt_hash or ""
+    if marker.startswith("follow:"):
+        try:
+            return "followed", int(marker.split(":", 1)[1])
+        except ValueError:
+            return "followed", None
+    return "own", None
+
+
+def _roadmap_snapshot(session: RoadmapSession) -> Dict[str, Any]:
+    """What a post stores of a roadmap: everything readers may see, nothing private."""
+    from open_notebook.community import roadmap_plan
+
+    grounding_info = session.grounding or {}
+    return {
+        "title": session.title,
+        "description": session.description,
+        "nodes": roadmap_plan.public_nodes(session.nodes or []),
+        "edges": session.edges,
+        "grounding": {
+            key: grounding_info[key]
+            for key in ("library", "web", "label", "web_mode", "web_sources")
+            if key in grounding_info
+        },
+    }
+
+
+def _iso_or_none(value: Any) -> Optional[str]:
+    return value.isoformat() if hasattr(value, "isoformat") else (str(value) if value else None)
+
+
+def _roadmap_summary(session: RoadmapSession, shared: Dict[str, int]) -> Dict[str, Any]:
+    origin, source_post_id = _roadmap_origin(session)
+    return {
+        "id": str(session.id),
+        "title": session.title,
+        "description": session.description,
+        "node_count": len(session.nodes or []),
+        "origin": origin,
+        "source_post_id": source_post_id,
+        "shared_post_id": shared.get(str(session.id)),
+        "course_id": (session.settings or {}).get("course_id"),
+        "grounding": session.grounding,
+        "created_at": _iso_or_none(session.created_at),
+        "updated_at": _iso_or_none(session.updated_at),
+    }
+
+
+async def _my_roadmap_or_404(session_id: str, user: User) -> RoadmapSession:
+    try:
+        return await RoadmapSession.get_for_owner(session_id=session_id, owner_id=_owner(user))
+    except (NotFoundError, InvalidInputError):
+        raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้ หรือไม่ใช่ของคุณ")
+    except Exception:
+        # A malformed id fails inside the database driver; to the caller that
+        # is the same thing as "no such roadmap".
+        raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้ หรือไม่ใช่ของคุณ")
+
+
+@router.get("/roadmaps/mine")
+async def my_roadmaps(
+    limit: int = Query(default=100, ge=1, le=200),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Every roadmap the caller generated or followed, newest first."""
+    sessions = await RoadmapSession.list_for_owner(_owner(user), limit=limit)
+    shared = await repo.roadmap_posts_for_author(_uid(user), [str(s.id) for s in sessions])
+    return {"items": [_roadmap_summary(s, shared) for s in sessions]}
+
+
+@router.get("/roadmaps/mine/{session_id}")
+async def my_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    session = await _my_roadmap_or_404(session_id, user)
+    shared = await repo.roadmap_posts_for_author(_uid(user), [str(session.id)])
+    return await _roadmap_detail(session, shared)
+
+
+async def _roadmap_detail(session: RoadmapSession, shared: Dict[str, int]) -> Dict[str, Any]:
+    from open_notebook.community import roadmap_plan
+
+    # The post keeps its own copy; after an expansion it lags behind until the
+    # author pushes the new version.
+    outdated = False
+    post_id = shared.get(str(session.id))
+    if post_id:
+        post = await repo.get_post_raw(post_id)
+        copy = ((post or {}).get("embed_snapshot") or {}).get("nodes") or []
+        outdated = roadmap_plan.graph_fingerprint(copy) != roadmap_plan.graph_fingerprint(session.nodes or [])
+    return {
+        **_roadmap_summary(session, shared),
+        "nodes": session.nodes or [],
+        "edges": session.edges or [],
+        "settings": session.settings,
+        "post_outdated": outdated,
+    }
+
+
+class RoadmapExpandBody(BaseModel):
+    node_id: str = Field(..., min_length=1, max_length=64)
+
+
+async def _expansion_scope(user: User, session: RoadmapSession) -> tuple[List[str], Optional[List[str]]]:
+    """
+    The knowledge an expansion may read: the scope saved with the roadmap, as
+    long as the user may still read it - otherwise their own "auto" scope.
+    """
+    saved = session.settings or {}
+    try:
+        body = StudyRoadmapBody(
+            description="-",
+            scope=saved.get("scope") or "auto",
+            course_id=saved.get("course_id"),
+            document_ids=saved.get("document_ids") or [],
+            notebook_ids=saved.get("notebook_ids") or [],
+            source_ids=saved.get("source_ids") or [],
+        )
+        notebook_ids, source_ids, _label = await _roadmap_scope(user, body)
+        return notebook_ids, source_ids
+    except Exception as exc:
+        # A deleted document, a room the user left, settings from an older
+        # version: fall back rather than refuse to expand.
+        logger.info(f"roadmap expand: saved scope unusable for {session.id} ({exc}); using auto")
+        notebook_ids, _label, _fallback = await _resolve_scope(user, "auto", None, [])
+        return notebook_ids, None
+
+
+@router.post("/roadmaps/mine/{session_id}/expand")
+async def expand_my_roadmap(
+    session_id: str, body: RoadmapExpandBody, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Break one node into sub-nodes - as many as the model finds it needs (charged per expansion)."""
+    from open_notebook.community import roadmap_plan
+
+    uid = _uid(user)
+    session = await _my_roadmap_or_404(session_id, user)
+    blocked = roadmap_plan.expansion_block(session.nodes or [], body.node_id)
+    if blocked:
+        raise HTTPException(status_code=400, detail=blocked)
+    notebook_ids, source_ids = await _expansion_scope(user, session)
+    try:
+        charge = await points.charge(user, "roadmap_expand", ref_type="roadmap_session", ref_id=str(session.id))
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+    try:
+        added = await roadmap_plan.expand_node(
+            session=session,
+            node_id=body.node_id,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            web_mode=(session.settings or {}).get("web") or "auto",
+        )
+    except (InvalidInputError, ConfigurationError) as exc:
+        await points.refund(charge, "roadmap expansion failed")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except ExternalServiceError as exc:
+        await points.refund(charge, "roadmap expansion failed")
+        raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "roadmap expansion failed")
+        raise
+    except Exception as exc:
+        await points.refund(charge, "roadmap expansion failed")
+        logger.exception("roadmap expansion failed")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    shared = await repo.roadmap_posts_for_author(uid, [str(session.id)])
+    return {
+        **await _roadmap_detail(session, shared),
+        "added": [node["id"] for node in added],
+        "charged": charge.amount,
+        "balance": await points.get_balance(uid),
+    }
+
+
+@router.delete("/roadmaps/mine/{session_id}")
+async def delete_my_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Delete the roadmap. A post made from it keeps its own copy and stays."""
+    session = await _my_roadmap_or_404(session_id, user)
+    await session.delete_for_owner(_owner(user))
+    return {"ok": True}
+
+
+@router.post("/posts/{post_id}/roadmap/sync")
+async def sync_roadmap_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Replace the post's copy of a roadmap with the author's current version
+    (after expanding it). Never automatic: the author decides what readers see.
+    """
+    uid = _uid(user)
+    post = await _post_or_404(post_id)
+    if int(post["author_id"]) != uid:
+        raise HTTPException(status_code=403, detail="อัปเดตได้เฉพาะโพสต์ของตัวเอง")
+    if post.get("embed_type") != "roadmap" or not post.get("embed_id"):
+        raise HTTPException(status_code=400, detail="โพสต์นี้ไม่มี Roadmap")
+    try:
+        session = await RoadmapSession.get_for_owner(session_id=post["embed_id"], owner_id=_owner(user))
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Roadmap ต้นฉบับถูกลบไปแล้ว จึงอัปเดตโพสต์ไม่ได้")
+    await repo.update_post_snapshot(post_id, _roadmap_snapshot(session))
+    return {"post": await repo.get_post(post_id, uid)}
 
 
 # ---------------------------------------------------------------------------
@@ -1253,6 +1545,32 @@ async def delete_library_document(
     return {"ok": True}
 
 
+async def _resolve_pick(
+    user: User,
+    document_ids: List[int],
+    notebook_ids: List[str],
+    source_ids: List[str],
+) -> Optional[tuple[List[str], Optional[List[str]], str]]:
+    """
+    Explicit dropdown picks → ``(notebook_ids, source_ids, label)``, else None.
+
+    A single document means *that document*: the search is narrowed to its
+    source instead of the whole notebook that happens to hold it.
+    """
+    try:
+        if source_ids or notebook_ids:
+            pick = await library.resolve_knowledge_pick(
+                user, notebook_ids=notebook_ids, source_ids=source_ids
+            )
+            return pick["notebook_ids"], pick["source_ids"], pick["label"]
+        if document_ids:
+            docs = await library.scope_for_documents(user, document_ids)
+            return docs["notebook_ids"], docs["source_ids"], "เอกสารที่เลือก"
+    except library.LibraryError as exc:
+        raise _library_error(exc)
+    return None
+
+
 async def _resolve_scope(
     user: User,
     scope: str,
@@ -1283,7 +1601,11 @@ async def _resolve_scope(
     elif scope == library.SCOPE_PERSONAL:
         label = "เอกสารส่วนตัวของฉัน"
     else:
-        label = "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน"
+        label = (
+            "ทุกแหล่งในระบบ (สิทธิ์ผู้ดูแล)"
+            if library.is_admin(user)
+            else "คลังความรู้วิชาที่ลงเรียน + เอกสารของฉัน + Notebook ของอาจารย์/ผู้ดูแล"
+        )
     explicit = bool(document_ids) or scope in (library.SCOPE_COURSE, library.SCOPE_PERSONAL)
     return notebook_ids, label, not explicit
 
@@ -1326,6 +1648,9 @@ async def study_quiz(
     except ExternalServiceError as exc:
         await points.refund(charge, "quiz generation failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "quiz generation failed")
+        raise
     except Exception as exc:
         await points.refund(charge, "quiz generation failed")
         logger.exception("study quiz failed")
@@ -1348,17 +1673,33 @@ async def study_quiz(
     }
 
 
+async def _roadmap_scope(user: User, body: StudyRoadmapBody) -> tuple[List[str], Optional[List[str]], str]:
+    """The knowledge a roadmap request may read: ``(notebook_ids, source_ids, label)``."""
+    if body.scope in ("document", "notebook") and not (
+        body.document_ids or body.notebook_ids or body.source_ids
+    ):
+        raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อนสร้าง Roadmap")
+    pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
+    if pick is not None:
+        return pick
+    notebook_ids, label, _fallback = await _resolve_scope(
+        user, body.scope, body.course_id, body.document_ids
+    )
+    return notebook_ids, None, label
+
+
 @router.post("/study/roadmap")
 async def study_roadmap(
     body: StudyRoadmapBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Generate a roadmap grounded in the selected course material / own documents."""
-    from open_notebook.features import service as feature_service
+    """
+    Generate a learning plan from the chosen knowledge, with web support for
+    what the library does not cover (see ``community/roadmap_plan.py``).
+    """
+    from open_notebook.community import roadmap_plan
 
     uid = _uid(user)
-    notebook_ids, label, _fallback = await _resolve_scope(
-        user, body.scope, body.course_id, body.document_ids
-    )
+    notebook_ids, source_ids, label = await _roadmap_scope(user, body)
     try:
         charge = await points.charge(user, "roadmap_generate", ref_type="roadmap_generate")
     except points.InsufficientPoints as exc:
@@ -1366,15 +1707,26 @@ async def study_roadmap(
 
     report: Dict[str, Any] = {}
     try:
-        session = await feature_service.generate_roadmap(
+        session = await roadmap_plan.generate_plan(
             owner_id=_owner(user),
             description=body.description,
             title=body.title,
             language=body.language,
             node_count=body.node_count,
-            model_id=None,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            web_mode=body.web,
+            scope_label=label,
+            # Kept with the roadmap so "expand" can reuse the same sources.
+            settings={
+                "scope": body.scope,
+                "course_id": body.course_id,
+                "document_ids": body.document_ids,
+                "notebook_ids": body.notebook_ids,
+                "source_ids": body.source_ids,
+                "web": body.web,
+            },
             report=report,
-            notebook_ids=notebook_ids or None,
         )
     except (InvalidInputError, ConfigurationError) as exc:
         await points.refund(charge, "roadmap generation failed")
@@ -1382,6 +1734,9 @@ async def study_roadmap(
     except ExternalServiceError as exc:
         await points.refund(charge, "roadmap generation failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "roadmap generation failed")
+        raise
     except Exception as exc:
         await points.refund(charge, "roadmap generation failed")
         logger.exception("study roadmap failed")
@@ -1392,16 +1747,43 @@ async def study_roadmap(
     else:
         await points.set_charge_ref(charge, "roadmap_session", session.id or "")
 
+    grounding_info = session.grounding or {}
     return {
         "session_id": session.id,
         "title": session.title,
         "nodes": session.nodes,
         "edges": session.edges,
         "scope_label": label,
-        "grounded": bool(notebook_ids),
+        "grounded": bool(grounding_info.get("library")),
+        "grounding": grounding_info,
         "cached": bool(report.get("cached")),
         "charged": 0 if report.get("cached") else charge.amount,
         "balance": await points.get_balance(uid),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Shared knowledge: staff notebooks every role can ask about
+# ---------------------------------------------------------------------------
+
+
+@router.get("/knowledge")
+async def list_knowledge(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Everything the "เจาะจงเอกสาร" dropdown offers besides the caller's own
+    library documents: research notebooks built by admins/teachers and live
+    course libraries, each with its sources. Read-only and the same for every
+    role — students cannot open /notebooks, but they can ask about its content.
+    """
+    notebooks = await library.list_shared_notebooks(with_sources=True, viewer=user)
+    return {
+        "notebooks": notebooks,
+        # Admins also receive every private notebook (visibility="private").
+        "sees_everything": library.is_admin(user),
+        "stats": {
+            "notebooks": len(notebooks),
+            "sources": sum(nb["source_count"] for nb in notebooks),
+        },
     }
 
 
@@ -1410,12 +1792,151 @@ async def study_roadmap(
 # ---------------------------------------------------------------------------
 
 
+# Identical questions that arrive at the same moment (a whole class asking
+# "สรุปสไลด์วันนี้" right after the lecture) all miss the cache, because the first
+# answer is not written yet when the others look. The first request becomes the
+# leader; the others wait for its result instead of each calling the provider.
+_INFLIGHT: Dict[str, "asyncio.Future[Optional[Dict[str, Any]]]"] = {}
+
+
+async def _store_exchange(
+    uid: int,
+    body: AskBody,
+    result: Dict[str, Any],
+    scope_label: str,
+    grounded: bool,
+    charged: int,
+    session_id: Optional[str],
+    credits_left: Optional[int],
+    cached: bool = False,
+) -> Optional[str]:
+    """
+    Append the question and answer to the caller's chat history.
+
+    History is a convenience on top of an answer that was already produced and
+    paid for, so a storage problem is logged and the answer still goes out.
+    """
+    try:
+        conversation_id = body.conversation_id
+        if conversation_id and not await repo.get_conversation(conversation_id, uid):
+            conversation_id = None  # not theirs or gone: start a fresh one
+        if not conversation_id:
+            conversation_id = await repo.create_conversation(uid, body.question, scope_label)
+        await repo.append_messages(
+            conversation_id,
+            [
+                {
+                    "role": "user",
+                    "content": body.question,
+                    "meta": {"scope": body.scope, "web": body.web},
+                },
+                {
+                    "role": "assistant",
+                    "content": result["answer"],
+                    "meta": {
+                        "citations": result.get("citations", []),
+                        "web_sources": result.get("web_sources", []),
+                        "web_used": bool(result.get("web_used")),
+                        "coverage": result.get("coverage"),
+                        "scope_label": scope_label,
+                        "grounded": grounded,
+                        "charged": charged,
+                        "cached": cached,
+                        "session_id": session_id,
+                        "credits_left": credits_left,
+                    },
+                },
+            ],
+        )
+        return conversation_id
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning(f"rag history: could not store exchange for user {uid}: {exc}")
+        return None
+
+
+def _conversation_public(row: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": row["id"],
+        "title": row.get("title") or "บทสนทนาใหม่",
+        "scope_label": row.get("scope_label"),
+        "message_count": int(row.get("message_count") or 0),
+        "created_at": row.get("created_at"),
+        "updated_at": row.get("updated_at"),
+    }
+
+
+@router.get("/ask/history")
+async def list_ask_history(
+    limit: int = Query(default=50, ge=1, le=100),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """The caller's own KMITL RAG AI conversations, newest first (every role)."""
+    rows = await repo.list_conversations(_uid(user), limit=limit)
+    return {"items": [_conversation_public(r) for r in rows]}
+
+
+@router.get("/ask/history/{conversation_id}")
+async def get_ask_conversation(
+    conversation_id: str, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    row = await repo.get_conversation(conversation_id, _uid(user))
+    if not row:
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    messages = await repo.list_messages(conversation_id)
+    return {
+        **_conversation_public(row),
+        "messages": [
+            {
+                "id": m["id"],
+                "role": m["role"],
+                "content": m["content"],
+                "meta": m.get("meta") or {},
+                "created_at": m.get("created_at"),
+            }
+            for m in messages
+        ],
+    }
+
+
+@router.patch("/ask/history/{conversation_id}")
+async def rename_ask_conversation(
+    conversation_id: str,
+    body: RenameConversationBody,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    if not await repo.rename_conversation(conversation_id, _uid(user), body.title):
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    return {"ok": True}
+
+
+@router.delete("/ask/history/{conversation_id}")
+async def delete_ask_conversation(
+    conversation_id: str, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    if not await repo.delete_conversation(conversation_id, _uid(user)):
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    return {"ok": True}
+
+
 @router.post("/ask")
 async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    notebook_ids, scope_label, allow_fallback = await _resolve_scope(
-        user, body.scope, body.course_id, body.document_ids
-    )
+    # Burst guard per user (3 s cooldown, 8/min, 60/h, 300/day; staff x4). Checked
+    # first so a blocked request costs neither points nor a provider call.
+    await _guard_spam(user, "ask")
+    source_ids: Optional[List[str]] = None
+    if body.scope in ("document", "notebook") and not (
+        body.document_ids or body.notebook_ids or body.source_ids
+    ):
+        raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อนถาม")
+    pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
+    if pick is not None:
+        notebook_ids, source_ids, scope_label = pick
+        allow_fallback = False
+    else:
+        notebook_ids, scope_label, allow_fallback = await _resolve_scope(
+            user, body.scope, body.course_id, body.document_ids
+        )
     charge: Optional[points.Charge] = None
     session: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = body.session_id
@@ -1445,27 +1966,87 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             raise _insufficient(exc)
 
     history = list(session["messages"]) if session else []
-    try:
-        result = await quick_ask(
-            owner_id=_owner(user),
+
+    # Identical single questions (no conversation context) share one answer for
+    # RAG_ANSWER_CACHE_TTL seconds; a hit costs no provider call and no points.
+    cache_key: Optional[str] = None
+    cached_result: Optional[Dict[str, Any]] = None
+    if not session:
+        cache_key = answer_cache_key(
             question=body.question,
-            history=history,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            allow_global_fallback=allow_fallback,
+            web=body.web,
             language=body.language,
             model_id=body.model_id,
-            notebook_ids=notebook_ids or None,
-            scope_label=scope_label,
-            allow_global_fallback=allow_fallback,
         )
+        try:
+            cached_result = await cache_service.get_json(cache_key)
+        except Exception as exc:  # the cache is optional
+            logger.debug(f"answer cache read skipped: {exc}")
+            cached_result = None
+        if not isinstance(cached_result, dict) or "answer" not in cached_result:
+            cached_result = None
+
+    leader: Optional["asyncio.Future[Optional[Dict[str, Any]]]"] = None
+    if cache_key and cached_result is None:
+        pending = _INFLIGHT.get(cache_key)
+        if pending is not None:
+            # shield: a follower that disconnects must not cancel the leader's call
+            followed = await asyncio.shield(pending)
+            if isinstance(followed, dict) and "answer" in followed:
+                cached_result = followed
+        if cached_result is None:
+            leader = asyncio.get_running_loop().create_future()
+            _INFLIGHT[cache_key] = leader
+
+    try:
+        if cached_result is not None:
+            result = cached_result
+        else:
+            result = await quick_ask(
+                owner_id=_owner(user),
+                question=body.question,
+                history=history,
+                language=body.language,
+                model_id=body.model_id,
+                notebook_ids=notebook_ids or None,
+                scope_label=scope_label,
+                allow_global_fallback=allow_fallback,
+                source_ids=source_ids,
+                web=body.web,
+            )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
         raise HTTPException(status_code=400, detail=str(exc))
     except ExternalServiceError as exc:
         await points.refund(charge, "ask failed")
         raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        # Queue full / provider rate limit: the global handlers answer 503 / 429
+        # with Retry-After; the student keeps the point.
+        await points.refund(charge, "ask throttled")
+        raise
     except Exception as exc:
         await points.refund(charge, "ask failed")
         logger.exception("quick ask failed")
         raise HTTPException(status_code=500, detail=str(exc))
+    finally:
+        if leader is not None:
+            _INFLIGHT.pop(cache_key or "", None)
+            if not leader.done():
+                # None = "ask on your own": the leader failed or was cancelled
+                leader.set_result(result if "result" in locals() else None)
+
+    if cached_result is not None:
+        await points.refund(charge, "cached answer – no compute cost")
+        charge = None
+    elif cache_key:
+        try:
+            await cache_service.set_json(cache_key, result, ttl=ANSWER_CACHE_TTL)
+        except Exception as exc:
+            logger.debug(f"answer cache write skipped: {exc}")
 
     credits_left: Optional[int] = None
     if session:
@@ -1474,9 +2055,23 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         credits_left = int(session.get("credits_left") or 0) - 1
         await repo.update_rag_session(session_id or "", history, credits_left)
 
+    charged_amount = charge.amount if charge and charge.charged else 0
+    conversation_id = await _store_exchange(
+        uid, body, result, scope_label, bool(notebook_ids), charged_amount,
+        session_id if session else None, credits_left,
+        cached=cached_result is not None,
+    )
+
     return {
+        "conversation_id": conversation_id,
+        "cached": cached_result is not None,
         "answer": result["answer"],
         "citations": result["citations"],
+        "web_sources": result.get("web_sources", []),
+        "web_used": bool(result.get("web_used")),
+        "web_queries": result.get("web_queries", []),
+        "web_mode": result.get("web_mode", "off"),
+        "coverage": result.get("coverage", "full"),
         "scope_label": scope_label,
         "grounded": bool(notebook_ids),
         "session_id": session_id if session else None,

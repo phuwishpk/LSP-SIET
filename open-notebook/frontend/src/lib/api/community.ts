@@ -58,6 +58,13 @@ export interface QuizEmbed {
   questions: QuizEmbedQuestion[]
 }
 
+export interface RoadmapGrounding {
+  library?: boolean
+  web?: boolean
+  label?: string
+  web_sources?: { title?: string; url: string }[]
+}
+
 export interface RoadmapEmbed {
   type: 'roadmap'
   id: string
@@ -65,6 +72,7 @@ export interface RoadmapEmbed {
   description?: string | null
   nodes: RoadmapNodePayload[]
   edges: RoadmapEdgePayload[]
+  grounding?: RoadmapGrounding | null
 }
 
 export type PostEmbed = QuizEmbed | RoadmapEmbed
@@ -88,6 +96,9 @@ export interface PostComment {
   content: string
   created_at: string
   author: CommunityUserBrief
+  author_id: number
+  /** The server decides: comment author, post owner, or admin. */
+  can_delete: boolean
 }
 
 export interface CommunityPost {
@@ -266,6 +277,20 @@ export interface PopularRoadmap {
   created_at: string
 }
 
+/** One of the caller's roadmaps (generated, or copied by "follow"). */
+export interface MyRoadmap {
+  id: string
+  title: string
+  description: string
+  node_count: number
+  origin: 'own' | 'followed'
+  source_post_id: number | null
+  /** Set once the roadmap has been posted to the feed (one post per roadmap). */
+  shared_post_id: number | null
+  created_at: string | null
+  updated_at: string | null
+}
+
 export interface CommunityNotification {
   id: number
   kind: string
@@ -287,11 +312,69 @@ export interface AskCitation {
   title: string
   snippet: string
   score?: number | null
+  /** True when the answer actually refers to this passage as [n]. */
+  cited?: boolean
+}
+
+/** A web page Google Search grounding used; referenced in the answer as [Wn]. */
+export interface AskWebSource {
+  index: number
+  title: string
+  url: string
+}
+
+/** auto = only when the library does not cover the question. */
+export type AskWebMode = 'auto' | 'always' | 'off'
+
+
+/** One stored KMITL RAG AI conversation (own history; every role). */
+export interface RagConversation {
+  id: string
+  title: string
+  scope_label?: string | null
+  message_count: number
+  created_at?: string | null
+  updated_at?: string | null
+}
+
+export interface RagStoredMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  meta: {
+    citations?: AskCitation[]
+    web_sources?: AskWebSource[]
+    web_used?: boolean
+    coverage?: 'full' | 'partial' | 'none'
+    scope_label?: string
+    grounded?: boolean
+    charged?: number
+    cached?: boolean
+    session_id?: string | null
+    credits_left?: number | null
+    scope?: string
+    web?: AskWebMode
+  }
+  created_at?: string | null
+}
+
+export interface RagConversationDetail extends RagConversation {
+  messages: RagStoredMessage[]
 }
 
 export interface AskResponse {
+  /** The stored conversation this exchange was appended to. */
+  conversation_id?: string | null
+  /** True when an identical recent question was answered from the cache (no points taken). */
+  cached?: boolean
   answer: string
   citations: AskCitation[]
+  web_sources?: AskWebSource[]
+  web_used?: boolean
+  web_queries?: string[]
+  web_mode?: AskWebMode
+  /** How well the chosen scope answered the question. */
+  coverage?: 'full' | 'partial' | 'none'
   /** Human-readable description of the knowledge that was searched. */
   scope_label: string
   /** True when the answer actually had documents to cite from that scope. */
@@ -307,9 +390,17 @@ export interface AskRequest {
   session_id?: string | null
   mode?: 'single' | 'session'
   language?: string
-  scope?: 'auto' | 'course' | 'personal' | 'document'
+  scope?: 'auto' | 'course' | 'personal' | 'document' | 'notebook'
   course_id?: number | null
   document_ids?: number[]
+  /** Whole shared notebooks picked from GET /community/knowledge. */
+  notebook_ids?: string[]
+  /** Single sources inside a readable notebook. */
+  source_ids?: string[]
+  /** Google Search grounding for out-of-scope questions / supporting facts. */
+  web?: AskWebMode
+  /** Continue a stored conversation; omitted = start a new one. */
+  conversation_id?: string | null
 }
 
 export interface QuizStartResponse {
@@ -438,6 +529,12 @@ export const communityApi = {
         content,
       })
     ).data,
+  deleteComment: async (postId: number, commentId: number) =>
+    (
+      await apiClient.delete<{ ok: boolean; comments: PostComment[] }>(
+        `/community/posts/${postId}/comments/${commentId}`
+      )
+    ).data,
   toggleSave: async (postId: number) =>
     (await apiClient.post<{ saved: boolean }>(`/community/posts/${postId}/save`)).data,
   share: async (postId: number) =>
@@ -489,6 +586,8 @@ export const communityApi = {
     (
       await apiClient.get<PopularRoadmap[]>('/community/roadmaps/popular', { params: { limit } })
     ).data,
+  myRoadmaps: async () =>
+    (await apiClient.get<{ items: MyRoadmap[] }>('/community/roadmaps/mine')).data.items,
   notifications: async (limit = 20) =>
     (
       await apiClient.get<NotificationsResponse>('/community/notifications', { params: { limit } })
@@ -505,6 +604,15 @@ export const communityApi = {
     ).data,
   ask: async (body: AskRequest) =>
     (await apiClient.post<AskResponse>('/community/ask', body)).data,
+
+  askHistory: async (limit = 50) =>
+    (await apiClient.get<{ items: RagConversation[] }>('/community/ask/history', { params: { limit } })).data,
+  askConversation: async (id: string) =>
+    (await apiClient.get<RagConversationDetail>(`/community/ask/history/${encodeURIComponent(id)}`)).data,
+  renameConversation: async (id: string, title: string) =>
+    (await apiClient.patch(`/community/ask/history/${encodeURIComponent(id)}`, { title })).data,
+  deleteConversation: async (id: string) =>
+    (await apiClient.delete(`/community/ask/history/${encodeURIComponent(id)}`)).data,
 }
 
 // ---------------------------------------------------------------------------

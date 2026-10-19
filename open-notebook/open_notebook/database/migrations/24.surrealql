@@ -1,0 +1,11 @@
+-- Migration 24: drop tables nothing uses any more.
+--
+-- episode / episode_profile / podcast_config / speaker_profile belonged to the
+-- podcast feature, which was removed from the code. `user` held accounts before
+-- they moved to MariaDB (`users`); leaving it made the system look like it had
+-- two user tables. REMOVE TABLE also drops each table's fields and indexes.
+REMOVE TABLE IF EXISTS episode;
+REMOVE TABLE IF EXISTS episode_profile;
+REMOVE TABLE IF EXISTS podcast_config;
+REMOVE TABLE IF EXISTS speaker_profile;
+REMOVE TABLE IF EXISTS user;

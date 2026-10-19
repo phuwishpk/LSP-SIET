@@ -16,7 +16,6 @@ import {
 import {
   Book,
   Search,
-  Mic,
   Bot,
   Shuffle,
   Settings,
@@ -36,7 +35,6 @@ const getNavigationItems = (t: TFunction) => [
   { name: t('navigation.sources'), href: '/sources', icon: FileText, keywords: ['files', 'documents', 'upload'] },
   { name: t('navigation.notebooks'), href: '/notebooks', icon: Book, keywords: ['notes', 'research', 'projects'] },
   { name: t('navigation.askAndSearch'), href: '/search', icon: Search, keywords: ['find', 'query'] },
-  { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic, keywords: ['audio', 'episodes', 'generate'] },
   { name: t('navigation.models'), href: '/settings/api-keys', icon: Bot, keywords: ['ai', 'llm', 'providers', 'openai', 'anthropic'] },
   { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle, keywords: ['prompts', 'templates', 'actions'] },
   { name: t('navigation.settings'), href: '/settings', icon: Settings, keywords: ['preferences', 'config', 'options'] },
@@ -46,7 +44,6 @@ const getNavigationItems = (t: TFunction) => [
 const getCreateItems = (t: TFunction) => [
   { name: t('common.newSource'), action: 'source', icon: FileText },
   { name: t('common.newNotebook'), action: 'notebook', icon: Book },
-  { name: t('common.newPodcast'), action: 'podcast', icon: Mic },
 ]
 
 const getThemeItems = (t: TFunction) => [
@@ -65,7 +62,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const router = useRouter()
-  const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
+  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
   const { setTheme } = useTheme()
   const { data: notebooks, isLoading: notebooksLoading } = useNotebooks(false)
 
@@ -126,9 +123,8 @@ export function CommandPalette() {
     handleSelect(() => {
       if (action === 'source') openSourceDialog()
       else if (action === 'notebook') openNotebookDialog()
-      else if (action === 'podcast') openPodcastDialog()
     })
-  }, [handleSelect, openSourceDialog, openNotebookDialog, openPodcastDialog])
+  }, [handleSelect, openSourceDialog, openNotebookDialog])
 
   const handleTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
     handleSelect(() => setTheme(theme))

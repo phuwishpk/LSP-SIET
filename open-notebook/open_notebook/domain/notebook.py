@@ -76,7 +76,7 @@ class Notebook(ObjectModel):
 
     async def get_context(self) -> str:
         """
-        Build long-form notebook context for podcast and LLM workflows.
+        Build long-form notebook context for LLM workflows.
 
         Normal list retrieval omits large source/note bodies, so this method uses
         opt-in full-content fetches and formats only substantive context blocks.

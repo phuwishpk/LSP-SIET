@@ -138,7 +138,7 @@ export function CommunityHeader({
                 <GraduationCap className="mr-2 h-4 w-4 text-emerald-600" /> แอป AI Quiz ↗
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void openRoadmapApp()}>
-                <MapIcon className="mr-2 h-4 w-4 text-orange-600" /> แอป AI Roadmap ↗
+                <MapIcon className="mr-2 h-4 w-4 text-orange-600" /> แอป AI Roadmap
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <div className="px-2 py-1.5">

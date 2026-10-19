@@ -36,7 +36,7 @@ export const itIT = {
     podcast: "Podcast",
     quickActions: "Azioni rapide",
     quickActionsDesc: "Navigazione, ricerca, domande, tema",
-    appName: "Open Notebook",
+    appName: "LSP-SIET",
     add: "Aggiungi",
     remove: "Rimuovi",
     confirm: "Conferma",

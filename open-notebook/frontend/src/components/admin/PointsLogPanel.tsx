@@ -29,7 +29,7 @@ export function PointsLogPanel() {
       <Card>
         <CardHeader className="pb-3">
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
-            <Coins className="h-4 w-4" /> แต้มไหลไปทางไหน
+            <Coins className="h-4 w-4 text-ai" /> แต้มไหลไปทางไหน
             <div className="ml-auto flex rounded-md border p-0.5">
               {RANGES.map((r) => (
                 <button
@@ -37,7 +37,7 @@ export function PointsLogPanel() {
                   type="button"
                   onClick={() => setDays(r.days)}
                   className={cn(
-                    'rounded px-2.5 py-1 text-xs transition',
+                    'rounded-sm px-2.5 py-1 text-xs transition',
                     days === r.days ? 'bg-primary text-primary-foreground' : 'hover:bg-accent'
                   )}
                 >
@@ -63,7 +63,7 @@ export function PointsLogPanel() {
               onClick={() => setKind('')}
               className={cn(
                 'rounded-full border px-2.5 py-0.5 text-xs transition',
-                kind === '' ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-accent'
+                kind === '' ? 'border-primary bg-secondary font-medium' : 'hover:bg-accent'
               )}
             >
               ทุกประเภท
@@ -75,7 +75,7 @@ export function PointsLogPanel() {
                 onClick={() => setKind(k.kind === kind ? '' : k.kind)}
                 className={cn(
                   'rounded-full border px-2.5 py-0.5 text-xs transition',
-                  kind === k.kind ? 'border-primary bg-primary/10 font-medium' : 'hover:bg-accent'
+                  kind === k.kind ? 'border-primary bg-secondary font-medium' : 'hover:bg-accent'
                 )}
               >
                 {kindLabel(k.kind)} · {k.rows_count}
