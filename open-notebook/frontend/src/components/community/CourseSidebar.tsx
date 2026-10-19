@@ -1,16 +1,12 @@
 'use client'
 
 import { useState } from 'react'
-import Link from 'next/link'
 import {
   Bookmark,
   BookOpen,
-  Bot,
   Flame,
-  GraduationCap,
   Hash,
   Library,
-  Map,
   MessagesSquare,
   Newspaper,
   Plus,
@@ -50,7 +46,6 @@ import {
 } from '@/lib/hooks/use-community'
 import type { Course, RoomKind } from '@/lib/api/community'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { cn } from '@/lib/utils'
 
 export type FeedView = 'all' | 'mine' | 'saved' | 'materials' | 'popular' | 'library'
@@ -106,8 +101,8 @@ export function CourseSidebar({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition',
-        active ? 'bg-primary/10 font-semibold text-primary' : 'hover:bg-accent'
+        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
+        active ? 'bg-sidebar-accent font-semibold text-primary' : 'text-foreground hover:bg-accent'
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
@@ -129,7 +124,6 @@ export function CourseSidebar({
     const others = rooms.filter((c) => !c.joined)
     const label = (c: Course) => (showCode ? `${c.code} ${c.name}` : c.name)
     const open = (c: Course) => {
-      onSelectView('all')
       onSelectCourse(c.id)
     }
     return (
@@ -139,7 +133,7 @@ export function CourseSidebar({
             {joined.map((c) => (
               <NavButton
                 key={c.id}
-                active={courseId === c.id}
+                active={view === 'all' && courseId !== null && courseId === c.id}
                 icon={icon}
                 label={label(c)}
                 onClick={() => open(c)}
@@ -158,7 +152,7 @@ export function CourseSidebar({
             {others.map((c) => (
               <div key={c.id} className="flex items-center gap-1 pr-1">
                 <NavButton
-                  active={courseId === c.id}
+                  active={view === 'all' && courseId !== null && courseId === c.id}
                   icon={icon}
                   label={label(c)}
                   onClick={() => open(c)}
@@ -182,33 +176,25 @@ export function CourseSidebar({
 
   return (
     <aside className="space-y-4">
-      <nav className="space-y-0.5">
+      <nav className="space-y-0.5 rounded-xl border bg-card p-3 shadow-sm">
+        <p className="mb-2 px-2 text-xs font-semibold text-foreground">พื้นที่การเรียนของฉัน</p>
         <NavButton
           active={view === 'all' && courseId === null}
           icon={Newspaper}
-          label="ฟีดรวมทั้งหมด"
-          onClick={() => {
-            onSelectCourse(null)
-            onSelectView('all')
-          }}
+          label="ฟีดสาธารณะ"
+          onClick={() => onSelectView('all')}
         />
         <NavButton
           active={view === 'popular'}
           icon={Flame}
           label="ยอดนิยม"
-          onClick={() => {
-            onSelectCourse(null)
-            onSelectView('popular')
-          }}
+          onClick={() => onSelectView('popular')}
         />
         <NavButton
           active={view === 'mine'}
           icon={Users}
           label="เฉพาะห้องที่เข้าร่วม"
-          onClick={() => {
-            onSelectCourse(null)
-            onSelectView('mine')
-          }}
+          onClick={() => onSelectView('mine')}
         />
         <NavButton
           active={view === 'library'}
@@ -226,19 +212,15 @@ export function CourseSidebar({
           active={view === 'saved'}
           icon={Bookmark}
           label="สรุปที่บันทึกไว้"
-          onClick={() => {
-            onSelectCourse(null)
-            onSelectView('saved')
-          }}
+          onClick={() => onSelectView('saved')}
         />
         <NavButton active={false} icon={ScrollText} label="กฎชุมชน & แต้ม" onClick={() => setRulesOpen(true)} />
       </nav>
 
       {/* ------------------------------------------------ official course rooms */}
-      <div>
-        <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          ห้องวิชา
-        </p>
+      <div className="rounded-xl border bg-card p-3 shadow-sm">
+        <p className="mb-2 px-2 text-xs font-semibold text-foreground">ชั้นเรียนของฉัน</p>
+        <p className="mb-1 px-2 text-[11px] font-medium text-muted-foreground">ห้องวิชา</p>
         {isLoading && (
           <div className="space-y-1 px-3">
             <Skeleton className="h-7 w-full" />
@@ -261,27 +243,26 @@ export function CourseSidebar({
             <Plus className="h-3.5 w-3.5" /> สร้างห้องวิชาใหม่
           </Button>
         )}
-      </div>
-
-      {/* --------------------------------------------- student discussion rooms */}
-      <div>
-        <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          ห้องพูดคุย
-        </p>
-        <RoomList rooms={clubRooms} icon={MessagesSquare} showCode={false} />
-        {!isLoading && clubRooms.length === 0 && (
-          <p className="px-3 text-xs text-muted-foreground">
-            ยังไม่มีห้องพูดคุย — เปิดห้องแรกได้เลย
+        {/* Student discussion rooms share the enrolled-rooms card. */}
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="mb-1 px-2 text-[11px] font-medium text-muted-foreground">
+            ห้องพูดคุย
           </p>
-        )}
-        <Button
-          variant="outline"
-          size="sm"
-          className="mt-2 h-8 w-full justify-start gap-2 text-xs"
-          onClick={() => setCreateKind('club')}
-        >
-          <Plus className="h-3.5 w-3.5" /> เปิดห้องพูดคุยใหม่
-        </Button>
+          <RoomList rooms={clubRooms} icon={MessagesSquare} showCode={false} />
+          {!isLoading && clubRooms.length === 0 && (
+            <p className="px-3 text-xs text-muted-foreground">
+              ยังไม่มีห้องพูดคุย — เปิดห้องแรกได้เลย
+            </p>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 h-8 w-full justify-start gap-2 text-xs"
+            onClick={() => setCreateKind('club')}
+          >
+            <Plus className="h-3.5 w-3.5" /> เปิดห้องพูดคุยใหม่
+          </Button>
+        </div>
       </div>
 
       {selected && (selected.joined || canManageSelected) && (
@@ -309,51 +290,16 @@ export function CourseSidebar({
         </div>
       )}
 
-      <div>
-        <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-          เครื่องมือ AI
-        </p>
-        <nav className="space-y-0.5">
-          <Link
-            href="/community/ask"
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
-          >
-            <Bot className="h-4 w-4 text-violet-600" /> ถาม KMITL RAG AI
-            <span className="ml-auto text-[10px] text-muted-foreground">1 แต้ม →</span>
-          </Link>
-          <button
-            type="button"
-            onClick={() => void openQuizApp()}
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
-          >
-            <GraduationCap className="h-4 w-4 text-emerald-600" /> สร้าง AI Quiz
-            <span className="ml-auto text-[10px] text-muted-foreground">8 แต้ม ↗</span>
-          </button>
-          <button
-            type="button"
-            onClick={() =>
-              // Discussion rooms have no library, so only a course room is passed on.
-              void openRoadmapApp({ course: selected && selected.kind !== 'club' ? selected.id : null })
-            }
-            className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
-          >
-            <Map className="h-4 w-4 text-orange-600" /> สร้าง AI Roadmap
-            <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม →</span>
-          </button>
-        </nav>
-      </div>
-
       <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
       <CreateRoomDialog
         kind={createKind}
         onClose={() => setCreateKind(null)}
         onCreated={(room) => {
-          onSelectView('all')
           onSelectCourse(room.id)
         }}
       />
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
-        <AlertDialogContent>
+        <AlertDialogContent className="community-theme">
           <AlertDialogHeader>
             <AlertDialogTitle>ปิดห้อง “{pendingDelete?.name}” ?</AlertDialogTitle>
             <AlertDialogDescription>
@@ -384,7 +330,7 @@ function RulesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
   const rules = wallet?.rules
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="community-theme max-w-lg">
         <DialogHeader>
           <DialogTitle>กฎชุมชน SIET Space</DialogTitle>
           <DialogDescription>แชร์ความรู้ เคารพเพื่อน และใช้ AI อย่างคุ้มค่า</DialogDescription>
@@ -455,7 +401,7 @@ function CreateRoomDialog({
         }
       }}
     >
-      <DialogContent>
+      <DialogContent className="community-theme">
         <DialogHeader>
           <DialogTitle>{isClub ? 'เปิดห้องพูดคุยใหม่' : 'สร้างห้องวิชาใหม่'}</DialogTitle>
           <DialogDescription>

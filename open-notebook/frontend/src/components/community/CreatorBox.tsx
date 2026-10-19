@@ -9,6 +9,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useCourses, useCreatePost, useShareableRoadmaps, useWallet } from '@/lib/hooks/use-community'
 import { useQuizSessions } from '@/lib/hooks/use-features'
@@ -16,7 +23,6 @@ import { displayName, formatBytes, roomLabel } from '@/lib/utils/community-forma
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { ShareMyWorkDialog } from './ShareMyWorkDialog'
 import type { PostType } from '@/lib/api/community'
-import { cn } from '@/lib/utils'
 
 interface CreatorBoxProps {
   defaultCourseId: number | null
@@ -41,6 +47,7 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
   const [embedType, setEmbedType] = useState<'quiz' | 'roadmap'>('quiz')
   const [embedId, setEmbedId] = useState<string>('')
   const [pickerOpen, setPickerOpen] = useState(false)
+  const [isOpen, setIsOpen] = useState(false)
 
   const { data: quizzes } = useQuizSessions()
   const { data: roadmaps } = useShareableRoadmaps()
@@ -77,18 +84,48 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
         embed_id: mode === 'embed' ? embedId : undefined,
         file: mode === 'embed' ? null : file,
       },
-      { onSuccess: reset }
+      {
+        onSuccess: () => {
+          reset()
+          setIsOpen(false)
+        },
+      }
     )
   }
 
   return (
-    <Card className="overflow-hidden">
-      <CardContent className="p-4">
-        <div className="flex items-start gap-3">
-          <Avatar src={user?.avatar_url} name={displayName(user)} />
-          <div className="min-w-0 flex-1 space-y-3">
+    <>
+      <Card className="overflow-hidden rounded-xl border-border bg-card shadow-sm">
+        <CardContent className="p-2.5">
+          <button
+            type="button"
+            onClick={() => setIsOpen(true)}
+            aria-label="สร้างโพสต์"
+            className="flex w-full items-center gap-3 rounded-full bg-muted/80 px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
+            <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
+              แบ่งปันบันทึก คำถาม หรือไฟล์...
+            </span>
+          </button>
+        </CardContent>
+      </Card>
+
+      <Dialog open={isOpen} onOpenChange={setIsOpen}>
+        <DialogContent className="community-theme max-h-[90vh] gap-0 overflow-hidden rounded-xl p-0 sm:max-w-xl">
+          <DialogHeader className="border-b border-border px-6 py-4">
+            <DialogTitle className="text-center text-base">สร้างโพสต์</DialogTitle>
+          </DialogHeader>
+          <div className="no-scrollbar space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+            <div className="flex items-center gap-3">
+              <Avatar src={user?.avatar_url} name={displayName(user)} />
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold">{displayName(user)}</p>
+                <p className="text-xs text-muted-foreground">แบ่งปันกับชุมชนการเรียนรู้</p>
+              </div>
+            </div>
             <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
-              <TabsList className="h-9 w-full justify-start overflow-x-auto">
+              <TabsList className="h-9 w-full justify-start overflow-x-auto rounded-lg border-border bg-muted/70 shadow-none">
                 <TabsTrigger value="summary" className="gap-1.5 text-xs">
                   <FileText className="h-3.5 w-3.5" /> แชร์สรุป
                   <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">+{bonus}</Badge>
@@ -107,18 +144,18 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
               </TabsList>
 
               <TabsContent value="summary" className="mt-3 space-y-2">
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวข้อสรุป เช่น สรุปบทที่ 3 Linked List" maxLength={200} />
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="คุณกำลังเรียนหรือสงสัยอะไรอยู่? เล่าประเด็นสำคัญของสรุปนี้…" />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="หัวข้อสรุป (ไม่บังคับ)" maxLength={200} className="rounded-lg bg-background" />
+                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="คุณกำลังเรียนหรือสงสัยอะไรอยู่? เล่าประเด็นสำคัญของสรุปนี้…" className="rounded-lg bg-background" />
               </TabsContent>
 
               <TabsContent value="question" className="mt-3 space-y-2">
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="คำถามสั้น ๆ เช่น ทำไม quicksort ถึง O(n log n)?" maxLength={200} />
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="อธิบายรายละเอียด สิ่งที่ลองทำแล้ว หรือแนบไฟล์การบ้าน" />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="คำถามสั้น ๆ (ไม่บังคับ)" maxLength={200} className="rounded-lg bg-background" />
+                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={3} placeholder="อธิบายรายละเอียด สิ่งที่ลองทำแล้ว หรือแนบไฟล์การบ้าน" className="rounded-lg bg-background" />
               </TabsContent>
 
               <TabsContent value="material" className="mt-3 space-y-2">
-                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ชื่อสื่อการสอน เช่น สไลด์สัปดาห์ที่ 5" maxLength={200} />
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={2} placeholder="คำอธิบายสั้น ๆ สำหรับนักศึกษา" />
+                <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="ชื่อสื่อการสอน" maxLength={200} className="rounded-lg bg-background" />
+                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={2} placeholder="คำอธิบายสั้น ๆ สำหรับนักศึกษา" className="rounded-lg bg-background" />
               </TabsContent>
 
               <TabsContent value="embed" className="mt-3 space-y-2">
@@ -168,7 +205,7 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                   </button>{' '}
                   · แชร์ควิซแล้วเพื่อนเล่นจบ คุณได้แต้มคืน +1/คน
                 </p>
-                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={2} placeholder="เขียนคำโปรย เช่น ควิซเตรียมสอบ OS ทำเสร็จภายใน 10 นาที" />
+                <Textarea value={content} onChange={(e) => setContent(e.target.value)} rows={2} placeholder="เขียนคำโปรย เช่น ควิซเตรียมสอบ OS ทำเสร็จภายใน 10 นาที" className="rounded-lg bg-background" />
               </TabsContent>
             </Tabs>
 
@@ -185,7 +222,7 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                   </option>
                 ))}
               </select>
-              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="#แท็ก คั่นด้วยเว้นวรรค" className="h-8 w-44 text-xs" />
+              <Input value={tags} onChange={(e) => setTags(e.target.value)} placeholder="#แท็ก คั่นด้วยเว้นวรรค" className="h-8 w-44 rounded-lg bg-background text-xs" />
               {mode !== 'embed' && (
                 <>
                   <input
@@ -208,13 +245,20 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                   )}
                 </>
               )}
-              <Button size="sm" className={cn('ml-auto h-8')} disabled={!canSubmit} onClick={submit}>
-                {create.isPending ? 'กำลังโพสต์…' : 'โพสต์ลงฟีด'}
-              </Button>
             </div>
           </div>
-        </div>
-      </CardContent>
-    </Card>
+          <DialogFooter className="border-t border-border px-5 py-4 sm:px-6">
+            <Button
+              type="button"
+              disabled={!canSubmit}
+              onClick={submit}
+              className="w-full"
+            >
+              {create.isPending ? 'กำลังโพสต์…' : 'โพสต์'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }

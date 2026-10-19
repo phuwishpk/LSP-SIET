@@ -173,7 +173,7 @@ export function ShareMyWorkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="community-theme max-w-2xl">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5 text-primary" /> เลือกผลงาน AI ของฉันขึ้น Community
@@ -340,7 +340,7 @@ export function ShareMyWorkButton({
         size={size}
         onClick={() => setOpen(true)}
         className={cn(
-          'gap-2 bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow hover:from-orange-600 hover:to-rose-600',
+          'gap-2 bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
           className
         )}
       >

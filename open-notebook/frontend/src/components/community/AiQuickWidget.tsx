@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
-import { Bot, Coins, ExternalLink, FileText, Lock, RotateCcw, Send, Users, X } from 'lucide-react'
+import { ArrowUp, Bot, Coins, ExternalLink, FileText, Lock, RotateCcw, Users, X } from 'lucide-react'
 import { AnswerReferences } from '@/components/community/AnswerReferences'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -156,16 +156,16 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   const nextCost = sessionId ? 0 : mode === 'session' ? costs?.rag_session ?? 4 : costs?.rag_question ?? 1
 
   return (
-    <Card ref={cardRef} id="ai-quick-prompt" className="border-violet-200/70 dark:border-violet-900/60">
+    <Card ref={cardRef} id="ai-quick-prompt" className="border-border shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
             <Bot className="h-4 w-4" />
           </span>
-          AI Quick Prompt
+          ถาม KMITL RAG AI
           <Link
             href={conversationId ? `/community/ask?c=${encodeURIComponent(conversationId)}` : '/community/ask'}
-            className="ml-auto flex items-center gap-1 text-[11px] font-normal text-violet-700 hover:underline dark:text-violet-300"
+            className="ml-auto flex items-center gap-1 text-[11px] font-normal text-primary hover:underline"
           >
             {conversationId ? 'ถามต่อในหน้าเต็ม' : 'เปิดหน้าเต็ม'} <ExternalLink className="h-3 w-3" />
           </Link>
@@ -175,8 +175,8 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
         <div className="space-y-1.5 pt-1">
           <p className="text-[11px] font-medium text-muted-foreground">ค้นคำตอบจาก</p>
           {focusDocument ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-violet-300 bg-violet-50 px-2 py-1 text-[11px] dark:bg-violet-950/40">
-              <FileText className="h-3.5 w-3.5 shrink-0 text-violet-600" />
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-[11px]">
+              <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span className="min-w-0 flex-1 truncate">{focusDocument.title}</span>
               <button type="button" onClick={onClearFocus} aria-label="ยกเลิกการเจาะจงเอกสาร">
                 <X className="h-3.5 w-3.5" />
@@ -295,26 +295,32 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
           }}
           className="space-y-1.5"
         >
-          <Textarea
-            ref={inputRef}
-            value={question}
-            onChange={(e) => setQuestion(e.target.value)}
-            rows={2}
-            placeholder="ถาม KMITL RAG AI ด่วน…"
-            className="min-h-0 resize-none text-sm"
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault()
-                submit()
-              }
-            }}
-          />
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] text-muted-foreground">
-              {exempt ? 'ไม่ตัดแต้ม (อาจารย์/ผู้ดูแล)' : nextCost === 0 ? 'ใช้ข้อความในเซสชัน' : `จะตัด ${nextCost} แต้ม`}
+          <div className="relative rounded-xl border border-border bg-muted/70 p-2">
+            <Textarea
+              ref={inputRef}
+              value={question}
+              onChange={(e) => setQuestion(e.target.value)}
+              rows={2}
+              placeholder="ถาม KMITL RAG AI..."
+              className="min-h-0 resize-none border-0 bg-transparent pr-12 pb-8 text-sm shadow-none focus-visible:ring-0"
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  submit()
+                }
+              }}
+            />
+            <span className="absolute bottom-3 left-3 text-[10px] text-muted-foreground">
+              {exempt ? 'ไม่ตัดแต้ม (อาจารย์/ผู้ดูแล)' : nextCost === 0 ? 'ใช้ข้อความในเซสชัน' : `${nextCost} เครดิตต่อคำถาม`}
             </span>
-            <Button type="submit" size="sm" disabled={!question.trim() || ask.isPending} className="gap-1">
-              <Send className="h-3.5 w-3.5" /> ถาม
+            <Button
+              type="submit"
+              size="icon"
+              aria-label="ส่งคำถาม"
+              disabled={!question.trim() || ask.isPending}
+              className="absolute bottom-2 right-2 h-8 w-8 rounded-full"
+            >
+              <ArrowUp className="h-4 w-4" />
             </Button>
           </div>
         </form>
@@ -341,7 +347,7 @@ function ScopeChip({
       className={cn(
         'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition',
         active
-          ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-950/50 dark:text-violet-100'
+          ? 'border-primary bg-primary text-primary-foreground'
           : 'hover:bg-accent'
       )}
     >
@@ -358,7 +364,7 @@ function ModeChip({ active, onClick, children }: { active: boolean; onClick: () 
       onClick={onClick}
       className={cn(
         'rounded-full border px-2.5 py-0.5 text-[11px] transition',
-        active ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-950/50 dark:text-violet-100' : 'hover:bg-accent'
+        active ? 'border-primary bg-accent text-primary' : 'hover:bg-accent'
       )}
     >
       {children}

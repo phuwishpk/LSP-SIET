@@ -48,11 +48,11 @@ import { RoadmapEmbed } from './RoadmapEmbed'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  summary: { label: 'สรุปบทเรียน', icon: FileText, className: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' },
-  quiz: { label: 'AI Quiz', icon: FileText, className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' },
-  roadmap: { label: 'AI Roadmap', icon: FileText, className: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-200' },
-  question: { label: 'คำถาม', icon: HelpCircle, className: 'bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-200' },
-  material: { label: 'สื่อการสอน', icon: Library, className: 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200' },
+  summary: { label: 'สรุปบทเรียน', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  quiz: { label: 'AI Quiz', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  roadmap: { label: 'AI Roadmap', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  question: { label: 'คำถาม', icon: HelpCircle, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  material: { label: 'สื่อการสอน', icon: Library, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
 }
 
 interface PostCardProps {
@@ -111,7 +111,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   }
 
   return (
-    <Card id={`post-${post.id}`} className="overflow-hidden">
+    <Card id={`post-${post.id}`} className="overflow-hidden border-border shadow-sm">
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start gap-3">
           <Avatar src={post.author.avatar_url} name={displayName(post.author)} />
@@ -130,7 +130,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
                 <button
                   type="button"
                   onClick={() => post.course && onSelectCourse?.(post.course.id)}
-                  className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent"
+                  className="flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent"
                 >
                   {post.course.kind === 'club' ? (
                     <MessagesSquare className="h-3 w-3" />
@@ -151,7 +151,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="community-theme">
               <DropdownMenuItem onClick={copyLink}>
                 <Share2 className="mr-2 h-4 w-4" /> คัดลอกลิงก์โพสต์
               </DropdownMenuItem>
@@ -244,9 +244,9 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           <button
             type="button"
             onClick={download}
-            className="flex w-full items-center gap-3 rounded-lg border bg-muted/40 p-3 text-left transition hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted/70 p-3 text-left transition-colors hover:bg-accent"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/40">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
@@ -278,14 +278,14 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             active={post.viewer.liked}
             icon={Heart}
             label="ถูกใจ"
-            activeClass="text-rose-600"
+            activeClass="text-primary"
             onClick={() => react.mutate({ postId: post.id, kind: 'like' })}
           />
           <ActionButton
             active={post.viewer.helpful}
             icon={ThumbsUp}
             label="Helpful"
-            activeClass="text-emerald-600"
+            activeClass="text-primary"
             onClick={() => react.mutate({ postId: post.id, kind: 'helpful' })}
           />
           <ActionButton
@@ -299,14 +299,14 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             active={post.viewer.saved}
             icon={Bookmark}
             label="บันทึก"
-            activeClass="text-amber-600"
+            activeClass="text-primary"
             onClick={() => save.mutate(post.id)}
           />
           <ActionButton
             active={post.viewer.shared}
             icon={Share2}
             label={post.viewer.shared ? 'แชร์แล้ว' : 'แชร์'}
-            activeClass="text-sky-600"
+            activeClass="text-primary"
             onClick={copyLink}
           />
         </div>
