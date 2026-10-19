@@ -10,8 +10,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { useCourses, useCreatePost, useWallet } from '@/lib/hooks/use-community'
-import { useQuizSessions, useRoadmapSessions } from '@/lib/hooks/use-features'
+import { useCourses, useCreatePost, useShareableRoadmaps, useWallet } from '@/lib/hooks/use-community'
+import { useQuizSessions } from '@/lib/hooks/use-features'
 import { displayName, formatBytes, roomLabel } from '@/lib/utils/community-format'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { ShareMyWorkDialog } from './ShareMyWorkDialog'
@@ -43,7 +43,7 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const { data: quizzes } = useQuizSessions()
-  const { data: roadmaps } = useRoadmapSessions()
+  const { data: roadmaps } = useShareableRoadmaps()
 
   const courseOptions = useMemo(() => courses ?? [], [courses])
   const bonus = wallet?.rules.creator_bonus_summary ?? 2
@@ -164,7 +164,7 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
                     onClick={() => void (embedType === 'quiz' ? openQuizApp() : openRoadmapApp())}
                     className="text-primary hover:underline"
                   >
-                    ไปสร้างที่แอป {embedType === 'quiz' ? 'AI Quiz' : 'AI Roadmap'} ↗
+                    ไปสร้างที่แอป {embedType === 'quiz' ? 'AI Quiz ↗' : 'AI Roadmap'}
                   </button>{' '}
                   · แชร์ควิซแล้วเพื่อนเล่นจบ คุณได้แต้มคืน +1/คน
                 </p>

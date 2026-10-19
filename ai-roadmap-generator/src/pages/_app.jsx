@@ -1,57 +1,51 @@
-import { useEffect } from 'react';
-import { defaultTheme } from '@/infrastructure/next-ui';
-import { NextUIProvider } from '@nextui-org/react';
-import { ToastContainer } from 'react-toastify';
-import FontLoader from "@/infrastructure/font-loader";
-import 'react-toastify/dist/ReactToastify.css';
-import globalStyles from "@/shared/styles/global-style";
-import TimeAgo from "javascript-time-ago";
-import en from "javascript-time-ago/locale/en.json";
+import Head from 'next/head'
+import { ToastContainer } from 'react-toastify'
+import 'react-toastify/dist/ReactToastify.css'
+import '@/styles/app.css'
+import TopBar from '@/components/TopBar'
+import { communityUrl } from '@/lib/workspace'
+import { useWorkspace, WorkspaceProvider } from '@/lib/workspace-context'
 
-TimeAgo.addLocale(en);
+function Shell({ Component, pageProps }) {
+  const { status } = useWorkspace()
 
-const WORKSPACE_TOKEN_KEY = 'kmitlai-workspace-token';
-
-function WorkspaceTokenBridge() {
-  // Stash the JWT from ?token=… into localStorage so the rest of the app
-  // (including the PocketBase wrapper) can send it back to the workspace API
-  // when it needs to. The query parameter is removed from the URL bar
-  // immediately so we never leak it via referer.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const url = new URL(window.location.href);
-    const token = url.searchParams.get('token');
-    if (token) {
-      window.localStorage.setItem(WORKSPACE_TOKEN_KEY, token);
-      url.searchParams.delete('token');
-      window.history.replaceState({}, '', url.toString());
-    }
-  }, []);
-  return null;
-}
-
-function MyApp({ Component, pageProps }) {
-  globalStyles();
+  if (status === 'loading') {
+    return (
+      <main className="center-screen">
+        <p className="muted">กำลังเข้าสู่ระบบ…</p>
+      </main>
+    )
+  }
+  if (status === 'blocked') {
+    return (
+      <main className="center-screen">
+        <h1 className="h2">เข้าสู่ระบบไม่สำเร็จ</h1>
+        <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ SIET Space ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
+        <a className="btn btn-primary" href={communityUrl()}>
+          ไปที่ SIET Space
+        </a>
+      </main>
+    )
+  }
   return (
     <>
-      <WorkspaceTokenBridge />
-      <FontLoader />
-      <ToastContainer
-        position="top-center"
-        autoClose={5000}
-        hideProgressBar={false}
-        newestOnTop={false}
-        closeOnClick
-        rtl={false}
-        pauseOnFocusLoss
-        draggable
-        pauseOnHover
-      />
-      <NextUIProvider theme={defaultTheme}>
-        <Component {...pageProps} />
-      </NextUIProvider>
+      <TopBar />
+      <Component {...pageProps} />
     </>
-  );
+  )
 }
 
-export default MyApp;
+export default function MyApp(props) {
+  return (
+    <>
+      <Head>
+        <title>AI Roadmap · SIET Space</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+      </Head>
+      <WorkspaceProvider>
+        <Shell {...props} />
+      </WorkspaceProvider>
+      <ToastContainer position="bottom-center" autoClose={4000} theme="dark" hideProgressBar closeOnClick />
+    </>
+  )
+}

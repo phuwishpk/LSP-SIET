@@ -15,6 +15,7 @@ export const LIBRARY_KEYS = {
   list: (scope?: LibraryScope, courseId?: number) =>
     ['community', 'library', scope ?? 'all', courseId ?? 'all'] as const,
   doc: (id: number) => ['community', 'library', 'doc', id] as const,
+  knowledge: ['community', 'library', 'knowledge'] as const,
 }
 
 export function useLibrary(params?: { scope?: LibraryScope; courseId?: number }) {
@@ -27,6 +28,15 @@ export function useLibrary(params?: { scope?: LibraryScope; courseId?: number })
       libraryApi.list({ scope: params?.scope, course_id: params?.courseId }),
     // Ingestion runs in the background – poll while anything is still processing.
     refetchInterval: (query) => (hasProcessing(query.state.data) ? 3000 : false),
+  })
+}
+
+/** Notebooks built by admins/teachers + course libraries, readable by every role. */
+export function useKnowledge() {
+  return useQuery({
+    queryKey: LIBRARY_KEYS.knowledge,
+    queryFn: () => libraryApi.knowledge(),
+    staleTime: 60_000,
   })
 }
 

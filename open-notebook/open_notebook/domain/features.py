@@ -9,6 +9,7 @@ existing password middleware plus an `owner_id` filter.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 
 from loguru import logger
@@ -112,6 +113,61 @@ class QuizSession(ObjectModel):
             raise NotFoundError("Quiz session not found")
         return await self.delete()
 
+    @classmethod
+    async def admin_list(
+        cls,
+        *,
+        query: Optional[str] = None,
+        origin: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Every quiz in the workspace, newest first, WITHOUT its questions: the
+        admin console shows who made what, not the answers of a private quiz.
+        """
+        where: List[str] = []
+        params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+        if query and query.strip():
+            where.append("string::lowercase(topic) CONTAINS $q")
+            params["q"] = query.strip().lower()
+        if origin == "imported":
+            where.append("string::starts_with(prompt_hash, 'import:')")
+        elif origin == "own":
+            where.append("!string::starts_with(prompt_hash, 'import:')")
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        try:
+            rows = await repo_query(
+                f"""
+                SELECT id, owner_id, topic, language, question_count, prompt_hash,
+                       notebook_id, created_at
+                  FROM quiz_session {clause}
+                 ORDER BY created_at DESC
+                 LIMIT $limit START $offset
+                """,
+                params,
+            )
+            total = await repo_query(
+                f"SELECT count() AS n FROM quiz_session {clause} GROUP ALL", params
+            )
+        except Exception as exc:
+            logger.error(f"Failed listing quiz sessions for admin: {exc}")
+            raise DatabaseOperationError(exc)
+        return {"items": rows or [], "total": int((total or [{}])[0].get("n") or 0)}
+
+    @classmethod
+    async def created_since(cls, since: datetime) -> List[Dict[str, Any]]:
+        """Creation time, origin marker and size of every quiz made since ``since``."""
+        try:
+            return await repo_query(
+                "SELECT prompt_hash, question_count, notebook_id, created_at "
+                "FROM quiz_session WHERE created_at >= $since",
+                {"since": since},
+            ) or []
+        except Exception as exc:
+            logger.error(f"Failed reading quiz statistics: {exc}")
+            raise DatabaseOperationError(exc)
+
 
 class RoadmapSession(ObjectModel):
     table_name: ClassVar[str] = "roadmap_session"
@@ -127,6 +183,14 @@ class RoadmapSession(ObjectModel):
     notebook_id: Optional[str] = None
     model_id: Optional[str] = None
     prompt_hash: str
+    # Knowledge scope + web mode chosen at generation, reused when a node is
+    # expanded later: {scope, course_id, document_ids, notebook_ids, source_ids, web}.
+    settings: Optional[Dict[str, Any]] = None
+    # What the plan was grounded on: {library: bool, web: bool, label: str}.
+    grounding: Optional[Dict[str, Any]] = None
+    # The table keeps created_at / updated_at (not ObjectModel's created / updated).
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
     @field_validator("title")
     @classmethod
@@ -212,3 +276,80 @@ class RoadmapSession(ObjectModel):
         if self.owner_id != owner_id:
             raise NotFoundError("Roadmap session not found")
         return await self.delete()
+
+    @classmethod
+    async def admin_list(
+        cls,
+        *,
+        query: Optional[str] = None,
+        origin: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Every roadmap in the workspace, newest first, WITHOUT its nodes: the
+        admin console shows who made what, not the content of a private plan.
+        """
+        where: List[str] = []
+        params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+        if query and query.strip():
+            where.append("string::lowercase(title) CONTAINS $q")
+            params["q"] = query.strip().lower()
+        if origin == "followed":
+            where.append("string::starts_with(prompt_hash, 'follow:')")
+        elif origin == "own":
+            where.append("!string::starts_with(prompt_hash, 'follow:')")
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        try:
+            rows = await repo_query(
+                f"""
+                SELECT id, owner_id, title, node_count, prompt_hash, grounding, settings,
+                       created_at, updated_at
+                  FROM roadmap_session {clause}
+                 ORDER BY created_at DESC
+                 LIMIT $limit START $offset
+                """,
+                params,
+            )
+            total = await repo_query(
+                f"SELECT count() AS n FROM roadmap_session {clause} GROUP ALL", params
+            )
+        except Exception as exc:
+            logger.error(f"Failed listing roadmap sessions for admin: {exc}")
+            raise DatabaseOperationError(exc)
+        return {"items": rows or [], "total": int((total or [{}])[0].get("n") or 0)}
+
+    @classmethod
+    async def created_since(cls, since: datetime) -> List[Dict[str, Any]]:
+        """Creation time, origin marker and grounding of every roadmap made since ``since``."""
+        try:
+            return await repo_query(
+                "SELECT prompt_hash, grounding, created_at FROM roadmap_session WHERE created_at >= $since",
+                {"since": since},
+            ) or []
+        except Exception as exc:
+            logger.error(f"Failed reading roadmap statistics: {exc}")
+            raise DatabaseOperationError(exc)
+
+    async def save_graph(self) -> None:
+        """
+        Persist the nodes, edges and grounding after the roadmap grew.
+
+        A targeted update instead of ``save()``: only what expansion changes is
+        written, so nothing else on the record can be clobbered by it.
+        """
+        self.node_count = len(self.nodes)
+        try:
+            await repo_query(
+                "UPDATE $id SET nodes = $nodes, edges = $edges, node_count = $count, grounding = $grounding",
+                {
+                    "id": ensure_record_id(self.id),
+                    "nodes": self.nodes,
+                    "edges": self.edges,
+                    "count": self.node_count,
+                    "grounding": self.grounding,
+                },
+            )
+        except Exception as exc:
+            logger.error(f"Failed updating roadmap session {self.id}: {exc}")
+            raise DatabaseOperationError(exc)

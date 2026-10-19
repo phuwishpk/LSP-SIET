@@ -20,6 +20,7 @@ import {
 } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
+import { openRoadmapApp } from '@/lib/external-apps'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 
@@ -115,7 +116,7 @@ export function LibraryPanel({ isStaff, courseId, onAskDocument }: LibraryPanelP
                   busy={remove.isPending || retry.isPending}
                   onAsk={() => onAskDocument(doc)}
                   onQuiz={() => setStudy({ doc, kind: 'quiz' })}
-                  onRoadmap={() => setStudy({ doc, kind: 'roadmap' })}
+                  onRoadmap={() => void openRoadmapApp({ doc: doc.id })}
                   onDelete={() => {
                     if (window.confirm(`ลบ "${doc.title}" ออกจากคลังความรู้?`)) remove.mutate(doc.id)
                   }}
@@ -142,7 +143,7 @@ export function LibraryPanel({ isStaff, courseId, onAskDocument }: LibraryPanelP
 
 // ---------------------------------------------------------------------------
 
-function UploadCard({ isStaff, defaultCourseId }: { isStaff: boolean; defaultCourseId: number | null }) {
+export function UploadCard({ isStaff, defaultCourseId }: { isStaff: boolean; defaultCourseId: number | null }) {
   const { data: courses } = useCourses()
   const upload = useUploadDocument()
   const fileRef = useRef<HTMLInputElement>(null)

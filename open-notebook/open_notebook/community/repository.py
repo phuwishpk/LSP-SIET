@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
 from sqlalchemy import bindparam, text
@@ -47,6 +47,26 @@ def _rows(result: Any) -> List[Dict[str, Any]]:
 
 def _like(q: str) -> str:
     return f"%{q.strip()}%"
+
+
+# The MariaDB columns were renamed (see ``schema.RENAMES``) but callers and the
+# API still use the older keys, so reads alias the new columns back to them.
+# Explicit lists rather than ``*`` so a row never carries both names.
+_POST_COLUMNS = """
+    p.id, p.author_id, p.room_id AS course_id, p.type, p.title, p.content, p.tags,
+    p.attachment_name, p.attachment_path, p.attachment_size, p.attachment_mime,
+    p.linked_type AS embed_type, p.linked_id AS embed_id, p.linked_snapshot AS embed_snapshot,
+    p.like_count, p.helpful_count, p.comment_count, p.share_count,
+    p.quiz_play_count AS play_count,
+    p.roadmap_follow_count AS follow_count,
+    p.cashback_earned, p.is_deleted, p.content_hash,
+    p.created_at, p.updated_at
+"""
+
+_ROOM_COLUMNS = """
+    id, code, name, description, kind, created_by, created_at,
+    library_notebook_id AS notebook_id
+"""
 
 
 def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
@@ -91,6 +111,7 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
                 "description": snapshot.get("description"),
                 "nodes": snapshot.get("nodes") or [],
                 "edges": snapshot.get("edges") or [],
+                "grounding": snapshot.get("grounding"),
             }
 
     author = {
@@ -157,8 +178,8 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
     }
 
 
-_POST_SELECT = """
-    SELECT p.*,
+_POST_SELECT = f"""
+    SELECT {_POST_COLUMNS},
            u.username     AS author_username,
            u.display_name AS author_display_name,
            u.avatar_url   AS author_avatar_url,
@@ -168,14 +189,14 @@ _POST_SELECT = """
            c.kind         AS course_kind,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'like')    AS liked,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'helpful') AS marked_helpful,
-           EXISTS(SELECT 1 FROM saved_items s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
+           EXISTS(SELECT 1 FROM saved_posts s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
            EXISTS(SELECT 1 FROM post_shares ps WHERE ps.post_id = p.id AND ps.user_id = :viewer) AS shared,
-           (SELECT COUNT(*) FROM quiz_plays q WHERE q.post_id = p.id AND q.user_id = :viewer)                   AS my_plays,
-           (SELECT COUNT(*) FROM quiz_plays q WHERE q.post_id = p.id AND q.user_id = :viewer AND q.completed = 1) AS my_completed_plays,
+           (SELECT COUNT(*) FROM quiz_attempts q WHERE q.post_id = p.id AND q.user_id = :viewer)                   AS my_plays,
+           (SELECT COUNT(*) FROM quiz_attempts q WHERE q.post_id = p.id AND q.user_id = :viewer AND q.completed = 1) AS my_completed_plays,
            EXISTS(SELECT 1 FROM point_transactions t WHERE t.user_id = :viewer AND t.kind = 'quiz_import' AND t.ref_type = 'post' AND t.ref_id = CAST(p.id AS CHAR)) AS my_imported
       FROM posts p
       JOIN users u ON u.id = p.author_id
-      LEFT JOIN courses c ON c.id = p.course_id
+      LEFT JOIN rooms c ON c.id = p.room_id
 """
 
 
@@ -191,10 +212,10 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
                 """
                 SELECT c.id, c.code, c.name, c.description, c.kind,
                        c.created_by, c.created_at,
-                       (SELECT COUNT(*) FROM course_members m WHERE m.course_id = c.id) AS member_count,
-                       (SELECT COUNT(*) FROM posts p WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
-                       EXISTS(SELECT 1 FROM course_members m WHERE m.course_id = c.id AND m.user_id = :uid) AS joined
-                  FROM courses c
+                       (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
+                       (SELECT COUNT(*) FROM posts p WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
+                       EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :uid) AS joined
+                  FROM rooms c
                  ORDER BY c.kind ASC, c.code ASC
                 """
             ),
@@ -212,7 +233,9 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
 async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
-            await session.execute(text("SELECT * FROM courses WHERE id = :id"), {"id": course_id})
+            await session.execute(
+                text(f"SELECT {_ROOM_COLUMNS} FROM rooms WHERE id = :id"), {"id": course_id}
+            )
         ).first()
     return _row(row) if row else None
 
@@ -228,7 +251,7 @@ async def create_course(
         result = await session.execute(
             text(
                 """
-                INSERT INTO courses (code, name, description, created_by, kind)
+                INSERT INTO rooms (code, name, description, created_by, kind)
                 VALUES (:code, :name, :description, :created_by, :kind)
                 """
             ),
@@ -243,7 +266,7 @@ async def create_course(
         course_id = int(result.lastrowid)
         await session.execute(
             text(
-                "INSERT IGNORE INTO course_members (course_id, user_id) VALUES (:cid, :uid)"
+                "INSERT IGNORE INTO room_members (room_id, user_id) VALUES (:cid, :uid)"
             ),
             {"cid": course_id, "uid": created_by},
         )
@@ -258,7 +281,7 @@ async def ensure_course(code: str, name: str, description: Optional[str] = None)
         await session.execute(
             text(
                 """
-                INSERT IGNORE INTO courses (code, name, description)
+                INSERT IGNORE INTO rooms (code, name, description)
                 VALUES (:code, :name, :description)
                 """
             ),
@@ -289,7 +312,7 @@ async def update_course(
         return await get_course(course_id)
     async with _mariadb_session() as session:
         await session.execute(
-            text(f"UPDATE courses SET {', '.join(sets)} WHERE id = :cid"), values
+            text(f"UPDATE rooms SET {', '.join(sets)} WHERE id = :cid"), values
         )
     return await get_course(course_id)
 
@@ -302,13 +325,13 @@ async def courses_owned_by(user_id: int) -> List[Dict[str, Any]]:
                 text(
                     """
                     SELECT c.id, c.code, c.name, c.description, c.kind, c.created_at,
-                           (SELECT COUNT(*) FROM course_members m
-                             WHERE m.course_id = c.id) AS member_count,
+                           (SELECT COUNT(*) FROM room_members m
+                             WHERE m.room_id = c.id) AS member_count,
                            (SELECT COUNT(*) FROM posts p
-                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
+                             WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
                            (SELECT COUNT(*) FROM library_documents d
-                             WHERE d.course_id = c.id AND d.scope = 'course') AS document_count
-                      FROM courses c
+                             WHERE d.room_id = c.id AND d.scope = 'course') AS document_count
+                      FROM rooms c
                      WHERE c.created_by = :uid
                      ORDER BY c.kind ASC, c.code ASC
                     """
@@ -338,27 +361,27 @@ async def quiz_results_for_teacher(
     ]
     params: Dict[str, Any] = {"uid": user_id, "limit": int(limit)}
     if course_id:
-        where.append("p.course_id = :cid")
+        where.append("p.room_id = :cid")
         params["cid"] = int(course_id)
     async with _mariadb_session() as session:
         rows = _rows(
             await session.execute(
                 text(
                     f"""
-                    SELECT q.id, q.post_id, q.score, q.total, q.completed,
+                    SELECT q.id, q.post_id, q.score, q.question_count AS total, q.completed,
                            q.created_at, q.completed_at,
                            p.title        AS post_title,
-                           p.course_id    AS course_id,
+                           p.room_id      AS course_id,
                            c.code         AS course_code,
                            c.name         AS course_name,
                            u.id           AS student_id,
                            u.username     AS student_username,
                            u.display_name AS student_display_name,
-                           u.student_id   AS student_code
-                      FROM quiz_plays q
+                           u.student_code AS student_code
+                      FROM quiz_attempts q
                       JOIN posts p ON p.id = q.post_id
                       JOIN users u ON u.id = q.user_id
-                      LEFT JOIN courses c ON c.id = p.course_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
                      WHERE {' AND '.join(where)}
                      ORDER BY q.id DESC
                      LIMIT :limit
@@ -381,8 +404,8 @@ async def find_room_by_name(name: str, kind: str = KIND_CLUB) -> Optional[Dict[s
         row = (
             await session.execute(
                 text(
-                    """
-                    SELECT * FROM courses
+                    f"""
+                    SELECT {_ROOM_COLUMNS} FROM rooms
                      WHERE kind = :kind AND LOWER(name) = LOWER(:name)
                      LIMIT 1
                     """
@@ -400,25 +423,25 @@ async def delete_course(course_id: int) -> None:
     """
     async with _mariadb_session() as session:
         await session.execute(
-            text("UPDATE posts SET course_id = NULL WHERE course_id = :cid"),
+            text("UPDATE posts SET room_id = NULL WHERE room_id = :cid"),
             {"cid": course_id},
         )
         await session.execute(
-            text("DELETE FROM course_members WHERE course_id = :cid"), {"cid": course_id}
+            text("DELETE FROM room_members WHERE room_id = :cid"), {"cid": course_id}
         )
-        await session.execute(text("DELETE FROM courses WHERE id = :cid"), {"cid": course_id})
+        await session.execute(text("DELETE FROM rooms WHERE id = :cid"), {"cid": course_id})
 
 
 async def set_course_membership(course_id: int, user_id: int, joined: bool) -> None:
     async with _mariadb_session() as session:
         if joined:
             await session.execute(
-                text("INSERT IGNORE INTO course_members (course_id, user_id) VALUES (:cid, :uid)"),
+                text("INSERT IGNORE INTO room_members (room_id, user_id) VALUES (:cid, :uid)"),
                 {"cid": course_id, "uid": user_id},
             )
         else:
             await session.execute(
-                text("DELETE FROM course_members WHERE course_id = :cid AND user_id = :uid"),
+                text("DELETE FROM room_members WHERE room_id = :cid AND user_id = :uid"),
                 {"cid": course_id, "uid": user_id},
             )
 
@@ -450,9 +473,9 @@ async def create_post(
             text(
                 """
                 INSERT INTO posts
-                    (author_id, course_id, type, title, content, tags,
+                    (author_id, room_id, type, title, content, tags,
                      attachment_name, attachment_path, attachment_size, attachment_mime,
-                     embed_type, embed_id, embed_snapshot, content_hash)
+                     linked_type, linked_id, linked_snapshot, content_hash)
                 VALUES
                     (:author_id, :course_id, :type, :title, :content, :tags,
                      :att_name, :att_path, :att_size, :att_mime,
@@ -496,7 +519,7 @@ async def list_posts(
     where = ["p.is_deleted = 0"]
     params: Dict[str, Any] = {"viewer": viewer_id, "limit": max(1, min(int(limit), 100))}
     if course_id:
-        where.append("p.course_id = :course_id")
+        where.append("p.room_id = :course_id")
         params["course_id"] = course_id
     if post_type:
         where.append("p.type = :ptype")
@@ -508,19 +531,19 @@ async def list_posts(
         where.append("(p.title LIKE :q OR p.content LIKE :q OR p.tags LIKE :q OR u.display_name LIKE :q OR u.username LIKE :q)")
         params["q"] = _like(query)
     if saved_only:
-        where.append("EXISTS(SELECT 1 FROM saved_items s2 WHERE s2.post_id = p.id AND s2.user_id = :viewer)")
+        where.append("EXISTS(SELECT 1 FROM saved_posts s2 WHERE s2.post_id = p.id AND s2.user_id = :viewer)")
     if my_courses_only:
-        where.append("p.course_id IN (SELECT m.course_id FROM course_members m WHERE m.user_id = :viewer)")
+        where.append("p.room_id IN (SELECT m.room_id FROM room_members m WHERE m.user_id = :viewer)")
     if embed_types:
         types = [t for t in embed_types if t in ("quiz", "roadmap")]
         if types:
-            where.append("p.embed_type IN (" + ",".join(f"'{t}'" for t in types) + ")")
+            where.append("p.linked_type IN (" + ",".join(f"'{t}'" for t in types) + ")")
     if before_id:
         where.append("p.id < :before_id")
         params["before_id"] = int(before_id)
 
     if order == "popular":
-        order_by = "(p.like_count * 2 + p.helpful_count * 3 + p.follow_count * 2 + p.play_count + p.comment_count) DESC, p.id DESC"
+        order_by = "(p.like_count * 2 + p.helpful_count * 3 + p.roadmap_follow_count * 2 + p.quiz_play_count + p.comment_count) DESC, p.id DESC"
     else:
         order_by = "p.id DESC"
 
@@ -546,7 +569,7 @@ async def get_post_raw(post_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM posts WHERE id = :pid AND is_deleted = 0"),
+                text(f"SELECT {_POST_COLUMNS} FROM posts p WHERE p.id = :pid AND p.is_deleted = 0"),
                 {"pid": post_id},
             )
         ).first()
@@ -589,15 +612,384 @@ async def update_post(
         sets.append("tags = :tags")
         values["tags"] = ",".join(t.strip()[:40] for t in tags if t.strip())[:255] or None
     if clear_course:
-        sets.append("course_id = NULL")
+        sets.append("room_id = NULL")
     elif course_id is not None:
-        sets.append("course_id = :course_id")
+        sets.append("room_id = :course_id")
         values["course_id"] = course_id
     if not sets:
         return
     async with _mariadb_session() as session:
         await session.execute(
             text(f"UPDATE posts SET {', '.join(sets)} WHERE id = :pid"), values
+        )
+
+
+async def roadmap_posts_for_author(author_id: int, session_ids: Sequence[str]) -> Dict[str, int]:
+    """
+    ``{roadmap session id: post id}`` for the visible posts this author made
+    from those sessions. One roadmap is shared at most once, so this is what
+    tells the roadmap app to show "view post" instead of "share".
+    """
+    ids = [str(s) for s in session_ids if s]
+    if not ids:
+        return {}
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT linked_id, MAX(id) AS post_id
+                      FROM posts
+                     WHERE author_id = :uid AND linked_type = 'roadmap'
+                       AND is_deleted = 0 AND linked_id IN :ids
+                     GROUP BY linked_id
+                    """
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"uid": author_id, "ids": ids},
+            )
+        )
+    return {str(r["linked_id"]): int(r["post_id"]) for r in rows}
+
+
+async def roadmap_posts_by_session(session_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    """``{roadmap session id: {post_id, is_deleted, follow_count}}`` whoever the author is."""
+    ids = [str(s) for s in session_ids if s]
+    if not ids:
+        return {}
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT linked_id, id AS post_id, is_deleted, roadmap_follow_count
+                      FROM posts
+                     WHERE linked_type = 'roadmap' AND linked_id IN :ids
+                     ORDER BY id ASC
+                    """
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": ids},
+            )
+        )
+    # A re-share after the first post was deleted: the newest row wins.
+    return {
+        str(r["linked_id"]): {
+            "post_id": int(r["post_id"]),
+            "is_deleted": bool(r["is_deleted"]),
+            "follow_count": int(r["roadmap_follow_count"] or 0),
+        }
+        for r in rows
+    }
+
+
+async def admin_roadmap_posts(*, state: str = "visible", limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    """Roadmap posts for moderation: author, room, counters and the size of the plan."""
+    where = ["p.linked_type = 'roadmap'"]
+    if state == "visible":
+        where.append("p.is_deleted = 0")
+    elif state == "deleted":
+        where.append("p.is_deleted = 1")
+    clause = " AND ".join(where)
+    params = {"limit": int(limit), "offset": int(offset)}
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) FROM posts p WHERE {clause}"))).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT p.id, p.title, p.is_deleted, p.created_at, p.linked_id, p.linked_snapshot,
+                           p.like_count, p.helpful_count, p.comment_count, p.share_count,
+                           p.roadmap_follow_count,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           c.id AS room_id, c.code AS room_code, c.name AS room_name
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
+                     WHERE {clause}
+                     ORDER BY p.roadmap_follow_count DESC, p.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = []
+    for r in rows:
+        try:
+            snapshot = json.loads(r.get("linked_snapshot") or "{}")
+        except (TypeError, ValueError):
+            snapshot = {}
+        nodes = snapshot.get("nodes") or []
+        items.append(
+            {
+                "id": r["id"],
+                "title": r.get("title") or snapshot.get("title"),
+                "session_id": r.get("linked_id"),
+                "is_deleted": bool(r.get("is_deleted")),
+                "created_at": r.get("created_at"),
+                "node_count": len(nodes),
+                "sub_node_count": sum(1 for n in nodes if n.get("parent")),
+                "grounding_label": (snapshot.get("grounding") or {}).get("label"),
+                "counts": {
+                    "follow": int(r.get("roadmap_follow_count") or 0),
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                },
+                "author": {
+                    "id": r["author_id"],
+                    "username": r.get("author_username"),
+                    "display_name": r.get("author_display_name"),
+                    "role": r.get("author_role"),
+                },
+                "room": (
+                    {"id": r["room_id"], "code": r.get("room_code"), "name": r.get("room_name")}
+                    if r.get("room_id")
+                    else None
+                ),
+            }
+        )
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+async def roadmap_point_stats(since: datetime) -> Dict[str, int]:
+    """Points spent on roadmaps since ``since``, net of refunds, plus sharing totals."""
+    # created_at is a naive UTC DATETIME.
+    if since.tzinfo is not None:
+        since = since.astimezone(timezone.utc).replace(tzinfo=None)
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COALESCE(SUM(-t.delta), 0) FROM point_transactions t
+                        WHERE t.kind IN ('roadmap_generate', 'roadmap_expand')
+                          AND t.created_at >= :since) AS charged,
+                      (SELECT COALESCE(SUM(r.delta), 0) FROM point_transactions r
+                         JOIN point_transactions t
+                           ON r.ref_type = 'point_transaction' AND r.ref_id = CAST(t.id AS CHAR)
+                        WHERE r.kind = 'refund' AND t.kind IN ('roadmap_generate', 'roadmap_expand')
+                          AND t.created_at >= :since) AS refunded,
+                      (SELECT COUNT(*) FROM point_transactions t
+                        WHERE t.kind = 'roadmap_expand'
+                          AND t.created_at >= :since
+                          AND NOT EXISTS (SELECT 1 FROM point_transactions r
+                                           WHERE r.kind = 'refund' AND r.ref_type = 'point_transaction'
+                                             AND r.ref_id = CAST(t.id AS CHAR))) AS expansions,
+                      (SELECT COUNT(*) FROM posts WHERE linked_type = 'roadmap' AND is_deleted = 0) AS shared_posts,
+                      (SELECT COALESCE(SUM(roadmap_follow_count), 0) FROM posts
+                        WHERE linked_type = 'roadmap' AND is_deleted = 0) AS follows
+                    """
+                ),
+                {"since": since},
+            )
+        ).first()
+    return {
+        "points_spent": int((row.charged or 0) - (row.refunded or 0)) if row else 0,
+        "expansions": int(row.expansions or 0) if row else 0,
+        "shared_posts": int(row.shared_posts or 0) if row else 0,
+        "follows": int(row.follows or 0) if row else 0,
+    }
+
+
+def _naive_utc(value: datetime) -> datetime:
+    """MariaDB keeps naive UTC DATETIMEs, so that is what a bound must be."""
+    if value.tzinfo is not None:
+        return value.astimezone(timezone.utc).replace(tzinfo=None)
+    return value
+
+
+def _pct(ratio: Any) -> Optional[int]:
+    """An average score ratio (0-1) as a whole percentage; None when nobody finished."""
+    return None if ratio is None else int(round(float(ratio) * 100))
+
+
+async def _points_spent(session: Any, kinds: Sequence[str], since: datetime) -> int:
+    """Points charged for ``kinds`` since ``since``, minus what was refunded."""
+    row = (
+        await session.execute(
+            text(
+                """
+                SELECT
+                  (SELECT COALESCE(SUM(-t.delta), 0) FROM point_transactions t
+                    WHERE t.kind IN :kinds AND t.created_at >= :since) AS charged,
+                  (SELECT COALESCE(SUM(r.delta), 0) FROM point_transactions r
+                     JOIN point_transactions t
+                       ON r.ref_type = 'point_transaction' AND r.ref_id = CAST(t.id AS CHAR)
+                    WHERE r.kind = 'refund' AND t.kind IN :kinds
+                      AND t.created_at >= :since) AS refunded
+                """
+            ).bindparams(bindparam("kinds", expanding=True)),
+            {"kinds": list(kinds), "since": since},
+        )
+    ).first()
+    return int((row.charged or 0) - (row.refunded or 0)) if row else 0
+
+
+async def quiz_posts_by_session(session_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+    """``{quiz session id: {post_id, is_deleted, play_count}}`` whoever the author is."""
+    ids = [str(s) for s in session_ids if s]
+    if not ids:
+        return {}
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT linked_id, id AS post_id, is_deleted, quiz_play_count
+                      FROM posts
+                     WHERE linked_type = 'quiz' AND linked_id IN :ids
+                     ORDER BY id ASC
+                    """
+                ).bindparams(bindparam("ids", expanding=True)),
+                {"ids": ids},
+            )
+        )
+    # The same quiz can be posted again: the newest row wins.
+    return {
+        str(r["linked_id"]): {
+            "post_id": int(r["post_id"]),
+            "is_deleted": bool(r["is_deleted"]),
+            "play_count": int(r["quiz_play_count"] or 0),
+        }
+        for r in rows
+    }
+
+
+async def admin_quiz_posts(*, state: str = "visible", limit: int = 50, offset: int = 0) -> Dict[str, Any]:
+    """Quiz posts for moderation: author, room, counters and how people scored."""
+    where = ["p.linked_type = 'quiz'"]
+    if state == "visible":
+        where.append("p.is_deleted = 0")
+    elif state == "deleted":
+        where.append("p.is_deleted = 1")
+    clause = " AND ".join(where)
+    params = {"limit": int(limit), "offset": int(offset)}
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) FROM posts p WHERE {clause}"))).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT p.id, p.title, p.is_deleted, p.created_at, p.linked_id, p.linked_snapshot,
+                           p.like_count, p.helpful_count, p.comment_count, p.share_count,
+                           p.quiz_play_count, p.cashback_earned,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           c.id AS room_id, c.code AS room_code, c.name AS room_name,
+                           a.attempts, a.completed, a.players, a.avg_ratio
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
+                      LEFT JOIN (
+                            SELECT post_id,
+                                   COUNT(*) AS attempts,
+                                   SUM(completed) AS completed,
+                                   COUNT(DISTINCT user_id) AS players,
+                                   AVG(CASE WHEN completed = 1 AND question_count > 0
+                                            THEN score / question_count END) AS avg_ratio
+                              FROM quiz_attempts
+                             GROUP BY post_id
+                           ) a ON a.post_id = p.id
+                     WHERE {clause}
+                     ORDER BY p.quiz_play_count DESC, p.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = []
+    for r in rows:
+        try:
+            snapshot = json.loads(r.get("linked_snapshot") or "{}")
+        except (TypeError, ValueError):
+            snapshot = {}
+        items.append(
+            {
+                "id": r["id"],
+                "title": r.get("title") or snapshot.get("topic"),
+                "session_id": r.get("linked_id"),
+                "is_deleted": bool(r.get("is_deleted")),
+                "created_at": r.get("created_at"),
+                "question_count": len(snapshot.get("questions") or []),
+                "counts": {
+                    "play": int(r.get("quiz_play_count") or 0),
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                    "cashback": int(r.get("cashback_earned") or 0),
+                },
+                "attempts": {
+                    "total": int(r.get("attempts") or 0),
+                    "completed": int(r.get("completed") or 0),
+                    "players": int(r.get("players") or 0),
+                    "avg_score_pct": _pct(r.get("avg_ratio")),
+                },
+                "author": {
+                    "id": r["author_id"],
+                    "username": r.get("author_username"),
+                    "display_name": r.get("author_display_name"),
+                    "role": r.get("author_role"),
+                },
+                "room": (
+                    {"id": r["room_id"], "code": r.get("room_code"), "name": r.get("room_name")}
+                    if r.get("room_id")
+                    else None
+                ),
+            }
+        )
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+async def quiz_stats(since: datetime) -> Dict[str, Any]:
+    """Quiz activity since ``since``: attempts, scores, points spent and cashback paid."""
+    since = _naive_utc(since)
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COUNT(*) FROM quiz_attempts WHERE created_at >= :since) AS attempts,
+                      (SELECT COUNT(*) FROM quiz_attempts
+                        WHERE created_at >= :since AND completed = 1) AS completed,
+                      (SELECT COUNT(DISTINCT user_id) FROM quiz_attempts
+                        WHERE created_at >= :since) AS players,
+                      (SELECT AVG(score / question_count) FROM quiz_attempts
+                        WHERE created_at >= :since AND completed = 1 AND question_count > 0) AS avg_ratio,
+                      (SELECT COALESCE(SUM(delta), 0) FROM point_transactions
+                        WHERE kind = 'cashback' AND created_at >= :since) AS cashback,
+                      (SELECT COUNT(*) FROM posts WHERE linked_type = 'quiz' AND is_deleted = 0) AS shared_posts,
+                      (SELECT COALESCE(SUM(quiz_play_count), 0) FROM posts
+                        WHERE linked_type = 'quiz' AND is_deleted = 0) AS plays
+                    """
+                ),
+                {"since": since},
+            )
+        ).first()
+        spent = await _points_spent(session, ("quiz_generate", "quiz_import"), since)
+    return {
+        "attempts": int(row.attempts or 0) if row else 0,
+        "completed": int(row.completed or 0) if row else 0,
+        "players": int(row.players or 0) if row else 0,
+        "avg_score_pct": _pct(row.avg_ratio) if row else None,
+        "cashback_paid": int(row.cashback or 0) if row else 0,
+        "shared_posts": int(row.shared_posts or 0) if row else 0,
+        "plays": int(row.plays or 0) if row else 0,
+        "points_spent": spent,
+    }
+
+
+async def update_post_snapshot(post_id: int, snapshot: Dict[str, Any]) -> None:
+    """Replace the roadmap/quiz copy a post carries (the author pushed a newer version)."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE posts SET linked_snapshot = :snapshot WHERE id = :pid"),
+            {"snapshot": json.dumps(snapshot, ensure_ascii=False), "pid": post_id},
         )
 
 
@@ -651,7 +1043,7 @@ async def admin_list_posts(
         where.append("p.type = :type")
         params["type"] = post_type
     if course_id:
-        where.append("p.course_id = :cid")
+        where.append("p.room_id = :cid")
         params["cid"] = int(course_id)
     if author_id:
         where.append("p.author_id = :aid")
@@ -686,7 +1078,7 @@ async def admin_list_posts(
                            c.kind AS course_kind
                       FROM posts p
                       JOIN users u ON u.id = p.author_id
-                      LEFT JOIN courses c ON c.id = p.course_id
+                      LEFT JOIN rooms c ON c.id = p.room_id
                       {clause}
                      ORDER BY p.id DESC
                      LIMIT :limit OFFSET :offset
@@ -746,14 +1138,14 @@ async def admin_list_courses() -> List[Dict[str, Any]]:
                            u.username     AS owner_username,
                            u.display_name AS owner_display_name,
                            u.role         AS owner_role,
-                           (SELECT COUNT(*) FROM course_members m WHERE m.course_id = c.id) AS member_count,
+                           (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
                            (SELECT COUNT(*) FROM posts p
-                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS post_count,
+                             WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
                            (SELECT COUNT(*) FROM library_documents d
-                             WHERE d.course_id = c.id AND d.scope = 'course') AS document_count,
+                             WHERE d.room_id = c.id AND d.scope = 'course') AS document_count,
                            (SELECT MAX(p.created_at) FROM posts p
-                             WHERE p.course_id = c.id AND p.is_deleted = 0) AS last_post_at
-                      FROM courses c
+                             WHERE p.room_id = c.id AND p.is_deleted = 0) AS last_post_at
+                      FROM rooms c
                       LEFT JOIN users u ON u.id = c.created_by
                      ORDER BY c.kind ASC, c.code ASC
                     """
@@ -770,7 +1162,7 @@ async def find_course_by_code(code: str) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM courses WHERE code = :code LIMIT 1"),
+                text(f"SELECT {_ROOM_COLUMNS} FROM rooms WHERE code = :code LIMIT 1"),
                 {"code": (code or "").strip().upper()[:32]},
             )
         ).first()
@@ -858,6 +1250,378 @@ async def admin_points_log(
     return {"items": items, "by_kind": by_kind, "top_spenders": top, "days": int(days)}
 
 
+async def admin_list_comments(
+    *,
+    query: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Every comment in the workspace, newest first, with the post it sits under."""
+    where: List[str] = []
+    params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if query:
+        where.append("(c.content LIKE :q OR u.username LIKE :q OR u.display_name LIKE :q)")
+        params["q"] = _like(query)
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+    joins = "FROM post_comments c JOIN users u ON u.id = c.author_id JOIN posts p ON p.id = c.post_id"
+    async with _mariadb_session() as session:
+        total = (await session.execute(text(f"SELECT COUNT(*) {joins} {clause}"), params)).scalar()
+        rows = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT c.id, c.post_id, c.content, c.created_at,
+                           u.id AS author_id, u.username AS author_username,
+                           u.display_name AS author_display_name, u.role AS author_role,
+                           p.title AS post_title, p.type AS post_type, p.is_deleted AS post_is_deleted
+                      {joins} {clause}
+                     ORDER BY c.id DESC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        )
+    items = [
+        {
+            "id": r["id"],
+            "content": r["content"],
+            "created_at": r.get("created_at"),
+            "author": {
+                "id": r["author_id"],
+                "username": r.get("author_username"),
+                "display_name": r.get("author_display_name"),
+                "role": r.get("author_role"),
+            },
+            "post": {
+                "id": r["post_id"],
+                "title": r.get("post_title"),
+                "type": r.get("post_type"),
+                "is_deleted": bool(r.get("post_is_deleted")),
+            },
+        }
+        for r in rows
+    ]
+    return {"items": items, "total": int(total or 0), "offset": int(offset)}
+
+
+def _author(r: Dict[str, Any]) -> Dict[str, Any]:
+    return {
+        "id": r["user_id"],
+        "username": r.get("username"),
+        "display_name": r.get("display_name"),
+        "role": r.get("role"),
+    }
+
+
+def _per_day(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    return [{"day": str(r["day"]), "count": int(r["count"] or 0)} for r in rows]
+
+
+async def community_stats(since: datetime, tz_minutes: int = 0) -> Dict[str, Any]:
+    """
+    What happened in the feed since ``since``: how much, who took part and which
+    posts drew a response. Days are cut on the viewer's clock (``tz_minutes``
+    east of UTC). Hidden posts are left out of everything but their own count.
+    """
+    params = {"since": _naive_utc(since), "tz": int(tz_minutes)}
+    async with _mariadb_session() as session:
+        totals = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COUNT(*) FROM posts WHERE created_at >= :since AND is_deleted = 0) AS posts,
+                      (SELECT COUNT(*) FROM post_comments WHERE created_at >= :since) AS comments,
+                      (SELECT COUNT(*) FROM post_reactions WHERE created_at >= :since) AS reactions,
+                      (SELECT COUNT(*) FROM post_shares WHERE created_at >= :since) AS shares,
+                      (SELECT COUNT(*) FROM saved_posts WHERE created_at >= :since) AS saves,
+                      (SELECT COUNT(*) FROM room_members WHERE joined_at >= :since) AS room_joins,
+                      (SELECT COUNT(*) FROM posts WHERE is_deleted = 1) AS hidden_posts,
+                      (SELECT COUNT(*) FROM (
+                            SELECT author_id FROM posts WHERE created_at >= :since AND is_deleted = 0
+                            UNION
+                            SELECT author_id FROM post_comments WHERE created_at >= :since
+                       ) AS active) AS contributors
+                    """
+                ),
+                params,
+            )
+        ).first()
+        per_day = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT DATE(DATE_ADD(created_at, INTERVAL :tz MINUTE)) AS day, COUNT(*) AS count
+                      FROM posts
+                     WHERE created_at >= :since AND is_deleted = 0
+                     GROUP BY day ORDER BY day
+                    """
+                ),
+                params,
+            )
+        )
+        by_type = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT type, COUNT(*) AS count FROM posts
+                     WHERE created_at >= :since AND is_deleted = 0
+                     GROUP BY type
+                    """
+                ),
+                params,
+            )
+        )
+        contributors = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT u.id AS user_id, u.username, u.display_name, u.role, a.posts, a.comments
+                      FROM (
+                            SELECT author_id, SUM(posts) AS posts, SUM(comments) AS comments
+                              FROM (
+                                    SELECT author_id, COUNT(*) AS posts, 0 AS comments FROM posts
+                                     WHERE created_at >= :since AND is_deleted = 0 GROUP BY author_id
+                                    UNION ALL
+                                    SELECT author_id, 0 AS posts, COUNT(*) AS comments FROM post_comments
+                                     WHERE created_at >= :since GROUP BY author_id
+                                   ) AS activity
+                             GROUP BY author_id
+                           ) AS a
+                      JOIN users u ON u.id = a.author_id
+                     ORDER BY (a.posts + a.comments) DESC, u.id ASC
+                     LIMIT 8
+                    """
+                ),
+                params,
+            )
+        )
+        top_posts = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT p.id, p.type, p.title, p.like_count, p.helpful_count, p.comment_count,
+                           p.share_count, u.id AS user_id, u.username, u.display_name, u.role
+                      FROM posts p
+                      JOIN users u ON u.id = p.author_id
+                     WHERE p.created_at >= :since AND p.is_deleted = 0
+                       AND (p.like_count + p.helpful_count + p.comment_count + p.share_count) > 0
+                     ORDER BY (p.like_count + p.helpful_count + p.comment_count + p.share_count) DESC,
+                              p.id DESC
+                     LIMIT 5
+                    """
+                ),
+                params,
+            )
+        )
+
+    counted = {r["type"]: int(r["count"] or 0) for r in by_type}
+    return {
+        **{
+            key: int(getattr(totals, key) or 0) if totals else 0
+            for key in ("posts", "comments", "reactions", "shares", "saves", "room_joins",
+                        "hidden_posts", "contributors")
+        },
+        "per_day": _per_day(per_day),
+        "by_type": {kind: counted.get(kind, 0) for kind in POST_TYPES},
+        "top_contributors": [
+            {"user": _author(r), "posts": int(r["posts"] or 0), "comments": int(r["comments"] or 0)}
+            for r in contributors
+        ],
+        "top_posts": [
+            {
+                "id": r["id"],
+                "type": r["type"],
+                "title": r.get("title"),
+                "author": _author(r),
+                "counts": {
+                    "like": int(r.get("like_count") or 0),
+                    "helpful": int(r.get("helpful_count") or 0),
+                    "comment": int(r.get("comment_count") or 0),
+                    "share": int(r.get("share_count") or 0),
+                },
+            }
+            for r in top_posts
+        ],
+    }
+
+
+# The answers of one window are folded in Python (their details live in a JSON
+# column); a cap keeps a very busy term from loading the whole table.
+RAG_STATS_MAX_ANSWERS = 5000
+RAG_COVERAGE_LEVELS = ("full", "partial", "none")
+
+
+def summarize_rag_answers(metas: Iterable[Any]) -> Dict[str, Any]:
+    """
+    Fold the stored ``answer_meta`` of RAG answers into coverage counts and the
+    most cited documents.
+
+    Tolerant on purpose: the column is JSON text written by several versions of
+    the ask route, so a row that cannot be read counts as "unknown" coverage
+    instead of failing the page. A document cited twice in one answer counts once.
+    """
+    coverage = {level: 0 for level in (*RAG_COVERAGE_LEVELS, "unknown")}
+    web_used = cached = 0
+    cited: Dict[str, Dict[str, Any]] = {}
+    for raw in metas:
+        try:
+            meta = json.loads(raw) if isinstance(raw, (str, bytes)) else (raw or {})
+        except (TypeError, ValueError):
+            meta = {}
+        if not isinstance(meta, dict):
+            meta = {}
+        level = str(meta.get("coverage") or "").lower()
+        coverage[level if level in RAG_COVERAGE_LEVELS else "unknown"] += 1
+        if meta.get("web_used") or meta.get("web_sources"):
+            web_used += 1
+        if meta.get("cached"):
+            cached += 1
+        seen: set[str] = set()
+        for citation in meta.get("citations") or []:
+            if not isinstance(citation, dict) or not citation.get("cited"):
+                continue
+            key = str(citation.get("id") or citation.get("title") or "")
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            entry = cited.setdefault(
+                key, {"id": citation.get("id"), "title": citation.get("title") or "(ไม่มีชื่อ)", "count": 0}
+            )
+            entry["count"] += 1
+    return {
+        "answers": sum(coverage.values()),
+        "coverage": coverage,
+        "web_used": web_used,
+        "cached": cached,
+        "top_documents": sorted(cited.values(), key=lambda e: (-e["count"], str(e["title"])))[:8],
+    }
+
+
+async def rag_stats(since: datetime, tz_minutes: int = 0) -> Dict[str, Any]:
+    """
+    How KMITL RAG AI is used since ``since``.
+
+    Counts and document titles only - never a question or an answer: the chat
+    history stays private to its owner, admins included. Questions are counted
+    from that history, so a conversation its owner deleted is no longer in here.
+    """
+    params = {"since": _naive_utc(since), "tz": int(tz_minutes)}
+    asked = "FROM rag_messages m WHERE m.role = 'user' AND m.created_at >= :since"
+    async with _mariadb_session() as session:
+        totals = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT
+                      (SELECT COUNT(*) {asked}) AS questions,
+                      (SELECT COUNT(DISTINCT m.conversation_id) {asked}) AS conversations,
+                      (SELECT COUNT(DISTINCT c.user_id)
+                         FROM rag_messages m JOIN rag_conversations c ON c.id = m.conversation_id
+                        WHERE m.role = 'user' AND m.created_at >= :since) AS askers
+                    """
+                ),
+                params,
+            )
+        ).first()
+        per_day = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT DATE(DATE_ADD(m.created_at, INTERVAL :tz MINUTE)) AS day, COUNT(*) AS count
+                      {asked}
+                     GROUP BY day ORDER BY day
+                    """
+                ),
+                params,
+            )
+        )
+        metas = (
+            await session.execute(
+                text(
+                    """
+                    SELECT answer_meta FROM rag_messages
+                     WHERE role = 'assistant' AND created_at >= :since
+                     ORDER BY id DESC LIMIT :cap
+                    """
+                ),
+                {**params, "cap": RAG_STATS_MAX_ANSWERS},
+            )
+        ).scalars().all()
+        askers = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT u.id AS user_id, u.username, u.display_name, u.role, COUNT(*) AS questions
+                      FROM rag_messages m
+                      JOIN rag_conversations c ON c.id = m.conversation_id
+                      JOIN users u ON u.id = c.user_id
+                     WHERE m.role = 'user' AND m.created_at >= :since
+                     GROUP BY u.id, u.username, u.display_name, u.role
+                     ORDER BY questions DESC, u.id ASC
+                     LIMIT 8
+                    """
+                ),
+                params,
+            )
+        )
+        usage = (
+            await session.execute(
+                text(
+                    """
+                    SELECT COUNT(*) AS calls,
+                           COALESCE(SUM(input_tokens + output_tokens), 0) AS tokens,
+                           COALESCE(SUM(search_queries), 0) AS search_queries,
+                           COALESCE(SUM(cost_usd), 0) AS cost_usd,
+                           AVG(CASE WHEN kind = 'chat' THEN latency_ms END) AS avg_latency_ms
+                      FROM llm_usage
+                     WHERE feature = 'ask' AND created_at >= :since
+                    """
+                ),
+                params,
+            )
+        ).first()
+        library = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT status, scope, COUNT(*) AS documents, COALESCE(SUM(chunk_count), 0) AS chunks
+                      FROM library_documents GROUP BY status, scope
+                    """
+                )
+            )
+        )
+        spent = await _points_spent(session, ("rag_question", "rag_session"), params["since"])
+
+    docs = {"ready": 0, "processing": 0, "failed": 0, "course": 0, "personal": 0, "chunks": 0}
+    for r in library:
+        count = int(r["documents"] or 0)
+        docs[r["status"]] = docs.get(r["status"], 0) + count
+        if r["status"] == "ready":
+            docs[r["scope"]] = docs.get(r["scope"], 0) + count
+            docs["chunks"] += int(r["chunks"] or 0)
+    return {
+        "questions": int(totals.questions or 0) if totals else 0,
+        "conversations": int(totals.conversations or 0) if totals else 0,
+        "askers": int(totals.askers or 0) if totals else 0,
+        "per_day": _per_day(per_day),
+        **summarize_rag_answers(metas),
+        "top_askers": [{"user": _author(r), "questions": int(r["questions"] or 0)} for r in askers],
+        "points_spent": spent,
+        "usage": {
+            "calls": int(usage.calls or 0) if usage else 0,
+            "tokens": int(usage.tokens or 0) if usage else 0,
+            "search_queries": int(usage.search_queries or 0) if usage else 0,
+            "cost_usd": round(float(usage.cost_usd or 0), 6) if usage else 0.0,
+            "avg_latency_ms": (
+                int(round(float(usage.avg_latency_ms))) if usage and usage.avg_latency_ms is not None else None
+            ),
+        },
+        "library": docs,
+    }
+
+
 async def soft_delete_post(post_id: int) -> None:
     async with _mariadb_session() as session:
         await session.execute(
@@ -871,8 +1635,8 @@ async def bump_counter(post_id: int, column: str, delta: int = 1) -> None:
         "helpful_count",
         "comment_count",
         "share_count",
-        "play_count",
-        "follow_count",
+        "quiz_play_count",
+        "roadmap_follow_count",
         "cashback_earned",
     }
     if column not in allowed:
@@ -986,6 +1750,7 @@ async def list_comments(post_id: int, limit: int = 100) -> List[Dict[str, Any]]:
             "post_id": r["post_id"],
             "content": r["content"],
             "created_at": r["created_at"],
+            "author_id": r["author_id"],
             "author": {
                 "id": r["author_id"],
                 "username": r["author_username"],
@@ -1011,6 +1776,41 @@ async def add_comment(post_id: int, author_id: int, content: str) -> int:
             {"pid": post_id},
         )
         return int(result.lastrowid)
+
+
+async def get_comment(comment_id: int) -> Optional[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT * FROM post_comments WHERE id = :cid"), {"cid": comment_id}
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def delete_comment(comment_id: int, post_id: int) -> None:
+    """
+    Remove a comment for good.
+
+    Posts are only flagged as deleted so a moderator can undo it, but a comment
+    someone withdraws is expected to be gone. The count on the post is
+    recalculated rather than decremented, so it cannot drift below zero if the
+    same comment is deleted twice.
+    """
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("DELETE FROM post_comments WHERE id = :cid"), {"cid": comment_id}
+        )
+        await session.execute(
+            text(
+                """
+                UPDATE posts SET comment_count =
+                    (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = :pid)
+                 WHERE id = :pid
+                """
+            ),
+            {"pid": post_id},
+        )
 
 
 async def record_share(post_id: int, user_id: int) -> bool:
@@ -1043,18 +1843,18 @@ async def toggle_saved(post_id: int, user_id: int) -> bool:
     async with _mariadb_session() as session:
         existing = (
             await session.execute(
-                text("SELECT 1 FROM saved_items WHERE post_id = :pid AND user_id = :uid"),
+                text("SELECT 1 FROM saved_posts WHERE post_id = :pid AND user_id = :uid"),
                 {"pid": post_id, "uid": user_id},
             )
         ).first()
         if existing:
             await session.execute(
-                text("DELETE FROM saved_items WHERE post_id = :pid AND user_id = :uid"),
+                text("DELETE FROM saved_posts WHERE post_id = :pid AND user_id = :uid"),
                 {"pid": post_id, "uid": user_id},
             )
             return False
         await session.execute(
-            text("INSERT INTO saved_items (post_id, user_id) VALUES (:pid, :uid)"),
+            text("INSERT INTO saved_posts (post_id, user_id) VALUES (:pid, :uid)"),
             {"pid": post_id, "uid": user_id},
         )
         return True
@@ -1063,7 +1863,7 @@ async def toggle_saved(post_id: int, user_id: int) -> bool:
 async def save_item(post_id: int, user_id: int) -> None:
     async with _mariadb_session() as session:
         await session.execute(
-            text("INSERT IGNORE INTO saved_items (post_id, user_id) VALUES (:pid, :uid)"),
+            text("INSERT IGNORE INTO saved_posts (post_id, user_id) VALUES (:pid, :uid)"),
             {"pid": post_id, "uid": user_id},
         )
 
@@ -1081,7 +1881,7 @@ async def count_plays(post_id: int, user_id: int) -> Dict[str, int]:
                     """
                     SELECT COUNT(*) AS total,
                            SUM(CASE WHEN completed = 1 THEN 1 ELSE 0 END) AS completed
-                      FROM quiz_plays WHERE post_id = :pid AND user_id = :uid
+                      FROM quiz_attempts WHERE post_id = :pid AND user_id = :uid
                     """
                 ),
                 {"pid": post_id, "uid": user_id},
@@ -1094,12 +1894,12 @@ async def create_play(post_id: int, user_id: int, total: int) -> int:
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
-                "INSERT INTO quiz_plays (post_id, user_id, total) VALUES (:pid, :uid, :total)"
+                "INSERT INTO quiz_attempts (post_id, user_id, question_count) VALUES (:pid, :uid, :total)"
             ),
             {"pid": post_id, "uid": user_id, "total": total},
         )
         await session.execute(
-            text("UPDATE posts SET play_count = play_count + 1 WHERE id = :pid"), {"pid": post_id}
+            text("UPDATE posts SET quiz_play_count = quiz_play_count + 1 WHERE id = :pid"), {"pid": post_id}
         )
         return int(result.lastrowid)
 
@@ -1107,7 +1907,13 @@ async def create_play(post_id: int, user_id: int, total: int) -> int:
 async def get_play(play_id: int) -> Optional[Dict[str, Any]]:
     async with _mariadb_session() as session:
         row = (
-            await session.execute(text("SELECT * FROM quiz_plays WHERE id = :id"), {"id": play_id})
+            await session.execute(
+                text(
+                    "SELECT id, post_id, user_id, score, question_count AS total, completed, "
+                    "cashback_paid, created_at, completed_at FROM quiz_attempts WHERE id = :id"
+                ),
+                {"id": play_id},
+            )
         ).first()
     return _row(row) if row else None
 
@@ -1117,8 +1923,8 @@ async def complete_play(play_id: int, score: int, total: int, cashback_paid: boo
         await session.execute(
             text(
                 """
-                UPDATE quiz_plays
-                   SET score = :score, total = :total, completed = 1,
+                UPDATE quiz_attempts
+                   SET score = :score, question_count = :total, completed = 1,
                        cashback_paid = :cb, completed_at = NOW()
                  WHERE id = :id
                 """
@@ -1133,7 +1939,7 @@ async def has_completed_before(post_id: int, user_id: int, exclude_play_id: int)
             await session.execute(
                 text(
                     """
-                    SELECT 1 FROM quiz_plays
+                    SELECT 1 FROM quiz_attempts
                      WHERE post_id = :pid AND user_id = :uid AND completed = 1 AND id <> :pl
                      LIMIT 1
                     """
@@ -1155,7 +1961,7 @@ async def create_rag_session(user_id: int, credits: int) -> str:
         await session.execute(
             text(
                 """
-                INSERT INTO rag_sessions (id, user_id, credits_left, messages)
+                INSERT INTO rag_credit_sessions (id, user_id, credits_left, messages)
                 VALUES (:id, :uid, :credits, :messages)
                 """
             ),
@@ -1168,7 +1974,7 @@ async def get_rag_session(session_id: str, user_id: int) -> Optional[Dict[str, A
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text("SELECT * FROM rag_sessions WHERE id = :id AND user_id = :uid"),
+                text("SELECT * FROM rag_credit_sessions WHERE id = :id AND user_id = :uid"),
                 {"id": session_id, "uid": user_id},
             )
         ).first()
@@ -1188,7 +1994,7 @@ async def update_rag_session(
     async with _mariadb_session() as session:
         await session.execute(
             text(
-                "UPDATE rag_sessions SET messages = :messages, credits_left = :credits WHERE id = :id"
+                "UPDATE rag_credit_sessions SET messages = :messages, credits_left = :credits WHERE id = :id"
             ),
             {
                 "messages": json.dumps(messages[-20:], ensure_ascii=False),
@@ -1196,6 +2002,142 @@ async def update_rag_session(
                 "id": session_id,
             },
         )
+
+
+# ---------------------------------------------------------------------------
+# RAG chat history (rag_conversations / rag_messages)
+# ---------------------------------------------------------------------------
+
+MAX_CONVERSATIONS_LISTED = 100
+MAX_MESSAGES_LOADED = 400
+TITLE_MAX = 200
+
+
+def conversation_title(question: str) -> str:
+    """First line of the first question, trimmed to fit the column."""
+    first = " ".join((question or "").strip().split())
+    return (first[: TITLE_MAX - 1] + "…") if len(first) > TITLE_MAX else (first or "บทสนทนาใหม่")
+
+
+async def create_conversation(user_id: int, title: str, scope_label: Optional[str] = None) -> str:
+    conversation_id = uuid.uuid4().hex
+    async with _mariadb_session() as session:
+        await session.execute(
+            text(
+                "INSERT INTO rag_conversations (id, user_id, title, scope_label) "
+                "VALUES (:id, :uid, :title, :scope)"
+            ),
+            {"id": conversation_id, "uid": user_id, "title": conversation_title(title),
+             "scope": (scope_label or None) and scope_label[:255]},
+        )
+    return conversation_id
+
+
+async def get_conversation(conversation_id: str, user_id: int) -> Optional[Dict[str, Any]]:
+    """The conversation header, only for its owner."""
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT * FROM rag_conversations WHERE id = :id AND user_id = :uid"),
+                {"id": conversation_id, "uid": user_id},
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def list_conversations(user_id: int, limit: int = 50) -> List[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT * FROM rag_conversations WHERE user_id = :uid "
+                    "ORDER BY updated_at DESC, id DESC LIMIT :limit"
+                ),
+                {"uid": user_id, "limit": max(1, min(int(limit), MAX_CONVERSATIONS_LISTED))},
+            )
+        ).all()
+    return [_row(r) for r in rows]
+
+
+async def list_messages(conversation_id: str) -> List[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    "SELECT id, role, content, answer_meta AS meta, created_at FROM rag_messages "
+                    "WHERE conversation_id = :cid ORDER BY id ASC LIMIT :limit"
+                ),
+                {"cid": conversation_id, "limit": MAX_MESSAGES_LOADED},
+            )
+        ).all()
+    out = []
+    for r in rows:
+        data = _row(r)
+        try:
+            data["meta"] = json.loads(data.get("meta") or "{}")
+        except (TypeError, ValueError):
+            data["meta"] = {}
+        out.append(data)
+    return out
+
+
+async def append_messages(conversation_id: str, messages: List[Dict[str, Any]]) -> None:
+    """Add a user/assistant pair (or more) and bump the header's counters."""
+    if not messages:
+        return
+    async with _mariadb_session() as session:
+        for m in messages:
+            await session.execute(
+                text(
+                    "INSERT INTO rag_messages (conversation_id, role, content, answer_meta) "
+                    "VALUES (:cid, :role, :content, :meta)"
+                ),
+                {
+                    "cid": conversation_id,
+                    "role": str(m.get("role") or "user")[:16],
+                    "content": str(m.get("content") or ""),
+                    "meta": json.dumps(m.get("meta") or {}, ensure_ascii=False),
+                },
+            )
+        await session.execute(
+            text(
+                "UPDATE rag_conversations SET message_count = message_count + :n, "
+                "updated_at = CURRENT_TIMESTAMP WHERE id = :cid"
+            ),
+            {"n": len(messages), "cid": conversation_id},
+        )
+
+
+async def rename_conversation(conversation_id: str, user_id: int, title: str) -> bool:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                "UPDATE rag_conversations SET title = :title "
+                "WHERE id = :id AND user_id = :uid"
+            ),
+            {"title": conversation_title(title), "id": conversation_id, "uid": user_id},
+        )
+    return bool(result.rowcount)
+
+
+async def delete_conversation(conversation_id: str, user_id: int) -> bool:
+    """Delete a conversation and its messages; only the owner may do it."""
+    async with _mariadb_session() as session:
+        owned = (
+            await session.execute(
+                text("SELECT 1 FROM rag_conversations WHERE id = :id AND user_id = :uid"),
+                {"id": conversation_id, "uid": user_id},
+            )
+        ).first()
+        if not owned:
+            return False
+        await session.execute(
+            text("DELETE FROM rag_messages WHERE conversation_id = :id"), {"id": conversation_id}
+        )
+        await session.execute(
+            text("DELETE FROM rag_conversations WHERE id = :id"), {"id": conversation_id}
+        )
+    return True
 
 
 # ---------------------------------------------------------------------------
@@ -1217,7 +2159,7 @@ async def add_notification(
         await session.execute(
             text(
                 """
-                INSERT INTO notifications (user_id, kind, message, post_id, actor_id)
+                INSERT INTO notifications (recipient_id, kind, message, post_id, actor_id)
                 VALUES (:uid, :kind, :message, :pid, :actor)
                 """
             ),
@@ -1242,7 +2184,7 @@ async def list_notifications(user_id: int, limit: int = 20) -> Dict[str, Any]:
                            a.display_name AS actor_display_name, a.avatar_url AS actor_avatar_url
                       FROM notifications n
                       LEFT JOIN users a ON a.id = n.actor_id
-                     WHERE n.user_id = :uid
+                     WHERE n.recipient_id = :uid
                      ORDER BY n.id DESC
                      LIMIT :limit
                     """
@@ -1252,7 +2194,7 @@ async def list_notifications(user_id: int, limit: int = 20) -> Dict[str, Any]:
         )
         unread = (
             await session.execute(
-                text("SELECT COUNT(*) FROM notifications WHERE user_id = :uid AND is_read = 0"),
+                text("SELECT COUNT(*) FROM notifications WHERE recipient_id = :uid AND is_read = 0"),
                 {"uid": user_id},
             )
         ).scalar()
@@ -1285,13 +2227,13 @@ async def mark_notifications_read(user_id: int, ids: Optional[List[int]] = None)
         if ids:
             await session.execute(
                 text(
-                    "UPDATE notifications SET is_read = 1 WHERE user_id = :uid AND id IN :ids"
+                    "UPDATE notifications SET is_read = 1 WHERE recipient_id = :uid AND id IN :ids"
                 ).bindparams(bindparam("ids", expanding=True)),
                 {"uid": user_id, "ids": [int(i) for i in ids]},
             )
         else:
             await session.execute(
-                text("UPDATE notifications SET is_read = 1 WHERE user_id = :uid"), {"uid": user_id}
+                text("UPDATE notifications SET is_read = 1 WHERE recipient_id = :uid"), {"uid": user_id}
             )
 
 
@@ -1306,9 +2248,9 @@ async def search_users(query: str, limit: int = 8) -> List[Dict[str, Any]]:
             await session.execute(
                 text(
                     """
-                    SELECT id, username, display_name, avatar_url, role, student_id
+                    SELECT id, username, display_name, avatar_url, role, student_code AS student_id
                       FROM users
-                     WHERE username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_id LIKE :q
+                     WHERE username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q
                      ORDER BY display_name ASC
                      LIMIT :limit
                     """
@@ -1326,7 +2268,7 @@ async def search_courses(query: str, limit: int = 8) -> List[Dict[str, Any]]:
                 text(
                     """
                     SELECT id, code, name, description, kind
-                      FROM courses
+                      FROM rooms
                      WHERE code LIKE :q OR name LIKE :q
                      ORDER BY kind ASC, code ASC
                      LIMIT :limit
@@ -1346,8 +2288,8 @@ async def user_stats(user_id: int) -> Dict[str, int]:
                     """
                     SELECT
                       (SELECT COUNT(*) FROM posts WHERE author_id = :uid AND is_deleted = 0) AS posts,
-                      (SELECT COUNT(*) FROM saved_items WHERE user_id = :uid) AS saved,
-                      (SELECT COUNT(*) FROM course_members WHERE user_id = :uid) AS courses,
+                      (SELECT COUNT(*) FROM saved_posts WHERE user_id = :uid) AS saved,
+                      (SELECT COUNT(*) FROM room_members WHERE user_id = :uid) AS courses,
                       (SELECT COALESCE(SUM(delta),0) FROM point_transactions WHERE user_id = :uid AND delta > 0 AND kind IN ('cashback','creator_bonus','helpful_bonus')) AS earned
                     """
                 ),

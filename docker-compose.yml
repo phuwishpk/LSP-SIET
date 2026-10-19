@@ -159,7 +159,7 @@ services:
       # directly from the page. The main frontend proxies /api through itself,
       # so locking this down does not affect it. '*' would let any site on the
       # internet call the API with a stolen token.
-      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3500,http://localhost:3001,http://localhost:3002,http://localhost}
     volumes:
       - ./open-notebook/notebook_data:/app/data
       - ./open-notebook/prompts:/app/prompts

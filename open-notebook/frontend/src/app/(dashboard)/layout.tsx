@@ -11,6 +11,7 @@ import { CommandPalette } from '@/components/common/CommandPalette'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { canAccessRoute, isStaff, type Role } from '@/lib/roles'
+import { clearPostLoginPath, rememberPostLoginPath } from '@/lib/auth-redirect'
 
 export default function DashboardLayout({
   children,
@@ -35,9 +36,11 @@ export default function DashboardLayout({
       // Redirect to login if not authenticated
       if (!isAuthenticated) {
         // Store the current path to redirect back after login
-        const currentPath = window.location.pathname + window.location.search
-        sessionStorage.setItem('redirectAfterLogin', currentPath)
+        rememberPostLoginPath(window.location.pathname + window.location.search)
         router.push('/login')
+      } else {
+        // Reached a page while signed in: the remembered target is used up.
+        clearPostLoginPath()
       }
     }
   }, [isAuthenticated, isLoading, router])

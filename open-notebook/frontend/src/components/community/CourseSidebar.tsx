@@ -331,11 +331,14 @@ export function CourseSidebar({
           </button>
           <button
             type="button"
-            onClick={() => void openRoadmapApp()}
+            onClick={() =>
+              // Discussion rooms have no library, so only a course room is passed on.
+              void openRoadmapApp({ course: selected && selected.kind !== 'club' ? selected.id : null })
+            }
             className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
           >
             <Map className="h-4 w-4 text-orange-600" /> สร้าง AI Roadmap
-            <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม ↗</span>
+            <span className="ml-auto text-[10px] text-muted-foreground">15 แต้ม →</span>
           </button>
         </nav>
       </div>
@@ -400,7 +403,7 @@ function RulesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: 
               <ul className="space-y-1 text-xs">
                 <li>🎁 เข้าใช้ครั้งแรกรับ {rules.welcome} แต้ม</li>
                 <li>💬 KMITL RAG AI {rules.costs.rag_question} แต้ม/คำถาม หรือ {rules.costs.rag_session} แต้ม/เซสชัน {rules.rag_session_messages} ข้อความ</li>
-                <li>📝 AI Quiz {rules.costs.quiz_generate} แต้ม/ชุด · 🗺️ AI Roadmap {rules.costs.roadmap_generate} แต้ม/แผน</li>
+                <li>📝 AI Quiz {rules.costs.quiz_generate} แต้ม/ชุด · 🗺️ AI Roadmap {rules.costs.roadmap_generate} แต้ม/แผน (ขยายด่านเพิ่ม {rules.costs.roadmap_expand ?? 2} แต้ม/ครั้ง)</li>
                 <li>🔁 แชร์ควิซแล้วเพื่อนเล่นจบ ได้คืน +{rules.cashback_per_play}/คน (สูงสุด {rules.cashback_max_per_post})</li>
                 <li>🆓 Roadmap ของเพื่อนดู/บันทึกฟรี · ควิซของเพื่อนเล่นฟรี 1 ครั้ง นำเข้าคลัง {rules.costs.quiz_import} แต้ม</li>
                 <li>⭐ แชร์สรุป +{rules.creator_bonus_summary} · ถูกกด Helpful +{rules.helpful_bonus}</li>

@@ -1,0 +1,10 @@
+-- Migration 25: roadmap sessions remember how they were generated.
+--
+-- settings  = the knowledge scope + web mode chosen at generation, reused when
+--             a node is expanded later.
+-- grounding = what the plan ended up grounded on (library / web / model only).
+-- updated_at now moves on every write, so a shared post can tell that its
+-- roadmap changed after it was shared.
+DEFINE FIELD IF NOT EXISTS settings  ON TABLE roadmap_session FLEXIBLE TYPE option<object>;
+DEFINE FIELD IF NOT EXISTS grounding ON TABLE roadmap_session FLEXIBLE TYPE option<object>;
+DEFINE FIELD OVERWRITE updated_at ON TABLE roadmap_session TYPE datetime VALUE time::now();
