@@ -582,7 +582,7 @@ function AskContent() {
             <CardContent className="flex flex-1 flex-col gap-3 p-3 sm:p-4">
               <div
                 ref={listRef}
-                className="min-h-[45vh] flex-1 space-y-3 overflow-y-auto rounded-lg border bg-muted/30 p-3"
+                className="no-scrollbar min-h-[45vh] flex-1 space-y-3 overflow-x-hidden overflow-y-auto rounded-lg border bg-muted/30 p-3"
               >
                 {conversationId && stored.isLoading && messages.length === 0 && (
                   <div className="flex h-full items-center justify-center py-8">
@@ -709,7 +709,7 @@ function AskContent() {
       {/* Every role can add content: students to their private library, staff also
           to a course library. New documents show up in the dropdown once ready. */}
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-xl">
+        <DialogContent className="community-theme no-scrollbar max-h-[90vh] overflow-x-hidden overflow-y-auto sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>เพิ่มเนื้อหาให้ AI อ่าน</DialogTitle>
             <DialogDescription>

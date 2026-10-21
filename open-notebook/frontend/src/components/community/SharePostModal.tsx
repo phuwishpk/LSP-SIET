@@ -8,6 +8,8 @@ import {
   Link2,
   LockKeyhole,
   MessageCircle,
+  FileText,
+  Play,
   Send,
   Sparkles,
   Users,
@@ -108,7 +110,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="community-theme max-h-[min(92dvh,900px)] w-[calc(100%-1.25rem)] max-w-[520px] gap-0 overflow-hidden rounded-3xl border-pink-100 bg-white p-0 shadow-2xl dark:bg-card sm:w-[calc(100%-2rem)]"
+        className="community-theme max-h-[min(92dvh,900px)] w-[calc(100%-1.25rem)] max-w-[520px] gap-0 overflow-hidden rounded-2xl border-pink-100 bg-white p-0 shadow-md dark:bg-card sm:w-[calc(100%-2rem)]"
       >
         <header className="relative flex items-center justify-center border-b border-pink-100 px-12 py-4">
           <DialogTitle className="text-base font-semibold">แชร์โพสต์</DialogTitle>
@@ -124,7 +126,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
           </Button>
         </header>
 
-        <div className="max-h-[calc(min(92dvh,900px)-140px)] space-y-3 overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="no-scrollbar max-h-[calc(min(92dvh,900px)-140px)] space-y-3 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-5">
           <div className="flex items-center gap-3">
             <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
             <div className="min-w-0 flex-1">
@@ -357,7 +359,11 @@ function OriginalPostPreview({ post }: { post: CommunityPost }) {
       {post.attachment && (
         <div className="flex items-center gap-2.5 rounded-xl border border-pink-100 bg-white p-2.5">
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-100 text-pink-600">
-            {post.attachment.mime?.startsWith('video/') ? '▶' : '▤'}
+            {post.attachment.mime?.startsWith('video/') ? (
+              <Play className="h-4 w-4" aria-hidden="true" />
+            ) : (
+              <FileText className="h-4 w-4" aria-hidden="true" />
+            )}
           </span>
           <span className="min-w-0">
             <span className="block truncate text-xs font-medium">{post.attachment.name}</span>

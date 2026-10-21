@@ -48,7 +48,7 @@ export function AskHistoryPanel({ activeId, onOpen, onNew }: AskHistoryPanelProp
           <span className="flex items-center gap-1.5">
             <MessageSquare className="h-4 w-4" /> ประวัติการแชท
           </span>
-          <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={onNew}>
+          <Button variant="ghost" size="sm" className="h-11 gap-1 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring" onClick={onNew}>
             <Plus className="h-3.5 w-3.5" /> แชทใหม่
           </Button>
         </CardTitle>
@@ -60,7 +60,7 @@ export function AskHistoryPanel({ activeId, onOpen, onNew }: AskHistoryPanelProp
             ยังไม่มีประวัติ คำถามที่ถามจะถูกเก็บไว้ที่นี่ให้กลับมาอ่านหรือถามต่อได้
           </p>
         )}
-        <ul className="max-h-[40vh] space-y-0.5 overflow-y-auto" aria-label="รายการบทสนทนา">
+        <ul className="no-scrollbar max-h-[40vh] space-y-0.5 overflow-x-hidden overflow-y-auto" aria-label="รายการบทสนทนา">
           {items.map((c) => {
             const active = c.id === activeId
             const isEditing = editing?.id === c.id
@@ -79,14 +79,14 @@ export function AskHistoryPanel({ activeId, onOpen, onNew }: AskHistoryPanelProp
                       value={editing.title}
                       onChange={(e) => setEditing({ id: c.id, title: e.target.value })}
                       onKeyDown={(e) => e.key === 'Escape' && setEditing(null)}
-                      className="h-7 text-xs"
+                      className="h-9 text-xs"
                       maxLength={200}
                       aria-label="ชื่อบทสนทนา"
                     />
-                    <button type="submit" className="rounded p-1 hover:bg-accent" aria-label="บันทึกชื่อ">
+                    <button type="submit" className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="บันทึกชื่อ">
                       <Check className="h-3.5 w-3.5" />
                     </button>
-                    <button type="button" onClick={() => setEditing(null)} className="rounded p-1 hover:bg-accent" aria-label="ยกเลิก">
+                    <button type="button" onClick={() => setEditing(null)} className="flex h-11 w-11 items-center justify-center rounded-md hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" aria-label="ยกเลิก">
                       <X className="h-3.5 w-3.5" />
                     </button>
                   </form>
@@ -111,7 +111,7 @@ export function AskHistoryPanel({ activeId, onOpen, onNew }: AskHistoryPanelProp
                     <button
                       type="button"
                       onClick={() => setEditing({ id: c.id, title: c.title })}
-                      className="rounded p-1 opacity-0 hover:bg-background group-hover:opacity-100 focus:opacity-100"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md opacity-100 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:opacity-0 sm:group-hover:opacity-100"
                       aria-label={`เปลี่ยนชื่อ ${c.title}`}
                     >
                       <Pencil className="h-3 w-3" />
@@ -119,7 +119,7 @@ export function AskHistoryPanel({ activeId, onOpen, onNew }: AskHistoryPanelProp
                     <button
                       type="button"
                       onClick={() => confirmDelete(c)}
-                      className="rounded p-1 text-destructive opacity-0 hover:bg-background group-hover:opacity-100 focus:opacity-100"
+                      className="flex h-11 w-11 shrink-0 items-center justify-center rounded-md text-destructive opacity-100 hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:opacity-0 sm:group-hover:opacity-100"
                       aria-label={`ลบ ${c.title}`}
                     >
                       <Trash2 className="h-3 w-3" />

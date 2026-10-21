@@ -142,8 +142,8 @@ export function PostCard({
         }
       }}
       className={cn(
-        'cursor-pointer overflow-hidden shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        savedView ? 'rounded-2xl border-pink-100 bg-white dark:bg-card' : 'border-border'
+        'cursor-pointer overflow-hidden rounded-xl shadow-sm transition-[border-color,box-shadow] hover:border-pink-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        savedView ? 'border-pink-100 bg-white dark:bg-card' : 'border-border'
       )}
     >
       <CardContent className="space-y-3 p-4">
@@ -439,8 +439,10 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
       className={cn(
-        'flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition hover:bg-accent',
+        'flex min-h-11 items-center justify-center gap-1.5 rounded-md px-1 py-1.5 text-xs font-medium transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active ? activeClass : 'text-muted-foreground'
       )}
     >

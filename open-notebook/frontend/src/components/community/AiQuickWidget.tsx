@@ -181,7 +181,7 @@ export function AiQuickWidget({
           ถาม KMITL RAG AI
           <Link
             href={conversationId ? `/community/ask?c=${encodeURIComponent(conversationId)}` : '/community/ask'}
-            className="ml-auto flex items-center gap-1 text-[11px] font-normal text-primary hover:underline"
+            className="ml-auto flex items-center gap-1 text-xs font-normal text-primary hover:underline"
           >
             {conversationId ? 'ถามต่อในหน้าเต็ม' : 'เปิดหน้าเต็ม'} <ExternalLink className="h-3 w-3" />
           </Link>
@@ -189,9 +189,9 @@ export function AiQuickWidget({
 
         {/* knowledge scope */}
         <div className="space-y-1.5 pt-1">
-          <p className="text-[11px] font-medium text-muted-foreground">ค้นคำตอบจาก</p>
+          <p className="text-xs font-medium text-muted-foreground">ค้นคำตอบจาก</p>
           {focusDocument ? (
-            <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-[11px]">
+            <div className="flex items-center gap-1.5 rounded-md border border-border bg-muted px-2 py-1 text-xs">
               <FileText className="h-3.5 w-3.5 shrink-0 text-primary" />
               <span className="min-w-0 flex-1 truncate">{focusDocument.title}</span>
               <button type="button" onClick={onClearFocus} aria-label="ยกเลิกการเจาะจงเอกสาร">
@@ -217,7 +217,7 @@ export function AiQuickWidget({
           )}
           {!focusDocument && scope === 'course' && (
             <select
-              className="h-7 w-full rounded-md border bg-background px-2 text-[11px]"
+              className="h-9 w-full rounded-md border bg-background px-2 text-xs"
               value={scopeCourseId ?? ''}
               onChange={(e) => setScopeCourseId(e.target.value ? Number(e.target.value) : null)}
             >
@@ -231,12 +231,12 @@ export function AiQuickWidget({
             </select>
           )}
           {!focusDocument && scope === 'course' && scopeCourse && (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา {scopeCourse.code} เท่านั้น
             </p>
           )}
           {!focusDocument && enrolledCoursesOnly && myCourses.length === 0 && (
-            <p className="text-[10px] text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               เข้าร่วมชั้นเรียนก่อนเพื่อถามจากคลังเอกสารรายวิชา
             </p>
           )}
@@ -266,7 +266,7 @@ export function AiQuickWidget({
       </CardHeader>
 
       <CardContent className="space-y-2 pt-0">
-        <div ref={listRef} className="max-h-72 space-y-2 overflow-y-auto rounded-lg border bg-muted/30 p-2">
+        <div ref={listRef} className="no-scrollbar max-h-72 space-y-2 overflow-x-hidden overflow-y-auto rounded-lg border bg-muted/30 p-2">
           {messages.length === 0 && (
             <p className="p-2 text-xs text-muted-foreground">
               ถาม KMITL RAG AI ด่วน ๆ ได้เลย เช่น &ldquo;สรุป deadlock 4 เงื่อนไข&rdquo; คำตอบอ้างอิงจากเอกสาร
@@ -289,7 +289,7 @@ export function AiQuickWidget({
                   <p className="whitespace-pre-wrap">{m.content}</p>
                 )}
                 {m.role === 'assistant' && m.scopeLabel && (
-                  <p className="mt-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 text-xs text-muted-foreground">
                     {answerSourceNote(m.grounded, m.scopeLabel, m.citations?.length ?? 0)}
                   </p>
                 )}
@@ -297,7 +297,7 @@ export function AiQuickWidget({
                   <AnswerReferences citations={m.citations} webSources={m.webSources} compact />
                 )}
                 {m.role === 'assistant' && (m.charged ?? 0) > 0 && (
-                  <p className="mt-1 flex items-center gap-1 text-[10px] text-muted-foreground">
+                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                     <Coins className="h-3 w-3" /> ใช้ {m.charged} แต้ม
                   </p>
                 )}
@@ -334,7 +334,7 @@ export function AiQuickWidget({
                 }
               }}
             />
-            <span className="absolute bottom-3 left-3 text-[10px] text-muted-foreground">
+            <span className="absolute bottom-3 left-3 text-xs text-muted-foreground">
               {exempt ? 'ไม่ตัดแต้ม (อาจารย์/ผู้ดูแล)' : nextCost === 0 ? 'ใช้ข้อความในเซสชัน' : `${nextCost} เครดิตต่อคำถาม`}
             </span>
             <Button
@@ -369,7 +369,7 @@ function ScopeChip({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] transition',
+        'flex min-h-9 items-center gap-1 rounded-full border px-2 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
           ? 'border-primary bg-primary text-primary-foreground'
           : 'hover:bg-accent'
@@ -387,7 +387,7 @@ function ModeChip({ active, onClick, children }: { active: boolean; onClick: () 
       type="button"
       onClick={onClick}
       className={cn(
-        'rounded-full border px-2.5 py-0.5 text-[11px] transition',
+        'min-h-9 rounded-full border px-2.5 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active ? 'border-primary bg-accent text-primary' : 'hover:bg-accent'
       )}
     >

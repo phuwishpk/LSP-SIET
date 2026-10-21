@@ -173,7 +173,7 @@ export function ShareMyWorkDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="community-theme max-w-2xl">
+      <DialogContent className="community-theme no-scrollbar max-h-[90vh] max-w-2xl overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Upload className="h-5 w-5 text-primary" /> เลือกผลงาน AI ของฉันขึ้น Community
@@ -191,17 +191,17 @@ export function ShareMyWorkDialog({
             setSelected(null)
           }}
         >
-          <TabsList className="w-full">
-            <TabsTrigger value="quiz" className="flex-1 gap-1.5">
+          <TabsList className="no-scrollbar w-full max-w-full justify-start overflow-x-auto">
+            <TabsTrigger value="quiz" className="min-w-max flex-none gap-1.5">
               <GraduationCap className="h-4 w-4" /> ควิซของฉัน
               {quizzes && <Badge variant="secondary" className="h-4 px-1 text-[10px]">{quizzes.length}</Badge>}
             </TabsTrigger>
-            <TabsTrigger value="roadmap" className="flex-1 gap-1.5">
+            <TabsTrigger value="roadmap" className="min-w-max flex-none gap-1.5">
               <Map className="h-4 w-4" /> Roadmap ของฉัน
               {roadmaps && <Badge variant="secondary" className="h-4 px-1 text-[10px]">{roadmaps.length}</Badge>}
             </TabsTrigger>
             {canUseNotes && (
-              <TabsTrigger value="note" className="flex-1 gap-1.5">
+              <TabsTrigger value="note" className="min-w-max flex-none gap-1.5">
                 <FileText className="h-4 w-4" /> โน้ตสรุปของฉัน
                 {notes && <Badge variant="secondary" className="h-4 px-1 text-[10px]">{notes.length}</Badge>}
               </TabsTrigger>

@@ -91,7 +91,7 @@ export function StudyDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="community-theme max-w-xl">
+      <DialogContent className="community-theme no-scrollbar max-h-[90vh] max-w-xl overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             {isQuiz ? (

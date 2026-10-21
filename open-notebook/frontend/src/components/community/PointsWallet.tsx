@@ -42,7 +42,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="community-theme w-96 p-0">
+      <PopoverContent align="end" className="community-theme w-96 max-w-[calc(100vw-2rem)] p-0">
         <div className="border-b p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Points Wallet</p>
           <div className="mt-1 flex items-end justify-between">
@@ -108,7 +108,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           {!isLoading && (wallet?.history.length ?? 0) === 0 && (
             <p className="text-xs text-muted-foreground">ยังไม่มีรายการ</p>
           )}
-          <ScrollArea className="max-h-56">
+          <ScrollArea className="no-scrollbar max-h-56">
             <ul className="space-y-1.5 pr-3">
               {wallet?.history.map((tx) => (
                 <li key={tx.id} className="flex items-center justify-between text-xs">

@@ -162,12 +162,17 @@
   font-family: var(--font-inter), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
-.community-theme .no-scrollbar {
-  scrollbar-width: none;
+.community-theme,
+.community-theme * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-.community-theme .no-scrollbar::-webkit-scrollbar {
-  display: none;
+.community-theme::-webkit-scrollbar,
+.community-theme *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .dark .community-theme {

@@ -170,7 +170,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="community-theme flex max-h-[min(88dvh,900px)] w-[calc(100%-1.25rem)] max-w-[640px] flex-col gap-0 overflow-hidden rounded-3xl border-pink-100 bg-white p-0 shadow-2xl dark:bg-card sm:w-[calc(100%-2rem)]"
+        className="community-theme flex max-h-[min(88dvh,900px)] w-[calc(100%-1.25rem)] max-w-[640px] flex-col gap-0 overflow-hidden rounded-2xl border-pink-100 bg-white p-0 shadow-md dark:bg-card sm:w-[calc(100%-2rem)]"
       >
         <header className="flex shrink-0 items-center justify-between border-b border-pink-100 px-5 py-4">
           <DialogTitle className="text-base font-semibold">โพสต์ของผู้ใช้</DialogTitle>
@@ -185,7 +185,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
           </Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="no-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <article className="space-y-3 px-5 pb-4 pt-4">
             <div className="flex items-start gap-3">
               <Avatar
