@@ -360,9 +360,19 @@ export function PostCard({
         ) : (
         <>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {post.counts.like > 0 && `❤️ ${post.counts.like}  `}
-            {post.counts.helpful > 0 && `👍 Helpful ${post.counts.helpful}`}
+          <span className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-2.5 py-1 dark:bg-muted/30">
+            {post.counts.like > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" aria-hidden="true" />
+                {post.counts.like}
+              </span>
+            )}
+            {post.counts.helpful > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <ThumbsUp className="h-3.5 w-3.5 fill-amber-500 text-amber-500" aria-hidden="true" />
+                Helpful {post.counts.helpful}
+              </span>
+            )}
           </span>
           <span>
             {post.counts.comment > 0 && `${post.counts.comment} ความคิดเห็น`}

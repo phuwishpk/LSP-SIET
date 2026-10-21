@@ -89,7 +89,7 @@ export function CommunityHeader({
         </button>
 
         <form
-          className="relative mx-1 min-w-0 w-full max-w-xl flex-1 sm:mx-auto"
+          className="relative mx-1 min-w-[48px] w-auto max-w-xl flex-1 sm:mx-auto"
           onSubmit={(e) => {
             e.preventDefault()
             onSearch(draft.trim())
