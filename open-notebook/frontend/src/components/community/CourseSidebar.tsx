@@ -10,7 +10,7 @@ import {
   MessagesSquare,
   Newspaper,
   Plus,
-  ScrollText,
+  ShieldCheck,
   Trash2,
   Users,
 } from 'lucide-react'
@@ -42,20 +42,24 @@ import {
   useCreateCourse,
   useDeleteCourse,
   useJoinCourse,
-  useWallet,
 } from '@/lib/hooks/use-community'
 import type { Course, RoomKind } from '@/lib/api/community'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { cn } from '@/lib/utils'
 
-export type FeedView = 'all' | 'mine' | 'saved' | 'materials' | 'popular' | 'library'
+export type FeedView =
+  | 'all'
+  | 'mine'
+  | 'saved'
+  | 'materials'
+  | 'popular'
+  | 'library'
+  | 'rules'
 
 interface CourseSidebarProps {
   view: FeedView
   courseId: number | null
   isStaff: boolean
-  rulesOpen?: boolean
-  onRulesOpenChange?: (open: boolean) => void
   onSelectView: (view: FeedView) => void
   onSelectCourse: (courseId: number | null) => void
 }
@@ -64,8 +68,6 @@ export function CourseSidebar({
   view,
   courseId,
   isStaff,
-  rulesOpen: controlledRulesOpen,
-  onRulesOpenChange,
   onSelectView,
   onSelectCourse,
 }: CourseSidebarProps) {
@@ -73,9 +75,6 @@ export function CourseSidebar({
   const me = useAuthStore((s) => s.user)
   const join = useJoinCourse()
   const remove = useDeleteCourse()
-  const [localRulesOpen, setLocalRulesOpen] = useState(false)
-  const rulesOpen = controlledRulesOpen ?? localRulesOpen
-  const setRulesOpen = onRulesOpenChange ?? setLocalRulesOpen
   const [createKind, setCreateKind] = useState<RoomKind | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Course | null>(null)
 
@@ -220,7 +219,12 @@ export function CourseSidebar({
           label="สรุปที่บันทึกไว้"
           onClick={() => onSelectView('saved')}
         />
-        <NavButton active={false} icon={ScrollText} label="กฎชุมชน & แต้ม" onClick={() => setRulesOpen(true)} />
+        <NavButton
+          active={view === 'rules'}
+          icon={ShieldCheck}
+          label="กฎชุมชน"
+          onClick={() => onSelectView('rules')}
+        />
       </nav>
 
       {/* ------------------------------------------------ official course rooms */}
@@ -296,7 +300,6 @@ export function CourseSidebar({
         </div>
       )}
 
-      <RulesDialog open={rulesOpen} onOpenChange={setRulesOpen} />
       <CreateRoomDialog
         kind={createKind}
         onClose={() => setCreateKind(null)}
@@ -328,44 +331,6 @@ export function CourseSidebar({
         </AlertDialogContent>
       </AlertDialog>
     </aside>
-  )
-}
-
-function RulesDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (o: boolean) => void }) {
-  const { data: wallet } = useWallet(open)
-  const rules = wallet?.rules
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="community-theme max-w-lg">
-        <DialogHeader>
-          <DialogTitle>กฎชุมชน SIET Space</DialogTitle>
-          <DialogDescription>แชร์ความรู้ เคารพเพื่อน และใช้ AI อย่างคุ้มค่า</DialogDescription>
-        </DialogHeader>
-        <div className="space-y-3 text-sm">
-          <ol className="list-decimal space-y-1 pl-5">
-            <li>โพสต์เฉพาะเนื้อหาที่เกี่ยวกับการเรียน ไม่ละเมิดลิขสิทธิ์ ไม่แชร์ข้อสอบจริงที่ยังไม่เปิดเผย</li>
-            <li>ให้เครดิตเจ้าของสรุป และกด Helpful เมื่อโพสต์ช่วยคุณได้จริง</li>
-            <li>ห้ามใช้บัญชีคนอื่น ทุกบัญชีผูกกับอีเมล @kmitl.ac.th</li>
-            <li>ห้องพูดคุยเปิดได้ทุกคน แต่ห้องวิชาสร้างได้เฉพาะอาจารย์และผู้ดูแล</li>
-            <li>ผู้ดูแลสามารถลบโพสต์หรือปิดห้องที่ผิดกฎได้โดยไม่แจ้งล่วงหน้า</li>
-          </ol>
-          {rules && (
-            <div className="rounded-lg border bg-muted/40 p-3">
-              <p className="mb-2 font-semibold">ระบบแต้ม (Token Economy)</p>
-              <ul className="space-y-1 text-xs">
-                <li>🎁 เข้าใช้ครั้งแรกรับ {rules.welcome} แต้ม</li>
-                <li>💬 KMITL RAG AI {rules.costs.rag_question} แต้ม/คำถาม หรือ {rules.costs.rag_session} แต้ม/เซสชัน {rules.rag_session_messages} ข้อความ</li>
-                <li>📝 AI Quiz {rules.costs.quiz_generate} แต้ม/ชุด · 🗺️ AI Roadmap {rules.costs.roadmap_generate} แต้ม/แผน (ขยายด่านเพิ่ม {rules.costs.roadmap_expand ?? 2} แต้ม/ครั้ง)</li>
-                <li>🔁 แชร์ควิซแล้วเพื่อนเล่นจบ ได้คืน +{rules.cashback_per_play}/คน (สูงสุด {rules.cashback_max_per_post})</li>
-                <li>🆓 Roadmap ของเพื่อนดู/บันทึกฟรี · ควิซของเพื่อนเล่นฟรี 1 ครั้ง นำเข้าคลัง {rules.costs.quiz_import} แต้ม</li>
-                <li>⭐ แชร์สรุป +{rules.creator_bonus_summary} · ถูกกด Helpful +{rules.helpful_bonus}</li>
-                <li>👩‍🏫 อาจารย์และผู้ดูแลไม่ถูกตัดแต้ม</li>
-              </ul>
-            </div>
-          )}
-        </div>
-      </DialogContent>
-    </Dialog>
   )
 }
 

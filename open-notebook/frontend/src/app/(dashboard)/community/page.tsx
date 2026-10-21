@@ -19,6 +19,10 @@ import { PostCard } from '@/components/community/PostCard'
 import { AiQuickWidget } from '@/components/community/AiQuickWidget'
 import { ShareMyWorkButton } from '@/components/community/ShareMyWorkDialog'
 import { LibraryPanel } from '@/components/community/LibraryPanel'
+import {
+  CommunityCreditsPanel,
+  CommunityRulesContent,
+} from '@/components/community/CommunityRulesView'
 import type { AskFocus } from '@/components/community/AiQuickWidget'
 import type { LibraryDocument } from '@/lib/api/library'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
@@ -38,7 +42,7 @@ export default function CommunityPage() {
   )
 }
 
-const VIEWS: FeedView[] = ['all', 'mine', 'saved', 'materials', 'popular', 'library']
+const VIEWS: FeedView[] = ['all', 'mine', 'saved', 'materials', 'popular', 'library', 'rules']
 
 function CommunityContent() {
   const router = useRouter()
@@ -56,7 +60,6 @@ function CommunityContent() {
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
   const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
-  const [rulesOpen, setRulesOpen] = useState(false)
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -83,7 +86,7 @@ function CommunityContent() {
     [courseId, query, view]
   )
 
-  const feed = useFeed(filters)
+  const feed = useFeed(filters, view !== 'rules')
   const posts = useMemo(() => feed.data?.pages.flatMap((p) => p.items) ?? [], [feed.data])
 
   const singlePost = useQuery({
@@ -102,6 +105,7 @@ function CommunityContent() {
     materials: 'คลังสื่ออาจารย์',
     popular: 'โพสต์ยอดนิยม',
     library: 'คลังความรู้',
+    rules: 'กฎชุมชน',
   }
 
   const focusDocument = (doc: LibraryDocument) => {
@@ -110,13 +114,19 @@ function CommunityContent() {
   }
 
   return (
-    <div className="community-theme flex h-screen flex-col overflow-hidden bg-background text-foreground">
+    <div
+      className={`community-theme flex h-screen flex-col overflow-hidden text-foreground ${
+        view === 'rules' ? 'bg-[#FDF7F8] dark:bg-background' : 'bg-background'
+      }`}
+    >
       <CommunityHeader
         query={query}
         onSearch={(q) => setParams({ q, post: null })}
         onOpenPost={openPost}
         onHome={goHome}
-        onOpenCommunityRules={() => setRulesOpen(true)}
+        onOpenCommunityRules={() =>
+          setParams({ view: 'rules', course: null, post: null, q: null })
+        }
         onOpenMenu={() => setMenuOpen(true)}
       />
 
@@ -155,12 +165,10 @@ function CommunityContent() {
             view={view}
             courseId={courseId}
             isStaff={isStaff}
-            rulesOpen={rulesOpen}
-            onRulesOpenChange={setRulesOpen}
             onSelectView={(v) =>
               setParams({
                 view: v === 'all' ? null : v,
-                course: ['all', 'popular', 'mine', 'saved'].includes(v) ? null : undefined,
+                course: ['all', 'popular', 'mine', 'saved', 'rules'].includes(v) ? null : undefined,
                 post: null,
                 q: null,
               })
@@ -171,7 +179,12 @@ function CommunityContent() {
 
         {/* Center column */}
         <main className="no-scrollbar min-h-0 min-w-0 w-full space-y-4 lg:overflow-y-auto">
-          {view === 'library' ? (
+          {view === 'rules' ? (
+            <div className="space-y-4">
+              <CommunityRulesContent />
+              <CommunityCreditsPanel className="lg:hidden" />
+            </div>
+          ) : view === 'library' ? (
             <LibraryPanel isStaff={isStaff} courseId={courseId} onAskDocument={focusDocument} />
           ) : postId !== null ? (
             <>
@@ -277,6 +290,10 @@ function CommunityContent() {
 
         {/* Right column */}
         <div className="no-scrollbar hidden min-h-0 w-full space-y-4 lg:block lg:overflow-y-auto">
+          {view === 'rules' ? (
+            <CommunityCreditsPanel />
+          ) : (
+            <>
           <Card className="border-border shadow-sm">
             <CardContent className="space-y-2 p-3">
               <div className="flex items-center gap-2 px-1 pb-1">
@@ -338,6 +355,8 @@ function CommunityContent() {
             focusDocument={askFocus}
             onClearFocus={() => setAskFocus(null)}
           />
+            </>
+          )}
         </div>
       </div>
     </div>
