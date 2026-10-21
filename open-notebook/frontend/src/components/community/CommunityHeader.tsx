@@ -2,15 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import {
+  BookOpen,
+  CircleCheck,
   ChevronDown,
+  CircleHelp,
   GraduationCap,
   LogOut,
   Menu,
+  Settings,
   Search,
+  UserRound,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Avatar } from '@/components/ui/avatar'
 import {
   DropdownMenu,
@@ -27,12 +31,14 @@ import { NotificationsMenu } from './NotificationsMenu'
 import { displayName, roleLabel } from '@/lib/utils/community-format'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { Map as MapIcon } from 'lucide-react'
+import Link from 'next/link'
 
 interface CommunityHeaderProps {
   query: string
   onSearch: (q: string) => void
   onOpenPost: (postId: number) => void
   onHome: () => void
+  onOpenCommunityRules?: () => void
   /**
    * Opens the navigation drawer. Only passed on pages that have a left column
    * to show; below `lg` that column is hidden, so without this the rooms,
@@ -46,6 +52,7 @@ export function CommunityHeader({
   onSearch,
   onOpenPost,
   onHome,
+  onOpenCommunityRules,
   onOpenMenu,
 }: CommunityHeaderProps) {
   const { user, logout } = useAuth()
@@ -55,7 +62,7 @@ export function CommunityHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-6">
         {onOpenMenu && (
           <Button
             variant="ghost"
@@ -72,7 +79,7 @@ export function CommunityHeader({
           onClick={onHome}
           className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-accent"
         >
-          <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 text-sm font-black text-white shadow sm:flex">
+          <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-foreground text-sm font-black text-background sm:flex">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">
@@ -93,7 +100,7 @@ export function CommunityHeader({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
-            className="h-9 rounded-full bg-muted/60 pl-9 pr-16"
+            className="h-9 rounded-lg border-border bg-muted/70 pl-9 pr-16"
           />
           {draft && (
             <button
@@ -114,39 +121,117 @@ export function CommunityHeader({
           <NotificationsMenu onOpenPost={onOpenPost} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="h-9 gap-2 rounded-full px-1.5">
-                <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
+              <Button
+                variant="ghost"
+                className="h-9 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
+                aria-label="เปิดเมนูบัญชีผู้ใช้"
+              >
+                <Avatar
+                  size="sm"
+                  src={user?.avatar_url}
+                  name={displayName(user)}
+                  className="bg-pink-200 text-pink-800"
+                />
                 <span className="hidden max-w-[120px] truncate text-sm md:inline">
                   {displayName(user)}
                 </span>
                 <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground md:inline" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <DropdownMenuLabel className="space-y-1">
-                <p className="truncate text-sm font-semibold">{displayName(user)}</p>
-                <p className="truncate text-xs font-normal text-muted-foreground">
-                  {user?.email || `@${user?.username}`}
-                </p>
-                <div className="flex flex-wrap gap-1 pt-1">
-                  <Badge variant="secondary">{roleLabel(user?.role)}</Badge>
-                  {user?.student_id && <Badge variant="outline">รหัส {user.student_id}</Badge>}
+            <DropdownMenuContent
+              align="end"
+              sideOffset={10}
+              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-3xl border-pink-100 bg-white p-2.5 text-foreground shadow-xl"
+            >
+              <DropdownMenuLabel className="px-2.5 pb-3 pt-2">
+                <div className="flex items-center gap-3">
+                  <Avatar
+                    size="lg"
+                    src={user?.avatar_url}
+                    name={displayName(user)}
+                    className="bg-pink-200 text-pink-800"
+                  />
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-semibold text-slate-800">
+                      {displayName(user)}
+                    </p>
+                    <p className="mt-0.5 truncate text-xs font-normal text-slate-500">
+                      {user?.email || `@${user?.username}`}
+                    </p>
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-[10px] font-medium text-pink-800">
+                      <CircleCheck className="h-3 w-3" />
+                      สมาชิก SIET Space · {roleLabel(user?.role)}
+                    </span>
+                  </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator />
+              <DropdownMenuSeparator className="my-2 bg-pink-100" />
+              {user && (
+                <DropdownMenuItem
+                  asChild
+                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+                >
+                  <Link href="/community/profile/me">
+                    <UserRound className="h-4 w-4 text-pink-600" />
+                    <span>ดูโปรไฟล์เต็ม</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                asChild
+                className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+              >
+                <Link href="/community?view=library">
+                  <BookOpen className="h-4 w-4 text-pink-600" />
+                  <span>คลังความรู้และไฟล์ของฉัน</span>
+                </Link>
+              </DropdownMenuItem>
+              {user?.role === 'teacher' || user?.role === 'admin' ? (
+                <DropdownMenuItem
+                  asChild
+                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+                >
+                  <Link href="/settings">
+                    <Settings className="h-4 w-4 text-pink-600" />
+                    <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
+                  </Link>
+                </DropdownMenuItem>
+              ) : (
+                <DropdownMenuItem
+                  disabled
+                  title="การตั้งค่าบัญชีสำหรับนักศึกษายังไม่พร้อมใช้งาน"
+                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm"
+                >
+                  <Settings className="h-4 w-4 text-pink-600" />
+                  <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
+                </DropdownMenuItem>
+              )}
+              <DropdownMenuItem
+                onSelect={() => {
+                  if (onOpenCommunityRules) onOpenCommunityRules()
+                  else onHome()
+                }}
+                className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+              >
+                <CircleHelp className="h-4 w-4 text-pink-600" />
+                <span>ช่วยเหลือและกฎชุมชน</span>
+              </DropdownMenuItem>
+              <DropdownMenuSeparator className="my-2 bg-pink-100" />
               <DropdownMenuItem onClick={() => void openQuizApp()}>
                 <GraduationCap className="mr-2 h-4 w-4 text-emerald-600" /> แอป AI Quiz ↗
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => void openRoadmapApp()}>
                 <MapIcon className="mr-2 h-4 w-4 text-orange-600" /> แอป AI Roadmap
               </DropdownMenuItem>
-              <DropdownMenuSeparator />
-              <div className="px-2 py-1.5">
+              <DropdownMenuSeparator className="my-2 bg-pink-100" />
+              <div className="rounded-xl border border-pink-100 bg-[#FFF8FA] px-2 py-1.5">
                 <ThemeToggle />
               </div>
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => logout()}>
-                <LogOut className="mr-2 h-4 w-4" /> ออกจากระบบ
+              <DropdownMenuItem
+                className="mt-2 min-h-11 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 focus:bg-rose-100"
+                onClick={() => logout()}
+              >
+                <LogOut className="h-4 w-4" /> ออกจากระบบ
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

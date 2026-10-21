@@ -42,7 +42,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-96 p-0">
+      <PopoverContent align="end" className="community-theme w-96 p-0">
         <div className="border-b p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Points Wallet</p>
           <div className="mt-1 flex items-end justify-between">

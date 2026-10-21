@@ -147,6 +147,10 @@ class CourseUpdate(BaseModel):
     description: Optional[str] = Field(default=None, max_length=255)
 
 
+class SavedCollectionCreate(BaseModel):
+    name: str = Field(..., min_length=1, max_length=80)
+
+
 class ReactionBody(BaseModel):
     kind: Literal["like", "helpful"]
 
@@ -161,6 +165,7 @@ class PostEditBody(BaseModel):
 
 class CommentBody(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
+    parent_id: Optional[int] = Field(default=None, gt=0)
 
 
 class QuizSubmitBody(BaseModel):
@@ -400,7 +405,9 @@ async def list_posts(
     author_id: Optional[int] = None,
     q: Optional[str] = Query(default=None, max_length=200),
     saved: bool = False,
+    saved_collection_id: Optional[int] = Query(default=None, gt=0),
     my_courses: bool = False,
+    profile_visibility: bool = False,
     embed: Optional[str] = Query(default=None, description="comma separated: quiz,roadmap"),
     before_id: Optional[int] = None,
     limit: int = Query(default=20, ge=1, le=100),
@@ -414,7 +421,9 @@ async def list_posts(
         author_id=author_id,
         query=q,
         saved_only=saved,
+        saved_collection_id=saved_collection_id,
         my_courses_only=my_courses,
+        profile_visibility_only=profile_visibility,
         embed_types=[e.strip() for e in embed.split(",")] if embed else None,
         before_id=before_id,
         limit=limit,
@@ -698,11 +707,20 @@ async def list_comments(post_id: int, user: User = Depends(get_current_user)) ->
 async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
     post = await _post_or_404(post_id)
+    parent = None
+    if body.parent_id is not None:
+        parent = await repo.get_comment(body.parent_id)
+        if not parent or int(parent["post_id"]) != post_id:
+            raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นที่ต้องการตอบกลับ")
+        if parent.get("parent_id") is not None:
+            raise HTTPException(status_code=400, detail="ตอบกลับได้เฉพาะความคิดเห็นหลัก")
     await _guard_spam(user, "comment")
-    await repo.add_comment(post_id, uid, body.content)
+    await repo.add_comment(post_id, uid, body.content, body.parent_id)
+    notification_user_id = int(parent["author_id"]) if parent else int(post["author_id"])
     await repo.add_notification(
-        int(post["author_id"]), "comment",
-        f"{_display(user)} แสดงความคิดเห็นในโพสต์ของคุณ", post_id=post_id, actor_id=uid,
+        notification_user_id, "comment",
+        f"{_display(user)} {'ตอบกลับความคิดเห็นของคุณ' if parent else 'แสดงความคิดเห็นในโพสต์ของคุณ'}",
+        post_id=post_id, actor_id=uid,
     )
     return {"comments": _mark_deletable(await repo.list_comments(post_id), user, post)}
 
@@ -734,6 +752,47 @@ async def delete_comment(
         "deleted": comment_id,
         "comments": _mark_deletable(await repo.list_comments(post_id), user, post),
     }
+
+
+@router.get("/saved-collections")
+async def list_saved_collections(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    return {"items": await repo.list_saved_collections(_uid(user))}
+
+
+@router.post("/saved-collections", status_code=201)
+async def create_saved_collection(
+    body: SavedCollectionCreate, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    from sqlalchemy.exc import IntegrityError
+
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=422, detail="กรุณาระบุชื่อคลัง")
+    try:
+        collection = await repo.create_saved_collection(_uid(user), name)
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="มีคลังชื่อนี้อยู่แล้ว")
+    return collection
+
+
+@router.post("/saved-collections/{collection_id}/posts/{post_id}")
+async def add_post_to_saved_collection(
+    collection_id: int, post_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    added = await repo.add_saved_post_to_collection(collection_id, post_id, _uid(user))
+    if not added:
+        raise HTTPException(status_code=404, detail="ไม่พบคลังหรือโพสต์ที่บันทึกไว้")
+    return {"ok": True}
+
+
+@router.delete("/saved-collections/{collection_id}/posts/{post_id}")
+async def remove_post_from_saved_collection(
+    collection_id: int, post_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    removed = await repo.remove_saved_post_from_collection(collection_id, post_id, _uid(user))
+    if not removed:
+        raise HTTPException(status_code=404, detail="ไม่พบโพสต์ในคลังนี้")
+    return {"ok": True}
 
 
 @router.post("/posts/{post_id}/save")

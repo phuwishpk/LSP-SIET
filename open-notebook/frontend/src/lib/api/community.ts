@@ -93,6 +93,7 @@ export interface PostAttachment {
 export interface PostComment {
   id: number
   post_id: number
+  parent_id?: number | null
   content: string
   created_at: string
   author: CommunityUserBrief
@@ -134,6 +135,7 @@ export interface Course {
   description?: string | null
   kind: RoomKind
   created_by?: number | null
+  instructor_name?: string | null
   member_count: number
   post_count: number
   joined: boolean
@@ -437,10 +439,20 @@ export interface FeedFilters {
   author_id?: number
   q?: string
   saved?: boolean
+  saved_collection_id?: number
   my_courses?: boolean
+  profile_visibility?: boolean
   embed?: string
   order?: 'newest' | 'popular'
   limit?: number
+}
+
+export interface SavedCollection {
+  id: number
+  name: string
+  item_count: number
+  course_names?: string | null
+  created_at?: string | null
 }
 
 export interface CreatePostInput {
@@ -523,10 +535,11 @@ export const communityApi = {
     ).data,
   comments: async (postId: number) =>
     (await apiClient.get<PostComment[]>(`/community/posts/${postId}/comments`)).data,
-  addComment: async (postId: number, content: string) =>
+  addComment: async (postId: number, content: string, parentId?: number) =>
     (
       await apiClient.post<{ comments: PostComment[] }>(`/community/posts/${postId}/comments`, {
         content,
+        parent_id: parentId,
       })
     ).data,
   deleteComment: async (postId: number, commentId: number) =>
@@ -537,6 +550,22 @@ export const communityApi = {
     ).data,
   toggleSave: async (postId: number) =>
     (await apiClient.post<{ saved: boolean }>(`/community/posts/${postId}/save`)).data,
+  savedCollections: async () =>
+    (await apiClient.get<{ items: SavedCollection[] }>('/community/saved-collections')).data.items,
+  createSavedCollection: async (name: string) =>
+    (await apiClient.post<SavedCollection>('/community/saved-collections', { name })).data,
+  addPostToSavedCollection: async (collectionId: number, postId: number) =>
+    (
+      await apiClient.post<{ ok: boolean }>(
+        `/community/saved-collections/${collectionId}/posts/${postId}`
+      )
+    ).data,
+  removePostFromSavedCollection: async (collectionId: number, postId: number) =>
+    (
+      await apiClient.delete<{ ok: boolean }>(
+        `/community/saved-collections/${collectionId}/posts/${postId}`
+      )
+    ).data,
   share: async (postId: number) =>
     (
       await apiClient.post<{

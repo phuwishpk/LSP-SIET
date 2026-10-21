@@ -33,7 +33,7 @@ export function NotificationsMenu({ onOpenPost }: { onOpenPost?: (postId: number
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-80 p-0">
+      <PopoverContent align="end" className="community-theme w-80 p-0">
         <div className="border-b px-4 py-3">
           <p className="text-sm font-semibold">การแจ้งเตือน</p>
         </div>

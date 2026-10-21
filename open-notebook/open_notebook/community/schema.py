@@ -195,7 +195,9 @@ STATEMENTS: list[str] = RENAMES + [
         INDEX idx_pc_post (post_id, id)
     ) {_TABLE_OPTS}
     """,
+    "ALTER TABLE post_comments ADD COLUMN IF NOT EXISTS parent_id BIGINT NULL",
     "ALTER TABLE post_comments ADD INDEX IF NOT EXISTS idx_pc_author_time (author_id, created_at)",
+    "ALTER TABLE post_comments ADD INDEX IF NOT EXISTS idx_pc_parent (post_id, parent_id, id)",
     # One row per attempt at a quiz shared in a post (a quiz can be retaken).
     f"""
     CREATE TABLE IF NOT EXISTS quiz_attempts (
@@ -217,6 +219,26 @@ STATEMENTS: list[str] = RENAMES + [
         post_id    BIGINT NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (user_id, post_id)
+    ) {_TABLE_OPTS}
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS saved_collections (
+        id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT NOT NULL,
+        name       VARCHAR(80) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE INDEX idx_saved_collection_name (user_id, name),
+        INDEX idx_saved_collection_owner (user_id, created_at)
+    ) {_TABLE_OPTS}
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS saved_collection_posts (
+        collection_id BIGINT NOT NULL,
+        user_id       INT NOT NULL,
+        post_id       BIGINT NOT NULL,
+        created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (collection_id, post_id),
+        INDEX idx_saved_collection_post_owner (user_id, post_id)
     ) {_TABLE_OPTS}
     """,
     # A paid 5-message RAG session: credits_left counts the messages still

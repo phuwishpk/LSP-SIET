@@ -15,7 +15,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from loguru import logger
 
 from api.auth_jwt import optional_current_user
-from open_notebook.community import points
+from open_notebook.community import points, repository as community_repo
 from open_notebook.domain.user import User
 
 from api.models import (
@@ -133,6 +133,39 @@ async def generate_quiz(
     user: Optional[User] = Depends(optional_current_user),
 ):
     """Generate a new quiz and persist it for the request owner (8 pt)."""
+    source_text = None
+    if request.saved_post_ids or request.use_saved_posts or request.saved_collection_id:
+        if user is None or user.id is None:
+            raise HTTPException(status_code=401, detail="ต้องเข้าสู่ระบบเพื่อใช้โพสต์ที่บันทึกไว้")
+        if owner_id != str(user.id):
+            raise HTTPException(status_code=403, detail="เจ้าของแบบทดสอบต้องตรงกับบัญชีที่บันทึกโพสต์")
+        requested_ids = request.saved_post_ids or None
+        saved_posts = await community_repo.saved_posts_for_quiz(
+            int(user.id),
+            requested_ids,
+            request.saved_collection_id,
+            include_all=request.use_saved_posts and request.saved_collection_id is None,
+        )
+        if request.saved_post_ids and len(saved_posts) != len(set(request.saved_post_ids)):
+            raise HTTPException(status_code=403, detail="เลือกได้เฉพาะโพสต์ที่คุณบันทึกไว้")
+        if not saved_posts:
+            raise HTTPException(status_code=400, detail="ไม่มีโพสต์ที่บันทึกไว้สำหรับสร้างแบบทดสอบ")
+        source_text = "\n\n".join(
+            "\n".join(
+                value
+                for value in (
+                    f"หัวข้อ: {post.get('title')}" if post.get("title") else "",
+                    f"วิชา: {post.get('course_name')}" if post.get("course_name") else "",
+                    f"แท็ก: {post.get('tags')}" if post.get("tags") else "",
+                    f"ไฟล์แนบ: {post.get('attachment_name')}" if post.get("attachment_name") else "",
+                    f"เนื้อหา: {post.get('content')}" if post.get("content") else "",
+                )
+                if value
+            )
+            for post in saved_posts
+        )[:12000]
+        if not source_text.strip():
+            raise HTTPException(status_code=400, detail="โพสต์ที่บันทึกไว้ไม่มีเนื้อหาสำหรับสร้างแบบทดสอบ")
     charge = await _charge(user, "quiz_generate")
     report: dict = {}
     try:
@@ -144,6 +177,7 @@ async def generate_quiz(
             notebook_id=request.notebook_id,
             model_id=request.model_id,
             report=report,
+            source_text=source_text,
         )
     except (InvalidInputError, ConfigurationError, ExternalServiceError) as exc:
         await points.refund(charge, "quiz generation failed")
