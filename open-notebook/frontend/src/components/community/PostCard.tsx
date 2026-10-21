@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   Bookmark,
   Download,
@@ -32,9 +33,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { communityApi, type CommunityPost } from '@/lib/api/community'
 import {
-  useAddComment,
-  useComments,
-  useDeleteComment,
   useDeletePost,
   useEditPost,
   useReact,
@@ -45,14 +43,15 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/community-format'
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
+import { PostDetailModal } from './PostDetailModal'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  summary: { label: 'สรุปบทเรียน', icon: FileText, className: 'bg-blue-100 text-blue-800 dark:bg-blue-950/50 dark:text-blue-200' },
-  quiz: { label: 'AI Quiz', icon: FileText, className: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200' },
-  roadmap: { label: 'AI Roadmap', icon: FileText, className: 'bg-orange-100 text-orange-800 dark:bg-orange-950/50 dark:text-orange-200' },
-  question: { label: 'คำถาม', icon: HelpCircle, className: 'bg-violet-100 text-violet-800 dark:bg-violet-950/50 dark:text-violet-200' },
-  material: { label: 'สื่อการสอน', icon: Library, className: 'bg-amber-100 text-amber-900 dark:bg-amber-950/50 dark:text-amber-200' },
+  summary: { label: 'สรุปบทเรียน', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  quiz: { label: 'AI Quiz', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  roadmap: { label: 'AI Roadmap', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  question: { label: 'คำถาม', icon: HelpCircle, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  material: { label: 'สื่อการสอน', icon: Library, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
 }
 
 interface PostCardProps {
@@ -67,15 +66,11 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   const share = useSharePost()
   const remove = useDeletePost()
   const edit = useEditPost()
-  const addComment = useAddComment()
-  const deleteComment = useDeleteComment()
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(post.title ?? '')
   const [draftContent, setDraftContent] = useState(post.content ?? '')
-  const [showComments, setShowComments] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [comment, setComment] = useState('')
-  const { data: comments, isLoading: loadingComments } = useComments(post.id, showComments)
 
   const meta = TYPE_META[post.type] ?? TYPE_META.summary
   const canDelete = post.is_author || me?.role === 'admin'
@@ -111,13 +106,49 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   }
 
   return (
-    <Card id={`post-${post.id}`} className="overflow-hidden">
+    <>
+    <Card
+      id={`post-${post.id}`}
+      role="article"
+      tabIndex={0}
+      aria-label={`โพสต์ของ ${displayName(post.author)}`}
+      onClick={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('button, a, input, textarea, [role="menuitem"]')
+        ) {
+          return
+        }
+        setDetailOpen(true)
+      }}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === 'Enter' || event.key === ' ')
+        ) {
+          event.preventDefault()
+          setDetailOpen(true)
+        }
+      }}
+      className="cursor-pointer overflow-hidden border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start gap-3">
-          <Avatar src={post.author.avatar_url} name={displayName(post.author)} />
+          <Link
+            href={`/community/profile/${post.author.id}`}
+            aria-label={`ดูโปรไฟล์ ${displayName(post.author)}`}
+            className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <Avatar src={post.author.avatar_url} name={displayName(post.author)} />
+          </Link>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-semibold">{displayName(post.author)}</span>
+              <Link
+                href={`/community/profile/${post.author.id}`}
+                className="rounded-sm font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {displayName(post.author)}
+              </Link>
               {post.author.role && post.author.role !== 'student' && (
                 <Badge variant="secondary" className="h-5 text-[10px]">
                   {roleLabel(post.author.role)}
@@ -130,7 +161,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
                 <button
                   type="button"
                   onClick={() => post.course && onSelectCourse?.(post.course.id)}
-                  className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent"
+                  className="flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent"
                 >
                   {post.course.kind === 'club' ? (
                     <MessagesSquare className="h-3 w-3" />
@@ -151,7 +182,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
                 <MoreHorizontal className="h-4 w-4" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end">
+            <DropdownMenuContent align="end" className="community-theme">
               <DropdownMenuItem onClick={copyLink}>
                 <Share2 className="mr-2 h-4 w-4" /> คัดลอกลิงก์โพสต์
               </DropdownMenuItem>
@@ -244,9 +275,9 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           <button
             type="button"
             onClick={download}
-            className="flex w-full items-center gap-3 rounded-lg border bg-muted/40 p-3 text-left transition hover:bg-accent"
+            className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted/70 p-3 text-left transition-colors hover:bg-accent"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-rose-100 text-rose-700 dark:bg-rose-950/40">
+            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
               <FileText className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">
@@ -278,104 +309,45 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             active={post.viewer.liked}
             icon={Heart}
             label="ถูกใจ"
-            activeClass="text-rose-600"
+            activeClass="text-primary"
             onClick={() => react.mutate({ postId: post.id, kind: 'like' })}
           />
           <ActionButton
             active={post.viewer.helpful}
             icon={ThumbsUp}
             label="Helpful"
-            activeClass="text-emerald-600"
+            activeClass="text-primary"
             onClick={() => react.mutate({ postId: post.id, kind: 'helpful' })}
           />
           <ActionButton
-            active={showComments}
+            active={detailOpen}
             icon={MessageCircle}
             label="คอมเมนต์"
             activeClass="text-primary"
-            onClick={() => setShowComments((v) => !v)}
+            onClick={() => setDetailOpen(true)}
           />
           <ActionButton
             active={post.viewer.saved}
             icon={Bookmark}
             label="บันทึก"
-            activeClass="text-amber-600"
+            activeClass="text-primary"
             onClick={() => save.mutate(post.id)}
           />
           <ActionButton
             active={post.viewer.shared}
             icon={Share2}
             label={post.viewer.shared ? 'แชร์แล้ว' : 'แชร์'}
-            activeClass="text-sky-600"
+            activeClass="text-primary"
             onClick={copyLink}
           />
         </div>
 
-        {showComments && (
-          <div className="space-y-3 border-t pt-3">
-            {loadingComments && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
-            {comments?.map((c) => (
-              <div key={c.id} className="group flex items-start gap-2">
-                <Avatar size="sm" src={c.author.avatar_url} name={displayName(c.author)} />
-                <div className="min-w-0 flex-1 rounded-2xl bg-muted px-3 py-2">
-                  <p className="text-xs font-semibold">
-                    {displayName(c.author)}{' '}
-                    <span className="font-normal text-muted-foreground">· {timeAgo(c.created_at)}</span>
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm">{c.content}</p>
-                </div>
-                {c.can_delete && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 shrink-0 p-0 text-muted-foreground opacity-0 transition hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
-                    disabled={deleteComment.isPending}
-                    aria-label="ลบความคิดเห็น"
-                    title={
-                      c.author_id === Number(me?.id)
-                        ? 'ลบความคิดเห็นของคุณ'
-                        : 'ลบความคิดเห็นในโพสต์ของคุณ'
-                    }
-                    onClick={() => {
-                      if (window.confirm('ลบความคิดเห็นนี้? การลบย้อนกลับไม่ได้')) {
-                        deleteComment.mutate({ postId: post.id, commentId: c.id })
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            {!loadingComments && (comments?.length ?? 0) === 0 && (
-              <p className="text-xs text-muted-foreground">ยังไม่มีความคิดเห็น เป็นคนแรกที่ตอบ!</p>
-            )}
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!comment.trim()) return
-                addComment.mutate(
-                  { postId: post.id, content: comment.trim() },
-                  { onSuccess: () => setComment('') }
-                )
-              }}
-            >
-              <Avatar size="sm" src={me?.avatar_url} name={displayName(me)} />
-              <Input
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="เขียนความคิดเห็น…"
-                className="h-9 rounded-full"
-              />
-              <Button type="submit" size="sm" disabled={!comment.trim() || addComment.isPending}>
-                ส่ง
-              </Button>
-            </form>
-          </div>
-        )}
       </CardContent>
     </Card>
+    {detailOpen && (
+      <PostDetailModal post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+    )}
+    </>
   )
 }
 

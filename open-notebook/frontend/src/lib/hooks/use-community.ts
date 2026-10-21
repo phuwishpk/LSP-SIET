@@ -81,8 +81,12 @@ function useRefreshWallet() {
 // Profile / wallet
 // ---------------------------------------------------------------------------
 
-export function useCommunityMe() {
-  return useQuery({ queryKey: COMMUNITY_KEYS.me, queryFn: () => communityApi.me() })
+export function useCommunityMe(enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.me,
+    queryFn: () => communityApi.me(),
+    enabled,
+  })
 }
 
 export function useWallet(enabled = true) {
@@ -177,12 +181,13 @@ export function useDeleteCourse() {
 // Feed
 // ---------------------------------------------------------------------------
 
-export function useFeed(filters: FeedFilters) {
+export function useFeed(filters: FeedFilters, enabled = true) {
   return useInfiniteQuery({
     queryKey: COMMUNITY_KEYS.feed(filters),
     queryFn: ({ pageParam }) => communityApi.feed({ limit: 15, ...filters }, pageParam),
     initialPageParam: null as number | null,
     getNextPageParam: (last) => last.next_before_id,
+    enabled,
   })
 }
 
@@ -258,8 +263,15 @@ export function useComments(postId: number, enabled: boolean) {
 export function useAddComment() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ postId, content }: { postId: number; content: string }) =>
-      communityApi.addComment(postId, content),
+    mutationFn: ({
+      postId,
+      content,
+      parentId,
+    }: {
+      postId: number
+      content: string
+      parentId?: number
+    }) => communityApi.addComment(postId, content, parentId),
     onSuccess: (data, vars) => {
       queryClient.setQueryData(COMMUNITY_KEYS.comments(vars.postId), data.comments)
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })

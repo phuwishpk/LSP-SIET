@@ -511,6 +511,7 @@ async def list_posts(
     query: Optional[str] = None,
     saved_only: bool = False,
     my_courses_only: bool = False,
+    profile_visibility_only: bool = False,
     embed_types: Optional[Iterable[str]] = None,
     before_id: Optional[int] = None,
     limit: int = 20,
@@ -527,6 +528,26 @@ async def list_posts(
     if author_id:
         where.append("p.author_id = :author_id")
         params["author_id"] = author_id
+    if profile_visibility_only:
+        if not author_id:
+            where.append("1 = 0")
+        elif author_id != viewer_id:
+            where.append(
+                """
+                (
+                    p.room_id IS NULL
+                    OR EXISTS (
+                        SELECT 1
+                          FROM room_members viewer_members
+                          JOIN room_members author_members
+                            ON author_members.room_id = viewer_members.room_id
+                         WHERE viewer_members.room_id = p.room_id
+                           AND viewer_members.user_id = :viewer
+                           AND author_members.user_id = :author_id
+                    )
+                )
+                """
+            )
     if query:
         where.append("(p.title LIKE :q OR p.content LIKE :q OR p.tags LIKE :q OR u.display_name LIKE :q OR u.username LIKE :q)")
         params["q"] = _like(query)
@@ -1270,7 +1291,7 @@ async def admin_list_comments(
             await session.execute(
                 text(
                     f"""
-                    SELECT c.id, c.post_id, c.content, c.created_at,
+                    SELECT c.id, c.post_id, c.parent_id, c.content, c.created_at,
                            u.id AS author_id, u.username AS author_username,
                            u.display_name AS author_display_name, u.role AS author_role,
                            p.title AS post_title, p.type AS post_type, p.is_deleted AS post_is_deleted
@@ -1748,6 +1769,7 @@ async def list_comments(post_id: int, limit: int = 100) -> List[Dict[str, Any]]:
         {
             "id": r["id"],
             "post_id": r["post_id"],
+            "parent_id": r.get("parent_id"),
             "content": r["content"],
             "created_at": r["created_at"],
             "author_id": r["author_id"],
@@ -1763,13 +1785,26 @@ async def list_comments(post_id: int, limit: int = 100) -> List[Dict[str, Any]]:
     ]
 
 
-async def add_comment(post_id: int, author_id: int, content: str) -> int:
+async def add_comment(
+    post_id: int,
+    author_id: int,
+    content: str,
+    parent_id: Optional[int] = None,
+) -> int:
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
-                "INSERT INTO post_comments (post_id, author_id, content) VALUES (:pid, :uid, :content)"
+                """
+                INSERT INTO post_comments (post_id, author_id, parent_id, content)
+                VALUES (:pid, :uid, :parent_id, :content)
+                """
             ),
-            {"pid": post_id, "uid": author_id, "content": content.strip()[:4000]},
+            {
+                "pid": post_id,
+                "uid": author_id,
+                "parent_id": parent_id,
+                "content": content.strip()[:4000],
+            },
         )
         await session.execute(
             text("UPDATE posts SET comment_count = comment_count + 1 WHERE id = :pid"),
@@ -1799,7 +1834,14 @@ async def delete_comment(comment_id: int, post_id: int) -> None:
     """
     async with _mariadb_session() as session:
         await session.execute(
-            text("DELETE FROM post_comments WHERE id = :cid"), {"cid": comment_id}
+            text(
+                """
+                DELETE FROM post_comments
+                 WHERE post_id = :pid
+                   AND (id = :cid OR parent_id = :cid)
+                """
+            ),
+            {"cid": comment_id, "pid": post_id},
         )
         await session.execute(
             text(

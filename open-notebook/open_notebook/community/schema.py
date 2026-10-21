@@ -195,7 +195,9 @@ STATEMENTS: list[str] = RENAMES + [
         INDEX idx_pc_post (post_id, id)
     ) {_TABLE_OPTS}
     """,
+    "ALTER TABLE post_comments ADD COLUMN IF NOT EXISTS parent_id BIGINT NULL",
     "ALTER TABLE post_comments ADD INDEX IF NOT EXISTS idx_pc_author_time (author_id, created_at)",
+    "ALTER TABLE post_comments ADD INDEX IF NOT EXISTS idx_pc_parent (post_id, parent_id, id)",
     # One row per attempt at a quiz shared in a post (a quiz can be retaken).
     f"""
     CREATE TABLE IF NOT EXISTS quiz_attempts (

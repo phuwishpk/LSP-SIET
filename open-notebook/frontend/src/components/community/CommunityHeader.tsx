@@ -27,6 +27,7 @@ import { NotificationsMenu } from './NotificationsMenu'
 import { displayName, roleLabel } from '@/lib/utils/community-format'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { Map as MapIcon } from 'lucide-react'
+import Link from 'next/link'
 
 interface CommunityHeaderProps {
   query: string
@@ -55,7 +56,7 @@ export function CommunityHeader({
 
   return (
     <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-14 max-w-[1400px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-6">
         {onOpenMenu && (
           <Button
             variant="ghost"
@@ -72,7 +73,7 @@ export function CommunityHeader({
           onClick={onHome}
           className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-accent"
         >
-          <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-orange-500 to-rose-500 text-sm font-black text-white shadow sm:flex">
+          <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-foreground text-sm font-black text-background sm:flex">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">
@@ -93,7 +94,7 @@ export function CommunityHeader({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
-            className="h-9 rounded-full bg-muted/60 pl-9 pr-16"
+            className="h-9 rounded-lg border-border bg-muted/70 pl-9 pr-16"
           />
           {draft && (
             <button
@@ -122,7 +123,7 @@ export function CommunityHeader({
                 <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground md:inline" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
+            <DropdownMenuContent align="end" className="community-theme w-64">
               <DropdownMenuLabel className="space-y-1">
                 <p className="truncate text-sm font-semibold">{displayName(user)}</p>
                 <p className="truncate text-xs font-normal text-muted-foreground">
@@ -134,6 +135,14 @@ export function CommunityHeader({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {user && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/community/profile/${user.id}`}>
+                    <Avatar size="sm" src={user.avatar_url} name={displayName(user)} />
+                    <span className="ml-2">ดูโปรไฟล์ของฉัน</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => void openQuizApp()}>
                 <GraduationCap className="mr-2 h-4 w-4 text-emerald-600" /> แอป AI Quiz ↗
               </DropdownMenuItem>
