@@ -179,7 +179,7 @@ function CommunityContent() {
 
   return (
     <div
-      className="community-theme flex h-screen flex-col overflow-x-hidden overflow-y-hidden bg-[#FDF7F8] text-foreground dark:bg-background"
+      className="community-theme flex h-screen flex-col overflow-x-hidden overflow-y-hidden bg-white text-foreground dark:bg-zinc-950"
     >
       <CommunityHeader
         query={query}

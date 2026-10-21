@@ -25,7 +25,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           variant="outline"
           size="sm"
           className={cn(
-            'gap-1.5 rounded-full border-amber-300/60 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800',
+            'gap-1.5 rounded-full border-amber-300/60 bg-amber-50 text-amber-900 hover:bg-amber-100 max-sm:gap-1 max-sm:px-2 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800',
             compact && 'px-2'
           )}
           aria-label="กระเป๋าแต้ม"
@@ -33,11 +33,11 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           <Coins className="h-4 w-4" />
           {exempt ? (
             <span className="flex items-center gap-1 text-xs font-semibold">
-              <InfinityIcon className="h-3.5 w-3.5" /> {!compact && 'ไม่จำกัด'}
+            <InfinityIcon className="h-3.5 w-3.5" /> <span className="max-sm:hidden">{!compact && 'ไม่จำกัด'}</span>
             </span>
           ) : (
             <span className="text-xs font-semibold tabular-nums">
-              {balance} {!compact && 'PT'}
+            {balance} <span className="max-sm:hidden">{!compact && 'PT'}</span>
             </span>
           )}
         </Button>
