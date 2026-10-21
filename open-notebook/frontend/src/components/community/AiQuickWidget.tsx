@@ -156,7 +156,7 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   const nextCost = sessionId ? 0 : mode === 'session' ? costs?.rag_session ?? 4 : costs?.rag_question ?? 1
 
   return (
-    <Card ref={cardRef} id="ai-quick-prompt" className="border-border shadow-sm">
+    <Card ref={cardRef} id="ai-quick-prompt" className="relative w-full border-border shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">

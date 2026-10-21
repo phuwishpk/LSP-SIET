@@ -146,7 +146,7 @@ function CommunityContent() {
         </SheetContent>
       </Sheet>
 
-      <div className="mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-y-auto px-3 py-4 sm:px-5 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:p-6">
+      <div className="mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-y-auto px-3 py-4 sm:px-4 md:px-6 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6">
         {/* Left column */}
         <div className="no-scrollbar hidden min-h-0 space-y-4 overflow-y-auto lg:block">
           <CourseSidebar
@@ -166,7 +166,7 @@ function CommunityContent() {
         </div>
 
         {/* Center column */}
-        <main className="no-scrollbar min-h-0 min-w-0 space-y-4 lg:overflow-y-auto">
+        <main className="no-scrollbar min-h-0 min-w-0 w-full space-y-4 lg:overflow-y-auto">
           {view === 'library' ? (
             <LibraryPanel isStaff={isStaff} courseId={courseId} onAskDocument={focusDocument} />
           ) : postId !== null ? (
@@ -272,7 +272,7 @@ function CommunityContent() {
         </main>
 
         {/* Right column */}
-        <div className="no-scrollbar min-h-0 space-y-4 lg:overflow-y-auto">
+        <div className="no-scrollbar hidden min-h-0 w-full space-y-4 lg:block lg:overflow-y-auto">
           <Card className="border-border shadow-sm">
             <CardContent className="space-y-2 p-3">
               <div className="flex items-center gap-2 px-1 pb-1">

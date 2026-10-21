@@ -161,6 +161,7 @@ class PostEditBody(BaseModel):
 
 class CommentBody(BaseModel):
     content: str = Field(..., min_length=1, max_length=4000)
+    parent_id: Optional[int] = Field(default=None, gt=0)
 
 
 class QuizSubmitBody(BaseModel):
@@ -401,6 +402,7 @@ async def list_posts(
     q: Optional[str] = Query(default=None, max_length=200),
     saved: bool = False,
     my_courses: bool = False,
+    profile_visibility: bool = False,
     embed: Optional[str] = Query(default=None, description="comma separated: quiz,roadmap"),
     before_id: Optional[int] = None,
     limit: int = Query(default=20, ge=1, le=100),
@@ -415,6 +417,7 @@ async def list_posts(
         query=q,
         saved_only=saved,
         my_courses_only=my_courses,
+        profile_visibility_only=profile_visibility,
         embed_types=[e.strip() for e in embed.split(",")] if embed else None,
         before_id=before_id,
         limit=limit,
@@ -698,11 +701,20 @@ async def list_comments(post_id: int, user: User = Depends(get_current_user)) ->
 async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
     post = await _post_or_404(post_id)
+    parent = None
+    if body.parent_id is not None:
+        parent = await repo.get_comment(body.parent_id)
+        if not parent or int(parent["post_id"]) != post_id:
+            raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นที่ต้องการตอบกลับ")
+        if parent.get("parent_id") is not None:
+            raise HTTPException(status_code=400, detail="ตอบกลับได้เฉพาะความคิดเห็นหลัก")
     await _guard_spam(user, "comment")
-    await repo.add_comment(post_id, uid, body.content)
+    await repo.add_comment(post_id, uid, body.content, body.parent_id)
+    notification_user_id = int(parent["author_id"]) if parent else int(post["author_id"])
     await repo.add_notification(
-        int(post["author_id"]), "comment",
-        f"{_display(user)} แสดงความคิดเห็นในโพสต์ของคุณ", post_id=post_id, actor_id=uid,
+        notification_user_id, "comment",
+        f"{_display(user)} {'ตอบกลับความคิดเห็นของคุณ' if parent else 'แสดงความคิดเห็นในโพสต์ของคุณ'}",
+        post_id=post_id, actor_id=uid,
     )
     return {"comments": _mark_deletable(await repo.list_comments(post_id), user, post)}
 

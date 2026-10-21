@@ -27,6 +27,7 @@ import { NotificationsMenu } from './NotificationsMenu'
 import { displayName, roleLabel } from '@/lib/utils/community-format'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { Map as MapIcon } from 'lucide-react'
+import Link from 'next/link'
 
 interface CommunityHeaderProps {
   query: string
@@ -134,6 +135,14 @@ export function CommunityHeader({
                 </div>
               </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              {user && (
+                <DropdownMenuItem asChild>
+                  <Link href={`/community/profile/${user.id}`}>
+                    <Avatar size="sm" src={user.avatar_url} name={displayName(user)} />
+                    <span className="ml-2">ดูโปรไฟล์ของฉัน</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={() => void openQuizApp()}>
                 <GraduationCap className="mr-2 h-4 w-4 text-emerald-600" /> แอป AI Quiz ↗
               </DropdownMenuItem>

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import {
   Bookmark,
   Download,
@@ -32,9 +33,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { communityApi, type CommunityPost } from '@/lib/api/community'
 import {
-  useAddComment,
-  useComments,
-  useDeleteComment,
   useDeletePost,
   useEditPost,
   useReact,
@@ -45,6 +43,7 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/community-format'
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
+import { PostDetailModal } from './PostDetailModal'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -67,15 +66,11 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   const share = useSharePost()
   const remove = useDeletePost()
   const edit = useEditPost()
-  const addComment = useAddComment()
-  const deleteComment = useDeleteComment()
   const [editing, setEditing] = useState(false)
   const [draftTitle, setDraftTitle] = useState(post.title ?? '')
   const [draftContent, setDraftContent] = useState(post.content ?? '')
-  const [showComments, setShowComments] = useState(false)
+  const [detailOpen, setDetailOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
-  const [comment, setComment] = useState('')
-  const { data: comments, isLoading: loadingComments } = useComments(post.id, showComments)
 
   const meta = TYPE_META[post.type] ?? TYPE_META.summary
   const canDelete = post.is_author || me?.role === 'admin'
@@ -111,13 +106,49 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   }
 
   return (
-    <Card id={`post-${post.id}`} className="overflow-hidden border-border shadow-sm">
+    <>
+    <Card
+      id={`post-${post.id}`}
+      role="article"
+      tabIndex={0}
+      aria-label={`โพสต์ของ ${displayName(post.author)}`}
+      onClick={(event) => {
+        if (
+          event.target instanceof Element &&
+          event.target.closest('button, a, input, textarea, [role="menuitem"]')
+        ) {
+          return
+        }
+        setDetailOpen(true)
+      }}
+      onKeyDown={(event) => {
+        if (
+          event.target === event.currentTarget &&
+          (event.key === 'Enter' || event.key === ' ')
+        ) {
+          event.preventDefault()
+          setDetailOpen(true)
+        }
+      }}
+      className="cursor-pointer overflow-hidden border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+    >
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start gap-3">
-          <Avatar src={post.author.avatar_url} name={displayName(post.author)} />
+          <Link
+            href={`/community/profile/${post.author.id}`}
+            aria-label={`ดูโปรไฟล์ ${displayName(post.author)}`}
+            className="shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            <Avatar src={post.author.avatar_url} name={displayName(post.author)} />
+          </Link>
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-              <span className="font-semibold">{displayName(post.author)}</span>
+              <Link
+                href={`/community/profile/${post.author.id}`}
+                className="rounded-sm font-semibold hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                {displayName(post.author)}
+              </Link>
               {post.author.role && post.author.role !== 'student' && (
                 <Badge variant="secondary" className="h-5 text-[10px]">
                   {roleLabel(post.author.role)}
@@ -289,11 +320,11 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             onClick={() => react.mutate({ postId: post.id, kind: 'helpful' })}
           />
           <ActionButton
-            active={showComments}
+            active={detailOpen}
             icon={MessageCircle}
             label="คอมเมนต์"
             activeClass="text-primary"
-            onClick={() => setShowComments((v) => !v)}
+            onClick={() => setDetailOpen(true)}
           />
           <ActionButton
             active={post.viewer.saved}
@@ -311,71 +342,12 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           />
         </div>
 
-        {showComments && (
-          <div className="space-y-3 border-t pt-3">
-            {loadingComments && <p className="text-xs text-muted-foreground">กำลังโหลด…</p>}
-            {comments?.map((c) => (
-              <div key={c.id} className="group flex items-start gap-2">
-                <Avatar size="sm" src={c.author.avatar_url} name={displayName(c.author)} />
-                <div className="min-w-0 flex-1 rounded-2xl bg-muted px-3 py-2">
-                  <p className="text-xs font-semibold">
-                    {displayName(c.author)}{' '}
-                    <span className="font-normal text-muted-foreground">· {timeAgo(c.created_at)}</span>
-                  </p>
-                  <p className="whitespace-pre-wrap text-sm">{c.content}</p>
-                </div>
-                {c.can_delete && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-7 w-7 shrink-0 p-0 text-muted-foreground opacity-0 transition hover:text-destructive focus-visible:opacity-100 group-hover:opacity-100"
-                    disabled={deleteComment.isPending}
-                    aria-label="ลบความคิดเห็น"
-                    title={
-                      c.author_id === Number(me?.id)
-                        ? 'ลบความคิดเห็นของคุณ'
-                        : 'ลบความคิดเห็นในโพสต์ของคุณ'
-                    }
-                    onClick={() => {
-                      if (window.confirm('ลบความคิดเห็นนี้? การลบย้อนกลับไม่ได้')) {
-                        deleteComment.mutate({ postId: post.id, commentId: c.id })
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </Button>
-                )}
-              </div>
-            ))}
-            {!loadingComments && (comments?.length ?? 0) === 0 && (
-              <p className="text-xs text-muted-foreground">ยังไม่มีความคิดเห็น เป็นคนแรกที่ตอบ!</p>
-            )}
-            <form
-              className="flex items-center gap-2"
-              onSubmit={(e) => {
-                e.preventDefault()
-                if (!comment.trim()) return
-                addComment.mutate(
-                  { postId: post.id, content: comment.trim() },
-                  { onSuccess: () => setComment('') }
-                )
-              }}
-            >
-              <Avatar size="sm" src={me?.avatar_url} name={displayName(me)} />
-              <Input
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-                placeholder="เขียนความคิดเห็น…"
-                className="h-9 rounded-full"
-              />
-              <Button type="submit" size="sm" disabled={!comment.trim() || addComment.isPending}>
-                ส่ง
-              </Button>
-            </form>
-          </div>
-        )}
       </CardContent>
     </Card>
+    {detailOpen && (
+      <PostDetailModal post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+    )}
+    </>
   )
 }
 

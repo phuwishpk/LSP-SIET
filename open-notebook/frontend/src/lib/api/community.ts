@@ -93,6 +93,7 @@ export interface PostAttachment {
 export interface PostComment {
   id: number
   post_id: number
+  parent_id?: number | null
   content: string
   created_at: string
   author: CommunityUserBrief
@@ -438,6 +439,7 @@ export interface FeedFilters {
   q?: string
   saved?: boolean
   my_courses?: boolean
+  profile_visibility?: boolean
   embed?: string
   order?: 'newest' | 'popular'
   limit?: number
@@ -523,10 +525,11 @@ export const communityApi = {
     ).data,
   comments: async (postId: number) =>
     (await apiClient.get<PostComment[]>(`/community/posts/${postId}/comments`)).data,
-  addComment: async (postId: number, content: string) =>
+  addComment: async (postId: number, content: string, parentId?: number) =>
     (
       await apiClient.post<{ comments: PostComment[] }>(`/community/posts/${postId}/comments`, {
         content,
+        parent_id: parentId,
       })
     ).data,
   deleteComment: async (postId: number, commentId: number) =>
