@@ -41,6 +41,9 @@ export interface QuizGenerateRequest {
   language?: string
   notebook_id?: string
   model_id?: string
+  saved_post_ids?: number[]
+  use_saved_posts?: boolean
+  saved_collection_id?: number
 }
 
 export interface QuizGenerateResponse {

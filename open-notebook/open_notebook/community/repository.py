@@ -212,10 +212,12 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
                 """
                 SELECT c.id, c.code, c.name, c.description, c.kind,
                        c.created_by, c.created_at,
+                       COALESCE(instructor.display_name, instructor.username) AS instructor_name,
                        (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
                        (SELECT COUNT(*) FROM posts p WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
                        EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :uid) AS joined
                   FROM rooms c
+                  LEFT JOIN users instructor ON instructor.id = c.created_by
                  ORDER BY c.kind ASC, c.code ASC
                 """
             ),
@@ -510,6 +512,7 @@ async def list_posts(
     author_id: Optional[int] = None,
     query: Optional[str] = None,
     saved_only: bool = False,
+    saved_collection_id: Optional[int] = None,
     my_courses_only: bool = False,
     profile_visibility_only: bool = False,
     embed_types: Optional[Iterable[str]] = None,
@@ -553,6 +556,20 @@ async def list_posts(
         params["q"] = _like(query)
     if saved_only:
         where.append("EXISTS(SELECT 1 FROM saved_posts s2 WHERE s2.post_id = p.id AND s2.user_id = :viewer)")
+    if saved_collection_id is not None:
+        where.append(
+            """
+            EXISTS(
+                SELECT 1 FROM saved_collection_posts scp
+                JOIN saved_collections sc ON sc.id = scp.collection_id
+                WHERE scp.post_id = p.id
+                  AND scp.collection_id = :saved_collection_id
+                  AND sc.user_id = :viewer
+                  AND scp.user_id = :viewer
+            )
+            """
+        )
+        params["saved_collection_id"] = saved_collection_id
     if my_courses_only:
         where.append("p.room_id IN (SELECT m.room_id FROM room_members m WHERE m.user_id = :viewer)")
     if embed_types:
@@ -565,6 +582,11 @@ async def list_posts(
 
     if order == "popular":
         order_by = "(p.like_count * 2 + p.helpful_count * 3 + p.roadmap_follow_count * 2 + p.quiz_play_count + p.comment_count) DESC, p.id DESC"
+    elif saved_only:
+        order_by = (
+            "(SELECT s.created_at FROM saved_posts s "
+            "WHERE s.post_id = p.id AND s.user_id = :viewer) DESC, p.id DESC"
+        )
     else:
         order_by = "p.id DESC"
 
@@ -1894,12 +1916,153 @@ async def toggle_saved(post_id: int, user_id: int) -> bool:
                 text("DELETE FROM saved_posts WHERE post_id = :pid AND user_id = :uid"),
                 {"pid": post_id, "uid": user_id},
             )
+            await session.execute(
+                text("DELETE FROM saved_collection_posts WHERE post_id = :pid AND user_id = :uid"),
+                {"pid": post_id, "uid": user_id},
+            )
             return False
         await session.execute(
             text("INSERT INTO saved_posts (post_id, user_id) VALUES (:pid, :uid)"),
             {"pid": post_id, "uid": user_id},
         )
         return True
+
+
+async def list_saved_collections(user_id: int) -> List[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                SELECT c.id, c.name, c.created_at, COUNT(DISTINCT scp.post_id) AS item_count,
+                       GROUP_CONCAT(DISTINCT r.name ORDER BY r.name SEPARATOR ', ') AS course_names
+                  FROM saved_collections c
+                  LEFT JOIN saved_collection_posts scp
+                    ON scp.collection_id = c.id AND scp.user_id = c.user_id
+                  LEFT JOIN posts p ON p.id = scp.post_id AND p.is_deleted = 0
+                  LEFT JOIN rooms r ON r.id = p.room_id
+                 WHERE c.user_id = :uid
+                 GROUP BY c.id, c.name, c.created_at
+                 ORDER BY c.created_at DESC, c.id DESC
+                """
+            ),
+            {"uid": user_id},
+        )
+        return _rows(result)
+
+
+async def create_saved_collection(user_id: int, name: str) -> Dict[str, Any]:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text("INSERT INTO saved_collections (user_id, name) VALUES (:uid, :name)"),
+            {"uid": user_id, "name": name.strip()},
+        )
+        collection_id = int(result.lastrowid)
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id, name, created_at, 0 AS item_count, NULL AS course_names
+                      FROM saved_collections WHERE id = :cid AND user_id = :uid
+                    """
+                ),
+                {"cid": collection_id, "uid": user_id},
+            )
+        ).first()
+        return _row(row)
+
+
+async def add_saved_post_to_collection(
+    collection_id: int, post_id: int, user_id: int
+) -> bool:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                INSERT IGNORE INTO saved_collection_posts (collection_id, user_id, post_id)
+                SELECT c.id, c.user_id, s.post_id
+                  FROM saved_collections c
+                  JOIN saved_posts s ON s.user_id = c.user_id AND s.post_id = :pid
+                 WHERE c.id = :cid AND c.user_id = :uid
+                """
+            ),
+            {"cid": collection_id, "pid": post_id, "uid": user_id},
+        )
+        if result.rowcount:
+            return True
+        exists = (
+            await session.execute(
+                text(
+                    """
+                    SELECT 1 FROM saved_collections c
+                    JOIN saved_posts s ON s.user_id = c.user_id AND s.post_id = :pid
+                    WHERE c.id = :cid AND c.user_id = :uid
+                    """
+                ),
+                {"cid": collection_id, "pid": post_id, "uid": user_id},
+            )
+        ).first()
+        return bool(exists)
+
+
+async def remove_saved_post_from_collection(
+    collection_id: int, post_id: int, user_id: int
+) -> bool:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                DELETE scp FROM saved_collection_posts scp
+                JOIN saved_collections c ON c.id = scp.collection_id
+                WHERE scp.collection_id = :cid AND scp.post_id = :pid
+                  AND scp.user_id = :uid AND c.user_id = :uid
+                """
+            ),
+            {"cid": collection_id, "pid": post_id, "uid": user_id},
+        )
+        return bool(result.rowcount)
+
+
+async def saved_posts_for_quiz(
+    user_id: int,
+    post_ids: Optional[Sequence[int]] = None,
+    collection_id: Optional[int] = None,
+    include_all: bool = False,
+) -> List[Dict[str, Any]]:
+    ids = list(dict.fromkeys(int(post_id) for post_id in (post_ids or [])))
+    if not ids and collection_id is None and not include_all:
+        return []
+    selection = (
+        "p.id IN :post_ids"
+        if ids
+        else "EXISTS (SELECT 1 FROM saved_collection_posts scp "
+        "JOIN saved_collections sc ON sc.id = scp.collection_id "
+        "WHERE scp.post_id = p.id AND scp.collection_id = :collection_id "
+        "AND sc.user_id = :uid)"
+        if collection_id is not None
+        else "1 = 1"
+    )
+    params: Dict[str, Any] = {"uid": user_id}
+    if ids:
+        params["post_ids"] = ids
+    if collection_id is not None:
+        params["collection_id"] = collection_id
+    async with _mariadb_session() as session:
+        statement = text(
+            f"""
+            SELECT p.id, p.title, p.content, p.tags, p.attachment_name,
+                   r.name AS course_name
+              FROM saved_posts s
+              JOIN posts p ON p.id = s.post_id AND p.is_deleted = 0
+              LEFT JOIN rooms r ON r.id = p.room_id
+             WHERE s.user_id = :uid AND {selection}
+             ORDER BY s.created_at DESC, p.id DESC
+             LIMIT 100
+            """
+        )
+        if ids:
+            statement = statement.bindparams(bindparam("post_ids", expanding=True))
+        result = await session.execute(statement, params)
+        return _rows(result)
 
 
 async def save_item(post_id: int, user_id: int) -> None:

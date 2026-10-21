@@ -34,12 +34,19 @@ export interface AskFocus {
 interface AiQuickWidgetProps {
   /** Course currently being browsed – offered as a one-click scope. */
   courseId?: number | null
+  /** Restrict the quick widget to the viewer's enrolled course libraries. */
+  enrolledCoursesOnly?: boolean
   /** A library document the user asked about ("ถาม AI จากเอกสารนี้"). */
   focusDocument?: AskFocus | null
   onClearFocus?: () => void
 }
 
-export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuickWidgetProps) {
+export function AiQuickWidget({
+  courseId,
+  enrolledCoursesOnly = false,
+  focusDocument,
+  onClearFocus,
+}: AiQuickWidgetProps) {
   const ask = useAsk()
   const { data: wallet } = useWallet()
   const { data: courses } = useCourses()
@@ -67,13 +74,22 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
   )
 
   useEffect(() => {
+    if (enrolledCoursesOnly) {
+      setScope('course')
+      if (courseId && myCourses.some((course) => course.id === courseId)) {
+        setScopeCourseId(courseId)
+      } else if (!myCourses.some((course) => course.id === scopeCourseId)) {
+        setScopeCourseId(myCourses[0]?.id ?? null)
+      }
+      return
+    }
     if (!courseId) return
     // Discussion rooms have no library; selecting one must not silently become
     // a course scope the RAG cannot search.
     const room = (courses ?? []).find((c) => c.id === courseId)
     if (room && room.kind === 'club') return
     setScopeCourseId(courseId)
-  }, [courseId, courses])
+  }, [courseId, courses, enrolledCoursesOnly, myCourses, scopeCourseId])
 
   // Clicking "ask about this document" in the library switches the widget scope.
   useEffect(() => {
@@ -184,15 +200,19 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
             </div>
           ) : (
             <div className="flex flex-wrap items-center gap-1">
-              <ScopeChip active={scope === 'auto'} onClick={() => setScope('auto')}>
-                ทุกแหล่งของฉัน
-              </ScopeChip>
+              {!enrolledCoursesOnly && (
+                <ScopeChip active={scope === 'auto'} onClick={() => setScope('auto')}>
+                  ทุกแหล่งของฉัน
+                </ScopeChip>
+              )}
               <ScopeChip active={scope === 'course'} onClick={() => setScope('course')} icon={Users}>
-                รายวิชา
+                {enrolledCoursesOnly ? 'วิชาที่ลงเรียน' : 'รายวิชา'}
               </ScopeChip>
-              <ScopeChip active={scope === 'personal'} onClick={() => setScope('personal')} icon={Lock}>
-                ไฟล์ของฉัน
-              </ScopeChip>
+              {!enrolledCoursesOnly && (
+                <ScopeChip active={scope === 'personal'} onClick={() => setScope('personal')} icon={Lock}>
+                  ไฟล์ของฉัน
+                </ScopeChip>
+              )}
             </div>
           )}
           {!focusDocument && scope === 'course' && (
@@ -202,8 +222,7 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
               onChange={(e) => setScopeCourseId(e.target.value ? Number(e.target.value) : null)}
             >
               <option value="">— เลือกวิชา —</option>
-              {(courses ?? [])
-                .filter((c) => c.kind !== 'club')
+              {(enrolledCoursesOnly ? myCourses : (courses ?? []).filter((c) => c.kind !== 'club'))
                 .map((c) => (
                   <option key={c.id} value={c.id}>
                     {roomLabel(c)}
@@ -214,6 +233,11 @@ export function AiQuickWidget({ courseId, focusDocument, onClearFocus }: AiQuick
           {!focusDocument && scope === 'course' && scopeCourse && (
             <p className="text-[10px] text-muted-foreground">
               ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา {scopeCourse.code} เท่านั้น
+            </p>
+          )}
+          {!focusDocument && enrolledCoursesOnly && myCourses.length === 0 && (
+            <p className="text-[10px] text-muted-foreground">
+              เข้าร่วมชั้นเรียนก่อนเพื่อถามจากคลังเอกสารรายวิชา
             </p>
           )}
         </div>

@@ -739,6 +739,13 @@ class QuizGenerateRequest(BaseModel):
     model_id: Optional[str] = Field(
         None, description="Optional override model ID (otherwise default chat model)"
     )
+    saved_post_ids: List[int] = Field(
+        default_factory=list,
+        max_length=20,
+        description="Optional posts saved by the authenticated user to use as quiz context",
+    )
+    use_saved_posts: bool = False
+    saved_collection_id: Optional[int] = Field(default=None, gt=0)
 
 
 class QuizSessionResponse(BaseModel):
@@ -882,4 +889,3 @@ class NotebookAskResolvedResponse(BaseModel):
             "will come from the LLM's own knowledge with an (out of RAG source) label."
         ),
     )
-

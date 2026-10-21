@@ -31,7 +31,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { communityApi, type CommunityPost } from '@/lib/api/community'
+import { communityApi, type CommunityPost, type SavedCollection } from '@/lib/api/community'
 import {
   useDeletePost,
   useEditPost,
@@ -44,6 +44,7 @@ import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/commun
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
 import { PostDetailModal } from './PostDetailModal'
+import { SharePostModal } from './SharePostModal'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -57,9 +58,18 @@ const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.Comp
 interface PostCardProps {
   post: CommunityPost
   onSelectCourse?: (courseId: number) => void
+  savedView?: boolean
+  savedCollections?: SavedCollection[]
+  onAddToSavedCollection?: (postId: number, collectionId: number) => void
 }
 
-export function PostCard({ post, onSelectCourse }: PostCardProps) {
+export function PostCard({
+  post,
+  onSelectCourse,
+  savedView = false,
+  savedCollections = [],
+  onAddToSavedCollection,
+}: PostCardProps) {
   const me = useAuthStore((s) => s.user)
   const react = useReact()
   const save = useToggleSave()
@@ -70,6 +80,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   const [draftTitle, setDraftTitle] = useState(post.title ?? '')
   const [draftContent, setDraftContent] = useState(post.content ?? '')
   const [detailOpen, setDetailOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
 
   const meta = TYPE_META[post.type] ?? TYPE_META.summary
@@ -115,7 +126,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
       onClick={(event) => {
         if (
           event.target instanceof Element &&
-          event.target.closest('button, a, input, textarea, [role="menuitem"]')
+          event.target.closest('button, a, input, textarea, select, [role="menuitem"]')
         ) {
           return
         }
@@ -130,7 +141,10 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           setDetailOpen(true)
         }
       }}
-      className="cursor-pointer overflow-hidden border-border shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      className={cn(
+        'cursor-pointer overflow-hidden shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        savedView ? 'rounded-2xl border-pink-100 bg-white dark:bg-card' : 'border-border'
+      )}
     >
       <CardContent className="space-y-3 p-4">
         <div className="flex items-start gap-3">
@@ -176,6 +190,12 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             </div>
             <p className="text-xs text-muted-foreground">{timeAgo(post.created_at)}</p>
           </div>
+          {savedView ? (
+            <Bookmark
+              aria-label="โพสต์นี้บันทึกไว้แล้ว"
+              className="h-5 w-5 shrink-0 fill-pink-600 text-pink-600"
+            />
+          ) : (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full">
@@ -209,6 +229,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
               )}
             </DropdownMenuContent>
           </DropdownMenu>
+          )}
         </div>
 
         {editing ? (
@@ -248,7 +269,12 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
           <h3 className="text-base font-semibold leading-snug">{post.title}</h3>
         )}
         {!editing && content && (
-          <p className="whitespace-pre-wrap text-sm leading-relaxed">
+          <p
+            className={cn(
+              'whitespace-pre-wrap text-sm leading-relaxed',
+              savedView && 'rounded-xl border border-pink-100 bg-pink-50/40 p-3'
+            )}
+          >
             {shownContent}
             {isLong && (
               <button
@@ -293,6 +319,46 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
         {post.embed?.type === 'quiz' && <QuizEmbed post={post} embed={post.embed} />}
         {post.embed?.type === 'roadmap' && <RoadmapEmbed post={post} embed={post.embed} />}
 
+        {savedView ? (
+          <div className="flex flex-wrap items-center gap-2 border-t border-pink-100 pt-3">
+            <span className="flex-1 text-xs text-muted-foreground">
+              <Heart className="mr-1 inline h-3.5 w-3.5" />
+              {post.counts.like}
+              <MessageCircle className="mx-1.5 inline h-3.5 w-3.5" />
+              {post.counts.comment} ความคิดเห็น
+            </span>
+            {savedCollections.length > 0 && onAddToSavedCollection && (
+              <select
+                aria-label="เพิ่มลงคลัง"
+                defaultValue=""
+                onChange={(event) => {
+                  const id = Number(event.target.value)
+                  if (id) onAddToSavedCollection(post.id, id)
+                  event.currentTarget.value = ''
+                }}
+                className="h-8 max-w-36 rounded-full border border-pink-100 bg-background px-2 text-[11px]"
+              >
+                <option value="">เพิ่มลงคลัง</option>
+                {savedCollections.map((collection) => (
+                  <option key={collection.id} value={collection.id}>
+                    {collection.name}
+                  </option>
+                ))}
+              </select>
+            )}
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              disabled={save.isPending}
+              onClick={() => save.mutate(post.id)}
+              className="h-8 rounded-full px-3 text-xs text-pink-700 hover:bg-pink-50"
+            >
+              เอาออกจากบันทึก
+            </Button>
+          </div>
+        ) : (
+        <>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <span>
             {post.counts.like > 0 && `❤️ ${post.counts.like}  `}
@@ -334,18 +400,23 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             onClick={() => save.mutate(post.id)}
           />
           <ActionButton
-            active={post.viewer.shared}
+            active={shareOpen}
             icon={Share2}
-            label={post.viewer.shared ? 'แชร์แล้ว' : 'แชร์'}
+            label="แบ่งปัน"
             activeClass="text-primary"
-            onClick={copyLink}
+            onClick={() => setShareOpen(true)}
           />
         </div>
+        </>
+        )}
 
       </CardContent>
     </Card>
     {detailOpen && (
       <PostDetailModal post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+    )}
+    {shareOpen && (
+      <SharePostModal post={post} open={shareOpen} onOpenChange={setShareOpen} />
     )}
     </>
   )
