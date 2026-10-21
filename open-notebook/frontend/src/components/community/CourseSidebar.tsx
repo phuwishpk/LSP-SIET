@@ -106,9 +106,9 @@ export function CourseSidebar({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
         active
-          ? 'bg-pink-100 font-semibold text-pink-700 dark:bg-pink-950/40 dark:text-pink-200'
+          ? 'bg-rose-50/80 font-bold text-rose-700 shadow-2xs border-l-4 border-rose-600 pl-2.5 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-500'
           : 'text-foreground hover:bg-accent'
       )}
     >
@@ -210,7 +210,7 @@ export function CourseSidebar({
         <NavButton
           active={view === 'library'}
           icon={BookOpen}
-          label={isStaff ? 'คลังความรู้ / เพิ่มเนื้อหา' : 'คลังความรู้ & ไฟล์ของฉัน'}
+          label={isStaff ? 'คลังเอกสาร / เพิ่มเนื้อหา' : 'คลังเอกสาร & สไลด์เรียน'}
           onClick={() => onSelectView('library')}
         />
         <NavButton

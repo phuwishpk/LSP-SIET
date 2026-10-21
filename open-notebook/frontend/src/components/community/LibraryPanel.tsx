@@ -62,12 +62,12 @@ export function LibraryPanel({ isStaff, courseId, onAskDocument }: LibraryPanelP
     <div className="space-y-4">
       <UploadCard isStaff={isStaff} defaultCourseId={courseId} />
 
-      <Card>
+<Card className="rounded-2xl border border-slate-200/90 shadow-xs dark:border-zinc-800">
         <CardHeader className="pb-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <CardTitle className="flex items-center gap-2 text-base">
-                <BookOpen className="h-4 w-4" /> เอกสารในคลังความรู้
+                <BookOpen className="h-4 w-4 text-rose-600 dark:text-rose-400" /> คลังเอกสาร & สไลด์เรียน
               </CardTitle>
               <CardDescription>
                 AI จะอ้างอิงเฉพาะเอกสารที่คุณมีสิทธิ์เห็น เอกสารส่วนตัวไม่ถูกแชร์ให้ใคร

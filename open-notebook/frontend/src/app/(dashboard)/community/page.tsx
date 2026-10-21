@@ -347,7 +347,7 @@ function CommunityContent() {
                   <Button
                     variant={courseId === null ? 'default' : 'outline'}
                     size="sm"
-                    className={`shrink-0 rounded-full ${courseId === null ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+                    className={`shrink-0 rounded-full font-semibold transition-all ${courseId === null ? 'bg-rose-600 text-white shadow-xs hover:bg-rose-700' : 'border-slate-200 hover:bg-slate-50 text-slate-700'}`}
                     onClick={() => setParams({ course: null, post: null })}
                   >
                     ทั้งหมด
@@ -357,7 +357,7 @@ function CommunityContent() {
                       key={course.id}
                       variant={courseId === course.id ? 'default' : 'outline'}
                       size="sm"
-                      className={`shrink-0 rounded-full ${courseId === course.id ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+                      className={`shrink-0 rounded-full font-semibold transition-all ${courseId === course.id ? 'bg-rose-600 text-white shadow-xs hover:bg-rose-700' : 'border-slate-200 hover:bg-slate-50 text-slate-700'}`}
                       onClick={() => setParams({ course: course.id, post: null })}
                     >
                       {roomLabel(course)}
@@ -367,7 +367,7 @@ function CommunityContent() {
                 <Button
                   size="sm"
                   variant="outline"
-                  className="shrink-0 gap-1 rounded-full border-pink-200 text-pink-700 hover:bg-pink-50"
+                  className="shrink-0 gap-1.5 rounded-full border-rose-200 text-rose-700 hover:bg-rose-50 font-semibold transition-all shadow-2xs"
                   onClick={() => setJoinDialogOpen(true)}
                 >
                   <Plus className="h-3.5 w-3.5" />
@@ -442,10 +442,27 @@ function CommunityContent() {
                 </Card>
               )}
               {!feed.isLoading && posts.length === 0 && (
-                <Card>
-                  <CardContent className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-                    <Inbox className="h-8 w-8" />
-                    ยังไม่มีโพสต์จากวิชาที่ลงเรียนในขณะนี้
+                <Card className="rounded-2xl border-dashed border-2 border-slate-200/90 dark:border-border/80 bg-slate-50/40 dark:bg-card transition-all duration-300 animate-in fade-in zoom-in-95 motion-reduce:animate-none">
+                  <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+                    <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-3.5 text-rose-500 shadow-2xs">
+                      <Sparkles className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-foreground text-base">
+                        {view === 'saved'
+                          ? 'ยังไม่มีโพสต์ที่บันทึกไว้'
+                          : view === 'materials'
+                          ? 'ยังไม่มีสื่อการสอนจากอาจารย์'
+                          : 'ยังไม่มีโพสต์ในฟีดนี้'}
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        {view === 'saved'
+                          ? 'กดปุ่ม “บันทึก” ใต้โพสต์ที่ต้องการทบทวน เพื่อเก็บไว้อ่านย้อนหลัง'
+                          : view === 'materials'
+                          ? 'อาจารย์ประจำวิชายังไม่ได้อัปโหลดเอกสารหรือสไลด์ประกอบการสอน'
+                          : 'เริ่มแชร์ชีทสรุปหรือส่งควิซชุดแรก รับทันที +2 แต้ม! 🎁'}
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -541,14 +558,27 @@ function CommunityContent() {
                 </Card>
               )}
               {!feed.isLoading && posts.length === 0 && (
-                <Card>
-                  <CardContent className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-                    <Inbox className="h-8 w-8" />
-                    {view === 'saved'
-                      ? 'ยังไม่มีโพสต์ที่บันทึกไว้ กดปุ่ม “บันทึก” ใต้โพสต์ที่ชอบ'
-                      : view === 'materials'
-                      ? 'อาจารย์ยังไม่ได้อัปโหลดสื่อการสอน'
-                      : 'ยังไม่มีโพสต์ในฟีดนี้ เริ่มแชร์สรุปหรือควิซชุดแรกได้เลย!'}
+                <Card className="rounded-2xl border-dashed border-2 border-slate-200/90 dark:border-border/80 bg-slate-50/40 dark:bg-card transition-all duration-300 animate-in fade-in zoom-in-95 motion-reduce:animate-none">
+                  <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+                    <div className="rounded-2xl bg-rose-50 dark:bg-rose-950/40 p-3.5 text-rose-500 shadow-2xs">
+                      <Sparkles className="h-7 w-7" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="font-bold text-foreground text-base">
+                        {view === 'saved'
+                          ? 'ยังไม่มีโพสต์ที่บันทึกไว้'
+                          : view === 'materials'
+                          ? 'ยังไม่มีสื่อการสอนจากอาจารย์'
+                          : 'ยังไม่มีโพสต์ในฟีดนี้'}
+                      </p>
+                      <p className="text-xs text-muted-foreground max-w-sm">
+                        {view === 'saved'
+                          ? 'กดปุ่ม “บันทึก” ใต้โพสต์ที่ต้องการทบทวน เพื่อเก็บไว้อ่านย้อนหลัง'
+                          : view === 'materials'
+                          ? 'อาจารย์ประจำวิชายังไม่ได้อัปโหลดเอกสารหรือสไลด์ประกอบการสอน'
+                          : 'เริ่มแชร์ชีทสรุปหรือส่งควิซชุดแรก รับทันที +2 แต้ม! 🎁'}
+                      </p>
+                    </div>
                   </CardContent>
                 </Card>
               )}
@@ -686,62 +716,46 @@ function CommunityContent() {
             </>
           ) : (
             <>
-          <Card className="border-border shadow-sm">
+          <Card className="rounded-2xl border border-slate-200/90 bg-white shadow-xs dark:border-zinc-800 dark:bg-card">
             <CardContent className="space-y-2 p-3">
               <div className="flex items-center gap-2 px-1 pb-1">
-                <Sparkles className="h-4 w-4 text-primary" />
-                <h2 className="text-sm font-semibold">เครื่องมือ AI</h2>
+                <Sparkles className="h-4 w-4 text-rose-500" />
+                <h2 className="text-xs font-bold tracking-tight text-slate-800 dark:text-zinc-200 uppercase">เครื่องมือ AI ช่วยเรียนรู้</h2>
               </div>
-              <Link
-                href="/community/ask"
-                className="group flex items-start gap-3 rounded-xl border border-border bg-card p-3 transition-colors hover:bg-accent"
-              >
-                <Bot className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2 text-xs font-semibold">
-                    ถาม KMITL RAG AI <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
-                  <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                    {view === 'mine'
-                      ? 'ตอบจากคลังเอกสารของวิชาที่ลงเรียนเท่านั้น'
-                      : 'ได้รับคำตอบจากคลังวิชาของคุณ · 1 เครดิต'}
-                  </span>
-                </span>
-              </Link>
-              <button
-                type="button"
-                onClick={() => void openQuizApp()}
-                className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent"
-              >
-                <ListChecks className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2 text-xs font-semibold">
-                    สร้างแบบทดสอบ AI <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
-                  <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                    ทดสอบความเข้าใจด้วยคำถามฝึกหัด · 8 เครดิต
-                  </span>
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={() =>
-                  void openRoadmapApp({
-                    course: selectedCourse && selectedCourse.kind !== 'club' ? selectedCourse.id : null,
-                  })
-                }
-                className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent"
-              >
-                <MapIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="min-w-0 flex-1">
-                  <span className="flex items-center justify-between gap-2 text-xs font-semibold">
-                    สร้างแผนการเรียน AI <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
-                  </span>
-                  <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                    แปลงเป้าหมายการเรียนของคุณเป็นแผนการเรียน · 15 เครดิต
-                  </span>
-                </span>
-              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => void openQuizApp()}
+                  className="group flex flex-col justify-between rounded-xl border border-rose-100 bg-rose-50/50 p-2.5 text-left transition-all hover:bg-rose-100/60 hover:shadow-2xs active:scale-[0.98] dark:border-rose-950/40 dark:bg-rose-950/20"
+                >
+                  <div className="flex items-center justify-between">
+                    <ListChecks className="h-4 w-4 text-rose-600 dark:text-rose-400" />
+                    <span className="text-[10px] font-bold text-rose-600/80">8 PT</span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="block text-xs font-bold text-slate-900 dark:text-zinc-100">แบบทดสอบ AI</span>
+                    <span className="text-[10px] text-muted-foreground">ซ้อมสอบ · 8 แต้ม</span>
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() =>
+                    void openRoadmapApp({
+                      course: selectedCourse && selectedCourse.kind !== 'club' ? selectedCourse.id : null,
+                    })
+                  }
+                  className="group flex flex-col justify-between rounded-xl border border-indigo-100 bg-indigo-50/50 p-2.5 text-left transition-all hover:bg-indigo-100/60 hover:shadow-2xs active:scale-[0.98] dark:border-indigo-950/40 dark:bg-indigo-950/20"
+                >
+                  <div className="flex items-center justify-between">
+                    <MapIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
+                    <span className="text-[10px] font-bold text-indigo-600/80">15 PT</span>
+                  </div>
+                  <div className="mt-2">
+                    <span className="block text-xs font-bold text-slate-900 dark:text-zinc-100">วางแผน Roadmap</span>
+                    <span className="text-[10px] text-muted-foreground">เรียนเป็นระบบ · 15 แต้ม</span>
+                  </div>
+                </button>
+              </div>
             </CardContent>
           </Card>
           {view === 'mine' && (

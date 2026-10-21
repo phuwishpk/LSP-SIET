@@ -39,7 +39,7 @@ export function InstructorMediaView({
 
   return (
     <div className="space-y-4">
-      <Card className="rounded-2xl border-pink-100 bg-pink-50/70 shadow-none dark:bg-pink-950/20">
+      <Card className="rounded-2xl border border-rose-100/90 bg-gradient-to-r from-rose-50/80 via-pink-50/50 to-rose-50/30 shadow-2xs dark:border-rose-950/40 dark:bg-pink-950/20">
         <CardContent className="space-y-1 p-4">
           <h1 className="text-lg font-semibold tracking-tight">สื่อการสอน</h1>
           <p className="text-xs text-muted-foreground">
@@ -52,7 +52,7 @@ export function InstructorMediaView({
         <Button
           size="sm"
           variant={courseId === null ? 'default' : 'outline'}
-          className={`shrink-0 rounded-full ${courseId === null ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+          className={`shrink-0 rounded-full ${courseId === null ? 'bg-rose-600 text-white hover:bg-rose-700' : 'border-pink-100'}`}
           onClick={() => onSelectCourse(null)}
         >
           ทุกวิชา
@@ -62,7 +62,7 @@ export function InstructorMediaView({
             key={course.id}
             size="sm"
             variant={courseId === course.id ? 'default' : 'outline'}
-            className={`shrink-0 rounded-full ${courseId === course.id ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+            className={`shrink-0 rounded-full ${courseId === course.id ? 'bg-rose-600 text-white hover:bg-rose-700' : 'border-pink-100'}`}
             onClick={() => onSelectCourse(course.id)}
           >
             {roomLabel(course)}

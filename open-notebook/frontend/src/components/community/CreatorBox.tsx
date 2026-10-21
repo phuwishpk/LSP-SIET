@@ -112,19 +112,73 @@ export function CreatorBox({
 
   return (
     <>
-      <Card className="overflow-hidden rounded-xl border-border bg-card shadow-sm">
+      <Card className="overflow-hidden rounded-2xl border border-slate-200/90 bg-card shadow-xs transition-shadow hover:shadow-md">
         <CardContent className="p-2.5">
           <button
             type="button"
             onClick={() => setIsOpen(true)}
             aria-label="สร้างโพสต์"
-            className="flex w-full items-center gap-3 rounded-full bg-muted/80 px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="flex w-full items-center gap-3 rounded-2xl bg-slate-100/70 dark:bg-muted/80 px-3.5 py-3 text-left transition-all hover:bg-slate-100 hover:ring-1 hover:ring-rose-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500"
           >
             <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
             <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
               {placeholder}
             </span>
           </button>
+          <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-border/60">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('embed')
+                  setEmbedType('quiz')
+                  setIsOpen(true)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-rose-50 px-3 py-1 text-xs font-semibold text-rose-700 transition-all hover:bg-rose-100/90 active:scale-95 dark:bg-rose-950/40 dark:text-rose-300"
+              >
+                <Sparkles className="h-3.5 w-3.5" />
+                <span>แชร์ควิซ AI</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('summary')
+                  setIsOpen(true)
+                }}
+                className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 transition-all hover:bg-amber-100/90 active:scale-95 dark:bg-amber-950/40 dark:text-amber-300"
+              >
+                <FileText className="h-3.5 w-3.5" />
+                <span>สรุปบทเรียน</span>
+              </button>
+            </div>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('embed')
+                  setEmbedType('roadmap')
+                  setIsOpen(true)
+                }}
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                title="แชร์ Roadmap"
+              >
+                <Map className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Roadmap</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMode('question')
+                  setIsOpen(true)
+                }}
+                className="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                title="ถามข้อสงสัย"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">ถาม</span>
+              </button>
+            </div>
+          </div>
           {joinedCoursesOnly && (
             <label className="mt-2 flex items-center gap-2 px-2 text-xs text-muted-foreground">
               <span className="shrink-0">โพสต์ไปยัง:</span>

@@ -175,7 +175,7 @@ export function AiQuickWidget({
     <Card ref={cardRef} id="ai-quick-prompt" className="relative w-full border-border shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary text-primary-foreground">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-rose-600 to-pink-500 text-white shadow-2xs">
             <Bot className="h-4 w-4" />
           </span>
           ถาม KMITL RAG AI
@@ -231,12 +231,12 @@ export function AiQuickWidget({
             </select>
           )}
           {!focusDocument && scope === 'course' && scopeCourse && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] font-medium text-muted-foreground">
               ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา {scopeCourse.code} เท่านั้น
             </p>
           )}
           {!focusDocument && enrolledCoursesOnly && myCourses.length === 0 && (
-            <p className="text-xs text-muted-foreground">
+            <p className="text-[11px] font-medium text-muted-foreground">
               เข้าร่วมชั้นเรียนก่อนเพื่อถามจากคลังเอกสารรายวิชา
             </p>
           )}
@@ -268,7 +268,7 @@ export function AiQuickWidget({
       <CardContent className="space-y-2 pt-0">
         <div ref={listRef} className="no-scrollbar max-h-72 space-y-2 overflow-x-hidden overflow-y-auto rounded-lg border bg-muted/30 p-2">
           {messages.length === 0 && (
-            <p className="p-2 text-xs text-muted-foreground">
+            <p className="p-2 text-[11px] font-medium text-muted-foreground">
               ถาม KMITL RAG AI ด่วน ๆ ได้เลย เช่น &ldquo;สรุป deadlock 4 เงื่อนไข&rdquo; คำตอบอ้างอิงจากเอกสาร
               ในขอบเขตที่เลือก (ไม่เกิน 6 ข้อความ, 150–350 คำ)
             </p>
@@ -278,7 +278,7 @@ export function AiQuickWidget({
               <div
                 className={cn(
                   'max-w-[92%] rounded-2xl px-3 py-2 text-xs leading-relaxed',
-                  m.role === 'user' ? 'bg-primary text-primary-foreground' : 'bg-background border'
+                  m.role === 'user' ? 'bg-gradient-to-tr from-rose-600 to-pink-500 text-white shadow-2xs' : 'bg-background border'
                 )}
               >
                 {m.role === 'assistant' ? (
@@ -289,7 +289,7 @@ export function AiQuickWidget({
                   <p className="whitespace-pre-wrap">{m.content}</p>
                 )}
                 {m.role === 'assistant' && m.scopeLabel && (
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-[11px] font-medium text-muted-foreground">
                     {answerSourceNote(m.grounded, m.scopeLabel, m.citations?.length ?? 0)}
                   </p>
                 )}
@@ -297,7 +297,7 @@ export function AiQuickWidget({
                   <AnswerReferences citations={m.citations} webSources={m.webSources} compact />
                 )}
                 {m.role === 'assistant' && (m.charged ?? 0) > 0 && (
-                  <p className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
+                  <p className="mt-1 flex items-center gap-1 text-[11px] font-medium text-muted-foreground">
                     <Coins className="h-3 w-3" /> ใช้ {m.charged} แต้ม
                   </p>
                 )}
@@ -306,7 +306,7 @@ export function AiQuickWidget({
           ))}
           {ask.isPending && (
             <div className="flex justify-start">
-              <div className="rounded-2xl border bg-background px-3 py-2 text-xs text-muted-foreground">
+              <div className="relative overflow-hidden rounded-2xl border border-rose-200/80 bg-gradient-to-r from-rose-50/70 via-pink-50/50 to-rose-50/70 px-3.5 py-2.5 text-[11px] font-semibold text-rose-800 shadow-2xs dark:border-rose-900/60 dark:from-rose-950/40 dark:to-pink-950/30 dark:text-rose-300">
                 กำลังค้นคลังความรู้และเรียบเรียงคำตอบ…
               </div>
             </div>
@@ -319,7 +319,7 @@ export function AiQuickWidget({
           }}
           className="space-y-1.5"
         >
-          <div className="relative rounded-xl border border-border bg-muted/70 p-2">
+          <div className="relative rounded-2xl border border-slate-200/90 bg-slate-50/70 p-2.5 transition-all focus-within:border-rose-300 focus-within:bg-white focus-within:ring-2 focus-within:ring-rose-500/10 dark:border-zinc-800 dark:bg-zinc-800/50">
             <Textarea
               ref={inputRef}
               value={question}
@@ -334,7 +334,7 @@ export function AiQuickWidget({
                 }
               }}
             />
-            <span className="absolute bottom-3 left-3 text-xs text-muted-foreground">
+            <span className="absolute bottom-3 left-3 text-[11px] font-medium text-muted-foreground">
               {exempt ? 'ไม่ตัดแต้ม (อาจารย์/ผู้ดูแล)' : nextCost === 0 ? 'ใช้ข้อความในเซสชัน' : `${nextCost} เครดิตต่อคำถาม`}
             </span>
             <Button
@@ -371,7 +371,7 @@ function ScopeChip({
       className={cn(
         'flex min-h-9 items-center gap-1 rounded-full border px-2 py-1 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
-          ? 'border-primary bg-primary text-primary-foreground'
+          ? 'border-primary bg-gradient-to-tr from-rose-600 to-pink-500 text-white shadow-2xs'
           : 'hover:bg-accent'
       )}
     >
