@@ -1,133 +1,159 @@
-import { google } from '@ai-sdk/google';
-import { generateObject } from 'ai';
-import { z } from 'zod';
+export const maxDuration = 45;
 
-export const maxDuration = 30;
-
-// Used only when the request does not carry a KMITL workspace token (i.e. the
-// app was opened directly instead of through SIET Space). Override with
-// QUIZ_FALLBACK_MODEL if the Gemini model line changes.
-const MODEL_ID = (process.env.QUIZ_FALLBACK_MODEL || 'gemini-2.5-flash').trim();
-
-const quizSchema = z.object({
-  quiz: z.array(
-    z.object({
-      id: z.number().describe('Question number starting from 1'),
-      question: z.string().describe('The quiz question in Thai'),
-      options: z.array(z.string()).length(4).describe('Four answer options in Thai'),
-      correctAnswer: z.string().describe('The correct answer and it must match one option exactly'),
-      explanation: z.string().describe('A clear explanation in Thai'),
-    })
-  ),
-});
-
-function createFallbackQuiz(topic: string, count: number) {
-  const safeCount = Math.max(1, Math.min(count, 5));
-
-  return Array.from({ length: safeCount }, (_, index) => ({
-    id: index + 1,
-    question: `คำถามตัวอย่างที่ ${index + 1}: สิ่งสำคัญที่สุดของ ${topic} คืออะไร?`,
-    options: [
-      `แนวคิดพื้นฐานของ ${topic}`,
-      `รายละเอียดที่ไม่เกี่ยวข้อง`,
-      `คำตอบที่ไม่ถูกต้อง`,
-      `ตัวเลือกสุ่มเพื่อให้ครบ 4 ตัว`,
-    ],
-    correctAnswer: `แนวคิดพื้นฐานของ ${topic}`,
-    explanation: `นี่คือตัวอย่างคำอธิบายสำหรับหัวข้อ ${topic} เนื่องจากระบบ AI ยังไม่ถูกตั้งค่าให้ใช้งานในเครื่องนี้`,
-  }));
+interface QuizQuestion {
+  id: number;
+  question: string;
+  options: string[];
+  correctAnswer: string;
+  explanation: string;
+  codeSnippet?: string;
+  topic?: string;
 }
+
+interface GenerateQuizRequest {
+  topic: string;
+  subject?: string;
+  difficulty?: 'easy' | 'medium' | 'hard';
+  count?: number;
+  timerMode?: 'standard' | 'speed' | 'zen';
+  questionType?: 'mcq' | 'tf' | 'code';
+}
+
+const FREE_MODELS = [
+  'openrouter/free',
+  'google/gemma-4-31b-it:free',
+  'minimax/minimax-m3.1-flash:free',
+];
 
 export async function POST(req: Request) {
   try {
-    const body = await req.json();
-    const topic = typeof body?.topic === 'string' ? body.topic.trim() : '';
-    const count = Number(body?.count ?? 3);
+    const body: GenerateQuizRequest = await req.json();
+    const topic = body?.topic?.trim() || 'General Knowledge';
+    const subject = body?.subject || 'คอมพิวเตอร์และเทคโนโลยี';
+    const difficulty = body?.difficulty || 'medium';
+    const count = Math.max(1, Math.min(Number(body?.count || 5), 15));
 
-    if (!topic) {
-      return Response.json({ error: 'Please enter a quiz topic' }, { status: 400 });
-    }
-
-    if (!Number.isInteger(count) || count < 1 || count > 10) {
-      return Response.json({ error: 'Question count must be between 1 and 10' }, { status: 400 });
-    }
-
-    const workspaceApiUrl = process.env.OPEN_NOTEBOOK_API_URL;
-    const authorization = req.headers.get('authorization');
-    if (workspaceApiUrl && authorization) {
-      const workspaceResponse = await fetch(
-        `${workspaceApiUrl.replace(/\/$/, '')}/api/features/quiz/generate`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authorization,
-          },
-          body: JSON.stringify({
-            topic,
-            question_count: count,
-            language: 'th',
-          }),
-        }
-      );
-      const workspaceData = await workspaceResponse.json();
-      if (!workspaceResponse.ok) {
-        return Response.json(
-          { error: workspaceData?.detail || 'Open Notebook RAG request failed' },
-          { status: workspaceResponse.status }
-        );
-      }
-      const quiz = (workspaceData?.session?.questions ?? []).map((question: {
-        id: number;
-        question: string;
-        options: { text: string }[];
-        correct_answer: string;
-        explanation: string;
-      }) => ({
-        id: question.id,
-        question: question.question,
-        options: question.options.map((option) => option.text),
-        correctAnswer: question.correct_answer,
-        explanation: question.explanation,
-      }));
-      return Response.json({
-        quiz,
-        // Open Notebook session id – lets the UI share this quiz to SIET Space.
-        session_id: workspaceData?.session?.id ?? null,
-        cached: Boolean(workspaceData?.cached),
-      });
-    }
-
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
+    const apiKey =
+      process.env.OPENROUTER_API_KEY ||
+      process.env.GOOGLE_GENERATIVE_AI_API_KEY ||
+      process.env.GEMINI_API_KEY;
 
     if (!apiKey) {
       return Response.json(
         {
           error:
-            'ยังไม่ได้ตั้งค่า AI สำหรับโหมดเดี่ยว กรุณาเข้าใช้งานผ่าน SIET Space เพื่อให้ระบบใช้โมเดลของเวิร์กสเปซ ' +
-            '(หรือผู้ดูแลตั้งค่า GOOGLE_GENERATIVE_AI_API_KEY ให้แอปนี้)',
+            'ไม่พบ OPENROUTER_API_KEY ในระบบ กรุณาใส่ OPENROUTER_API_KEY ในไฟล์ .env ก่อนเริ่มสร้างข้อสอบ',
         },
-        { status: 503 }
+        { status: 500 }
       );
     }
 
-    try {
-      const result = await generateObject({
-        model: google(MODEL_ID),
-        schema: quizSchema,
-        prompt: `Create a multiple-choice quiz about "${topic}" with ${count} questions in Thai. Each question must have 4 options, one correct answer, and a clear explanation. Make sure the correct answer matches one of the provided options exactly.`,
-      });
+    const difficultyText =
+      difficulty === 'easy'
+        ? 'ระดับง่าย เน้นความจำและแนวคิดพื้นฐาน'
+        : difficulty === 'hard'
+        ? 'ระดับท้าทาย เน้นการวิเคราะห์ ประยุกต์ใช้ และแก้โจทย์ปัญหาเชิงลึก'
+        : 'ระดับปานกลาง เน้นความเข้าใจและการวิเคราะห์';
 
-      return Response.json(result.object);
-    } catch (error) {
-      console.error(error);
+    const systemPrompt = `คุณคือระบบสร้างข้อสอบ AI อัจฉริยะสำหรับนักศึกษา
+หน้าที่ของคุณคือสร้างแบบทดสอบวิชาการแบบ Multiple Choice ที่มีคุณภาพสูง ชัดเจน และถูกต้องตามหลักสูตร
+รูปแบบคำตอบต้องเป็น JSON เท่านั้น (Strict JSON Output) ห้ามใส่ markdown backticks อื่นๆ นอกเหนือจาก JSON object`;
+
+    const userPrompt = `สร้างข้อสอบแบบปรนัย (4 ตัวเลือก) จำนวน ${count} ข้อ
+- วิชา: "${subject}"
+- หัวข้อเฉพาะเจาะจง: "${topic}"
+- ระดับความยาก: ${difficultyText}
+- ภาษา: ภาษาไทย (หากเป็นศัพท์เทคนิค ให้เขียนภาษาไทยพร้อมวงเล็บภาษาอังกฤษ หรือเขียนคำศัพท์เทคนิคภาษาอังกฤษทับศัพท์ที่ถูกต้อง)
+
+ข้อกำหนดสำคัญ:
+1. แต่ละข้อต้องมี 4 ตัวเลือกใน array "options"
+2. "correctAnswer" ต้องตรงกับข้อใดข้อหนึ่งใน "options" แบบคำต่อคำ (exact match)
+3. มี "explanation" อธิบายเหตุผลที่ข้อนั้นถูก และทำไมตัวเลือกอื่นจึงผิด อย่างละเอียดและเข้าใจง่าย
+4. หากเป็นคำถามที่เกี่ยวกับโค้ดหรืออัลกอริทึม ให้ระบุ "codeSnippet" ด้วย (ถ้าไม่มีให้เป็น "")
+
+คืนค่าเป็นรูปแบบ JSON โครงสร้างนี้เท่านั้น:
+{
+  "subject": "${subject}",
+  "topic": "${topic}",
+  "quiz": [
+    {
+      "id": 1,
+      "question": "คำถามข้อที่ 1...",
+      "codeSnippet": "โค้ดตัวอย่างถ้ามี หรือค่าว่าง",
+      "options": ["ตัวเลือก ก", "ตัวเลือก ข", "ตัวเลือก ค", "ตัวเลือก ง"],
+      "correctAnswer": "ตัวเลือก ข",
+      "explanation": "คำอธิบายละเอียด..."
+    }
+  ]
+}`;
+
+    // Try calling OpenRouter with fallback models
+    let generatedData = null;
+    let lastError = null;
+
+    for (const model of FREE_MODELS) {
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${apiKey}`,
+            'HTTP-Referer': 'https://kmitl.ac.th',
+            'X-Title': 'KMITL AI Quiz Arena',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: [
+              { role: 'system', content: systemPrompt },
+              { role: 'user', content: userPrompt },
+            ],
+            temperature: 0.7,
+            response_format: { type: 'json_object' },
+          }),
+        });
+
+        if (!response.ok) {
+          const errBody = await response.text();
+          console.warn(`Model ${model} failed (${response.status}):`, errBody);
+          lastError = errBody;
+          continue;
+        }
+
+        const data = await response.json();
+        const content = data?.choices?.[0]?.message?.content;
+        if (!content) continue;
+
+        // Parse JSON
+        const cleaned = content.replace(/^```json\s*/i, '').replace(/\s*```$/i).trim();
+        const parsed = JSON.parse(cleaned);
+
+        if (Array.isArray(parsed?.quiz) && parsed.quiz.length > 0) {
+          generatedData = parsed;
+          break;
+        }
+      } catch (err) {
+        console.warn(`Error trying model ${model}:`, err);
+        lastError = err;
+      }
+    }
+
+    if (!generatedData) {
       return Response.json(
-        { error: 'AI service is currently unavailable. Please try again later or check your Gemini quota/API key.' },
+        {
+          error:
+            'โมเดล AI ยังไม่สามารถสร้างข้อสอบได้ในขณะนี้ กรุณาตรวจสอบว่าได้ระบุ OPENROUTER_API_KEY ถูกต้อง หรือลองอีกครั้งในสักครู่',
+          details: String(lastError),
+        },
         { status: 502 }
       );
     }
+
+    return Response.json(generatedData);
   } catch (error) {
-    console.error(error);
-    return Response.json({ error: 'Failed to generate the quiz. Please try again.' }, { status: 500 });
+    console.error('API Error:', error);
+    return Response.json(
+      { error: 'เกิดข้อผิดพลาดในการประมวลผล กรุณาลองใหม่อีกครั้ง' },
+      { status: 500 }
+    );
   }
 }
