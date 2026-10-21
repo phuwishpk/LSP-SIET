@@ -44,6 +44,7 @@ import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/commun
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
 import { PostDetailModal } from './PostDetailModal'
+import { SharePostModal } from './SharePostModal'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -70,6 +71,7 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
   const [draftTitle, setDraftTitle] = useState(post.title ?? '')
   const [draftContent, setDraftContent] = useState(post.content ?? '')
   const [detailOpen, setDetailOpen] = useState(false)
+  const [shareOpen, setShareOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
 
   const meta = TYPE_META[post.type] ?? TYPE_META.summary
@@ -334,11 +336,11 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
             onClick={() => save.mutate(post.id)}
           />
           <ActionButton
-            active={post.viewer.shared}
+            active={shareOpen}
             icon={Share2}
-            label={post.viewer.shared ? 'แชร์แล้ว' : 'แชร์'}
+            label="แบ่งปัน"
             activeClass="text-primary"
-            onClick={copyLink}
+            onClick={() => setShareOpen(true)}
           />
         </div>
 
@@ -346,6 +348,9 @@ export function PostCard({ post, onSelectCourse }: PostCardProps) {
     </Card>
     {detailOpen && (
       <PostDetailModal post={post} open={detailOpen} onOpenChange={setDetailOpen} />
+    )}
+    {shareOpen && (
+      <SharePostModal post={post} open={shareOpen} onOpenChange={setShareOpen} />
     )}
     </>
   )

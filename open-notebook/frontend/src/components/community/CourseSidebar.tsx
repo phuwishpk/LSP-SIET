@@ -54,6 +54,8 @@ interface CourseSidebarProps {
   view: FeedView
   courseId: number | null
   isStaff: boolean
+  rulesOpen?: boolean
+  onRulesOpenChange?: (open: boolean) => void
   onSelectView: (view: FeedView) => void
   onSelectCourse: (courseId: number | null) => void
 }
@@ -62,6 +64,8 @@ export function CourseSidebar({
   view,
   courseId,
   isStaff,
+  rulesOpen: controlledRulesOpen,
+  onRulesOpenChange,
   onSelectView,
   onSelectCourse,
 }: CourseSidebarProps) {
@@ -69,7 +73,9 @@ export function CourseSidebar({
   const me = useAuthStore((s) => s.user)
   const join = useJoinCourse()
   const remove = useDeleteCourse()
-  const [rulesOpen, setRulesOpen] = useState(false)
+  const [localRulesOpen, setLocalRulesOpen] = useState(false)
+  const rulesOpen = controlledRulesOpen ?? localRulesOpen
+  const setRulesOpen = onRulesOpenChange ?? setLocalRulesOpen
   const [createKind, setCreateKind] = useState<RoomKind | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Course | null>(null)
 

@@ -56,6 +56,7 @@ function CommunityContent() {
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
   const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [rulesOpen, setRulesOpen] = useState(false)
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -115,6 +116,7 @@ function CommunityContent() {
         onSearch={(q) => setParams({ q, post: null })}
         onOpenPost={openPost}
         onHome={goHome}
+        onOpenCommunityRules={() => setRulesOpen(true)}
         onOpenMenu={() => setMenuOpen(true)}
       />
 
@@ -153,6 +155,8 @@ function CommunityContent() {
             view={view}
             courseId={courseId}
             isStaff={isStaff}
+            rulesOpen={rulesOpen}
+            onRulesOpenChange={setRulesOpen}
             onSelectView={(v) =>
               setParams({
                 view: v === 'all' ? null : v,
