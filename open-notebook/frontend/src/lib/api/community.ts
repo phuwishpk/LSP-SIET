@@ -135,6 +135,7 @@ export interface Course {
   description?: string | null
   kind: RoomKind
   created_by?: number | null
+  instructor_name?: string | null
   member_count: number
   post_count: number
   joined: boolean

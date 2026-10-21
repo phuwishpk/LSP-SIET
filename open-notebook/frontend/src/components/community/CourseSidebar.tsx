@@ -138,13 +138,15 @@ export function CourseSidebar({
             {joined.map((c) => (
               <NavButton
                 key={c.id}
-                active={view === 'all' && courseId !== null && courseId === c.id}
+                active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
                 icon={icon}
                 label={label(c)}
                 onClick={() => open(c)}
                 badge={
                   c.post_count > 0 ? (
-                    <span className="text-[10px] text-muted-foreground">{c.post_count}</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {view === 'mine' ? `${c.post_count} โพสต์` : c.post_count}
+                    </span>
                   ) : null
                 }
               />
@@ -157,7 +159,7 @@ export function CourseSidebar({
             {others.map((c) => (
               <div key={c.id} className="flex items-center gap-1 pr-1">
                 <NavButton
-                  active={view === 'all' && courseId !== null && courseId === c.id}
+                  active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
                   icon={icon}
                   label={label(c)}
                   onClick={() => open(c)}
@@ -198,7 +200,7 @@ export function CourseSidebar({
         <NavButton
           active={view === 'mine'}
           icon={Users}
-          label="เฉพาะห้องที่เข้าร่วม"
+          label="ชั้นเรียนของฉัน"
           onClick={() => onSelectView('mine')}
         />
         <NavButton
@@ -229,7 +231,9 @@ export function CourseSidebar({
 
       {/* ------------------------------------------------ official course rooms */}
       <div className="rounded-xl border bg-card p-3 shadow-sm">
-        <p className="mb-2 px-2 text-xs font-semibold text-foreground">ชั้นเรียนของฉัน</p>
+        <p className="mb-2 px-2 text-xs font-semibold text-foreground">
+          {view === 'mine' ? 'กิจกรรมในชั้นเรียนของฉัน' : 'ชั้นเรียนของฉัน'}
+        </p>
         <p className="mb-1 px-2 text-[11px] font-medium text-muted-foreground">ห้องวิชา</p>
         {isLoading && (
           <div className="space-y-1 px-3">
@@ -237,12 +241,17 @@ export function CourseSidebar({
             <Skeleton className="h-7 w-full" />
           </div>
         )}
-        <RoomList rooms={courseRooms} icon={Hash} showCode />
-        {!isLoading && courseRooms.length === 0 && (
+        <RoomList
+          rooms={view === 'mine' ? courseRooms.filter((course) => course.joined) : courseRooms}
+          icon={Hash}
+          showCode
+        />
+        {!isLoading &&
+          (view === 'mine' ? !courseRooms.some((course) => course.joined) : courseRooms.length === 0) && (
           <p className="px-3 text-xs text-muted-foreground">
             {isStaff ? 'ยังไม่มีห้องวิชา — สร้างห้องแรกได้เลย' : 'ยังไม่มีห้องวิชา'}
           </p>
-        )}
+          )}
         {isStaff && (
           <Button
             variant="outline"

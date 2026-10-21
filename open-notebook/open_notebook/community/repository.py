@@ -212,10 +212,12 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
                 """
                 SELECT c.id, c.code, c.name, c.description, c.kind,
                        c.created_by, c.created_at,
+                       COALESCE(instructor.display_name, instructor.username) AS instructor_name,
                        (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
                        (SELECT COUNT(*) FROM posts p WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
                        EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :uid) AS joined
                   FROM rooms c
+                  LEFT JOIN users instructor ON instructor.id = c.created_by
                  ORDER BY c.kind ASC, c.code ASC
                 """
             ),

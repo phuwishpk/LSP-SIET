@@ -3,14 +3,27 @@
 import { Suspense, useCallback, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
-import { ArrowLeft, Bot, ChevronRight, Inbox, ListChecks, Map, Sparkles } from 'lucide-react'
+import {
+  ArrowLeft,
+  BookOpen,
+  Bot,
+  ChevronRight,
+  Inbox,
+  ListChecks,
+  Map,
+  Plus,
+  Sparkles,
+  Users,
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { COMMUNITY_KEYS, useCourses, useFeed } from '@/lib/hooks/use-community'
+import { COMMUNITY_KEYS, useCourses, useFeed, useJoinCourse } from '@/lib/hooks/use-community'
 import { communityApi, type FeedFilters } from '@/lib/api/community'
+import { roomLabel } from '@/lib/utils/community-format'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
 import { CourseSidebar, type FeedView } from '@/components/community/CourseSidebar'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
@@ -60,6 +73,10 @@ function CommunityContent() {
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
   const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [joinDialogOpen, setJoinDialogOpen] = useState(false)
+  const joinCourse = useJoinCourse()
+  const joinedCourses = (courses ?? []).filter((course) => course.joined && course.kind !== 'club')
+  const availableCourses = (courses ?? []).filter((course) => !course.joined && course.kind !== 'club')
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -116,7 +133,7 @@ function CommunityContent() {
   return (
     <div
       className={`community-theme flex h-screen flex-col overflow-hidden text-foreground ${
-        view === 'rules' ? 'bg-[#FDF7F8] dark:bg-background' : 'bg-background'
+        view === 'rules' || view === 'mine' ? 'bg-[#FDF7F8] dark:bg-background' : 'bg-background'
       }`}
     >
       <CommunityHeader
@@ -151,7 +168,7 @@ function CommunityContent() {
               setMenuOpen(false)
             }}
             onSelectCourse={(id) => {
-              setParams({ course: id, view: null, post: null, q: null })
+              setParams({ course: id, view: view === 'mine' ? 'mine' : null, post: null, q: null })
               setMenuOpen(false)
             }}
           />
@@ -173,7 +190,9 @@ function CommunityContent() {
                 q: null,
               })
             }
-            onSelectCourse={(id) => setParams({ course: id, view: null, post: null, q: null })}
+            onSelectCourse={(id) =>
+              setParams({ course: id, view: view === 'mine' ? 'mine' : null, post: null, q: null })
+            }
           />
         </div>
 
@@ -186,6 +205,136 @@ function CommunityContent() {
             </div>
           ) : view === 'library' ? (
             <LibraryPanel isStaff={isStaff} courseId={courseId} onAskDocument={focusDocument} />
+          ) : view === 'mine' && postId === null ? (
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <h1 className="text-lg font-semibold tracking-tight">ชั้นเรียนของฉันและวิชาที่ลงเรียน</h1>
+                <p className="text-xs text-muted-foreground">
+                  อัปเดตจากชั้นเรียนที่ลงเรียน {joinedCourses.length} วิชาเท่านั้น
+                </p>
+              </div>
+              <div className="flex min-w-0 items-center gap-2">
+                <div className="no-scrollbar flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
+                  <Button
+                    variant={courseId === null ? 'default' : 'outline'}
+                    size="sm"
+                    className={`shrink-0 rounded-full ${courseId === null ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+                    onClick={() => setParams({ course: null, post: null })}
+                  >
+                    ทั้งหมด
+                  </Button>
+                  {joinedCourses.map((course) => (
+                    <Button
+                      key={course.id}
+                      variant={courseId === course.id ? 'default' : 'outline'}
+                      size="sm"
+                      className={`shrink-0 rounded-full ${courseId === course.id ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+                      onClick={() => setParams({ course: course.id, post: null })}
+                    >
+                      {roomLabel(course)}
+                    </Button>
+                  ))}
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 gap-1 rounded-full border-pink-200 text-pink-700 hover:bg-pink-50"
+                  onClick={() => setJoinDialogOpen(true)}
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  <span className="hidden sm:inline">เข้าร่วมชั้นเรียน</span>
+                </Button>
+              </div>
+              <CreatorBox
+                defaultCourseId={courseId}
+                isStaff={isStaff}
+                joinedCoursesOnly
+                placeholder="แชร์ข้อความกับเพื่อนร่วมชั้น..."
+              />
+              <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
+                <DialogContent className="community-theme max-h-[80vh] overflow-y-auto sm:max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>เข้าร่วมชั้นเรียน</DialogTitle>
+                    <DialogDescription>เลือกวิชาที่ต้องการเข้าร่วมเพื่อดูและแบ่งปันโพสต์กับเพื่อนร่วมชั้น</DialogDescription>
+                  </DialogHeader>
+                  {availableCourses.length === 0 ? (
+                    <p className="py-6 text-center text-sm text-muted-foreground">ไม่มีชั้นเรียนอื่นให้เข้าร่วมในขณะนี้</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {availableCourses.map((course) => (
+                        <div key={course.id} className="flex items-center gap-3 rounded-xl border p-3">
+                          <BookOpen className="h-4 w-4 shrink-0 text-pink-600" />
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate text-sm font-medium">{roomLabel(course)}</p>
+                            <p className="text-xs text-muted-foreground">{course.member_count} สมาชิก</p>
+                          </div>
+                          <Button
+                            size="sm"
+                            disabled={joinCourse.isPending}
+                            onClick={() =>
+                              joinCourse.mutate(
+                                { courseId: course.id, join: true },
+                                { onSuccess: () => setJoinDialogOpen(false) }
+                              )
+                            }
+                          >
+                            เข้าร่วม
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </DialogContent>
+              </Dialog>
+              <div className="flex items-center justify-between px-1">
+                <h2 className="text-sm font-semibold text-foreground">โพสต์ในชั้นเรียน</h2>
+                {courseId !== null && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs"
+                    onClick={() => setParams({ course: null })}
+                  >
+                    ดูทุกวิชาที่ลงเรียน
+                  </Button>
+                )}
+              </div>
+              {feed.isLoading && (
+                <div className="space-y-4">
+                  <Skeleton className="h-40 w-full" />
+                  <Skeleton className="h-40 w-full" />
+                </div>
+              )}
+              {feed.isError && (
+                <Card>
+                  <CardContent className="p-8 text-center text-sm text-muted-foreground">
+                    โหลดฟีดไม่สำเร็จ ลองรีเฟรชอีกครั้ง
+                  </CardContent>
+                </Card>
+              )}
+              {!feed.isLoading && posts.length === 0 && (
+                <Card>
+                  <CardContent className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
+                    <Inbox className="h-8 w-8" />
+                    ยังไม่มีโพสต์จากวิชาที่ลงเรียนในขณะนี้
+                  </CardContent>
+                </Card>
+              )}
+              {posts.map((post) => (
+                <PostCard key={post.id} post={post} onSelectCourse={(id) => setParams({ course: id })} />
+              ))}
+              {feed.hasNextPage && (
+                <div className="flex justify-center">
+                  <Button
+                    variant="outline"
+                    onClick={() => feed.fetchNextPage()}
+                    disabled={feed.isFetchingNextPage}
+                  >
+                    {feed.isFetchingNextPage ? 'กำลังโหลด…' : 'โหลดโพสต์เพิ่ม'}
+                  </Button>
+                </div>
+              )}
+            </div>
           ) : postId !== null ? (
             <>
               <Button variant="ghost" size="sm" onClick={() => setParams({ post: null })} className="gap-1">
@@ -203,7 +352,7 @@ function CommunityContent() {
             </>
           ) : (
             <>
-              {view !== 'materials' && view !== 'saved' && (
+              {view !== 'materials' && view !== 'saved' && view !== 'mine' && (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <h1 className="text-lg font-semibold tracking-tight">
@@ -310,7 +459,9 @@ function CommunityContent() {
                     ถาม KMITL RAG AI <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />
                   </span>
                   <span className="mt-1 block text-[11px] leading-relaxed text-muted-foreground">
-                    ได้รับคำตอบจากคลังวิชาของคุณ · 1 เครดิต
+                    {view === 'mine'
+                      ? 'ตอบจากคลังเอกสารของวิชาที่ลงเรียนเท่านั้น'
+                      : 'ได้รับคำตอบจากคลังวิชาของคุณ · 1 เครดิต'}
                   </span>
                 </span>
               </Link>
@@ -350,10 +501,51 @@ function CommunityContent() {
               </button>
             </CardContent>
           </Card>
+          {view === 'mine' && (
+            <Card className="border-pink-100 shadow-sm">
+              <CardContent className="space-y-3 p-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-sm font-semibold">วิชาที่ลงเรียน ({joinedCourses.length})</h2>
+                    <p className="text-[11px] text-muted-foreground">กิจกรรมจากเพื่อนร่วมชั้น</p>
+                  </div>
+                  <BookOpen className="h-4 w-4 text-pink-600" />
+                </div>
+                {joinedCourses.length === 0 ? (
+                  <p className="rounded-lg bg-muted/50 p-3 text-xs text-muted-foreground">
+                    ยังไม่มีวิชาที่ลงเรียน
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {joinedCourses.map((course) => (
+                      <button
+                        type="button"
+                        key={course.id}
+                        onClick={() => setParams({ course: course.id, view: 'mine', post: null })}
+                        className="flex w-full items-start gap-2 rounded-xl border border-border p-3 text-left transition-colors hover:border-pink-200 hover:bg-pink-50/60"
+                      >
+                        <Users className="mt-0.5 h-4 w-4 shrink-0 text-pink-600" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-xs font-semibold">{roomLabel(course)}</span>
+                          <span className="mt-1 block truncate text-[10px] text-muted-foreground">
+                            ผู้สอน: {course.instructor_name || 'ไม่ระบุ'} · {course.member_count} สมาชิก
+                          </span>
+                        </span>
+                        <span className="shrink-0 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-medium text-pink-700">
+                          ลงเรียนแล้ว
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
           <AiQuickWidget
             courseId={courseId}
             focusDocument={askFocus}
             onClearFocus={() => setAskFocus(null)}
+            enrolledCoursesOnly={view === 'mine'}
           />
             </>
           )}

@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, GraduationCap, HelpCircle, Library, Map, Paperclip, Sparkles, X } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -27,11 +27,18 @@ import type { PostType } from '@/lib/api/community'
 interface CreatorBoxProps {
   defaultCourseId: number | null
   isStaff: boolean
+  placeholder?: string
+  joinedCoursesOnly?: boolean
 }
 
 type Mode = 'summary' | 'embed' | 'question' | 'material'
 
-export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
+export function CreatorBox({
+  defaultCourseId,
+  isStaff,
+  placeholder = 'แบ่งปันบันทึก คำถาม หรือไฟล์...',
+  joinedCoursesOnly = false,
+}: CreatorBoxProps) {
   const user = useAuthStore((s) => s.user)
   const { data: courses } = useCourses()
   const { data: wallet } = useWallet()
@@ -52,7 +59,17 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
   const { data: quizzes } = useQuizSessions()
   const { data: roadmaps } = useShareableRoadmaps()
 
-  const courseOptions = useMemo(() => courses ?? [], [courses])
+  useEffect(() => {
+    setCourseId(defaultCourseId)
+  }, [defaultCourseId])
+
+  const courseOptions = useMemo(
+    () =>
+      (courses ?? []).filter(
+        (course) => !joinedCoursesOnly || (course.joined && course.kind !== 'club')
+      ),
+    [courses, joinedCoursesOnly]
+  )
   const bonus = wallet?.rules.creator_bonus_summary ?? 2
 
   const reset = () => {
@@ -105,9 +122,29 @@ export function CreatorBox({ defaultCourseId, isStaff }: CreatorBoxProps) {
           >
             <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
             <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
-              แบ่งปันบันทึก คำถาม หรือไฟล์...
+              {placeholder}
             </span>
           </button>
+          {joinedCoursesOnly && (
+            <label className="mt-2 flex items-center gap-2 px-2 text-xs text-muted-foreground">
+              <span className="shrink-0">โพสต์ไปยัง:</span>
+              <select
+                aria-label="เลือกวิชาสำหรับโพสต์"
+                className="h-7 min-w-0 flex-1 rounded-full border border-pink-100 bg-background px-2 text-xs text-foreground"
+                value={courseId ?? ''}
+                onChange={(event) =>
+                  setCourseId(event.target.value ? Number(event.target.value) : null)
+                }
+              >
+                <option value="">เลือกวิชา</option>
+                {courseOptions.map((course) => (
+                  <option key={course.id} value={course.id}>
+                    {roomLabel(course)}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
         </CardContent>
       </Card>
 
