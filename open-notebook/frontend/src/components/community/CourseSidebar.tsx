@@ -106,7 +106,7 @@ export function CourseSidebar({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
+        'flex min-h-11 w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
           ? 'bg-pink-100 font-semibold text-pink-700 dark:bg-pink-950/40 dark:text-pink-200'
           : 'text-foreground hover:bg-accent'
@@ -169,7 +169,7 @@ export function CourseSidebar({
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-7 px-2 text-xs"
+                  className="h-11 min-w-11 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring"
                   disabled={join.isPending}
                   onClick={() => join.mutate({ courseId: c.id, join: true })}
                 >
@@ -193,12 +193,14 @@ export function CourseSidebar({
           label="ฟีดสาธารณะ"
           onClick={() => onSelectView('all')}
         />
-        <NavButton
-          active={view === 'popular'}
-          icon={Flame}
-          label="ยอดนิยม"
-          onClick={() => onSelectView('popular')}
-        />
+        <div className="hidden">
+          <NavButton
+            active={view === 'popular'}
+            icon={Flame}
+            label="ยอดนิยม"
+            onClick={() => onSelectView('popular')}
+          />
+        </div>
         <NavButton
           active={view === 'mine'}
           icon={Users}
@@ -258,7 +260,7 @@ export function CourseSidebar({
           <Button
             variant="outline"
             size="sm"
-            className="mt-2 h-8 w-full justify-start gap-2 text-xs"
+            className="mt-2 h-11 w-full justify-start gap-2 text-xs focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setCreateKind('course')}
           >
             <Plus className="h-3.5 w-3.5" /> สร้างห้องวิชาใหม่
@@ -278,7 +280,7 @@ export function CourseSidebar({
           <Button
             variant="outline"
             size="sm"
-            className="mt-2 h-8 w-full justify-start gap-2 text-xs"
+            className="mt-2 h-11 w-full justify-start gap-2 text-xs focus-visible:ring-2 focus-visible:ring-ring"
             onClick={() => setCreateKind('club')}
           >
             <Plus className="h-3.5 w-3.5" /> เปิดห้องพูดคุยใหม่
@@ -292,7 +294,7 @@ export function CourseSidebar({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-full justify-start px-3 text-xs text-muted-foreground"
+              className="h-11 w-full justify-start px-3 text-xs text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => join.mutate({ courseId: selected.id, join: false })}
             >
               ออกจาก{selected.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'}นี้
@@ -302,7 +304,7 @@ export function CourseSidebar({
             <Button
               variant="ghost"
               size="sm"
-              className="h-7 w-full justify-start gap-2 px-3 text-xs text-destructive hover:text-destructive"
+              className="h-11 w-full justify-start gap-2 px-3 text-xs text-destructive hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
               onClick={() => setPendingDelete(selected)}
             >
               <Trash2 className="h-3.5 w-3.5" /> ปิดห้องนี้

@@ -142,8 +142,8 @@ export function PostCard({
         }
       }}
       className={cn(
-        'cursor-pointer overflow-hidden shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-        savedView ? 'rounded-2xl border-pink-100 bg-white dark:bg-card' : 'border-border'
+        'cursor-pointer overflow-hidden rounded-xl shadow-sm transition-[border-color,box-shadow] hover:border-pink-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        savedView ? 'border-pink-100 bg-white dark:bg-card' : 'border-border'
       )}
     >
       <CardContent className="space-y-3 p-4">
@@ -360,9 +360,19 @@ export function PostCard({
         ) : (
         <>
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <span>
-            {post.counts.like > 0 && `❤️ ${post.counts.like}  `}
-            {post.counts.helpful > 0 && `👍 Helpful ${post.counts.helpful}`}
+          <span className="inline-flex items-center gap-2 rounded-full bg-muted/50 px-2.5 py-1 dark:bg-muted/30">
+            {post.counts.like > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" aria-hidden="true" />
+                {post.counts.like}
+              </span>
+            )}
+            {post.counts.helpful > 0 && (
+              <span className="inline-flex items-center gap-1">
+                <ThumbsUp className="h-3.5 w-3.5 fill-amber-500 text-amber-500" aria-hidden="true" />
+                Helpful {post.counts.helpful}
+              </span>
+            )}
           </span>
           <span>
             {post.counts.comment > 0 && `${post.counts.comment} ความคิดเห็น`}
@@ -439,8 +449,10 @@ function ActionButton({
     <button
       type="button"
       onClick={onClick}
+      aria-label={label}
+      aria-pressed={active}
       className={cn(
-        'flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-medium transition hover:bg-accent',
+        'flex min-h-11 items-center justify-center gap-1.5 rounded-md px-1 py-1.5 text-xs font-medium transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active ? activeClass : 'text-muted-foreground'
       )}
     >

@@ -133,7 +133,7 @@ export default function UserProfilePage() {
           <div
             role="tablist"
             aria-label="หมวดหมู่โปรไฟล์"
-            className="flex gap-1 overflow-x-auto border-t border-pink-100/80 px-3 py-2 dark:border-border sm:px-5"
+            className="no-scrollbar flex gap-1 overflow-x-auto border-t border-pink-100/80 px-3 py-2 dark:border-border sm:px-5"
           >
             {PROFILE_TABS.map((tab) => (
               <button

@@ -78,7 +78,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
           )}
         </div>
       ) : (
-        <div className="mt-3 overflow-x-auto rounded-lg border bg-background p-3">
+        <div className="no-scrollbar mt-3 overflow-x-auto rounded-lg border bg-background p-3">
           <RoadmapPlanView nodes={embed.nodes} grounding={embed.grounding} />
         </div>
       )}

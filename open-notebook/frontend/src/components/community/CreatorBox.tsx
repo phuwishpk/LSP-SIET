@@ -153,7 +153,7 @@ export function CreatorBox({
           <DialogHeader className="border-b border-border px-6 py-4">
             <DialogTitle className="text-center text-base">สร้างโพสต์</DialogTitle>
           </DialogHeader>
-          <div className="no-scrollbar space-y-4 overflow-y-auto px-5 py-4 sm:px-6">
+          <div className="no-scrollbar space-y-4 overflow-x-hidden overflow-y-auto px-5 py-4 sm:px-6">
             <div className="flex items-center gap-3">
               <Avatar src={user?.avatar_url} name={displayName(user)} />
               <div className="min-w-0">
@@ -162,7 +162,7 @@ export function CreatorBox({
               </div>
             </div>
             <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
-              <TabsList className="h-9 w-full justify-start overflow-x-auto rounded-lg border-border bg-muted/70 shadow-none">
+              <TabsList className="no-scrollbar h-9 w-full justify-start overflow-x-auto rounded-lg border-border bg-muted/70 shadow-none">
                 <TabsTrigger value="summary" className="gap-1.5 text-xs">
                   <FileText className="h-3.5 w-3.5" /> แชร์สรุป
                   <Badge variant="secondary" className="ml-1 h-4 px-1 text-[10px]">+{bonus}</Badge>

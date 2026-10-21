@@ -25,7 +25,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           variant="outline"
           size="sm"
           className={cn(
-            'gap-1.5 rounded-full border-amber-300/60 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800',
+            'gap-1.5 rounded-full border-amber-300/60 bg-amber-50 text-amber-900 hover:bg-amber-100 max-sm:gap-1 max-sm:px-2 dark:bg-amber-950/40 dark:text-amber-200 dark:border-amber-800',
             compact && 'px-2'
           )}
           aria-label="กระเป๋าแต้ม"
@@ -33,16 +33,16 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           <Coins className="h-4 w-4" />
           {exempt ? (
             <span className="flex items-center gap-1 text-xs font-semibold">
-              <InfinityIcon className="h-3.5 w-3.5" /> {!compact && 'ไม่จำกัด'}
+            <InfinityIcon className="h-3.5 w-3.5" /> <span className="max-sm:hidden">{!compact && 'ไม่จำกัด'}</span>
             </span>
           ) : (
             <span className="text-xs font-semibold tabular-nums">
-              {balance} {!compact && 'PT'}
+            {balance} <span className="max-sm:hidden">{!compact && 'PT'}</span>
             </span>
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="community-theme w-96 p-0">
+      <PopoverContent align="end" className="community-theme w-96 max-w-[calc(100vw-2rem)] p-0">
         <div className="border-b p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Points Wallet</p>
           <div className="mt-1 flex items-end justify-between">
@@ -108,7 +108,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           {!isLoading && (wallet?.history.length ?? 0) === 0 && (
             <p className="text-xs text-muted-foreground">ยังไม่มีรายการ</p>
           )}
-          <ScrollArea className="max-h-56">
+          <ScrollArea className="no-scrollbar max-h-56">
             <ul className="space-y-1.5 pr-3">
               {wallet?.history.map((tx) => (
                 <li key={tx.id} className="flex items-center justify-between text-xs">

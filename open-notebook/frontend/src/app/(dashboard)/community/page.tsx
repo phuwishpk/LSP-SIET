@@ -100,6 +100,7 @@ function CommunityContent() {
   const isStaff = user?.role === 'admin' || user?.role === 'teacher'
   const [askFocus, setAskFocus] = useState<AskFocus | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const [joinDialogOpen, setJoinDialogOpen] = useState(false)
   const joinCourse = useJoinCourse()
   const joinedCourses = (courses ?? []).filter((course) => course.joined && course.kind !== 'club')
@@ -178,11 +179,7 @@ function CommunityContent() {
 
   return (
     <div
-      className={`community-theme flex h-screen flex-col overflow-hidden text-foreground ${
-        view === 'rules' || view === 'mine' || view === 'materials' || view === 'saved'
-          ? 'bg-[#FDF7F8] dark:bg-background'
-          : 'bg-background'
-      }`}
+      className="community-theme flex h-screen flex-col overflow-x-hidden overflow-y-hidden bg-white text-foreground dark:bg-zinc-950"
     >
       <CommunityHeader
         query={query}
@@ -230,9 +227,25 @@ function CommunityContent() {
         </SheetContent>
       </Sheet>
 
-      <div className="mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-y-auto px-3 py-4 sm:px-4 md:px-6 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6">
+      <Sheet open={aiOpen} onOpenChange={setAiOpen}>
+        <SheetContent
+          side="right"
+          title="ถาม KMITL RAG AI"
+          description="ถามจากเอกสารในคลังความรู้"
+          className="community-theme no-scrollbar w-[min(100vw,420px)] overflow-x-hidden overflow-y-auto sm:max-w-md lg:hidden"
+        >
+          <AiQuickWidget
+            courseId={courseId}
+            focusDocument={askFocus}
+            onClearFocus={() => setAskFocus(null)}
+            enrolledCoursesOnly={view === 'mine'}
+          />
+        </SheetContent>
+      </Sheet>
+
+      <div className="no-scrollbar mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 md:px-6 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6">
         {/* Left column */}
-        <div className="no-scrollbar hidden min-h-0 space-y-4 overflow-y-auto lg:block">
+        <div className="no-scrollbar hidden min-h-0 space-y-4 overflow-x-hidden overflow-y-auto lg:block">
           <CourseSidebar
             view={view}
             courseId={courseId}
@@ -259,7 +272,19 @@ function CommunityContent() {
         </div>
 
         {/* Center column */}
-        <main className="no-scrollbar min-h-0 min-w-0 w-full space-y-4 lg:overflow-y-auto">
+        <main className="no-scrollbar min-h-0 min-w-0 w-full space-y-4 overflow-x-hidden lg:overflow-y-auto">
+          <div className="lg:hidden">
+            <Button
+              type="button"
+              variant="outline"
+              className="h-11 w-full justify-start gap-2 rounded-xl border-pink-100 bg-white text-left shadow-sm hover:bg-pink-50"
+              onClick={() => setAiOpen(true)}
+            >
+              <Bot className="h-4 w-4 text-primary" />
+              <span className="flex-1">ถาม KMITL RAG AI</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </Button>
+          </div>
           {view === 'rules' ? (
             <div className="space-y-4">
               <CommunityRulesContent />
@@ -356,7 +381,7 @@ function CommunityContent() {
                 placeholder="แชร์ข้อความกับเพื่อนร่วมชั้น..."
               />
               <Dialog open={joinDialogOpen} onOpenChange={setJoinDialogOpen}>
-                <DialogContent className="community-theme max-h-[80vh] overflow-y-auto sm:max-w-lg">
+                <DialogContent className="community-theme no-scrollbar max-h-[80vh] overflow-x-hidden overflow-y-auto sm:max-w-lg">
                   <DialogHeader>
                     <DialogTitle>เข้าร่วมชั้นเรียน</DialogTitle>
                     <DialogDescription>เลือกวิชาที่ต้องการเข้าร่วมเพื่อดูและแบ่งปันโพสต์กับเพื่อนร่วมชั้น</DialogDescription>
@@ -486,7 +511,7 @@ function CommunityContent() {
                       <ShareMyWorkButton
                         defaultCourseId={courseId}
                         size="sm"
-                        className="h-9 rounded-lg bg-primary text-primary-foreground shadow-none hover:bg-primary/90"
+                        className="hidden"
                       />
                     </div>
                   </div>
@@ -542,7 +567,7 @@ function CommunityContent() {
         </main>
 
         {/* Right column */}
-        <div className="no-scrollbar hidden min-h-0 w-full space-y-4 lg:block lg:overflow-y-auto">
+        <div className="no-scrollbar hidden min-h-0 w-full space-y-4 overflow-x-hidden lg:block lg:overflow-y-auto">
           {view === 'rules' ? (
             <CommunityCreditsPanel />
           ) : view === 'saved' ? (

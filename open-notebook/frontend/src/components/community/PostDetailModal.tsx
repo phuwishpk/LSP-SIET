@@ -3,12 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   FileText,
+  Heart,
   MessageCircle,
   MoreHorizontal,
   Play,
   Send,
   Share2,
   Smile,
+  ThumbsUp,
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -170,7 +172,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="community-theme flex max-h-[min(88dvh,900px)] w-[calc(100%-1.25rem)] max-w-[640px] flex-col gap-0 overflow-hidden rounded-3xl border-pink-100 bg-white p-0 shadow-2xl dark:bg-card sm:w-[calc(100%-2rem)]"
+        className="community-theme mx-auto flex max-h-[85vh] w-[calc(100%-2rem)] max-w-2xl flex-col gap-0 overflow-hidden rounded-3xl border-pink-100 bg-white p-0 shadow-md dark:bg-card sm:max-w-xl md:max-w-2xl"
       >
         <header className="flex shrink-0 items-center justify-between border-b border-pink-100 px-5 py-4">
           <DialogTitle className="text-base font-semibold">โพสต์ของผู้ใช้</DialogTitle>
@@ -185,7 +187,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
           </Button>
         </header>
 
-        <div className="min-h-0 flex-1 overflow-y-auto">
+        <div className="no-scrollbar min-h-0 flex-1 overflow-x-hidden overflow-y-auto">
           <article className="space-y-3 px-5 pb-4 pt-4">
             <div className="flex items-start gap-3">
               <Avatar
@@ -311,10 +313,16 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
             <button
               type="button"
               onClick={() => react.mutate({ postId: post.id, kind: 'like' })}
-              className={cn('flex items-center gap-1.5 rounded-md px-1 py-1 hover:bg-pink-50', post.viewer.liked && 'text-pink-600')}
+              className={cn(
+                'inline-flex items-center gap-2 rounded-full bg-pink-50 px-3 py-1.5 text-muted-foreground transition-colors hover:bg-pink-100 dark:bg-pink-950/30 dark:hover:bg-pink-950/50',
+                post.viewer.liked && 'text-pink-600'
+              )}
             >
-              <span aria-hidden="true">👍 ❤️ 🎉</span>
-              <span>ถูกใจ {post.counts.like}</span>
+              <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" aria-hidden="true" />
+              <span>{post.counts.like}</span>
+              <ThumbsUp className="h-3.5 w-3.5 fill-amber-500 text-amber-500" aria-hidden="true" />
+              <span>{post.counts.helpful}</span>
+              <span>ถูกใจ</span>
             </button>
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1">
@@ -484,12 +492,12 @@ function CommentRow({
     <div className="group flex items-start gap-2.5">
       <Avatar size="sm" src={comment.author.avatar_url} name={displayName(comment.author)} />
       <div className="min-w-0 flex-1">
-        <div className="rounded-2xl bg-[#F6F6F8] px-3 py-2 dark:bg-muted">
+        <div className="max-w-full rounded-2xl bg-[#F6F6F8] px-3 py-2 dark:bg-muted">
           <div className="flex flex-wrap items-baseline gap-x-2">
             <span className="text-xs font-semibold">{displayName(comment.author)}</span>
             <span className="text-[10px] text-muted-foreground">{timeAgo(comment.created_at)}</span>
           </div>
-          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{comment.content}</p>
+          <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed [overflow-wrap:anywhere]">{comment.content}</p>
         </div>
         <div className="mt-1 flex items-center gap-3 pl-2">
           <button type="button" onClick={onReply} className="text-[11px] font-medium text-muted-foreground hover:text-primary">
