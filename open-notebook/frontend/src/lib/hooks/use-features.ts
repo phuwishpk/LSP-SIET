@@ -7,6 +7,7 @@ import {
   QuizGenerateRequest,
   RoadmapGenerateRequest,
 } from '@/lib/api/features'
+import { COMMUNITY_KEYS } from '@/lib/hooks/use-community'
 
 export const FEATURE_QUERY_KEYS = {
   quizSessions: ['features', 'quiz', 'sessions'] as const,
@@ -43,6 +44,7 @@ export function useGenerateQuiz() {
     mutationFn: (data: QuizGenerateRequest) => featuresApi.generateQuiz(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: FEATURE_QUERY_KEYS.quizSessions })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.wallet })
       toast({
         title: t('common.success'),
         description: t('features.quizGenerated', 'Quiz generated successfully'),

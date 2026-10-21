@@ -10,9 +10,10 @@ import {
   ChevronRight,
   Inbox,
   ListChecks,
-  Map,
+  Map as MapIcon,
   Plus,
   Sparkles,
+  UserRound,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -21,7 +22,16 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { COMMUNITY_KEYS, useCourses, useFeed, useJoinCourse } from '@/lib/hooks/use-community'
+import {
+  COMMUNITY_KEYS,
+  useAddPostToSavedCollection,
+  useCourses,
+  useCreateSavedCollection,
+  useFeed,
+  useJoinCourse,
+  useSavedCollections,
+  useWallet,
+} from '@/lib/hooks/use-community'
 import { communityApi, type FeedFilters } from '@/lib/api/community'
 import { roomLabel } from '@/lib/utils/community-format'
 import { CommunityHeader } from '@/components/community/CommunityHeader'
@@ -29,6 +39,8 @@ import { CourseSidebar, type FeedView } from '@/components/community/CourseSideb
 import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { CreatorBox } from '@/components/community/CreatorBox'
 import { PostCard } from '@/components/community/PostCard'
+import { InstructorMediaView } from '@/components/community/InstructorMediaView'
+import { SavedSummariesView, SavedSummaryTools } from '@/components/community/SavedSummariesView'
 import { AiQuickWidget } from '@/components/community/AiQuickWidget'
 import { ShareMyWorkButton } from '@/components/community/ShareMyWorkDialog'
 import { LibraryPanel } from '@/components/community/LibraryPanel'
@@ -39,6 +51,7 @@ import {
 import type { AskFocus } from '@/components/community/AiQuickWidget'
 import type { LibraryDocument } from '@/lib/api/library'
 import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
+import { useGenerateQuiz } from '@/lib/hooks/use-features'
 import Link from 'next/link'
 
 export default function CommunityPage() {
@@ -66,7 +79,21 @@ function CommunityContent() {
 
   const rawView = params.get('view') as FeedView | null
   const view: FeedView = rawView && VIEWS.includes(rawView) ? rawView : 'all'
+  const { data: wallet } = useWallet(view === 'materials' || view === 'saved')
+  const { data: savedCollections = [] } = useSavedCollections(view === 'saved')
+  const createSavedCollection = useCreateSavedCollection()
+  const addPostToSavedCollection = useAddPostToSavedCollection()
+  const generateQuiz = useGenerateQuiz()
+  const [createCollectionOpen, setCreateCollectionOpen] = useState(false)
   const courseId = params.get('course') ? Number(params.get('course')) : null
+  const rawSavedCollectionId = params.get('collection')
+  const parsedSavedCollectionId = Number(rawSavedCollectionId)
+  const savedCollectionId =
+    rawSavedCollectionId && Number.isInteger(parsedSavedCollectionId) && parsedSavedCollectionId > 0
+      ? parsedSavedCollectionId
+      : null
+  const selectedSavedCollection =
+    savedCollections.find((collection) => collection.id === savedCollectionId) ?? null
   const selectedCourse = courses?.find((course) => course.id === courseId) ?? null
   const query = params.get('q') || ''
   const postId = params.get('post') ? Number(params.get('post')) : null
@@ -96,11 +123,13 @@ function CommunityContent() {
       course_id: courseId ?? undefined,
       q: query || undefined,
       saved: view === 'saved' || undefined,
+      saved_collection_id:
+        view === 'saved' && savedCollectionId !== null ? savedCollectionId : undefined,
       my_courses: view === 'mine' || undefined,
       type: view === 'materials' ? 'material' : undefined,
       order: view === 'popular' ? 'popular' : 'newest',
     }),
-    [courseId, query, view]
+    [courseId, query, savedCollectionId, view]
   )
 
   const feed = useFeed(filters, view !== 'rules')
@@ -130,10 +159,29 @@ function CommunityContent() {
     if (typeof window !== 'undefined') window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
+  const generateSavedQuiz = () =>
+    generateQuiz.mutate(
+      {
+        topic: selectedSavedCollection
+          ? `แบบทดสอบจากคลัง ${selectedSavedCollection.name}`
+          : 'แบบทดสอบจากสรุปและโน้ตที่บันทึกไว้',
+        question_count: 5,
+        language: 'th',
+        use_saved_posts: !selectedSavedCollection,
+        saved_collection_id: selectedSavedCollection?.id,
+      },
+      {
+        onSuccess: (result) =>
+          router.push(`/features?tab=quiz&id=${encodeURIComponent(result.session.id)}`),
+      }
+    )
+
   return (
     <div
       className={`community-theme flex h-screen flex-col overflow-hidden text-foreground ${
-        view === 'rules' || view === 'mine' ? 'bg-[#FDF7F8] dark:bg-background' : 'bg-background'
+        view === 'rules' || view === 'mine' || view === 'materials' || view === 'saved'
+          ? 'bg-[#FDF7F8] dark:bg-background'
+          : 'bg-background'
       }`}
     >
       <CommunityHeader
@@ -162,13 +210,20 @@ function CommunityContent() {
               setParams({
                 view: v === 'all' ? null : v,
                 course: ['all', 'popular', 'mine', 'saved'].includes(v) ? null : undefined,
+                collection: null,
                 post: null,
                 q: null,
               })
               setMenuOpen(false)
             }}
             onSelectCourse={(id) => {
-              setParams({ course: id, view: view === 'mine' ? 'mine' : null, post: null, q: null })
+              setParams({
+                course: id,
+                view: view === 'mine' ? 'mine' : null,
+                collection: null,
+                post: null,
+                q: null,
+              })
               setMenuOpen(false)
             }}
           />
@@ -186,12 +241,19 @@ function CommunityContent() {
               setParams({
                 view: v === 'all' ? null : v,
                 course: ['all', 'popular', 'mine', 'saved', 'rules'].includes(v) ? null : undefined,
+                collection: null,
                 post: null,
                 q: null,
               })
             }
             onSelectCourse={(id) =>
-              setParams({ course: id, view: view === 'mine' ? 'mine' : null, post: null, q: null })
+              setParams({
+                course: id,
+                view: view === 'mine' ? 'mine' : null,
+                collection: null,
+                post: null,
+                q: null,
+              })
             }
           />
         </div>
@@ -205,6 +267,48 @@ function CommunityContent() {
             </div>
           ) : view === 'library' ? (
             <LibraryPanel isStaff={isStaff} courseId={courseId} onAskDocument={focusDocument} />
+          ) : view === 'materials' && postId === null ? (
+            <InstructorMediaView
+              posts={posts}
+              courses={courses ?? []}
+              courseId={courseId}
+              isLoading={feed.isLoading}
+              isError={feed.isError}
+              hasNextPage={feed.hasNextPage}
+              isFetchingNextPage={feed.isFetchingNextPage}
+              onSelectCourse={(id) => setParams({ course: id, view: 'materials', post: null })}
+              onLoadMore={() => void feed.fetchNextPage()}
+            />
+          ) : view === 'saved' && postId === null ? (
+            <SavedSummariesView
+              posts={posts}
+              collections={savedCollections}
+              collectionId={savedCollectionId}
+              savedCount={selectedSavedCollection?.item_count ?? wallet?.stats.saved ?? 0}
+              wallet={wallet}
+              isLoading={feed.isLoading}
+              isError={feed.isError}
+              hasNextPage={feed.hasNextPage}
+              isFetchingNextPage={feed.isFetchingNextPage}
+              isCreatingCollection={createSavedCollection.isPending}
+              isGeneratingQuiz={generateQuiz.isPending}
+              createOpen={createCollectionOpen}
+              onSelectCollection={(id) => setParams({ collection: id, post: null })}
+              onCreateOpenChange={setCreateCollectionOpen}
+              onCreateCollection={(name) =>
+                createSavedCollection.mutate(name, {
+                  onSuccess: (collection) => {
+                    setCreateCollectionOpen(false)
+                    setParams({ collection: collection.id })
+                  },
+                })
+              }
+              onAddToCollection={(postId, collectionId) =>
+                addPostToSavedCollection.mutate({ postId, collectionId })
+              }
+              onLoadMore={() => void feed.fetchNextPage()}
+              onGenerateQuiz={() => void generateSavedQuiz()}
+            />
           ) : view === 'mine' && postId === null ? (
             <div className="space-y-4">
               <div className="space-y-1">
@@ -441,6 +545,120 @@ function CommunityContent() {
         <div className="no-scrollbar hidden min-h-0 w-full space-y-4 lg:block lg:overflow-y-auto">
           {view === 'rules' ? (
             <CommunityCreditsPanel />
+          ) : view === 'saved' ? (
+            <SavedSummaryTools
+              collections={savedCollections}
+              collectionId={savedCollectionId}
+              savedCount={selectedSavedCollection?.item_count ?? wallet?.stats.saved ?? 0}
+              balance={wallet?.balance ?? 0}
+              cost={wallet?.rules.costs.quiz_generate ?? 8}
+              exempt={wallet?.exempt ?? false}
+              remaining={
+                wallet?.exempt
+                  ? wallet.balance
+                  : Math.max(
+                      0,
+                      (wallet?.balance ?? 0) - (wallet?.rules.costs.quiz_generate ?? 8)
+                    )
+              }
+              isGenerating={generateQuiz.isPending}
+              onSelectCollection={(id) => setParams({ collection: id, post: null })}
+              onCreateCollection={() => setCreateCollectionOpen(true)}
+              onGenerateQuiz={() => void generateSavedQuiz()}
+            />
+          ) : view === 'materials' ? (
+            <>
+              <Card className="rounded-2xl border-pink-100 bg-white shadow-sm dark:bg-card">
+                <CardContent className="space-y-3 p-4">
+                  <div>
+                    <h2 className="text-sm font-semibold">อาจารย์ประจำวิชา</h2>
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      ผู้สอนและรายวิชาที่แบ่งปันสื่อ
+                    </p>
+                  </div>
+                  {(() => {
+                    const instructorCourses = (courses ?? [])
+                      .filter(
+                        (course) =>
+                          course.kind !== 'club' &&
+                          course.created_by !== null &&
+                          course.created_by !== undefined &&
+                          course.instructor_name
+                      )
+                      .filter((course) => courseId === null || course.id === courseId)
+                    const instructors = Array.from(
+                      new Map(
+                        instructorCourses.map((course) => [
+                          course.created_by!,
+                          { id: course.created_by!, name: course.instructor_name!, course },
+                        ])
+                      ).values()
+                    )
+                    return instructors.length ? (
+                      <div className="divide-y divide-pink-100">
+                        {instructors.map((instructor) => (
+                          <div key={instructor.id} className="flex items-start gap-2.5 py-3 first:pt-0 last:pb-0">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-100 text-[10px] font-semibold text-pink-700">
+                              {instructor.name.slice(0, 2)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-semibold">{instructor.name}</p>
+                              <p className="mt-1 truncate text-[10px] text-muted-foreground">
+                                {roomLabel(instructor.course)}
+                              </p>
+                              <Link
+                                href={`/community/profile/${instructor.id}`}
+                                className="mt-2 inline-flex h-7 items-center gap-1 rounded-full border border-pink-100 px-2.5 text-[10px] font-medium text-pink-700 transition-colors hover:bg-pink-50"
+                              >
+                                <UserRound className="h-3 w-3" /> ดูโปรไฟล์
+                              </Link>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="rounded-xl bg-pink-50 p-3 text-xs text-muted-foreground">
+                        ยังไม่มีข้อมูลผู้สอนสำหรับวิชานี้
+                      </p>
+                    )
+                  })()}
+                </CardContent>
+              </Card>
+              <Card className="rounded-2xl border-pink-100 bg-white shadow-sm dark:bg-card">
+                <CardContent className="space-y-3 p-4">
+                  <h2 className="flex items-center gap-2 text-sm font-semibold">
+                    <Sparkles className="h-4 w-4 text-pink-600" /> สรุปด้วย AI
+                  </h2>
+                  <div className="rounded-xl bg-pink-50 p-3 dark:bg-pink-950/20">
+                    <p className="text-xs font-semibold">
+                      สรุปสไลด์ด้วย KMITL RAG AI · {wallet?.exempt ? 'ฟรี' : `${wallet?.rules.costs.rag_question ?? 1} เครดิต`}
+                    </p>
+                    <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+                      ถาม AI จากคลังเอกสารของวิชาเพื่อสรุปประเด็นสำคัญ
+                    </p>
+                  </div>
+                  {(() => {
+                    const targetCourseId =
+                      courseId !== null
+                        ? joinedCourses.find((course) => course.id === courseId)?.id ?? null
+                        : joinedCourses[0]?.id ?? null
+                    const prompt =
+                      'ช่วยสรุปสไลด์หรือเอกสารของวิชานี้เป็นหัวข้อสำคัญ พร้อมอธิบายคำศัพท์หรือแนวคิดที่ควรรู้'
+                    const askParams = new URLSearchParams({ prompt })
+                    if (targetCourseId !== null) askParams.set('course', String(targetCourseId))
+                    const askHref = `/community/ask?${askParams.toString()}`
+                    return (
+                      <Button asChild className="w-full rounded-full bg-pink-600 text-xs text-white hover:bg-pink-700">
+                        <Link href={askHref}>สรุปสไลด์</Link>
+                      </Button>
+                    )
+                  })()}
+                  <p className="text-[10px] text-muted-foreground">
+                    AI อาจคลาดเคลื่อน กรุณาตรวจสอบข้อมูลกับเนื้อหาต้นฉบับ
+                  </p>
+                </CardContent>
+              </Card>
+            </>
           ) : (
             <>
           <Card className="border-border shadow-sm">
@@ -489,7 +707,7 @@ function CommunityContent() {
                 }
                 className="group flex w-full items-start gap-3 rounded-xl border border-border bg-card p-3 text-left transition-colors hover:bg-accent"
               >
-                <Map className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <MapIcon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                 <span className="min-w-0 flex-1">
                   <span className="flex items-center justify-between gap-2 text-xs font-semibold">
                     สร้างแผนการเรียน AI <ChevronRight className="h-3.5 w-3.5 text-muted-foreground" />

@@ -146,7 +146,7 @@ function AskContent() {
   const [conversationId, setConversationId] = useState<string | null>(params.get('c'))
   const stored = useAskConversation(conversationId)
   const queryClient = useQueryClient()
-  const [question, setQuestion] = useState('')
+  const [question, setQuestion] = useState(params.get('prompt') ?? '')
   const listRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // One automatic retry when the server says it is overloaded (503 / 429 with

@@ -107,7 +107,9 @@ export function CourseSidebar({
       onClick={onClick}
       className={cn(
         'flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition-colors',
-        active ? 'bg-sidebar-accent font-semibold text-primary' : 'text-foreground hover:bg-accent'
+        active
+          ? 'bg-pink-100 font-semibold text-pink-700 dark:bg-pink-950/40 dark:text-pink-200'
+          : 'text-foreground hover:bg-accent'
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />

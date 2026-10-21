@@ -439,11 +439,20 @@ export interface FeedFilters {
   author_id?: number
   q?: string
   saved?: boolean
+  saved_collection_id?: number
   my_courses?: boolean
   profile_visibility?: boolean
   embed?: string
   order?: 'newest' | 'popular'
   limit?: number
+}
+
+export interface SavedCollection {
+  id: number
+  name: string
+  item_count: number
+  course_names?: string | null
+  created_at?: string | null
 }
 
 export interface CreatePostInput {
@@ -541,6 +550,22 @@ export const communityApi = {
     ).data,
   toggleSave: async (postId: number) =>
     (await apiClient.post<{ saved: boolean }>(`/community/posts/${postId}/save`)).data,
+  savedCollections: async () =>
+    (await apiClient.get<{ items: SavedCollection[] }>('/community/saved-collections')).data.items,
+  createSavedCollection: async (name: string) =>
+    (await apiClient.post<SavedCollection>('/community/saved-collections', { name })).data,
+  addPostToSavedCollection: async (collectionId: number, postId: number) =>
+    (
+      await apiClient.post<{ ok: boolean }>(
+        `/community/saved-collections/${collectionId}/posts/${postId}`
+      )
+    ).data,
+  removePostFromSavedCollection: async (collectionId: number, postId: number) =>
+    (
+      await apiClient.delete<{ ok: boolean }>(
+        `/community/saved-collections/${collectionId}/posts/${postId}`
+      )
+    ).data,
   share: async (postId: number) =>
     (
       await apiClient.post<{

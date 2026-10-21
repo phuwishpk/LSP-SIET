@@ -221,6 +221,26 @@ STATEMENTS: list[str] = RENAMES + [
         PRIMARY KEY (user_id, post_id)
     ) {_TABLE_OPTS}
     """,
+    f"""
+    CREATE TABLE IF NOT EXISTS saved_collections (
+        id         BIGINT AUTO_INCREMENT PRIMARY KEY,
+        user_id    INT NOT NULL,
+        name       VARCHAR(80) NOT NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE INDEX idx_saved_collection_name (user_id, name),
+        INDEX idx_saved_collection_owner (user_id, created_at)
+    ) {_TABLE_OPTS}
+    """,
+    f"""
+    CREATE TABLE IF NOT EXISTS saved_collection_posts (
+        collection_id BIGINT NOT NULL,
+        user_id       INT NOT NULL,
+        post_id       BIGINT NOT NULL,
+        created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (collection_id, post_id),
+        INDEX idx_saved_collection_post_owner (user_id, post_id)
+    ) {_TABLE_OPTS}
+    """,
     # A paid 5-message RAG session: credits_left counts the messages still
     # covered by the points already spent. Not the chat history (see below).
     f"""

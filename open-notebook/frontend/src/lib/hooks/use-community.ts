@@ -38,6 +38,7 @@ export const COMMUNITY_KEYS = {
   notifications: ['community', 'notifications'] as const,
   search: (q: string) => ['community', 'search', q] as const,
   materials: (courseId?: number) => ['community', 'materials', courseId ?? 'all'] as const,
+  savedCollections: ['community', 'saved-collections'] as const,
 }
 
 /**
@@ -300,9 +301,59 @@ export function useToggleSave() {
     mutationFn: (postId: number) => communityApi.toggleSave(postId),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.wallet })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.savedCollections })
       toast.success(data.saved ? 'บันทึกไว้แล้ว' : 'เอาออกจากรายการที่บันทึกแล้ว')
     },
     onError: (error) => toastApiError(error),
+  })
+}
+
+export function useSavedCollections(enabled = true) {
+  return useQuery({
+    queryKey: COMMUNITY_KEYS.savedCollections,
+    queryFn: () => communityApi.savedCollections(),
+    enabled,
+  })
+}
+
+export function useCreateSavedCollection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (name: string) => communityApi.createSavedCollection(name),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.savedCollections })
+      toast.success('สร้างคลังใหม่แล้ว')
+    },
+    onError: (error) => toastApiError(error, 'สร้างคลังไม่สำเร็จ'),
+  })
+}
+
+export function useAddPostToSavedCollection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ collectionId, postId }: { collectionId: number; postId: number }) =>
+      communityApi.addPostToSavedCollection(collectionId, postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.savedCollections })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('เพิ่มโพสต์ลงคลังแล้ว')
+    },
+    onError: (error) => toastApiError(error, 'เพิ่มโพสต์ลงคลังไม่สำเร็จ'),
+  })
+}
+
+export function useRemovePostFromSavedCollection() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ collectionId, postId }: { collectionId: number; postId: number }) =>
+      communityApi.removePostFromSavedCollection(collectionId, postId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.savedCollections })
+      queryClient.invalidateQueries({ queryKey: COMMUNITY_KEYS.feedRoot })
+      toast.success('นำโพสต์ออกจากคลังแล้ว')
+    },
+    onError: (error) => toastApiError(error, 'นำโพสต์ออกจากคลังไม่สำเร็จ'),
   })
 }
 
