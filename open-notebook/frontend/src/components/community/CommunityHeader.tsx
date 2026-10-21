@@ -61,8 +61,8 @@ export function CommunityHeader({
   useEffect(() => setDraft(query), [query])
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-6">
+    <header className="sticky top-0 z-30 border-b bg-white dark:bg-zinc-900">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6">
         {onOpenMenu && (
           <Button
             variant="ghost"
@@ -89,7 +89,7 @@ export function CommunityHeader({
         </button>
 
         <form
-          className="relative mx-auto w-full max-w-xl"
+          className="relative mx-1 min-w-0 w-full max-w-xl flex-1 sm:mx-auto"
           onSubmit={(e) => {
             e.preventDefault()
             onSearch(draft.trim())
@@ -116,14 +116,14 @@ export function CommunityHeader({
           )}
         </form>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 [&_button]:shrink-0">
           <PointsWallet />
           <NotificationsMenu onOpenPost={onOpenPost} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-9 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
+                className="h-9 shrink-0 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
               >
                 <Avatar

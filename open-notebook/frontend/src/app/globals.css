@@ -164,15 +164,32 @@
 
 .community-theme,
 .community-theme * {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
+  scrollbar-width: thin !important;
+  scrollbar-color: rgb(219 39 119 / 0.35) transparent !important;
+  -ms-overflow-style: auto !important;
 }
 
 .community-theme::-webkit-scrollbar,
 .community-theme *::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
+  display: block !important;
+  width: 6px;
+  height: 6px;
+}
+
+.community-theme::-webkit-scrollbar-track,
+.community-theme *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.community-theme::-webkit-scrollbar-thumb,
+.community-theme *::-webkit-scrollbar-thumb {
+  border-radius: 9999px;
+  background: rgb(219 39 119 / 0.35);
+}
+
+.community-theme::-webkit-scrollbar-thumb:hover,
+.community-theme *::-webkit-scrollbar-thumb:hover {
+  background: rgb(219 39 119 / 0.55);
 }
 
 .dark .community-theme {
