@@ -74,8 +74,8 @@ export function CommunityRulesContent() {
         ))}
       </div>
 
-      <div className="flex items-center gap-3 rounded-2xl bg-pink-200/80 px-4 py-4 text-pink-950">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-pink-500 text-pink-700">
+      <div className="flex items-center gap-3 rounded-xl border border-pink-100 bg-pink-50 px-4 py-4 text-foreground">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-pink-200 text-pink-700">
           <Check className="h-4 w-4" aria-hidden="true" />
         </span>
         <p className="text-xs font-medium leading-relaxed">

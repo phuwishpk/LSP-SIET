@@ -61,8 +61,8 @@ export function CommunityHeader({
   useEffect(() => setDraft(query), [query])
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-2 px-3 sm:gap-3 sm:px-5 lg:px-6">
+    <header className="sticky top-0 z-30 border-b bg-white dark:bg-zinc-900">
+      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6">
         {onOpenMenu && (
           <Button
             variant="ghost"
@@ -79,7 +79,7 @@ export function CommunityHeader({
           onClick={onHome}
           className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-accent"
         >
-          <span className="hidden h-8 w-8 items-center justify-center rounded-lg bg-foreground text-sm font-black text-background sm:flex">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-sm font-black text-background">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">
@@ -89,7 +89,7 @@ export function CommunityHeader({
         </button>
 
         <form
-          className="relative mx-auto w-full max-w-xl"
+          className="relative mx-1 min-w-0 w-full max-w-xl flex-1 sm:mx-auto"
           onSubmit={(e) => {
             e.preventDefault()
             onSearch(draft.trim())
@@ -116,14 +116,14 @@ export function CommunityHeader({
           )}
         </form>
 
-        <div className="ml-auto flex shrink-0 items-center gap-1.5">
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 [&_button]:shrink-0">
           <PointsWallet />
           <NotificationsMenu onOpenPost={onOpenPost} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-9 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
+                className="h-9 shrink-0 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
               >
                 <Avatar
@@ -141,7 +141,7 @@ export function CommunityHeader({
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-3xl border-pink-100 bg-white p-2.5 text-foreground shadow-xl"
+              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <DropdownMenuLabel className="px-2.5 pb-3 pt-2">
                 <div className="flex items-center gap-3">
@@ -152,10 +152,10 @@ export function CommunityHeader({
                     className="bg-pink-200 text-pink-800"
                   />
                   <div className="min-w-0">
-                    <p className="truncate text-sm font-semibold text-slate-800">
+                    <p className="truncate text-sm font-semibold text-slate-800 dark:text-zinc-100">
                       {displayName(user)}
                     </p>
-                    <p className="mt-0.5 truncate text-xs font-normal text-slate-500">
+                    <p className="mt-0.5 truncate text-xs font-normal text-slate-500 dark:text-zinc-300">
                       {user?.email || `@${user?.username}`}
                     </p>
                     <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-[10px] font-medium text-pink-800">
@@ -165,11 +165,11 @@ export function CommunityHeader({
                   </div>
                 </div>
               </DropdownMenuLabel>
-              <DropdownMenuSeparator className="my-2 bg-pink-100" />
+              <DropdownMenuSeparator className="my-2 bg-pink-100 dark:bg-zinc-800" />
               {user && (
                 <DropdownMenuItem
                   asChild
-                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
                 >
                   <Link href="/community/profile/me">
                     <UserRound className="h-4 w-4 text-pink-600" />
@@ -179,7 +179,7 @@ export function CommunityHeader({
               )}
               <DropdownMenuItem
                 asChild
-                className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+                className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
               >
                 <Link href="/community?view=library">
                   <BookOpen className="h-4 w-4 text-pink-600" />
@@ -189,7 +189,7 @@ export function CommunityHeader({
               {user?.role === 'teacher' || user?.role === 'admin' ? (
                 <DropdownMenuItem
                   asChild
-                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
                 >
                   <Link href="/settings">
                     <Settings className="h-4 w-4 text-pink-600" />
@@ -200,7 +200,7 @@ export function CommunityHeader({
                 <DropdownMenuItem
                   disabled
                   title="การตั้งค่าบัญชีสำหรับนักศึกษายังไม่พร้อมใช้งาน"
-                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm"
+                  className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100"
                 >
                   <Settings className="h-4 w-4 text-pink-600" />
                   <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
@@ -211,24 +211,30 @@ export function CommunityHeader({
                   if (onOpenCommunityRules) onOpenCommunityRules()
                   else onHome()
                 }}
-                className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-[#FFF8FA] px-3 py-2.5 text-sm transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50"
+                className="mb-1 min-h-12 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
               >
                 <CircleHelp className="h-4 w-4 text-pink-600" />
                 <span>ช่วยเหลือและกฎชุมชน</span>
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="my-2 bg-pink-100" />
-              <DropdownMenuItem onClick={() => void openQuizApp()}>
+              <DropdownMenuSeparator className="my-2 bg-pink-100 dark:bg-zinc-800" />
+              <DropdownMenuItem
+                className="rounded-xl text-slate-800 transition-colors hover:bg-pink-50 focus:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+                onClick={() => void openQuizApp()}
+              >
                 <GraduationCap className="mr-2 h-4 w-4 text-emerald-600" /> แอป AI Quiz ↗
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => void openRoadmapApp()}>
+              <DropdownMenuItem
+                className="rounded-xl text-slate-800 transition-colors hover:bg-pink-50 focus:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:focus:bg-zinc-800"
+                onClick={() => void openRoadmapApp()}
+              >
                 <MapIcon className="mr-2 h-4 w-4 text-orange-600" /> แอป AI Roadmap
               </DropdownMenuItem>
-              <DropdownMenuSeparator className="my-2 bg-pink-100" />
-              <div className="rounded-xl border border-pink-100 bg-[#FFF8FA] px-2 py-1.5">
+              <DropdownMenuSeparator className="my-2 bg-pink-100 dark:bg-zinc-800" />
+              <div className="rounded-xl border border-pink-100 bg-slate-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60">
                 <ThemeToggle />
               </div>
               <DropdownMenuItem
-                className="mt-2 min-h-11 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 focus:bg-rose-100"
+                className="mt-2 min-h-11 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 focus:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60 dark:focus:bg-rose-900/60"
                 onClick={() => logout()}
               >
                 <LogOut className="h-4 w-4" /> ออกจากระบบ

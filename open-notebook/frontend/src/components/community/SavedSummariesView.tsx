@@ -116,7 +116,7 @@ export function SavedSummariesView({
               ? `${selectedCollection.item_count} โพสต์ใน “${selectedCollection.name}”`
               : `${savedCount} โพสต์ที่บันทึกไว้`}
           </p>
-          <span className="rounded-full border border-pink-100 bg-white px-3 py-1 text-[10px] text-muted-foreground">
+          <span className="rounded-full border border-pink-100 bg-white px-3 py-1 text-xs text-muted-foreground">
             ล่าสุดที่บันทึก
           </span>
         </div>
@@ -245,7 +245,7 @@ export function SavedSummaryTools({
         <CardContent className="space-y-3 p-4">
           <div>
             <h2 className="text-sm font-semibold">คลังที่บันทึกไว้</h2>
-            <p className="mt-1 text-[10px] text-muted-foreground">
+            <p className="mt-1 text-xs text-muted-foreground">
               {collections.length} คลังส่วนตัว
             </p>
           </div>
@@ -269,11 +269,11 @@ export function SavedSummaryTools({
                   <Folder className="h-4 w-4 shrink-0 text-pink-600" />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-xs font-semibold">{collection.name}</span>
-                    <span className="mt-0.5 block truncate text-[10px] text-muted-foreground">
+                    <span className="mt-0.5 block truncate text-xs text-muted-foreground">
                       {collection.course_names || 'รายการส่วนตัว'}
                     </span>
                   </span>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
+                  <span className="shrink-0 text-xs text-muted-foreground">
                     {collection.item_count} รายการ
                   </span>
                 </button>
@@ -297,7 +297,7 @@ export function SavedSummaryTools({
           </h2>
           <div className="rounded-xl bg-pink-50 p-3 dark:bg-pink-950/20">
             <p className="text-xs font-semibold">ทดสอบความรู้ที่คุณบันทึกไว้</p>
-            <p className="mt-1 text-[10px] leading-relaxed text-muted-foreground">
+            <p className="mt-1 text-xs leading-relaxed text-muted-foreground">
               สร้างแบบทดสอบจาก {savedCount} โพสต์ที่บันทึกไว้
               {collectionId !== null ? 'ในคลังที่เลือก' : ''} เพื่อทบทวนเนื้อหา
             </p>
@@ -311,12 +311,12 @@ export function SavedSummaryTools({
               ? 'กำลังสร้างแบบทดสอบ…'
               : `สร้างแบบทดสอบ AI จากโน้ตที่บันทึกไว้ - ${exempt ? 'ฟรี' : `${cost} เครดิต`}`}
           </Button>
-          <p className="text-[10px] text-muted-foreground">
+          <p className="text-xs text-muted-foreground">
             เครดิตที่มี: {exempt ? 'ไม่จำกัด' : balance}
             {' · หลังสร้าง: '}
             {exempt ? 'ไม่จำกัด' : remaining}
           </p>
-          <p className="text-[10px] leading-relaxed text-muted-foreground">
+          <p className="text-xs leading-relaxed text-muted-foreground">
             AI อาจสร้างคำถามคลาดเคลื่อน กรุณาตรวจทานก่อนนำไปใช้งาน
           </p>
         </CardContent>

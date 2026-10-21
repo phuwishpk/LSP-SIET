@@ -19,14 +19,14 @@ interface AnswerReferencesProps {
   compact?: boolean
 }
 
-export function AnswerReferences({ citations = [], webSources = [], compact }: AnswerReferencesProps) {
+export function AnswerReferences({ citations = [], webSources = [] }: AnswerReferencesProps) {
   if (citations.length === 0 && webSources.length === 0) return null
 
   // Older answers (saved before `cited` existed) simply show every passage.
   const knowsUsage = citations.some((c) => c.cited !== undefined)
   const used = knowsUsage ? citations.filter((c) => c.cited) : citations
   const unused = knowsUsage ? citations.filter((c) => !c.cited) : []
-  const size = compact ? 'text-[10px]' : 'text-[11px]'
+  const size = 'text-xs'
 
   return (
     <div className={cn('mt-2 space-y-2 border-t pt-2', size)} aria-label="อ้างอิง">

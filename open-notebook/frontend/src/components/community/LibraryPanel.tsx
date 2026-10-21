@@ -432,17 +432,17 @@ function DocumentRow({
       </div>
 
       <div className="mt-2 flex flex-wrap gap-1.5 border-t pt-2">
-        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={!ready} onClick={onAsk}>
+        <Button size="sm" variant="ghost" className="h-11 gap-1 text-xs focus-visible:ring-2 focus-visible:ring-ring" disabled={!ready} onClick={onAsk}>
           <MessageCircleQuestion className="h-3.5 w-3.5" /> ถาม AI จากเอกสารนี้
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={!ready} onClick={onQuiz}>
+        <Button size="sm" variant="ghost" className="h-11 gap-1 text-xs focus-visible:ring-2 focus-visible:ring-ring" disabled={!ready} onClick={onQuiz}>
           <GraduationCap className="h-3.5 w-3.5" /> สร้างควิซ
         </Button>
-        <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={!ready} onClick={onRoadmap}>
+        <Button size="sm" variant="ghost" className="h-11 gap-1 text-xs focus-visible:ring-2 focus-visible:ring-ring" disabled={!ready} onClick={onRoadmap}>
           <Map className="h-3.5 w-3.5" /> สร้าง Roadmap
         </Button>
         {doc.status === 'failed' && doc.can_manage && doc.kind !== 'text' && (
-          <Button size="sm" variant="ghost" className="h-7 gap-1 text-xs" disabled={busy} onClick={onRetry}>
+          <Button size="sm" variant="ghost" className="h-11 gap-1 text-xs focus-visible:ring-2 focus-visible:ring-ring" disabled={busy} onClick={onRetry}>
             <RefreshCw className="h-3.5 w-3.5" /> ลองใหม่
           </Button>
         )}
@@ -450,7 +450,7 @@ function DocumentRow({
           <Button
             size="sm"
             variant="ghost"
-            className="ml-auto h-7 gap-1 text-xs text-rose-600"
+            className="ml-auto h-11 gap-1 text-xs text-rose-600 focus-visible:ring-2 focus-visible:ring-ring"
             disabled={busy}
             onClick={onDelete}
           >

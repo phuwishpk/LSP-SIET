@@ -178,7 +178,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
                 </span>
               )}
             </Link>
-            <p className="mt-0.5 text-[10px] text-muted-foreground">
+            <p className="mt-0.5 text-xs text-muted-foreground">
               {post.author.role === 'teacher' || post.author.role === 'admin'
                 ? 'อาจารย์ประจำวิชา'
                 : 'ผู้แบ่งปันสื่อ'}
@@ -187,7 +187,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
             </p>
           </div>
           {post.course && (
-            <span className="max-w-[45%] truncate rounded-full bg-pink-100 px-2 py-1 text-[10px] font-medium text-pink-800">
+            <span className="max-w-[45%] truncate rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-800">
               {`${post.course.code ?? ''} ${post.course.name ?? ''}`.trim()}
             </span>
           )}
@@ -225,7 +225,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
                 </span>
               </button>
             )}
-            <div className="flex items-center justify-between gap-2 px-3 py-2 text-[10px] text-muted-foreground">
+            <div className="flex items-center justify-between gap-2 px-3 py-2 text-xs text-muted-foreground">
               <span className="flex min-w-0 items-center gap-1 truncate">
                 <Video className="h-3 w-3 shrink-0" /> {post.attachment.name}
               </span>
@@ -241,7 +241,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
             </span>
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-semibold">{post.attachment.name}</span>
-              <span className="mt-0.5 block text-[10px] text-muted-foreground">
+              <span className="mt-0.5 block text-xs text-muted-foreground">
                 {post.attachment.mime || 'ไฟล์แนบ'}{post.attachment.size ? ` · ${formatBytes(post.attachment.size)}` : ''}
               </span>
             </span>
