@@ -16,7 +16,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 import bcrypt
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import Column, DateTime, Enum, Integer, String, select, text, update
+from sqlalchemy import Column, DateTime, Enum, Integer, String, Text, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
@@ -41,7 +41,7 @@ class _UserRow(_Base):
     # --- KMITL workspace / SSO profile fields (added by community schema) ---
     email         = Column(String(191), nullable=True, unique=True)
     google_sub    = Column(String(64), nullable=True, unique=True)
-    avatar_url    = Column(String(512), nullable=True)
+    avatar_url    = Column(Text, nullable=True)
     # The column is student_code (the 8-digit student number, not a foreign
     # key); the attribute keeps the name the rest of the code uses.
     student_id    = Column("student_code", String(32), nullable=True)
