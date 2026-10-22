@@ -414,3 +414,14 @@ body.theme-siet {
     content: none !important;
   }
 }
+
+/* The AI owl's thinking pose: a gentle nod while an answer is being written. */
+@keyframes owl-think {
+  0%,
+  100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-3px) rotate(-3deg);
+  }
+}
