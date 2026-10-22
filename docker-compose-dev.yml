@@ -101,7 +101,8 @@ services:
     working_dir: /app
     command: >
       sh -c "export PYTHONPATH=/app &&
-             /app/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 5055 --reload"
+             /app/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 5055 --reload
+             --reload-dir /app --reload-dir /siet-platform --reload-dir /kmitl-rag --reload-dir /community"
     environment:
       - SURREAL_URL=ws://kmitlai_dev_surrealdb:8000/rpc
       - SURREAL_USER=${SURREAL_USER:-root}
@@ -144,6 +145,10 @@ services:
       - ./open-notebook/open_notebook:/app/open_notebook
       - ./open-notebook/commands:/app/commands
       - ./open-notebook/prompts:/app/prompts
+      # SIET packages, installed editable from /<dir> in the image
+      - ./siet-platform:/siet-platform
+      - ./kmitl-rag:/kmitl-rag
+      - ./community:/community
       - ./open-notebook/notebook_data:/app/data
     networks:
       - kmitlai_default

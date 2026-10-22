@@ -40,12 +40,16 @@ dependencies = [
     "numpy>=2.4.1",
     "pycountry>=26.2.16",
     "babel>=2.18.0",
-    "redis[hiredis]>=5.0.0",
-    "pyjwt>=2.9.0",
-    "bcrypt>=4.2.0",
-    "sqlalchemy[asyncio]>=2.0",
-    "aiomysql>=0.2.0",
+    # KMITL: SIET packages at the repo root (docs/UPSTREAM.md)
+    "siet-platform",
+    "kmitl-rag",
+    "siet-community",
 ]
+
+[tool.uv.sources]
+siet-platform = { path = "../siet-platform", editable = true }
+kmitl-rag = { path = "../kmitl-rag", editable = true }
+siet-community = { path = "../community", editable = true }
 
 [tool.setuptools]
 package-dir = {"open_notebook" = "open_notebook"}

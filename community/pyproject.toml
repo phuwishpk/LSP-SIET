@@ -1,0 +1,20 @@
+[project]
+name = "siet-community"
+version = "0.1.0"
+description = "SIET Space community on top of open-notebook, siet-platform and kmitl-rag: course rooms, feed, comments, quiz/roadmap cards, moderation, teacher and admin consoles."
+requires-python = ">=3.11,<3.13"
+dependencies = ["siet-platform", "kmitl-rag"]
+
+[project.entry-points."open_notebook.extensions"]
+siet_community = "siet_community.extension"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["siet_community*"]
+
+[tool.uv.sources]
+siet-platform = { path = "../siet-platform", editable = true }
+kmitl-rag = { path = "../kmitl-rag", editable = true }

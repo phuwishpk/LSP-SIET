@@ -1,0 +1,19 @@
+[project]
+name = "kmitl-rag"
+version = "0.1.0"
+description = "KMITL RAG AI on top of open-notebook and siet-platform: grounded quick-ask with web fallback, ask history, notebook-scoped ask and global chat, and the answer filters used by every chat."
+requires-python = ">=3.11,<3.13"
+dependencies = ["siet-platform"]
+
+[project.entry-points."open_notebook.extensions"]
+kmitl_rag = "kmitl_rag.extension"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["kmitl_rag*"]
+
+[tool.uv.sources]
+siet-platform = { path = "../siet-platform", editable = true }

@@ -11,7 +11,7 @@ ENV_FILE      ?= .env
 PROJECT_NAME  ?= kmitlai
 COMPOSE       += -p $(PROJECT_NAME)
 
-.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check
+.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check test-backend
 
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -70,3 +70,10 @@ clean: down  ## Stop and remove containers + networks (keeps volumes)
 nuke: down  ## Stop + remove everything including volumes (DESTROYS DATA)
 	$(COMPOSE) $(COMPOSE_FILE) down --remove-orphans --volumes
 	@echo "✗ All volumes removed. The next `make up` will start from scratch."
+# Backend tests of open-notebook and the SIET packages, run with open-notebook's
+# virtualenv (the packages are installed into it as editable path dependencies).
+PYTEST ?= uv run --no-sync python -m pytest
+SIET_TEST_DIRS = tests ../siet-platform/tests ../kmitl-rag/tests ../community/tests
+
+test-backend:  ## Run backend tests (open-notebook + siet-platform + kmitl-rag + community)
+	cd open-notebook && $(PYTEST) -q $(SIET_TEST_DIRS) $(ARGS)
