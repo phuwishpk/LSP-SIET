@@ -72,8 +72,10 @@ nuke: down  ## Stop + remove everything including volumes (DESTROYS DATA)
 	@echo "✗ All volumes removed. The next `make up` will start from scratch."
 # Backend tests of open-notebook and the SIET packages, run with open-notebook's
 # virtualenv (the packages are installed into it as editable path dependencies).
+# .env loading is off: api/main.py calls load_dotenv(), which finds this repo's
+# root .env, and whether a test then sees JWT_SECRET depends on test order.
 PYTEST ?= uv run --no-sync python -m pytest
 SIET_TEST_DIRS = tests ../siet-platform/tests ../kmitl-rag/tests ../community/tests
 
 test-backend:  ## Run backend tests (open-notebook + siet-platform + kmitl-rag + community)
-	cd open-notebook && $(PYTEST) -q $(SIET_TEST_DIRS) $(ARGS)
+	cd open-notebook && PYTHON_DOTENV_DISABLED=1 $(PYTEST) -q $(SIET_TEST_DIRS) $(ARGS)

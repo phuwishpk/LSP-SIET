@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 from siet_platform.users import User
 
 
@@ -56,8 +56,8 @@ class _Session:
 
 @pytest.mark.parametrize("shared_post", [None, 77])
 def test_expand_syncs_the_feed_post_when_one_exists(client, sign_in, monkeypatch, shared_post):
-    from api.routers import community as router
-    from open_notebook.community import roadmap_plan
+    from siet_community.routers import community as router
+    from siet_community import roadmap_plan
     from siet_platform import points
 
     session = _Session()

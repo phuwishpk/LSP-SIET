@@ -2,7 +2,7 @@ from contextlib import asynccontextmanager
 
 import pytest
 
-from open_notebook.community import repository
+from siet_community import repository
 
 
 class _Result:

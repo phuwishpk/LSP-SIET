@@ -10,9 +10,9 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from open_notebook.community import moderation
+from siet_community import moderation
 from siet_platform import audit as audit_log, notifications
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 from siet_platform import users
 from siet_platform.users import User
 
@@ -203,7 +203,7 @@ def _report(**over):
 
 
 def test_members_report_what_they_can_see(client, sign_in, monkeypatch):
-    from api.routers import community as router
+    from siet_community.routers import community as router
 
     monkeypatch.setattr(router, "_visible_post_or_404", AsyncMock(return_value={"id": 11}))
     created = AsyncMock(return_value={"id": 3, "room_id": 5, "title": "t"})
@@ -240,7 +240,8 @@ def test_room_owner_settles_reports_in_own_room_only(client, sign_in, monkeypatc
 
 
 def test_admin_resolves_with_suspension_and_audit(client, sign_in, monkeypatch):
-    from api.routers import admin as admin_router
+    from siet_community.routers import admin as admin_router
+    from siet_platform.routers import admin as platform_admin_router
 
     monkeypatch.setattr(moderation, "get_report", AsyncMock(return_value=_report(target_type="comment", target_id=44)))
     monkeypatch.setattr(moderation, "resolve_report", AsyncMock())
@@ -248,7 +249,7 @@ def test_admin_resolves_with_suspension_and_audit(client, sign_in, monkeypatch):
     audit = AsyncMock(); monkeypatch.setattr(audit_log, "log_action", audit)
     target = _user(9, "student")
     monkeypatch.setattr(admin_router, "_target_or_404", AsyncMock(return_value=target))
-    suspended = AsyncMock(); monkeypatch.setattr(admin_router, "set_disabled", suspended)
+    suspended = AsyncMock(); monkeypatch.setattr(platform_admin_router, "set_disabled", suspended)
     notified = AsyncMock(); monkeypatch.setattr(notifications, "add_notification", notified)
 
     sign_in(_user(7, "teacher"))
@@ -271,7 +272,7 @@ def test_admin_resolves_with_suspension_and_audit(client, sign_in, monkeypatch):
 
 
 def test_admin_user_update_carries_suspension_fields_and_is_audited(client, sign_in, monkeypatch):
-    from api.routers import admin as admin_router
+    from siet_platform.routers import admin as admin_router
 
     target = _user(9, "student")
     monkeypatch.setattr(admin_router, "_target_or_404", AsyncMock(return_value=target))

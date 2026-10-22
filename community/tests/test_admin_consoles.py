@@ -11,9 +11,9 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from api.routers.admin import _quiz_origin, _viewer_day, _viewer_window
+from siet_community.routers.admin import _quiz_origin, _viewer_day, _viewer_window
 from kmitl_rag.history import summarize_rag_answers
-from open_notebook.community.repository import _pct
+from siet_community.repository import _pct
 from siet_platform.db import _naive_utc
 
 BANGKOK = 7 * 60

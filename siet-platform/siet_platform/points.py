@@ -30,6 +30,7 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 from sqlalchemy import text
 
+from siet_platform.db import _rows
 from siet_platform.users import User, _mariadb_session
 
 
@@ -449,3 +450,84 @@ async def top_creators(days: int = 7, limit: int = 10) -> List[Dict[str, Any]]:
         }
         for r in rows
     ]
+
+
+async def admin_points_log(
+    *,
+    user_id: Optional[int] = None,
+    kind: Optional[str] = None,
+    days: int = 7,
+    limit: int = 100,
+) -> Dict[str, Any]:
+    """The wallet ledger for the whole workspace, plus totals to spot outliers."""
+    where = ["t.created_at >= NOW() - INTERVAL :days DAY"]
+    params: Dict[str, Any] = {"days": int(days), "limit": int(limit)}
+    if user_id:
+        where.append("t.user_id = :uid")
+        params["uid"] = int(user_id)
+    if kind:
+        where.append("t.kind = :kind")
+        params["kind"] = kind
+    clause = " AND ".join(where)
+
+    async with _mariadb_session() as session:
+        items = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT t.id, t.user_id, t.delta, t.balance_after, t.kind, t.note,
+                           t.created_at, u.username, u.display_name, u.role
+                      FROM point_transactions t
+                      JOIN users u ON u.id = t.user_id
+                     WHERE {clause}
+                     ORDER BY t.id DESC
+                     LIMIT :limit
+                    """
+                ),
+                params,
+            )
+        )
+        by_kind = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT t.kind,
+                           COUNT(*) AS rows_count,
+                           COALESCE(SUM(CASE WHEN t.delta > 0 THEN t.delta END), 0) AS granted,
+                           COALESCE(SUM(CASE WHEN t.delta < 0 THEN -t.delta END), 0) AS spent
+                      FROM point_transactions t
+                      JOIN users u ON u.id = t.user_id
+                     WHERE {clause}
+                     GROUP BY t.kind
+                     ORDER BY rows_count DESC
+                    """
+                ),
+                params,
+            )
+        )
+        top = _rows(
+            await session.execute(
+                text(
+                    f"""
+                    SELECT u.id, u.username, u.display_name, u.role,
+                           COALESCE(SUM(CASE WHEN t.delta < 0 THEN -t.delta END), 0) AS spent,
+                           COALESCE(SUM(CASE WHEN t.delta > 0 THEN t.delta END), 0) AS earned
+                      FROM point_transactions t
+                      JOIN users u ON u.id = t.user_id
+                     WHERE {clause}
+                     GROUP BY u.id, u.username, u.display_name, u.role
+                     ORDER BY spent DESC
+                     LIMIT 10
+                    """
+                ),
+                params,
+            )
+        )
+    for r in by_kind:
+        r["rows_count"] = int(r.get("rows_count") or 0)
+        r["granted"] = int(r.get("granted") or 0)
+        r["spent"] = int(r.get("spent") or 0)
+    for r in top:
+        r["spent"] = int(r.get("spent") or 0)
+        r["earned"] = int(r.get("earned") or 0)
+    return {"items": items, "by_kind": by_kind, "top_spenders": top, "days": int(days)}

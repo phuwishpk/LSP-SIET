@@ -91,7 +91,7 @@ def test_internal_error_hides_the_exception_but_keeps_a_reference():
 def test_no_route_returns_raw_500_text():
     import inspect
 
-    from api.routers import community
+    from siet_community.routers import community
     from kmitl_rag.routers import ask
 
     for module in (community, ask):

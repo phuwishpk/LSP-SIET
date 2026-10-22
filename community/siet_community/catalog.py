@@ -23,7 +23,7 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 
 # slug, Thai name, English name, display order (tens = department).
 # "general" is the catch-all a room lands in when nothing fits; it sorts last.

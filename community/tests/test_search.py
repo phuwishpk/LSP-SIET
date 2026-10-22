@@ -12,7 +12,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from siet_platform import library
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 from siet_platform.users import User
 
 
@@ -229,7 +229,7 @@ def test_posts_kind_pages_and_staff_get_contact_matching(client, sign_in, monkey
 
 
 def test_document_search_is_rate_limited(client, sign_in, monkeypatch):
-    from api.routers import community as router
+    from siet_community.routers import community as router
 
     monkeypatch.setattr(library, "search_documents", AsyncMock(return_value=[]))
     monkeypatch.setattr(library, "managed_room_ids", AsyncMock(return_value=set()))

@@ -34,9 +34,9 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
 from siet_platform.auth_jwt import get_current_user
-from open_notebook.community import moderation
+from siet_community import moderation
 from siet_platform import audit, library, notifications as inbox, points, ratelimit, throttle
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 from siet_platform.cache.service import cache_service
 from open_notebook.config import DATA_FOLDER
 from siet_platform.features.domain import QuizSession, RoadmapSession
@@ -1373,7 +1373,7 @@ def _roadmap_origin(session: RoadmapSession) -> tuple[str, Optional[int]]:
 
 def _roadmap_snapshot(session: RoadmapSession) -> Dict[str, Any]:
     """What a post stores of a roadmap: everything readers may see, nothing private."""
-    from open_notebook.community import roadmap_plan
+    from siet_community import roadmap_plan
 
     grounding_info = session.grounding or {}
     return {
@@ -1440,7 +1440,7 @@ async def my_roadmap(session_id: str, user: User = Depends(get_current_user)) ->
 
 
 async def _roadmap_detail(session: RoadmapSession, shared: Dict[str, int]) -> Dict[str, Any]:
-    from open_notebook.community import roadmap_plan
+    from siet_community import roadmap_plan
 
     # The post keeps its own copy; after an expansion it lags behind until the
     # author pushes the new version.
@@ -1493,7 +1493,7 @@ async def expand_my_roadmap(
     session_id: str, body: RoadmapExpandBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Break one node into sub-nodes - as many as the model finds it needs (charged per expansion)."""
-    from open_notebook.community import roadmap_plan
+    from siet_community import roadmap_plan
 
     uid = _uid(user)
     session = await _my_roadmap_or_404(session_id, user)
@@ -2168,7 +2168,7 @@ async def study_roadmap(
     Generate a learning plan from the chosen knowledge, with web support for
     what the library does not cover (see ``community/roadmap_plan.py``).
     """
-    from open_notebook.community import roadmap_plan
+    from siet_community import roadmap_plan
 
     uid = _uid(user)
     notebook_ids, source_ids, label = await _roadmap_scope(user, body)

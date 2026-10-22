@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 from siet_platform.users import User
 
 
@@ -258,7 +258,7 @@ def test_archived_rooms_take_nobody(client, sign_in, monkeypatch):
 
 
 def test_owner_delete_archives_admin_delete_purges(client, sign_in, monkeypatch):
-    from api.routers import community as router
+    from siet_community.routers import community as router
 
     monkeypatch.setattr(repo, "get_course", AsyncMock(return_value=_room()))
     status = AsyncMock()
@@ -373,7 +373,7 @@ def test_list_rows_keep_the_computed_requires_code_flag(client, sign_in, monkeyp
 
 
 def test_slugify_handles_thai_only_names():
-    from api.routers.admin import _slugify
+    from siet_community.routers.admin import _slugify
 
     assert _slugify("Computer Education") == "computer-education"
     assert _slugify("ครุศาสตร์วิศวกรรม").startswith("cat-")

@@ -34,14 +34,13 @@ from api.routers import (
     sources,
     transformations,
 )
-from api.routers import admin as admin_router
+from siet_community.routers import admin as admin_router
+from siet_community.routers import features as community_features_router
 from api.routers import commands as commands_router
-from api.routers import community as community_router
-from siet_platform.routers import features as features_router, google_auth as google_auth_router, users as users_router
+from siet_community.routers import community as community_router
+from siet_platform.routers import admin as platform_admin_router, features as features_router, google_auth as google_auth_router, users as users_router
 from siet_platform.throttle import ProviderBusy
-from kmitl_rag.routers import admin as rag_admin_router
-from kmitl_rag.routers import ask as rag_ask_router
-from kmitl_rag.routers import global_chat as global_chat_router, notebook_ask as notebook_ask_router
+from kmitl_rag.routers import admin as rag_admin_router, ask as rag_ask_router, global_chat as global_chat_router, notebook_ask as notebook_ask_router
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -287,7 +286,7 @@ async def lifespan(app: FastAPI):
                     if seeded is not None:
                         await community_points.ensure_welcome(seeded)
                 # Categories + sample courses live in community/catalog.py.
-                from open_notebook.community.catalog import seed_catalog
+                from siet_community.catalog import seed_catalog
 
                 await seed_catalog()
             except Exception as exc:
@@ -541,9 +540,11 @@ app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(languages.router, prefix="/api", tags=["languages"])
 app.include_router(features_router.router, prefix="/api", tags=["features"])
+app.include_router(community_features_router.router, prefix="/api", tags=["features"])
 app.include_router(google_auth_router.router, prefix="/api", tags=["auth"])
 app.include_router(community_router.router, prefix="/api", tags=["community"])
 app.include_router(rag_ask_router.router, prefix="/api", tags=["community"])
+app.include_router(platform_admin_router.router, prefix="/api", tags=["admin"])
 app.include_router(admin_router.router, prefix="/api", tags=["admin"])
 app.include_router(rag_admin_router.router, prefix="/api", tags=["admin"])
 

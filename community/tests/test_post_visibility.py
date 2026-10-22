@@ -19,7 +19,7 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from open_notebook.community import repository as repo
+from siet_community import repository as repo
 from siet_platform.users import User
 
 
@@ -221,7 +221,7 @@ def test_author_hides_a_post_by_making_it_private(client, sign_in, monkeypatch):
     monkeypatch.setattr(repo, "get_post", AsyncMock(return_value={"id": 11, "visibility": "private"}))
     update = AsyncMock()
     monkeypatch.setattr(repo, "update_post", update)
-    monkeypatch.setattr("api.routers.community.points.get_balance", AsyncMock(return_value=0))
+    monkeypatch.setattr("siet_community.routers.community.points.get_balance", AsyncMock(return_value=0))
 
     sign_in(_user(7, "teacher"))
     res = client.put("/api/community/posts/11", json={"visibility": "private"})
@@ -234,7 +234,7 @@ def test_course_visibility_outside_a_room_falls_back_to_public(client, sign_in, 
     monkeypatch.setattr(repo, "get_post", AsyncMock(return_value={"id": 11}))
     update = AsyncMock()
     monkeypatch.setattr(repo, "update_post", update)
-    monkeypatch.setattr("api.routers.community.points.get_balance", AsyncMock(return_value=0))
+    monkeypatch.setattr("siet_community.routers.community.points.get_balance", AsyncMock(return_value=0))
 
     sign_in(_user(7, "teacher"))
     assert client.put("/api/community/posts/11", json={"visibility": "course"}).status_code == 200
