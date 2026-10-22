@@ -164,32 +164,37 @@
 
 .community-theme,
 .community-theme * {
-  scrollbar-width: thin !important;
-  scrollbar-color: rgb(219 39 119 / 0.35) transparent !important;
-  -ms-overflow-style: auto !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
 .community-theme::-webkit-scrollbar,
-.community-theme *::-webkit-scrollbar {
-  display: block !important;
-  width: 6px;
-  height: 6px;
+.community-theme *::-webkit-scrollbar,
+.community-theme ::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
-.community-theme::-webkit-scrollbar-track,
-.community-theme *::-webkit-scrollbar-track {
-  background: transparent;
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
 }
 
-.community-theme::-webkit-scrollbar-thumb,
-.community-theme *::-webkit-scrollbar-thumb {
-  border-radius: 9999px;
-  background: rgb(219 39 119 / 0.35);
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
 }
 
-.community-theme::-webkit-scrollbar-thumb:hover,
-.community-theme *::-webkit-scrollbar-thumb:hover {
-  background: rgb(219 39 119 / 0.55);
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .dark .community-theme {

@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   FileText,
-  Heart,
   MessageCircle,
   MoreHorizontal,
   Play,
@@ -318,10 +317,8 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
                 post.viewer.liked && 'text-pink-600'
               )}
             >
-              <Heart className="h-3.5 w-3.5 fill-rose-500 text-rose-500" aria-hidden="true" />
+              <ThumbsUp className="h-3.5 w-3.5 fill-current" aria-hidden="true" />
               <span>{post.counts.like}</span>
-              <ThumbsUp className="h-3.5 w-3.5 fill-amber-500 text-amber-500" aria-hidden="true" />
-              <span>{post.counts.helpful}</span>
               <span>ถูกใจ</span>
             </button>
             <div className="flex items-center gap-4">

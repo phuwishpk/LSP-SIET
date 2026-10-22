@@ -39,14 +39,12 @@ export function InstructorMediaView({
 
   return (
     <div className="space-y-4">
-      <Card className="rounded-2xl border-pink-100 bg-pink-50/70 shadow-none dark:bg-pink-950/20">
-        <CardContent className="space-y-1 p-4">
-          <h1 className="text-lg font-semibold tracking-tight">สื่อการสอน</h1>
-          <p className="text-xs text-muted-foreground">
-            ไฟล์สไลด์และการบันทึกเรียนที่อาจารย์ประจำวิชาแบ่งปัน
-          </p>
-        </CardContent>
-      </Card>
+      <div className="space-y-1">
+        <h1 className="text-lg font-semibold tracking-tight">สื่อการสอน</h1>
+        <p className="text-xs text-muted-foreground">
+          ไฟล์สไลด์และการบันทึกเรียนที่อาจารย์ประจำวิชาแบ่งปัน
+        </p>
+      </div>
 
       <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
         <Button

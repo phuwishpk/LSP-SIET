@@ -71,14 +71,12 @@ export function SavedSummariesView({
   return (
     <>
       <div className="space-y-4">
-        <Card className="rounded-2xl border-pink-100 bg-pink-50/70 shadow-none dark:bg-pink-950/20">
-          <CardContent className="space-y-1 p-4">
-            <h1 className="text-lg font-semibold tracking-tight">สรุปที่บันทึกไว้</h1>
-            <p className="text-xs text-muted-foreground">
-              สรุปและโน้ตที่คุณบันทึกไว้ รวมไว้ในที่เดียว
-            </p>
-          </CardContent>
-        </Card>
+        <div className="space-y-1">
+          <h1 className="text-lg font-semibold tracking-tight">สรุปที่บันทึกไว้</h1>
+          <p className="text-xs text-muted-foreground">
+            สรุปและโน้ตที่คุณบันทึกไว้ รวมไว้ในที่เดียว
+          </p>
+        </div>
 
         <div className="no-scrollbar flex items-center gap-2 overflow-x-auto pb-1">
           <Button
