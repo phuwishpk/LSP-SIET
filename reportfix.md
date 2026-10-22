@@ -10,7 +10,7 @@
 | Deploy prod | เสร็จ: 03:12 น. core migration 18 → 25 ผ่าน API ไม่มี error |
 | ไฟล์ dump 40 MB ใน container SurrealDB | ลบแล้ว (สร้าง container ใหม่) |
 | PR ไป lfnovo/open-notebook | เปิดแล้ว 2 PR: [#1521](https://github.com/lfnovo/open-notebook/pull/1521), [#1522](https://github.com/lfnovo/open-notebook/pull/1522) |
-| Branch `refactor/community` ของ SpriteUm | ยังไม่ merge: ต้องรู้ก่อนว่าใครเป็นเจ้าของ 4 ไฟล์ที่ชน |
+| Branch `refactor/community` ของ SpriteUm | merge เข้า staging แล้ว (`1a784b1`, `fd6db92`); 4 จุดที่ชนใช้ของ staging ไว้ก่อน และมีคอมเมนต์ `MERGE-OWNER` เก็บโค้ดของ SpriteUm ไว้ข้างกัน |
 
 ## 1. ดึง upstream v1.15.0
 
@@ -95,9 +95,25 @@ make up
 
 เมื่อ PR ถูก merge แล้ว ตอนดึง upstream รอบหน้าให้เอา patch สองตัวนี้ออกจากตาราง patch ใน `docs/UPSTREAM.md` ข้อ 4.3
 
-## 4. ที่ยังค้าง
+## 4. Merge `refactor/community` ของ SpriteUm
 
-- **Branch ของ SpriteUm (`refactor/community`):** ชนกับ staging 4 ไฟล์คือ CommunityHeader, CreatorBox, InstructorMediaView, SavedSummariesView ต้องรู้ก่อนว่าโพธิ์หรือ SpriteUm เป็นเจ้าของ
+ยังไม่รู้ว่าใครเป็นเจ้าของ แต่ merge เข้ามาก่อนแล้วตามที่สั่ง
+
+- **4 จุดที่ชน:** ใช้ของ staging (Poh #4) ไว้ก่อน ข้าง ๆ แต่ละจุดมีคอมเมนต์ `MERGE-OWNER` เก็บโค้ดของ SpriteUm ไว้ ถ้าตัดสินแล้วว่า SpriteUm เป็นเจ้าของ ก็สลับเอาโค้ดในคอมเมนต์มาใช้ได้เลย
+  - `CommunityHeader.tsx`: placeholder และ style ของช่องค้นหา
+  - `CreatorBox.tsx`: style ของปุ่มเขียนโพสต์
+  - `InstructorMediaView.tsx`, `SavedSummariesView.tsx`: หัวหน้าเพจแบบ Card ไล่สี
+  - ค้นทุกจุดได้ด้วย `grep -rn MERGE-OWNER siet-platform/frontend/src community/frontend/src`
+- **การแก้อื่นของ SpriteUm:** ที่ไม่ชนเข้ามาครบ 7 ไฟล์
+- **`community/page.tsx`:** ไฟล์นี้ย้ายเข้า `@siet/community` หลังจาก SpriteUm แตก branch ไป จึงเก็บ stub ที่ path เดิมไว้ แล้ว apply diff ของ SpriteUm แบบ 3-way เข้าไฟล์ในแพ็กเกจ ทำให้ไม่ทับงานของ Poh
+- **บั๊กใน branch ของ SpriteUm:** copy ข้อความ "ยังไม่มีโพสต์" แบบทั่วไปไปไว้ในหน้า "วิชาของฉัน" ทำให้ tsc ไม่ผ่าน (TS2367) แก้แล้วใน `fd6db92`
+- **ผลทดสอบ:** tsc และ lint ผ่าน, build ผ่าน, vitest ไม่ผ่าน 4 ตัวที่รู้อยู่แล้ว
+
+ยังไม่ได้ deploy การเปลี่ยนแปลงนี้ขึ้น prod
+
+## 5. ที่ยังค้าง
+
+- **เจ้าของ 4 จุด `MERGE-OWNER`:** ต้องรู้ว่าโพธิ์หรือ SpriteUm เป็นเจ้าของ แล้วเลือกเวอร์ชันและลบคอมเมนต์ออก
   - ข้อความร่างถามโพธิ์ และประกาศถึงทีม อยู่ที่ `/private/tmp/claude-501/-Users-phuwish-kmitlAI/6b92a9d2-050a-4024-bcb1-5644800bce42/scratchpad/drafts-team-poh.md`
-- **staging ยังไม่ push:** ตอนนี้ origin/staging ตามหลัง prod อยู่ (`a108090`, `dc064a7` ยังไม่ขึ้น GitHub)
+- **staging:** push ขึ้น GitHub แล้ว แต่ prod ยังรันโค้ดก่อน merge ของ SpriteUm
 - **siettest-\* stack:** ยังเก็บไว้ตามที่ขอ
