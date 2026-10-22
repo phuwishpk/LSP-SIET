@@ -1,7 +1,7 @@
 /**
  * Which parts of the workspace each role may see.
  *
- * Mirrors the server-side policy in `api/auth_roles.py`; the backend is the
+ * Mirrors the server-side policy in `siet_platform/auth_roles.py`; the backend is the
  * enforcement point, this is only so students are not shown doors that are
  * locked (and so shared components do not call APIs that would 403).
  */

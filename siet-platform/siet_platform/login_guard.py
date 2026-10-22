@@ -3,7 +3,7 @@ Throttle for the sign-in and sign-up endpoints.
 
 Without this, `POST /api/users/login` accepts unlimited guesses: the seeded
 `admin1` account was reachable by a script in seconds. Content spam is already
-handled in `open_notebook/community/ratelimit.py`, but that counts rows in the
+handled in `siet_platform/ratelimit.py`, but that counts rows in the
 content tables, which is no use for attempts that never write anything.
 
 Two counters, both sliding windows:

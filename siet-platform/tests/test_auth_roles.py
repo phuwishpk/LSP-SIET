@@ -1,4 +1,4 @@
-"""Path -> minimum role policy (api/auth_roles.py)."""
+"""Path -> minimum role policy (siet_platform/auth_roles.py)."""
 
 import pytest
 
