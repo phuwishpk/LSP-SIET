@@ -1592,9 +1592,15 @@ async def expand_my_roadmap(
         raise _internal_error(exc, "roadmap expansion failed")
 
     shared = await repo.roadmap_posts_for_author(uid, [str(session.id)])
+    # A roadmap that is already in the feed shows the new sub-nodes right away:
+    # readers follow the plan as it grows, no "update the post" step needed.
+    synced_post_id = shared.get(str(session.id))
+    if synced_post_id:
+        await repo.update_post_snapshot(int(synced_post_id), _roadmap_snapshot(session))
     return {
         **await _roadmap_detail(session, shared),
         "added": [node["id"] for node in added],
+        "synced_post_id": synced_post_id,
         "charged": charge.amount,
         "balance": await points.get_balance(uid),
     }
@@ -1611,8 +1617,8 @@ async def delete_my_roadmap(session_id: str, user: User = Depends(get_current_us
 @router.post("/posts/{post_id}/roadmap/sync")
 async def sync_roadmap_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """
-    Replace the post's copy of a roadmap with the author's current version
-    (after expanding it). Never automatic: the author decides what readers see.
+    Replace the post's copy of a roadmap with the author's current version.
+    Expansions sync the post by themselves; this is for anything else.
     """
     uid = _uid(user)
     post = await _visible_post_or_404(post_id, user)

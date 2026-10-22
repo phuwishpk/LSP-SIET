@@ -35,10 +35,10 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
         <svg className="graph-lines" width={layout.width} height={layout.height} aria-hidden="true">
           <defs>
             <marker id="arrow-solid" orient="auto" markerWidth="6" markerHeight="6" refX="4" refY="3">
-              <path d="M0 0 L6 3 L0 6 Z" fill="#8C96A8" />
+              <path d="M0 0 L6 3 L0 6 Z" fill="#AFAFAF" />
             </marker>
             <marker id="arrow-dashed" orient="auto" markerWidth="6" markerHeight="6" refX="4" refY="3">
-              <path d="M0 0 L6 3 L0 6 Z" fill="#7C8698" />
+              <path d="M0 0 L6 3 L0 6 Z" fill="#ED4988" />
             </marker>
           </defs>
           {layout.lines.map((line, index) => (

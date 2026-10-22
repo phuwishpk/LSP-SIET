@@ -676,15 +676,6 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 
 ปุ่ม `<ReportButton targetType targetId />` (`components/common/ReportButton.tsx`) พร้อมใช้สำหรับ PostCard/PostDetailModal — ดู `docs/handoff/for-poh.md`
 
-### 6.3 KMITL RAG AI — ความทนทานและธีม (22 ต.ค. 2026)
-
-| เรื่อง | ก่อน | หลัง |
-|---|---|---|
-| โควตาข้อความของเซสชัน | อ่าน `credits_left` ตอนเริ่ม แล้วเขียน `credits_left - 1` ตอนจบ → ยิงพร้อมกันหลายคำถามใช้เกินโควตาได้ | **จองเครดิตก่อนเรียกโมเดล** ด้วย `UPDATE … SET credits_left = credits_left - 1 WHERE … AND credits_left > 0` (`repository.reserve_rag_credit`); rowcount 0 → 402 ทันที; ถ้าคำตอบล้มเหลว/ถูก throttle คืนเครดิต (`release_rag_credit`); ข้อความบันทึกแยก (`save_rag_messages`) |
-| ข้อความ error | `except Exception → detail=str(exc)` ใน ask / quiz / roadmap / expand ส่งข้อความดิบของ provider, path, SQL ให้ client | `_internal_error(exc, what)`: log traceback พร้อม **รหัสอ้างอิง 8 ตัว** แล้วตอบ 500 ด้วยข้อความไทย + รหัสนั้น; error ที่จัดประเภทแล้ว (400/502) ยังส่งข้อความที่ปลอดภัยเหมือนเดิม |
-| ลบบัญชี | เหลือ `rag_conversations`/`rag_messages`, `saved_collections`, รายงานที่เขายื่น, ไฟล์/Source/embeddings ของเอกสาร และ notebook ส่วนตัวใน SurrealDB | `library.purge_user_library` (เอกสารส่วนตัว → ลบพร้อมไฟล์+Source; เอกสารของห้อง → โอนให้ผู้สอนของห้อง ถ้าห้องไม่มีเจ้าของจึงลบ; ลบ notebook ส่วนตัวพร้อม source ที่ใช้เฉพาะ) แล้ว `admin_delete_user` ลบประวัติแชท คอลเลกชัน รายงานที่ยื่น ด้วย; ทั้งเดี่ยวและ bulk |
-| ธีมหน้า `/community/ask` | shadcn ค่าเริ่มต้น + violet/sky ฝังในโค้ด | class `.theme-adventure` (ค่าจาก `DESIGN.md`: ชมพู `#ED4988`, hover `#D83A78`, pressed lip `#C92F6B`, soft `#FCE7F0`, ink `#202124`, border `#E5E5E5`, info `#1CB0F6` …) map ลงตัวแปร semantic เดิม + ฟอนต์ `Nunito → IBM Plex Sans Thai → Noto Sans Thai` (เพิ่ม Nunito ใน `app/layout.tsx`); ปุ่มหลักมีขอบล่าง 4px ตาม DESIGN.md; light เท่านั้น (`.dark .theme-adventure` คง light) |
-
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
 ### 6.3 โพสต์ — มี 5 ชนิด
@@ -784,6 +775,27 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 > และ **⚠️ ไม่พบเอกสารใน …** (ขอบเขตที่เจาะจงไว้ไม่มีเอกสารเลย)
 
 ---
+
+### 6.6 KMITL RAG AI — ความทนทานและธีม (22 ต.ค. 2026)
+
+| เรื่อง | ก่อน | หลัง |
+|---|---|---|
+| โควตาข้อความของเซสชัน | อ่าน `credits_left` ตอนเริ่ม แล้วเขียน `credits_left - 1` ตอนจบ → ยิงพร้อมกันหลายคำถามใช้เกินโควตาได้ | **จองเครดิตก่อนเรียกโมเดล** ด้วย `UPDATE … SET credits_left = credits_left - 1 WHERE … AND credits_left > 0` (`repository.reserve_rag_credit`); rowcount 0 → 402 ทันที; ถ้าคำตอบล้มเหลว/ถูก throttle คืนเครดิต (`release_rag_credit`); ข้อความบันทึกแยก (`save_rag_messages`) |
+| ข้อความ error | `except Exception → detail=str(exc)` ใน ask / quiz / roadmap / expand ส่งข้อความดิบของ provider, path, SQL ให้ client | `_internal_error(exc, what)`: log traceback พร้อม **รหัสอ้างอิง 8 ตัว** แล้วตอบ 500 ด้วยข้อความไทย + รหัสนั้น; error ที่จัดประเภทแล้ว (400/502) ยังส่งข้อความที่ปลอดภัยเหมือนเดิม |
+| ลบบัญชี | เหลือ `rag_conversations`/`rag_messages`, `saved_collections`, รายงานที่เขายื่น, ไฟล์/Source/embeddings ของเอกสาร และ notebook ส่วนตัวใน SurrealDB | `library.purge_user_library` (เอกสารส่วนตัว → ลบพร้อมไฟล์+Source; เอกสารของห้อง → โอนให้ผู้สอนของห้อง ถ้าห้องไม่มีเจ้าของจึงลบ; ลบ notebook ส่วนตัวพร้อม source ที่ใช้เฉพาะ) แล้ว `admin_delete_user` ลบประวัติแชท คอลเลกชัน รายงานที่ยื่น ด้วย; ทั้งเดี่ยวและ bulk |
+| ธีมหน้า `/community/ask` | shadcn ค่าเริ่มต้น + violet/sky ฝังในโค้ด | class `.theme-adventure` (ค่าจาก `DESIGN.md`: ชมพู `#ED4988`, hover `#D83A78`, pressed lip `#C92F6B`, soft `#FCE7F0`, ink `#202124`, border `#E5E5E5`, info `#1CB0F6` …) map ลงตัวแปร semantic เดิม + ฟอนต์ `Nunito → IBM Plex Sans Thai → Noto Sans Thai` (เพิ่ม Nunito ใน `app/layout.tsx`); ปุ่มหลักมีขอบล่าง 4px ตาม DESIGN.md; light เท่านั้น (`.dark .theme-adventure` คง light) |
+
+### 6.7 AI Roadmap — ธีม SIET Pink และโพสต์ที่อัปเดตเอง (22 ต.ค. 2026)
+
+แอป roadmap (`ai-roadmap-generator/`, เสิร์ฟที่ `/roadmap`) สร้างแผนจาก `POST /community/study/roadmap` และขยายด่านด้วย `POST /community/roadmaps/mine/{id}/expand` แผนที่แชร์เป็นโพสต์ (`embed_type=roadmap`) เก็บ **สำเนา** ของ nodes ไว้ใน `posts.linked_snapshot`
+
+| เรื่อง | ก่อน | หลัง |
+|---|---|---|
+| โพสต์กับแผนไม่ตรงกัน | ขยายด่านแล้วโพสต์ยังเป็นรุ่นเก่า ต้องกดปุ่ม "อัปเดตโพสต์" เอง (`POST /posts/{id}/roadmap/sync`) ผู้ใช้ส่วนใหญ่ไม่กด → ผู้อ่านในฟีดเห็นแผนที่ไม่ครบ | `expand` เขียนสำเนาใหม่ลงโพสต์ให้ทันที (`repo.update_post_snapshot`) และตอบ `synced_post_id` กลับ; ปุ่ม sync ยังอยู่สำหรับกรณีอื่น (เช่นแก้ settings) |
+| ลบแผน | — | เหมือนเดิมโดยตั้งใจ: เจ้าของหรือผู้ดูแล (`DELETE /admin/roadmaps/{id}`) ลบ session ใน SurrealDB ได้ แต่โพสต์ยังมีสำเนาของตัวเองและอ่านได้ต่อ (ตรวจแล้ว 22 ต.ค. 2026) |
+| ธีมแอป roadmap | ธีมมืดของตัวเอง (`#0c0c0c`, น้ำเงิน `#2b6fde`, ฟอนต์ IBM Plex Sans Thai) ไม่เข้ากับ SIET Space | สว่างตาม `DESIGN.md`: พื้น `#FFFFFF`, เส้น `#E5E5E5`, ตัวอักษร `#202124`/`#3C3C3C`/`#777777`, สีหลัก `#ED4988` (hover `#D83A78`, pressed `#C92F6B`, soft `#FCE7F0`), ลิงก์/โฟกัส `#1CB0F6`; ฟอนต์ `Nunito → IBM Plex Sans Thai`; หัวข้อหนา 800; ปุ่มหลักขอบล่าง 4px และยุบเมื่อกด; ด่านที่เลือกเป็นชมพูทึบ; เส้นขยายเป็นเส้นประชมพู; ป้ายชื่อเลนเป็นชิปสีเข้มของ accent (`#1686BD` ฟ้า, `#3E8A50` เขียว, `#C66F00` ส้ม, `#9A4FE0` ม่วง, `#C92F6B` ชมพู) ให้อ่านออกบนพื้นขาว; รูป PNG ที่ดาวน์โหลดเป็นพื้นขาว; light เท่านั้น |
+
+ไฟล์: `open-notebook/api/routers/community.py` (`expand_my_roadmap`), `ai-roadmap-generator/src/styles/app.css`, `src/lib/roadmap-layout.js` (สีเลน), `src/components/RoadmapGraph.jsx` (หัวลูกศร), `src/pages/_document.js` (โหลด Nunito), `src/pages/roadmap/[id].jsx` ทดสอบ: `tests/test_roadmap_sync.py`
 
 ## 7. บทบาทผู้ใช้ (Roles) โดยละเอียด
 

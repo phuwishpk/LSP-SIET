@@ -83,7 +83,7 @@ export default function RoadmapPage() {
         json: { node_id: selected.id },
       })
       setRoadmap(result)
-      toast.success(`เพิ่ม ${result.added.length} ด่านย่อยแล้ว`)
+      toast.success(result.synced_post_id ? `เพิ่ม ${result.added.length} ด่านย่อยแล้ว และอัปเดตโพสต์ในฟีดให้แล้ว` : `เพิ่ม ${result.added.length} ด่านย่อยแล้ว`)
     } catch (err) {
       toast.error(err?.message || 'ขยายด่านไม่สำเร็จ')
     } finally {
@@ -108,7 +108,7 @@ export default function RoadmapPage() {
   const download = async () => {
     try {
       const { toPng } = await import('html-to-image')
-      const url = await toPng(graphRef.current, { backgroundColor: '#0C0C0C', pixelRatio: 2 })
+      const url = await toPng(graphRef.current, { backgroundColor: '#FFFFFF', pixelRatio: 2 })
       const link = document.createElement('a')
       link.href = url
       link.download = `${roadmap.title || 'roadmap'}.png`

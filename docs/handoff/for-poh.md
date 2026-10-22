@@ -58,6 +58,12 @@
 
 - ~~`list_comments` ไม่ SELECT `c.parent_id`~~ — **แก้แล้ว** ในข้อ 4.3.5 (`repository.list_comments` เพิ่ม `c.parent_id`); `PostDetailModal` ไม่ต้องแก้
 
+## 2e. Roadmap ในฟีด (4.5.2)
+
+- โพสต์ชนิด roadmap อัปเดตสำเนาของตัวเองทันทีที่เจ้าของขยายด่านในแอป roadmap (`expand` ตอบ `synced_post_id`)
+  ฝั่ง feed ไม่ต้องทำอะไรเพิ่ม แต่ถ้า card มี cache ของ `linked_snapshot` ไว้ใน state ให้ refetch โพสต์เมื่อกลับมาที่หน้า
+- ลบแผนแล้วโพสต์ยังอยู่ (มีสำเนา) — เป็นพฤติกรรมที่ตั้งใจ ไม่ต้องซ่อนโพสต์
+
 ## 4. ธีม
 
 - `DESIGN.md` (SIET Pink) กับ `.community-theme` ใน `globals.css` ใช้ค่าสีคนละชุด (`#ED4988` vs `#db2777`)

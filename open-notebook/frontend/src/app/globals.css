@@ -493,18 +493,20 @@ body.theme-siet {
   letter-spacing: -0.01em;
 }
 
-/* DESIGN.md primary button: 16px radius, flat 4px lip in the pressed colour, sinks on press. */
+/* DESIGN.md primary button: 16px radius, flat 4px lip in the pressed colour, sinks on press.
+   Only the filled (default) variant gets the lip - shadcn marks it with `bg-primary`;
+   outline/ghost/secondary buttons stay flat. */
 .theme-adventure .adventure-button,
-.theme-adventure button[data-slot="button"]:not([data-variant]):not(.no-lip) {
+.theme-adventure [data-slot="button"].bg-primary:not(.no-lip) {
   box-shadow: 0 4px 0 #c92f6b;
   transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 .theme-adventure .adventure-button:active,
-.theme-adventure button[data-slot="button"]:not([data-variant]):not(.no-lip):active {
+.theme-adventure [data-slot="button"].bg-primary:not(.no-lip):active {
   transform: translateY(4px);
   box-shadow: none;
 }
-.theme-adventure button[data-slot="button"]:not([data-variant]):hover {
+.theme-adventure [data-slot="button"].bg-primary:hover {
   background-color: #d83a78;
 }
 
