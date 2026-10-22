@@ -145,9 +145,6 @@ export function LoginForm() {
     }
   }
 
-  const domainsList = allowedDomains?.length ? allowedDomains : ['kmitl.ac.th']
-  const domainLabel = domainsList.map((d) => `@${d}`).join(', ')
-
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#faf7f9] selection:bg-pink-100 selection:text-pink-600">
       {/* Background Decorative Grid Pattern */}
@@ -188,17 +185,14 @@ export function LoginForm() {
           </div>
 
           {/* Welcome Text */}
-          <div className="space-y-1.5 pt-1">
+          <div className="pt-1">
             <CardTitle className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900">
               เข้าสู่ระบบการเรียนรู้
             </CardTitle>
-            <p className="text-sm text-slate-600">
-              พื้นที่แลกเปลี่ยนและผู้ช่วยการเรียนรู้ AI สำหรับชาว สจล.
-            </p>
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-4 px-3 sm:px-6 pt-2">
+        <CardContent className="space-y-4 px-3 sm:px-6 pt-2 pb-6">
           {/* Single Google Sign-in Action Button */}
           <div className="space-y-3 pt-1">
             <button
@@ -217,7 +211,7 @@ export function LoginForm() {
                   Sign in with Google
                 </div>
                 <div className="text-xs text-slate-500 truncate">
-                  เข้าสู่ระบบด้วยบัญชีสถาบัน ({domainLabel})
+                  เข้าสู่ระบบด้วยบัญชีสถาบัน (@kmitl.ac.th)
                 </div>
               </div>
 
@@ -232,7 +226,6 @@ export function LoginForm() {
               )}
             </button>
 
-
             {/* Google OAuth Error Alert */}
             {googleError && (
               <div className="flex items-start gap-2.5 rounded-2xl bg-red-50 p-3 text-xs text-red-600 border border-red-200/80 shadow-xs animate-in fade-in">
@@ -240,13 +233,6 @@ export function LoginForm() {
                 <div className="flex-1 leading-relaxed">{googleError}</div>
               </div>
             )}
-          </div>
-
-          {/* Privacy & PDPA Compliance Footer */}
-          <div className="pt-2 text-center">
-            <p className="text-[11px] text-slate-400">
-              เฉพาะบัญชี Google Workspace ของ สจล. (@kmitl.ac.th)
-            </p>
           </div>
         </CardContent>
       </Card>

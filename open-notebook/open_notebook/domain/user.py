@@ -37,7 +37,7 @@ class _UserRow(_Base):
     # Nullable so Google-only (SSO) accounts can exist without a password.
     password_hash = Column(String(255), nullable=True)
     display_name  = Column(String(128), nullable=True)
-    role          = Column(Enum("admin", "student", "teacher"), nullable=False, default="student")
+    role          = Column(Enum("admin", "student", "teacher", "pending"), nullable=False, default="student")
     # --- KMITL workspace / SSO profile fields (added by community schema) ---
     email         = Column(String(191), nullable=True, unique=True)
     google_sub    = Column(String(64), nullable=True, unique=True)
@@ -52,6 +52,18 @@ class _UserRow(_Base):
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
+
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
+
+
+class _AllowedTeacherRow(_Base):
+    __tablename__ = "allowed_teachers"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    email      = Column(String(191), unique=True, nullable=False)
+    role       = Column(String(32), nullable=False, default="teacher")
+    department = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
@@ -112,7 +124,8 @@ BCRYPT_ROUNDS = 12
 USER_ROLE_ADMIN   = "admin"
 USER_ROLE_STUDENT = "student"
 USER_ROLE_TEACHER = "teacher"
-USER_ROLES = {USER_ROLE_ADMIN, USER_ROLE_STUDENT, USER_ROLE_TEACHER}
+USER_ROLE_PENDING = "pending"
+USER_ROLES = {USER_ROLE_ADMIN, USER_ROLE_STUDENT, USER_ROLE_TEACHER, USER_ROLE_PENDING}
 
 
 # =============================================================================
@@ -643,3 +656,30 @@ async def set_disabled(user_id: int | str, disabled: bool) -> None:
             .where(_UserRow.id == uid)
             .values(disabled=1 if disabled else 0, updated_at=datetime.utcnow())
         )
+
+
+async def is_allowed_teacher(email: str) -> bool:
+    """Check if an email is in the allowed_teachers whitelist table."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_AllowedTeacherRow).where(text("LOWER(email) = :email")).params(email=email)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def add_allowed_teacher(email: str, department: Optional[str] = None, role: str = "teacher") -> bool:
+    """Add a teacher email to the whitelist table."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_AllowedTeacherRow).where(text("LOWER(email) = :email")).params(email=email)
+        )
+        if result.scalar_one_or_none() is not None:
+            return True
+        session.add(_AllowedTeacherRow(email=email, department=department, role=role))
+        return True

@@ -56,7 +56,7 @@ STATEMENTS: list[str] = RENAMES + [
         username      VARCHAR(32)  NOT NULL UNIQUE,
         password_hash VARCHAR(255) NULL,
         display_name  VARCHAR(128) DEFAULT NULL,
-        role          ENUM('admin', 'student', 'teacher') NOT NULL DEFAULT 'student',
+        role          ENUM('admin', 'student', 'teacher', 'pending') NOT NULL DEFAULT 'student',
         created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
         updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         last_login_at DATETIME DEFAULT NULL,
@@ -65,7 +65,7 @@ STATEMENTS: list[str] = RENAMES + [
     ) {_TABLE_OPTS}
     """,
     "ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NULL",
-    "ALTER TABLE users MODIFY COLUMN role ENUM('admin','student','teacher') NOT NULL DEFAULT 'student'",
+    "ALTER TABLE users MODIFY COLUMN role ENUM('admin','student','teacher','pending') NOT NULL DEFAULT 'student'",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(191) NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub VARCHAR(64) NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url VARCHAR(512) NULL",
@@ -76,6 +76,17 @@ STATEMENTS: list[str] = RENAMES + [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled TINYINT(1) NOT NULL DEFAULT 0",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_email (email)",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_google_sub (google_sub)",
+    # --------------------------------------------------- allowed_teachers
+    f"""
+    CREATE TABLE IF NOT EXISTS allowed_teachers (
+        id            INT AUTO_INCREMENT PRIMARY KEY,
+        email         VARCHAR(191) NOT NULL UNIQUE,
+        role          VARCHAR(32)  NOT NULL DEFAULT 'teacher',
+        department    VARCHAR(128) NULL,
+        created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_teacher_email (email)
+    ) {_TABLE_OPTS}
+    """,
     # ------------------------------------------------------------ points
     f"""
     CREATE TABLE IF NOT EXISTS point_transactions (
