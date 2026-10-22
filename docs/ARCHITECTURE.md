@@ -126,12 +126,12 @@ siet_platform = "siet_platform.extension"
 | `app.startup` / `app.shutdown` | event | `api/main.py` lifespan | platform → migration k-track (critical), schema, seed, tuner; community → `siet.seed_demo_data` |
 | auth backend | auth | `api/auth.py` `PasswordAuthMiddleware.dispatch` | platform → JWT (`WorkspaceAuthBackend`) |
 | `call_provider` / `is_final_provider_error` | provider | `utils/embedding.py` | platform → throttle + usage |
-| `vector_search` / `context` / `provider_availability` | cache | `domain/notebook.py`, `utils/context_builder.py`, `routers/models.py` | platform → Redis |
+| `vector_search` / `provider_availability` | cache | `domain/notebook.py`, `routers/models.py` | platform → Redis |
 | `notebook.changed` / `source.changed` / `models.changed` | event | `routers/notebooks.py`, `sources.py`, `commands/source_commands.py`, `routers/models.py` | platform → bump `knowledge_version` + ล้าง answer cache |
 | `source.context` | filter | `Source.get_context` | platform → `asset_url` |
 | `chat.prompt_data` / `chat.model` | filter | `graphs/chat.py` | platform → วันที่ (พ.ศ.); rag → Gemini google_search |
-| `chat.context` / `chat.message` | filter | `routers/chat.py`, `routers/source_chat.py` | rag → ปักข้อความ, ตัด URL/รหัสวิชาที่ไม่มีในบริบท |
-| `source_chat.prompt_data` / `source_chat.full_text_limit` | filter | `graphs/source_chat.py` | rag → ปักข้อความ, เก็บ full text 200k ตัวอักษร |
+| `chat.context` / `chat.message` / `chat.messages` | filter | `routers/chat.py`, `routers/source_chat.py` | rag → ปักข้อความ, ตัด URL/รหัสวิชาที่ไม่มีในบริบท (`chat.messages` = ทั้งรายการตอน replay) |
+| `source_chat.prompt_data` | filter | `graphs/source_chat.py` | rag → ปักข้อความ |
 | prompts | — | `ai_prompter` อ่าน `$PROMPTS_PATH` | platform ต่อ `siet_platform/prompts` ไว้หน้าสุด |
 
 ### 4.2 หน้าเว็บ — `src/lib/extensions.ts`

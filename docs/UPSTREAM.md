@@ -4,18 +4,20 @@
 > ที่เรา vendor ไว้ในรีโปนี้ เอกสารนี้บอกว่าตอนนี้เราอิงเวอร์ชันไหน แก้ไฟล์ของ upstream ไปตรงไหนบ้าง
 > และดึงเวอร์ชันใหม่ของ upstream เข้ามาอย่างไร โครงสร้างของโค้ด KMITL อยู่ใน `docs/ARCHITECTURE.md`
 >
-> อัปเดตล่าสุด: 23 ตุลาคม 2026 (แยกโค้ด KMITL ออกจาก open-notebook — branch `refactor/siet-split`)
+> อัปเดตล่าสุด: 23 ตุลาคม 2026 (ดึง upstream v1.15.0 — branch `chore/upstream-v1.15.0`)
 
 ## 1. เวอร์ชันที่อิงอยู่
 
 | | |
 |---|---|
-| upstream base | `8889087e317177d7b6e286342ab34e0c9c01d43e` (`v1.10.0-31-g8889087`, 3 ก.ค. 2026) |
-| upstream ล่าสุดที่ตรวจ | `v1.15.0` (`315d525`), `main` = `a0f6f30` (4 ต.ค. 2026) — ห่างจาก base 215 commits |
-| branch upstream ล้วน | `vendor/open-notebook` (commit `e59542d` = tree ของ base ตรง ๆ ไม่มีโค้ด KMITL) |
-| จุดเชื่อม subtree | merge commit `f890a34` "Add 'open-notebook/' from commit '8889087…'" (`-s ours` — tree ไม่เปลี่ยน) |
+| upstream base | `315d5255af2a5132aada41c94d5c3c5dc8e837aa` (`v1.15.0`) |
+| branch upstream ล้วน | `vendor/open-notebook` (squash commit `22bf9ea` = tree ของ v1.15.0 ตรง ๆ ไม่มีโค้ด KMITL) |
+| ดึงครั้งล่าสุด | merge commit `6d6151c` "Merge upstream open-notebook v1.15.0" |
+| จุดเชื่อม subtree ครั้งแรก | merge commit `f890a34` "Add 'open-notebook/' from commit '8889087…'" (`-s ours` — tree ไม่เปลี่ยน) |
 
-base หามาจากการเทียบ snapshot ตอน vendor (`1f62367`) กับทุก commit ของ upstream ตั้งแต่ v1.9.0 ถึง v1.12.0
+ประวัติ: vendor ครั้งแรกอิง `8889087` (`v1.10.0-31`, 3 ก.ค. 2026) → ดึง v1.15.0 เมื่อ 23 ต.ค. 2026
+
+base ครั้งแรกหามาจากการเทียบ snapshot ตอน vendor (`1f62367`) กับทุก commit ของ upstream ตั้งแต่ v1.9.0 ถึง v1.12.0
 `8889087` ต่างน้อยที่สุด (88 ไฟล์ ทั้งหมดเป็นส่วนที่ KMITL เพิ่มหรือแก้) และ `CHANGELOG.md` ตรงกันทุกไบต์
 submodule SHA เดิม (`dc45a4d`) เป็น commit ใน fork ส่วนตัวที่ upstream ไม่มี จึงใช้อ้างอิงไม่ได้
 
@@ -54,7 +56,7 @@ git branch -f vendor/open-notebook HEAD^2
 ```
 
 `git subtree` หา base จากบรรทัด `git-subtree-split:` ใน commit message จึงห้าม squash หรือ rebase
-commit `e59542d`/`f890a34` ทิ้ง (`scripts/upstream/lib.sh` ก็อ่านค่า base จากบรรทัดเดียวกัน)
+commit `e59542d`/`f890a34`/`22bf9ea`/`6d6151c` ทิ้ง (`scripts/upstream/lib.sh` ก็อ่านค่า base จากบรรทัดเดียวกัน)
 
 ดูว่าตอนนี้เราต่างจาก upstream แค่ไหน: `scripts/upstream/diff-report.sh > /tmp/report.md`
 
@@ -62,17 +64,27 @@ commit `e59542d`/`f890a34` ทิ้ง (`scripts/upstream/lib.sh` ก็อ่�
 
 ### 4.1 ก่อนและหลังแยก
 
-| | ก่อนแยก (`f890a34`) | หลังแยก |
-|---|---:|---:|
-| ไฟล์ upstream ที่ถูกแก้ | 79 | 45 |
-| ไฟล์ upstream ที่ถูกลบ | 32 | 0 |
-| ไฟล์ที่ KMITL เพิ่มใน `open-notebook/` | 192 | 28 (hook, route stub, helper ของ owner scoping) |
-| **ไฟล์ที่ชนเมื่อลองดึง v1.15.0** | **72** (AA 14 · DU 24 · UU 34) | **20** (UU 20) |
+| | ก่อนแยก (`f890a34`) | หลังแยก | หลังดึง v1.15.0 (`6d6151c`) |
+|---|---:|---:|---:|
+| ไฟล์ upstream ที่ถูกแก้ | 79 | 45 | 43 |
+| ไฟล์ upstream ที่ถูกลบ | 32 | 0 | 0 |
+| ไฟล์ที่ KMITL เพิ่มใน `open-notebook/` | 192 | 28 (hook, route stub, helper ของ owner scoping) | 28 |
+| **ไฟล์ที่ชนเมื่อลองดึง v1.15.0** | **72** (AA 14 · DU 24 · UU 34) | **20** (UU 20) | — |
 
-ไฟล์รายงานเต็ม: `docs/upstream/{diff-report,dryrun-v1.15.0}-{before,after}-split.md`
+ไฟล์รายงานเต็ม: `docs/upstream/{diff-report,dryrun-v1.15.0}-{before,after}-split.md`, `docs/upstream/diff-report-v1.15.0.md` (หลังดึง)
 
 20 ไฟล์ที่ยังชนคือไฟล์ที่ upstream แก้หนักช่วง v1.10→v1.15 และเรามี hook หรือ patch อยู่ในไฟล์เดียวกัน
 (`api/main.py`, `routers/chat.py` …) ส่วนใหญ่แก้ได้ด้วยการวางบรรทัด hook กลับเข้าไปในโค้ดใหม่ของ upstream
+
+สิ่งที่เปลี่ยนตอนดึง v1.15.0 จริง:
+- `ContextBuilder` ถูกลบใน upstream → ตัด cache hook `context` และ `siet_platform/cache/context.py`
+- `source_chat` ของ upstream จำกัด full text ด้วย token budget เอง → ตัด hook `source_chat.full_text_limit`
+- replay ข้อความแชตใช้ filter `chat.messages` (ทั้งรายการ) แทนการเรียก `chat.message` ทีละข้อความ
+- `connection_tester.py` ใช้ registry ของ upstream → patch โมเดล Gemini ไม่จำเป็นแล้ว
+- `AppSidebar` ไฮไลต์เมนูที่ path ยาวสุดเป็นของ upstream แล้ว → ตัดของเราทิ้ง
+- `components/source/` ย้ายเป็น `components/sources/` ใน upstream → import ในแพ็กเกจตามไปแล้ว
+- `get_source_or_404` ของ upstream คืน `_source` — ตอนรวมต้องเปลี่ยนเป็น `source` เพราะ owner check ใช้ (ruff F821 จับได้)
+- eslint `no-explicit-any` เป็น error แล้ว → `any` ที่ตั้งใจใน `lib/extensions.ts` มีคอมเมนต์ disable กำกับ
 `uv.lock` กับ `package-lock.json` แก้ด้วยการ lock ใหม่
 
 ### 4.2 hook points
@@ -82,11 +94,11 @@ commit `e59542d`/`f890a34` ทิ้ง (`scripts/upstream/lib.sh` ก็อ่�
 
 backend: `api/main.py`, `api/auth.py`, `api/routers/{chat,source_chat,notebooks,sources,models}.py`,
 `commands/source_commands.py`, `open_notebook/domain/notebook.py`, `open_notebook/graphs/{chat,source_chat}.py`,
-`open_notebook/utils/{embedding,context_builder}.py`
+`open_notebook/utils/embedding.py`
 
 frontend: `(dashboard)/layout.tsx`, `(dashboard)/search/page.tsx`, `components/layout/{AppShell,AppSidebar}.tsx`,
-`components/source/ChatPanel.tsx`, `lib/hooks/{use-create-dialogs,use-version-check,useNotebookChat}.ts*`,
-`lib/i18n.ts`, `app/globals.css`, `app/layout.tsx`, `components/layout/AppSidebar.test.tsx` (mock รายชื่อแพ็กเกจเป็นว่าง)
+`components/sources/ChatPanel.tsx`, `lib/hooks/{use-create-dialogs,use-version-check,use-notebook-chat}.ts*`,
+`lib/i18n.ts`, `app/globals.css`, `app/layout.tsx`, `components/layout/AppSidebar.test.tsx`, `(dashboard)/search/page.test.tsx` (mock รายชื่อแพ็กเกจเป็นว่าง)
 
 ตอนแก้ conflict: เอาโค้ดของ upstream เป็นหลัก แล้ววางบรรทัด hook กลับเข้าไปที่ตำแหน่งที่มีความหมายเดียวกัน
 
@@ -108,13 +120,12 @@ frontend: `(dashboard)/layout.tsx`, `(dashboard)/search/page.tsx`, `components/l
 | ไฟล์ | เรื่อง |
 |---|---|
 | `open_notebook/database/repository.py` | `ensure_record_id` รับ id ที่มี prefix ซ้ำ (`source:source:x`) |
-| `open_notebook/ai/connection_tester.py` | โมเดล Gemini ที่ใช้ทดสอบ |
 | `frontend/src/lib/api/client.ts`, `lib/config.ts` | ตัด `/api` ที่ซ้ำท้าย base URL; ส่ง `X-Owner-Id` |
 | `frontend/src/lib/api/source-chat.ts` | 401 → ล้าง session แล้วไป `/login` |
 | `frontend/src/lib/utils/source-references.tsx` | อ้างอิงแบบ `[url:...]` และตัวเลือก `appendList` |
-| `frontend/src/components/source/ChatPanel.tsx` | prop `references`/`hasRagContext`, ป้าย RAG, คลิกอ้างอิง URL |
-| `frontend/src/components/source/SessionManager.tsx` | ปุ่ม New Chat สร้างเซสชันทันที |
-| `frontend/src/components/layout/AppSidebar.tsx` | ไม่มีโลโก้, เมนูเลื่อนได้, ไฮไลต์เมนูที่ path ยาวสุด |
+| `frontend/src/components/sources/ChatPanel.tsx` | prop `references`/`hasRagContext`, ป้าย RAG, คลิกอ้างอิง URL |
+| `frontend/src/components/sources/SessionManager.tsx` | ปุ่ม New Chat สร้างเซสชันทันที |
+| `frontend/src/components/layout/AppSidebar.tsx` | ไม่มีโลโก้, เมนูเลื่อนได้, `iconClass` ของเมนูจากแพ็กเกจ |
 | `frontend/src/proxy.ts`, `app/page.tsx` | `/` ไป `/login` แทน `/notebooks` |
 | `pyproject.toml`, `uv.lock` | dependency สามแพ็กเกจของ SIET |
 | `frontend/{tsconfig.json,next.config.ts,vitest.config.ts}` | path `@siet/*`, `externalDir`, ขนาดอัปโหลด, test ของแพ็กเกจ |
@@ -157,6 +168,13 @@ start SurrealDB → `python -m siet_platform.migrations.split --dry-run` แล�
 ซึ่งใน transaction เดียว ลบ `_sbl_migrations` 19–25 และเขียน `_siet_migrations` k2–k8 (k1 จะรันซ้ำตอน start
 เพราะรันซ้ำได้ปลอดภัย) ข้อมูลอื่นไม่ถูกแตะ prod กับ dev ใช้ `surreal_data` ชุดเดียวกัน รันครั้งเดียวพอ
 ทดสอบแล้วกับฐานข้อมูลที่ migrate ด้วยโค้ดก่อนแยก (ถึง 25) และฐานข้อมูลใหม่ — ได้ตารางชุดเดียวกัน
+
+**ตอนดึง v1.15.0** upstream มี core 19–25 ของจริง (source_insight timestamps, podcast profile → record link,
+path ของไฟล์เสียง, docling settings, `fn::text_search`/`fn::vector_search` รับ `notebook_ids`) ซึ่งจะรันครั้งแรก
+ที่ API start บนฐานข้อมูลที่แยกแล้ว (core 18 → 25) ทดสอบกับสำเนาข้อมูล prod (23 ต.ค. 2026): split → core 25 → k1–k8
+จำนวนแถวไม่เปลี่ยน, `fn::vector_search_in_notebook` ของ k1 ยังอยู่, ค้นแบบจำกัด notebook ได้เฉพาะ source ใน notebook นั้น,
+start ครั้งที่สองไม่รันอะไรเพิ่ม ข้อสังเกต: migration 20 สร้างตาราง `episode_profile` (ว่าง) กลับมาหลังจาก k7 ลบไป —
+ไม่มีผลเพราะ podcasts ปิดอยู่ ถ้าต้องการลบอีกให้เพิ่มเป็น k9 ไม่ใช่แก้ k7
 
 **ตอนดึง upstream ที่มี migration ใหม่ (เช่น 19–25 ของ v1.15)** ให้ตรวจก่อนว่าไม่ชนกับ schema ของเรา
 โดยเฉพาะ 20–22 ของ upstream ที่แก้ตาราง podcast ซึ่ง k7 ลบไปแล้ว
