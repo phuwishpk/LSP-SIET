@@ -23,6 +23,7 @@ import {
   CheckCircle2,
 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
+import { PdpaConsentDialog } from '@siet/platform/components/auth/PdpaConsentDialog'
 
 export function PendingScreen() {
   const router = useRouter()
@@ -231,6 +232,7 @@ export function PendingScreen() {
           </p>
         </CardContent>
       </Card>
+      <PdpaConsentDialog />
     </div>
   )
 }

@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
     role          ENUM('admin', 'student', 'teacher', 'pending') NOT NULL DEFAULT 'student',
     created_at    DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at    DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    last_login_at DATETIME DEFAULT NULL,
+    last_login_at     DATETIME DEFAULT NULL,
+    pdpa_consented_at DATETIME DEFAULT NULL,
     INDEX idx_username (username),
     INDEX idx_role (role)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

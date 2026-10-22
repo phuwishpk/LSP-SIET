@@ -10,6 +10,7 @@ import { ModalProvider } from '@/components/providers/ModalProvider'
 import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
 import { useGate, useRouteGate } from '@/lib/extensions'
+import { PdpaConsentDialog } from '@/components/auth/PdpaConsentDialog'
 
 export default function DashboardLayout({
   children,
@@ -66,6 +67,7 @@ export default function DashboardLayout({
       <CreateDialogsProvider>
         {children}
         <ModalProvider />
+        <PdpaConsentDialog />
         {showCommandPalette && <CommandPalette />}
       </CreateDialogsProvider>
     </ErrorBoundary>

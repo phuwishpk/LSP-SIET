@@ -13,6 +13,7 @@ export interface AuthUser {
   student_id?: string | null
   points_balance?: number
   points_exempt?: boolean
+  pdpa_consented_at?: string | null
   created_at?: string | null
   last_login_at?: string | null
 }
@@ -45,6 +46,7 @@ interface AuthState {
   logout: () => Promise<void>
   checkAuth: () => Promise<boolean>
   refreshUser: () => Promise<AuthUser | null>
+  acceptPdpaConsent: () => Promise<boolean>
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -212,6 +214,22 @@ export const useAuthStore = create<AuthState>()(
         } catch (error) {
           console.warn('refreshUser failed:', error)
           return null
+        }
+      },
+
+      acceptPdpaConsent: async () => {
+        const apiUrl = await getApiUrl()
+        const token = get().token
+        if (!token || token === 'not-required') {
+          return false
+        }
+        try {
+          const user = await authApi.consentPdpa(apiUrl, token)
+          set({ user })
+          return true
+        } catch (error) {
+          console.error('acceptPdpaConsent failed:', error)
+          return false
         }
       },
 

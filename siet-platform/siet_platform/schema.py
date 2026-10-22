@@ -79,6 +79,7 @@ STATEMENTS: list[str] = RENAMES + [
     # The suspension lifts itself once suspended_until has passed.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS suspend_reason VARCHAR(255) NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until DATETIME NULL",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS pdpa_consented_at DATETIME NULL",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_email (email)",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_google_sub (google_sub)",
     # --------------------------------------------------- allowed_teachers
