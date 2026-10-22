@@ -2,7 +2,7 @@
 
 > ครอบคลุม: โทเค็นสี ฟอนต์ การ scope ธีม sidebar และแบรนด์ "LSP-SIET"
 > ไฟล์หลัก: `frontend/src/app/globals.css`, `frontend/src/app/layout.tsx`,
-> `frontend/src/app/(dashboard)/admin/layout.tsx`, `frontend/src/components/layout/AppSidebar.tsx`
+> `siet-platform/frontend/src/app/(dashboard)/admin/layout.tsx`, `frontend/src/components/layout/AppSidebar.tsx`
 
 ## 1. สเปกดีไซน์ที่ได้รับ (8 ต.ค. 2026)
 
@@ -84,7 +84,7 @@ const notoThai = Noto_Sans_Thai({ variable: "--font-noto-thai", preload: false }
 
 ## 3. การใส่ธีมให้หน้า `/admin` ทุกหน้า
 
-`frontend/src/app/(dashboard)/admin/layout.tsx`:
+`siet-platform/frontend/src/app/(dashboard)/admin/layout.tsx`:
 
 ```tsx
 export default function AdminLayout({ children }) {

@@ -37,7 +37,7 @@
 |---|---|---|
 | [`docs/SYSTEM-GUIDE.md`](../SYSTEM-GUIDE.md) | ภาพรวมทั้งระบบ KMITL AI Workspace / SIET Space: สถาปัตยกรรม, บทบาท, ระบบแต้ม, กันสแปม, แผนผัง API, ฐานข้อมูล (ไทย, 15 ก.ย. 2026) | บริบทใหญ่; ส่วน admin ในนั้นยังเป็นรุ่นก่อนการแยก 4 ส่วน |
 | [`docs/RUNBOOK.md`](../RUNBOOK.md) | ติดตั้งและรันระบบบนเครื่องใหม่ (`make up`, `.env`, ตรวจ 3 ชั้น) | ต้องทำตามนี้ก่อนจึงจะเปิดหน้า admin ได้ |
-| [`docs/DATABASE_ARCHITECTURE.md`](../DATABASE_ARCHITECTURE.md), [`docs/ER-DIAGRAM.md`](../ER-DIAGRAM.md) | โครงสร้างตาราง MariaDB/SurrealDB | ตารางที่ 05 §6 อ้างถึง (ชื่อคอลัมน์หลัง rename ดู `community/schema.py`) |
+| [`docs/DATABASE_ARCHITECTURE.md`](../DATABASE_ARCHITECTURE.md), [`docs/ER-DIAGRAM.md`](../ER-DIAGRAM.md) | โครงสร้างตาราง MariaDB/SurrealDB | ตารางที่ 05 §6 อ้างถึง (ชื่อคอลัมน์หลัง rename ดู `siet-platform/siet_platform/schema.py`) |
 | `open-notebook/CLAUDE.md`, `open-notebook/frontend/src/CLAUDE.md`, `open-notebook/api/CLAUDE.md` | แนวทางสถาปัตยกรรมของ Open Notebook ต้นน้ำ | กติกา frontend/API ทั่วไปที่ส่วน admin ทำตาม |
 | `docs/figma-admin-plugin/` | ปลั๊กอิน Figma | อธิบายใน 07 |
 

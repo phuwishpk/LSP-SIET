@@ -1,5 +1,7 @@
 # 08 — ดัชนีไฟล์ของส่วน admin (ทุกไฟล์ที่เกี่ยวข้อง)
 
+> path ในเอกสารนี้ปรับตามการแยกโค้ด KMITL (23 ต.ค. 2026, `docs/ARCHITECTURE.md`): route `/admin/rag/*` และ `rag_stats`/`summarize_rag_answers` ตอนนี้อยู่ใน `kmitl-rag/kmitl_rag/{routers/admin,history}.py`, helper `_naive_utc`/`_points_spent`/`_author`/`_per_day` อยู่ใน `siet_platform/db.py`
+
 > ไฟล์ละหนึ่งบรรทัด: อยู่ที่ไหน ใหม่หรือแก้ ทำอะไร และเอกสารไหนอธิบายละเอียด
 > สถานะ ณ commit `ebffe06` (ยกเว้น `docs/figma-admin-plugin/` และ `docs/admin/` ที่ยังไม่ commit)
 > "ใหม่" = ไม่มีก่อน 8 ต.ค. 2026, "แก้" = มีอยู่แล้วและถูกเปลี่ยน
@@ -80,12 +82,12 @@
 
 | ไฟล์ | สถานะ | หน้าที่ | เอกสาร |
 |---|---|---|---|
-| `api/routers/admin.py` | แก้ | +11 route (quizzes ×4, community/stats, comments ×2, rag ×4) + helper `_quiz_origin`, `_session_owners`, `_viewer_window`, `_viewer_day` | 05 §3 |
-| `open_notebook/community/repository.py` | แก้ | +`quiz_posts_by_session`, `admin_quiz_posts`, `quiz_stats`, `admin_list_comments`, `community_stats`, `summarize_rag_answers`, `rag_stats`, helper `_naive_utc`/`_pct`/`_points_spent`/`_author`/`_per_day` | 05 §4 |
-| `open_notebook/community/library.py` | แก้ | +`DOCUMENT_STATUSES`, `admin_list_documents` | 05 §5 |
-| `open_notebook/domain/features.py` | แก้ | +`QuizSession.admin_list`, `QuizSession.created_since` | 05 §5 |
+| `community/siet_community/routers/admin.py` | แก้ | +11 route (quizzes ×4, community/stats, comments ×2, rag ×4) + helper `_quiz_origin`, `_session_owners`, `_viewer_window`, `_viewer_day` | 05 §3 |
+| `community/siet_community/repository.py` | แก้ | +`quiz_posts_by_session`, `admin_quiz_posts`, `quiz_stats`, `admin_list_comments`, `community_stats`, `summarize_rag_answers`, `rag_stats`, helper `_naive_utc`/`_pct`/`_points_spent`/`_author`/`_per_day` | 05 §4 |
+| `siet-platform/siet_platform/library.py` | แก้ | +`DOCUMENT_STATUSES`, `admin_list_documents` | 05 §5 |
+| `siet-platform/siet_platform/features/domain.py` | แก้ | +`QuizSession.admin_list`, `QuizSession.created_since` | 05 §5 |
 | `tests/test_admin_consoles.py` | ใหม่ | 27 unit test ของ helper ข้างต้น | 06 §1 |
-| `api/auth_roles.py` | ไม่แก้ | `/api/admin` อยู่ใน `ADMIN_PREFIXES` อยู่แล้ว | 01 §3 |
+| `siet-platform/siet_platform/auth_roles.py` | ไม่แก้ | `/api/admin` อยู่ใน `ADMIN_PREFIXES` อยู่แล้ว | 01 §3 |
 
 ## เอกสารและเครื่องมือ — `docs/`
 
