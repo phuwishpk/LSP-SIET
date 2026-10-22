@@ -19,6 +19,18 @@ export function peekPostLoginPath(role?: string | null): string {
   if (role === 'pending') {
     return '/pending'
   }
+  if (role === 'admin') {
+    let stored: string | null = null
+    try {
+      stored = sessionStorage.getItem(KEY)
+    } catch {
+      stored = null
+    }
+    if (stored && (stored.startsWith('/admin') || stored.startsWith('/settings'))) {
+      return stored
+    }
+    return '/admin'
+  }
   let stored: string | null = null
   try {
     stored = sessionStorage.getItem(KEY)
@@ -35,7 +47,7 @@ export function peekPostLoginPath(role?: string | null): string {
   ) {
     return stored
   }
-  return role === 'admin' ? '/admin' : '/community'
+  return '/community'
 }
 
 export function clearPostLoginPath() {
