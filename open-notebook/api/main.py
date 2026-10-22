@@ -197,6 +197,14 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error(f"Community MariaDB schema setup failed: {exc}")
 
+    # Library documents whose background ingestion died with the last process.
+    try:
+        from open_notebook.community.library import reap_stuck_documents
+
+        await reap_stuck_documents()
+    except Exception as exc:
+        logger.warning(f"Library reaper skipped: {exc}")
+
     # Seed: 1 admin + 5 students on MariaDB startup.
     # Set WORKSPACE_SEED_ADMIN=false to disable.
     try:
@@ -272,19 +280,15 @@ async def lifespan(app: FastAPI):
             # Demo data for the community: welcome allowance + sample course rooms.
             try:
                 from open_notebook.community import points as community_points
-                from open_notebook.community import repository as community_repo
 
                 for u in seed_users:
                     seeded = await get_by_username(u["username"])
                     if seeded is not None:
                         await community_points.ensure_welcome(seeded)
-                for code, name, desc in (
-                    ("CS101", "Data Structure", "โครงสร้างข้อมูลและอัลกอริทึมพื้นฐาน"),
-                    ("CS201", "Web Technology", "การพัฒนาเว็บ ฝั่งหน้าบ้านและหลังบ้าน"),
-                    ("CS301", "OS & Linux", "ระบบปฏิบัติการและการใช้งาน Linux"),
-                    ("CS302", "Computer Network", "เครือข่ายคอมพิวเตอร์และโปรโตคอล"),
-                ):
-                    await community_repo.ensure_course(code, name, desc)
+                # Categories + sample courses live in community/catalog.py.
+                from open_notebook.community.catalog import seed_catalog
+
+                await seed_catalog()
             except Exception as exc:
                 logger.warning(f"Community seed skipped: {exc}")
     except Exception as exc:

@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 15 กันยายน 2026
+> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5; RAG hardening + ธีม SIET Pink — ข้อ 6.3)
 
 ## สารบัญ
 
@@ -596,8 +596,85 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 เหตุผลที่ห้องพูดคุยไม่มีคลังความรู้: ถ้ามี นักศึกษาจะอัปโหลดอะไรก็ได้เข้าไป
 แล้วให้ AI ใช้ตอบ ซึ่งเลี่ยงการตรวจของอาจารย์ — บล็อกทั้งฝั่งหน้าเว็บและฝั่ง API
 
-**ปิดห้องแล้วโพสต์ไม่หาย** — ระบบตั้ง `posts.course_id = NULL` โพสต์จะย้ายกลับไปฟีดรวม
+**ปิดห้องแล้วโพสต์ไม่หาย** — ระบบตั้ง `posts.room_id = NULL` โพสต์จะย้ายกลับไปฟีดรวม
 เพื่อไม่ให้เจ้าของห้องลบงานของคนอื่นได้
+
+#### 6.2.1 หมวดหมู่ เทอม รหัสเข้าห้อง และวงจรชีวิตของห้อง (22 ต.ค. 2026)
+
+| เรื่อง | ทำงานอย่างไร | ที่เก็บ |
+|---|---|---|
+| **หมวดหมู่** (ภาควิชา/สาขา) | ชั้นเดียว ไม่มีต้นไม้ — ห้องวิชาเลือกได้ 1 หมวด ใช้กรองในหน้าค้นหาและจัดกลุ่มในตารางผู้ดูแล; ลบหมวดแล้วห้องกลายเป็น "ไม่ระบุหมวด" ไม่มีอะไรถูกลบ; ผู้ดูแลจัดการที่ `/admin/community` แท็บ "หมวดหมู่" | ตาราง `categories` (`slug` unique) + `rooms.category_id` (ไม่มี FK) |
+| **ข้อมูลตั้งต้น** | 13 สาขาวิชา ป.ตรี ของ SIET (4 ภาควิชา) + "ทั่วไป" และรายวิชาตัวอย่างสาขาละ 5 วิชาจากเล่มหลักสูตร มคอ.2 — seed ตอน API เริ่มทำงาน เพิ่มเฉพาะที่ยังไม่มี ไม่ทับของอาจารย์ | `open_notebook/community/catalog.py` |
+| **ภาคการศึกษา** | ข้อความสั้น เช่น `1/2569` บนห้อง | `rooms.term` |
+| **รหัสเข้าห้อง** | ถ้าอาจารย์ตั้งไว้ นักศึกษาต้องกรอกครั้งเดียวตอนเข้าร่วม (`POST /courses/{id}/join` ส่ง `{code}`; ไม่มีหรือผิด → 403 + header `X-Join-Code-Required: 1`); ไม่ตั้ง = เข้าได้เลยเหมือนเดิม; ผู้สอน/ผู้ช่วยสอน/ผู้ดูแลไม่ต้องใช้; API ส่งรหัสกลับให้เฉพาะคนที่จัดการห้องได้ คนอื่นเห็นแค่ `requires_code` | `rooms.join_code` (เก็บตัวพิมพ์ใหญ่) |
+| **ผู้ช่วยสอน (TA)** | เจ้าของห้องตั้งสมาชิกคนใดก็ได้เป็น TA (บัญชีนักศึกษาก็ได้) → เพิ่มเนื้อหาเข้าคลังของห้องและดูรายชื่อสมาชิกได้เหมือนผู้สอน แต่แก้ข้อมูลห้อง/เก็บถาวร/นำคนออกไม่ได้ | `room_members.role` (`member`\|`ta`) |
+| **เก็บถาวร** | เจ้าของห้อง "ปิดห้อง" = เก็บถาวร: หายจากแถบซ้ายและตัวเลือก ไม่รับสมาชิก/โพสต์/เอกสารใหม่ แต่สมาชิกเดิมยังอ่านได้ และกู้คืนได้ทุกเมื่อ (`POST /courses/{id}/archive`, `/restore`) | `rooms.status` (`active`\|`archived`), `archived_at` |
+| **ลบถาวร** | ผู้ดูแลเท่านั้น (`DELETE /courses/{id}` ด้วยบัญชี admin): ลบเอกสารในคลังของห้องพร้อมไฟล์ Source และ embeddings ใน SurrealDB, ลบ notebook ของวิชา, ลบสมาชิก, ปลดโพสต์กลับฟีดรวม (`library.purge_course_library` → `repository.delete_course`) | — |
+| **สิทธิ์อัปโหลดเข้าคลังวิชา** | เฉพาะผู้สอน (ผู้สร้างห้อง) ผู้ช่วยสอน และผู้ดูแล — อาจารย์คนอื่นอัปโหลดเข้าห้องที่ตัวเองไม่ได้สอนไม่ได้แล้ว | ตรวจใน `POST /community/library` |
+
+หน้าจัดการของอาจารย์อยู่ที่ **`/teacher/courses/{id}`** (ปุ่ม "ตั้งค่า" ในหน้า `/teacher`): ข้อมูลห้อง หมวด/เทอม
+รหัสเข้าห้อง (สุ่ม/คัดลอก/ยกเลิก) สวิตช์ห้องส่วนตัว รายชื่อสมาชิกพร้อมตั้ง TA และนำออก เก็บถาวร/กู้คืน และปุ่มลบถาวรเฉพาะผู้ดูแล
+
+#### 6.2.2 ระดับการมองเห็น (visibility) และห้องส่วนตัว (22 ต.ค. 2026)
+
+กฎเดียวใช้กับทุกจุดที่อ่านโพสต์ — ฟีด, โพสต์เดี่ยว, คอมเมนต์, ไฟล์แนบ, ไลก์/บันทึก/แชร์, เล่นควิซ, ติดตาม roadmap, ค้นหา
+(`repository._VISIBLE_SQL` สำหรับ query และ `repository.post_visible_to` สำหรับ route โพสต์เดี่ยว ผ่าน `_visible_post_or_404`):
+
+| `posts.visibility` | ใครอ่านได้ | ตั้งได้จาก |
+|---|---|---|
+| `public` (ค่าเริ่มต้น — ฟีดเดิมไม่เปลี่ยน) | ทุกคนที่ล็อกอิน **ยกเว้น** โพสต์อยู่ในห้องส่วนตัว → เฉพาะสมาชิก | ฟอร์มโพสต์ (`visibility`) |
+| `course` | สมาชิกของห้อง + ผู้สร้างห้อง (ถ้าโพสต์ไม่อยู่ในห้อง ระบบลดเป็น `public`) | ฟอร์มโพสต์ / `PUT /posts/{id}` |
+| `private` | ผู้เขียนคนเดียว — วิธี "ซ่อนโพสต์" โดยไม่ลบ | `PUT /posts/{id} {visibility: "private"}` |
+
+- ผู้เขียนและผู้ดูแลระบบอ่านได้เสมอ โพสต์ที่มองไม่เห็นตอบ **404** เหมือนไม่มีอยู่ (ไม่เดา id ได้)
+- **ห้องส่วนตัว** (`rooms.is_private`, สวิตช์ในหน้าตั้งค่าห้อง): โพสต์ทุกระดับและเอกสารในคลังของห้องเห็นได้เฉพาะสมาชิก/ผู้สอน/TA;
+  คนนอกยังเห็นชื่อห้องในรายการและขอเข้าร่วมได้ (ใช้ร่วมกับรหัสเข้าห้องได้) ห้อง public ใครล็อกอินก็อ่านโพสต์สาธารณะและค้นเอกสารได้แม้ยังไม่เข้าร่วม
+- คลังเอกสารตามกฎเดียวกัน: `GET /community/library`, `GET /library/{id}`, ดาวน์โหลด, การเลือกเอกสาร/notebook ใน "เจาะจงเอกสาร",
+  scope `course` ของ RAG (`/community/ask`) และ notebook ของห้องใน `GET /community/knowledge` ล้วนกรองห้องส่วนตัวที่ผู้ใช้ไม่ได้เป็นสมาชิกออก
+  (`library._DOC_READABLE_SQL`, `can_read_document`, `can_read_room`, `room_ids_readable_by`)
+- หน้าโปรไฟล์ยังใช้กฎ "เห็นเฉพาะวิชาที่เรียนร่วมกัน" เดิมซ้อนทับกฎนี้อีกชั้น
+- ฝั่ง UI ของฟีด (CreatorBox / SharePostModal) ยังไม่มีตัวเลือก visibility — ดู `docs/handoff/for-poh.md`
+
+#### 6.2.3 สื่อการสอนและความทนทานของคลังเอกสาร (22 ต.ค. 2026)
+
+| เรื่อง | ทำงานอย่างไร |
+|---|---|
+| **ชนิดไฟล์** | เอกสาร (PDF, Word, PowerPoint, Excel, CSV, Markdown, text, EPUB, RTF, ODT) ถูกสกัดข้อความและ embed; **สื่อ** (PNG/JPG/GIF/WebP, MP4/WebM, ZIP) เก็บเป็นไฟล์และดาวน์โหลดได้ แต่ไม่ถูก AI อ่าน (`status=ready`, `chunks=0`, `is_media=true`) — `library.DOCUMENT_EXT` / `MEDIA_EXT` |
+| **ขนาด** | เอกสาร `LIBRARY_MAX_UPLOAD_MB` (100) · สื่อ `LIBRARY_MAX_MEDIA_MB` (200) · เขียนลงดิสก์แบบ async (`library.save_upload` ผ่าน anyio) ไม่บล็อก event loop |
+| **ตรวจชนิดจริง** | หลังอัปโหลด `library.check_signature` อ่าน magic bytes ด้วย `filetype`: PDF/รูป/วิดีโอ/zip-container (docx/pptx/xlsx/epub/odt) ต้องตรงนามสกุล, ไฟล์ข้อความต้องไม่มี NUL และถอดรหัส UTF-8/CP874 ได้ — ไม่ตรง → ลบไฟล์ ตอบ 400; MIME ที่บันทึกคือค่าที่ตรวจพบ ไม่ใช่ที่เบราว์เซอร์บอก |
+| **ดาวน์โหลด** | `GET /community/library/{id}/download` (ตรวจสิทธิ์อ่านเหมือน GET เอกสาร รวมห้องส่วนตัว) — PDF/รูป/วิดีโอ/ข้อความเปิด inline, อื่น ๆ เป็น attachment; รองรับ `?token=` สำหรับลิงก์ `<a>`; ทุกเอกสารมี `download_url` ใน response |
+| **ค้าง processing** | ตอน API เริ่ม `library.reap_stuck_documents()` เปลี่ยนเอกสารที่ค้าง `processing` เกิน `LIBRARY_PROCESSING_TIMEOUT_MINUTES` (30) เป็น `failed` พร้อมข้อความให้กดลองใหม่ (background task หายไปกับการรีสตาร์ต) |
+| **ลองใหม่** | `ingest_document` ลบ Source + embeddings เดิมก่อนสร้างใหม่ (`_discard_source`) — ไม่มี Source กำพร้าสะสม |
+| **แชร์ลงฟีด** | โพสต์ได้ **สำเนา** ไฟล์ใน `DATA_FOLDER/community` ลบเอกสารในคลังแล้วไฟล์แนบของโพสต์ไม่หาย; เอกสารเก่าที่ยังใช้ไฟล์ร่วมกับโพสต์จะไม่ถูกลบไฟล์ (`_file_still_referenced`) |
+| **สิทธิ์จัดการ** | ลบ/ลองใหม่ได้โดย: ผู้อัปโหลด, ผู้ดูแล, และ **ผู้สอน/ผู้ช่วยสอนของห้อง** สำหรับเอกสารของห้องนั้น (`can_manage_document(user, doc, managed_room_ids(user))`) |
+
+#### 6.2.4 ค้นหาขั้นสูง (22 ต.ค. 2026)
+
+หน้า **`/community/search`** (ของเรา ไม่ใช่ช่องค้นหาบนหัว community ที่กรองฟีดอย่างเดียว) เรียก `GET /community/search` ครั้งเดียวแล้วได้ 4 ชนิดผลลัพธ์ ทุกตัวกรองอยู่ใน URL แชร์ลิงก์ได้
+
+| ชนิด | หาอย่างไร | ตัวกรอง | หมายเหตุ |
+|---|---|---|---|
+| โพสต์ | query ฟีดเดิม (`list_posts`) จึงเคารพ visibility/ห้องส่วนตัวอัตโนมัติ | `course_id`, `category_id` (หมวดของห้อง), `type`, `author` (@username), `tag` (ตรงทั้งแท็ก ไม่ใช่ substring), `since`/`until` (วัน; until รวมทั้งวัน), `order` newest/popular | `kind=posts` แบ่งหน้าด้วย `before_id`; **คำสั่ง popular ใช้ keyset (คะแนน, id)** แล้ว ไม่ข้าม/ซ้ำหน้า (`_POPULARITY`) |
+| รายวิชา | `search_courses`: รหัส/ชื่อห้อง/ชื่อหมวด เฉพาะห้อง active | `category_id` | ได้ `category_name`, `term`, `member_count`, `joined`, `requires_code`, `is_private` (ไม่มี `join_code`) |
+| เอกสาร | **ค้นด้วยความหมาย**: embed คำค้น (`retrieval.question_embedding`, cache 1 ชม.) → cosine บน `source_embedding` ของ notebook ที่ผู้ใช้อ่านได้ (`library._searchable_notebooks` = ห้อง public + ห้องส่วนตัวที่เป็นสมาชิก + คลังส่วนตัว) → ยุบเหลือเอกสารละ 1 แถวพร้อม `snippet`/`similarity`; รวมกับการตรงชื่อ (`match: title`) | `course_id`, `category_id` | ผลลัพธ์ cache 5 นาทีต่อ (ขอบเขต, คำค้น); จำกัด **20 ครั้ง/นาที/คน** (staff ×4, `SEARCH_DOCS_PER_MINUTE`, นับในโปรเซส) → 429 + Retry-After; ฟรี ไม่หักแต้ม |
+| ผู้ใช้ | `search_users`: ชื่อ/username; **เฉพาะ staff** จึงจับคู่ email/รหัสนักศึกษาและได้ `student_id` กลับ (`include_contact`) | — | บัญชีที่ถูกระงับไม่แสดง |
+
+- `kind=all` ให้ชนิดละ 5 รายการ (preview) + ปุ่ม "ดูทั้งหมด" ไปยังแท็บนั้น
+- `_like()` escape `%`, `_`, `\` ของผู้ใช้แล้ว (เดิม "%" ค้นได้ทุกโพสต์)
+- ช่องค้นหาบนหัว community (ของ Poh) ยังชี้ไป `/community?q=` — ดู `docs/handoff/for-poh.md`
+
+#### 6.2.5 รายงานเนื้อหา การระงับบัญชี และบันทึกผู้ดูแล (22 ต.ค. 2026)
+
+| เรื่อง | ทำงานอย่างไร | ที่เก็บ / โค้ด |
+|---|---|---|
+| **รายงาน** | ผู้ใช้ที่ล็อกอินรายงานโพสต์/ความคิดเห็น/ผู้ใช้/เอกสาร ด้วยเหตุผล 5 แบบ + รายละเอียด; รายงานได้คนละ 1 ครั้งต่อรายการ (409 ถ้าซ้ำ) รายงานของตัวเองไม่ได้ (400) รายงานโพสต์ที่ตัวเองมองไม่เห็นไม่ได้ (404); **ไม่ซ่อนอัตโนมัติ** | `content_reports` · `POST /community/reports` · `GET /community/reports/mine?target_type&ids=` (ปุ่ม "รายงานแล้ว") · `community/moderation.py` |
+| **คิวของเจ้าของห้อง** | ผู้สอน/TA เห็นรายงานของเนื้อหาในห้องตัวเองที่หน้าตั้งค่าห้อง (การ์ด "รายงานในห้อง"); เจ้าของห้องทำได้: ซ่อนโพสต์ (`hide_post` = soft delete), ลบความคิดเห็น, ปัดตก — เรื่องบัญชีผู้ใช้ส่งต่อผู้ดูแล | `GET /community/courses/{id}/reports`, `POST …/reports/{rid}` |
+| **คิวผู้ดูแล** | `/admin/community` แท็บ "รายงาน": สถิติ, ตารางพร้อมจำนวนคนที่รายงานรายการเดียวกัน (`report_count`) และสถานะของเป้าหมาย (`target_gone`); dialog จัดการ: ปัดตก / ซ่อน-กู้คืนโพสต์ / ลบความคิดเห็น / ลบเอกสาร / **ระงับเจ้าของ** (เหตุผล + วันปล่อย); รายงานซ้ำของเป้าหมายเดียวกันปิดตาม (`resolve_sibling_reports`) | `GET /admin/reports?status=open|dismissed|actioned|all`, `POST /admin/reports/{id}` |
+| **ระงับบัญชี** | `PATCH /admin/users/{id}` รับ `suspend_reason` + `suspended_until` (วัน); ผู้ใช้ได้รับ notification (`kind=moderation`) พร้อมเหตุผล/วัน; ข้อความ 403 ตอน login และทุก request บอกเหตุผล; **ปล่อยอัตโนมัติ** เมื่อถึงวัน (`suspension_lifted` ใน `get_current_user`/login เคลียร์ `disabled`) | `users.suspend_reason`, `users.suspended_until` · `domain/user.py` |
+| **บันทึกผู้ดูแล** | ทุก route ที่เปลี่ยนข้อมูลใน `/api/admin/*` (บัญชี แต้ม รหัสผ่าน ลบ โพสต์ ความคิดเห็น เอกสาร หมวดหมู่ roadmap quiz รายงาน) และการลบห้องถาวร/การจัดการรายงานโดยเจ้าของห้อง เขียน 1 แถว: ใคร action เป้าหมาย detail(JSON); ดูได้ที่ `/admin` แท็บ "บันทึกผู้ดูแล" กรองด้วย prefix เช่น `user.` `report.` | `admin_audit_log` · `moderation.log_action` (ไม่ raise) · `GET /admin/audit` |
+| **บั๊กที่แก้** | `list_comments` ไม่ได้ SELECT `parent_id` ทำให้ reply ทุกอันขึ้นเป็นคอมเมนต์ชั้นบน (regression จาก `8494961`) | `repository.list_comments` |
+
+ปุ่ม `<ReportButton targetType targetId />` (`components/common/ReportButton.tsx`) พร้อมใช้สำหรับ PostCard/PostDetailModal — ดู `docs/handoff/for-poh.md`
 
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
@@ -699,6 +776,27 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 
 ---
 
+### 6.6 KMITL RAG AI — ความทนทานและธีม (22 ต.ค. 2026)
+
+| เรื่อง | ก่อน | หลัง |
+|---|---|---|
+| โควตาข้อความของเซสชัน | อ่าน `credits_left` ตอนเริ่ม แล้วเขียน `credits_left - 1` ตอนจบ → ยิงพร้อมกันหลายคำถามใช้เกินโควตาได้ | **จองเครดิตก่อนเรียกโมเดล** ด้วย `UPDATE … SET credits_left = credits_left - 1 WHERE … AND credits_left > 0` (`repository.reserve_rag_credit`); rowcount 0 → 402 ทันที; ถ้าคำตอบล้มเหลว/ถูก throttle คืนเครดิต (`release_rag_credit`); ข้อความบันทึกแยก (`save_rag_messages`) |
+| ข้อความ error | `except Exception → detail=str(exc)` ใน ask / quiz / roadmap / expand ส่งข้อความดิบของ provider, path, SQL ให้ client | `_internal_error(exc, what)`: log traceback พร้อม **รหัสอ้างอิง 8 ตัว** แล้วตอบ 500 ด้วยข้อความไทย + รหัสนั้น; error ที่จัดประเภทแล้ว (400/502) ยังส่งข้อความที่ปลอดภัยเหมือนเดิม |
+| ลบบัญชี | เหลือ `rag_conversations`/`rag_messages`, `saved_collections`, รายงานที่เขายื่น, ไฟล์/Source/embeddings ของเอกสาร และ notebook ส่วนตัวใน SurrealDB | `library.purge_user_library` (เอกสารส่วนตัว → ลบพร้อมไฟล์+Source; เอกสารของห้อง → โอนให้ผู้สอนของห้อง ถ้าห้องไม่มีเจ้าของจึงลบ; ลบ notebook ส่วนตัวพร้อม source ที่ใช้เฉพาะ) แล้ว `admin_delete_user` ลบประวัติแชท คอลเลกชัน รายงานที่ยื่น ด้วย; ทั้งเดี่ยวและ bulk |
+| ธีมหน้า `/community/ask` | shadcn ค่าเริ่มต้น + violet/sky ฝังในโค้ด | class `.theme-adventure` (ค่าจาก `DESIGN.md`: ชมพู `#ED4988`, hover `#D83A78`, pressed lip `#C92F6B`, soft `#FCE7F0`, ink `#202124`, border `#E5E5E5`, info `#1CB0F6` …) map ลงตัวแปร semantic เดิม + ฟอนต์ `Nunito → IBM Plex Sans Thai → Noto Sans Thai` (เพิ่ม Nunito ใน `app/layout.tsx`); ปุ่มหลักมีขอบล่าง 4px ตาม DESIGN.md; **light เท่านั้น**: hook `useForcedLightTheme()` ถอด class `dark` ออกจาก `<html>` ตลอดเวลาที่หน้าเปิดอยู่ (ไม่แตะธีมที่ผู้ใช้เลือก คืนค่าเมื่อออกจากหน้า) เพราะคอมโพเนนต์ที่ใช้ร่วมกัน (header, markdown, ประวัติแชท) มี `dark:` utilities ที่จะทำให้ตัวอักษรจางบนพื้นขาว; สี violet/sky ของแผงที่ใช้ร่วมกันถูก map เป็นชมพู/ฟ้าอ่านง่ายใน `.theme-adventure` |
+
+### 6.7 AI Roadmap — ธีม SIET Pink และโพสต์ที่อัปเดตเอง (22 ต.ค. 2026)
+
+แอป roadmap (`ai-roadmap-generator/`, เสิร์ฟที่ `/roadmap`) สร้างแผนจาก `POST /community/study/roadmap` และขยายด่านด้วย `POST /community/roadmaps/mine/{id}/expand` แผนที่แชร์เป็นโพสต์ (`embed_type=roadmap`) เก็บ **สำเนา** ของ nodes ไว้ใน `posts.linked_snapshot`
+
+| เรื่อง | ก่อน | หลัง |
+|---|---|---|
+| โพสต์กับแผนไม่ตรงกัน | ขยายด่านแล้วโพสต์ยังเป็นรุ่นเก่า ต้องกดปุ่ม "อัปเดตโพสต์" เอง (`POST /posts/{id}/roadmap/sync`) ผู้ใช้ส่วนใหญ่ไม่กด → ผู้อ่านในฟีดเห็นแผนที่ไม่ครบ | `expand` เขียนสำเนาใหม่ลงโพสต์ให้ทันที (`repo.update_post_snapshot`) และตอบ `synced_post_id` กลับ; ปุ่ม sync ยังอยู่สำหรับกรณีอื่น (เช่นแก้ settings) |
+| ลบแผน | — | เหมือนเดิมโดยตั้งใจ: เจ้าของหรือผู้ดูแล (`DELETE /admin/roadmaps/{id}`) ลบ session ใน SurrealDB ได้ แต่โพสต์ยังมีสำเนาของตัวเองและอ่านได้ต่อ (ตรวจแล้ว 22 ต.ค. 2026) |
+| ธีมแอป roadmap | ธีมมืดของตัวเอง (`#0c0c0c`, น้ำเงิน `#2b6fde`, ฟอนต์ IBM Plex Sans Thai) ไม่เข้ากับ SIET Space | สว่างตาม `DESIGN.md`: พื้น `#FFFFFF`, เส้น `#E5E5E5`, ตัวอักษร `#202124`/`#3C3C3C`/`#777777`, สีหลัก `#ED4988` (hover `#D83A78`, pressed `#C92F6B`, soft `#FCE7F0`), ลิงก์/โฟกัส `#1CB0F6`; ฟอนต์ `Nunito → IBM Plex Sans Thai`; หัวข้อหนา 800; ปุ่มหลักขอบล่าง 4px และยุบเมื่อกด; ด่านที่เลือกเป็นชมพูทึบ; เส้นขยายเป็นเส้นประชมพู; ป้ายชื่อเลนเป็นชิปสีเข้มของ accent (`#1686BD` ฟ้า, `#3E8A50` เขียว, `#C66F00` ส้ม, `#9A4FE0` ม่วง, `#C92F6B` ชมพู) ให้อ่านออกบนพื้นขาว; รูป PNG ที่ดาวน์โหลดเป็นพื้นขาว; light เท่านั้น; กล่องด่านใหญ่ขึ้น (หลัก 272×56, ย่อย 240×46, ฟอนต์ 15/14px) และกราฟ**ขยายอัตโนมัติ**ให้เต็มความกว้างของพื้นที่ (1–1.6 เท่า ผ่าน `transform: scale` บน wrapper `.graph-fit` จึงไม่กระทบ PNG ที่ export จาก `.graph`) |
+
+ไฟล์: `open-notebook/api/routers/community.py` (`expand_my_roadmap`), `ai-roadmap-generator/src/styles/app.css`, `src/lib/roadmap-layout.js` (สีเลน), `src/components/RoadmapGraph.jsx` (หัวลูกศร), `src/pages/_document.js` (โหลด Nunito), `src/pages/roadmap/[id].jsx` ทดสอบ: `tests/test_roadmap_sync.py`
+
 ## 7. บทบาทผู้ใช้ (Roles) โดยละเอียด
 
 ระบบมี 3 บทบาท จัดลำดับสิทธิ์เป็น **student < teacher < admin**
@@ -750,7 +848,7 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 
 | แท็บ | ทำอะไรได้ |
 |---|---|
-| ห้องของฉัน | ห้องที่ตัวเองสร้าง พร้อมจำนวนสมาชิก/โพสต์/เอกสาร · **แก้ชื่อ รหัส คำอธิบาย และปิดห้องได้เอง** |
+| ห้องของฉัน | ห้องที่ตัวเองสร้างหรือช่วยสอน พร้อมจำนวนสมาชิก/โพสต์/เอกสาร ป้ายหมวด/เทอม/🔑 · **แก้ชื่อ รหัส คำอธิบาย**, ปุ่ม **ตั้งค่า** → `/teacher/courses/{id}` (หมวด เทอม รหัสเข้าห้อง สมาชิก TA), **เก็บถาวร**/กู้คืน (แทนการปิดห้อง) |
 | เอกสารแยกตามวิชา | เอกสารในคลังของแต่ละวิชา พร้อมสถานะ embed และทางลัดไปเพิ่มเนื้อหา |
 | ผลการเล่นควิซ | ใครเล่นควิซในห้องของเรา ได้กี่คะแนน กี่ % เฉลี่ยเท่าไร กรองตามวิชาได้ |
 | สื่อการสอนของฉัน | โพสต์ชนิด `material` ที่ตัวเองโพสต์ พร้อมยอดไลก์/คอมเมนต์ |
@@ -780,7 +878,7 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 | **ภาพรวม** | การ์ดสถิติ 5 ใบ + **สถานะระบบ**: ตรวจ MariaDB / SurrealDB / Redis / โมเดล AI เริ่มต้น พร้อมนับเอกสารที่ embed ล้มเหลว โพสต์ที่ซ่อนไว้ และห้องที่ไม่มีเจ้าของ |
 | **ผู้ใช้** | ค้น/กรอง · เปลี่ยนบทบาท · เติม-หักแต้ม (`admin_grant`/`admin_deduct`) · รีเซ็ตรหัสผ่าน · ระงับ-คืนสิทธิ์ · **ลบบัญชีถาวร** ทีละคนหรือติ๊กเลือกหลายคน |
 | **เนื้อหา** | โพสต์ทุกอันในระบบ ค้น/กรองตามชนิด · ซ่อนโพสต์ที่ผิดกฎ · ดูรายการที่ซ่อนไว้และ **กู้คืนได้** |
-| **ห้อง** | ห้องวิชาและห้องพูดคุยทุกห้อง พร้อมเจ้าของ สมาชิก โพสต์ เอกสาร และเวลาโพสต์ล่าสุด · ปิดห้องได้จากตาราง |
+| **ห้อง** | ห้องวิชาและห้องพูดคุยทุกห้อง พร้อมหมวด/เทอม เจ้าของ สมาชิก โพสต์ เอกสาร สถานะเก็บถาวร และเวลาโพสต์ล่าสุด · **ลบถาวร** ได้จากตาราง (ต่างจากอาจารย์ที่เก็บถาวร) · แท็บ **หมวดหมู่** เพิ่ม/แก้/ลบหมวดหมู่รายวิชา (อยู่ใน `/admin/community`) |
 | **แต้ม** | ledger ทั้งระบบ แยกตามช่วงเวลา/ประเภท · ยอดแจกกับยอดใช้ · อันดับคนใช้แต้มมากสุด |
 | **นำเข้า CSV** | สร้างรายวิชาและบัญชีผู้ใช้ทีละหลายรายการ มีปุ่ม "ตรวจก่อน (ไม่บันทึก)" |
 
@@ -972,9 +1070,28 @@ GET  /community/notifications      · POST /community/notifications/read
 GET  /community/search             · GET  /community/materials
 ```
 
+### ห้องวิชา — หมวดหมู่ รหัสเข้าห้อง สมาชิก (22 ต.ค. 2026)
+```
+GET    /community/categories                       (ทุกคน: หมวดหมู่ + จำนวนห้อง)
+GET    /community/courses?include_archived=&category_id=
+GET    /community/courses/{id}                     (รายละเอียด; รหัสเข้าห้องเฉพาะผู้จัดการห้อง)
+POST   /community/courses                          (+ category_id, term, join_code)
+PATCH  /community/courses/{id}                     (category_id=0 / term="" / join_code="" = ล้างค่า)
+PATCH  /community/courses/{id}        {is_private}   (ห้องส่วนตัว: โพสต์+คลังเห็นเฉพาะสมาชิก)
+POST   /community/courses/{id}/join   {code?}      (403 + X-Join-Code-Required ถ้าต้องใช้รหัส)
+POST   /community/courses/{id}/archive · POST /community/courses/{id}/restore   (เจ้าของ/ผู้ดูแล)
+DELETE /community/courses/{id}                     (เจ้าของ = เก็บถาวร, ผู้ดูแล = ลบถาวร + cascade)
+GET    /community/courses/{id}/members             (ผู้สอน/TA/ผู้ดูแล)
+GET    /community/library/{id}/download            (ไฟล์ของเอกสาร; inline สำหรับ pdf/รูป/วิดีโอ; รับ ?token=)
+GET    /community/search?q=&kind=all|posts|courses|documents|users&course_id=&category_id=&type=&author=&tag=&since=&until=&order=&before_id=&limit=
+POST   /community/reports {target_type, target_id, reason, detail?}   · GET /community/reports/mine?target_type=&ids=
+GET    /community/courses/{id}/reports?status=   · POST /community/courses/{id}/reports/{rid} {status, action, note}   (ผู้สอน/TA; เจ้าของห้องดำเนินการ)
+PATCH  /community/courses/{id}/members/{uid} {role: member|ta} · DELETE …/members/{uid}   (เจ้าของ/ผู้ดูแล)
+```
+
 ### อาจารย์ (teacher / admin)
 ```
-GET  /community/teacher/overview      (ห้องของฉัน + ตัวเลขสรุป)
+GET  /community/teacher/overview      (ห้องของฉัน + ห้องที่เป็น TA + ตัวเลขสรุป, รวมที่เก็บถาวร)
 GET  /community/teacher/quiz-results  (?course_id=&limit=)
 ```
 
@@ -983,12 +1100,16 @@ GET  /community/teacher/quiz-results  (?course_id=&limit=)
 GET    /admin/overview             · GET    /admin/health
 GET    /admin/users                · POST   /admin/users          (สร้างบัญชี)
 GET    /admin/users/{id}           · PATCH  /admin/users/{id}
-DELETE /admin/users/{id}           · POST   /admin/users/bulk-delete
+DELETE /admin/users/{id}           · POST   /admin/users/bulk-delete   (ล้างเอกสาร/notebook/ประวัติแชท/คอลเลกชัน/รายงานของผู้ใช้ด้วย)
 POST   /admin/users/{id}/points    · POST   /admin/users/{id}/reset-password
 GET    /admin/posts                · DELETE /admin/posts/{id}
 POST   /admin/posts/{id}/restore   · GET    /admin/courses
-GET    /admin/points/log           · POST   /admin/import/courses
+GET    /admin/points/log           · POST   /admin/import/courses   (คอลัมน์ code,name,description,category,term)
 POST   /admin/import/users
+GET    /admin/categories           · POST   /admin/categories
+PATCH  /admin/categories/{id}      · DELETE /admin/categories/{id}  (ห้องในหมวดกลายเป็นไม่ระบุหมวด)
+GET    /admin/reports?status=&target_type=&room_id=   · POST /admin/reports/{id} {status, action, note, suspend_reason, suspended_until}
+GET    /admin/audit?action=&actor_id=   (บันทึกผู้ดูแล)   · PATCH /admin/users/{id} รับ suspend_reason, suspended_until เพิ่ม
 ```
 
 ---
@@ -1002,11 +1123,14 @@ POST   /admin/import/users
 
 | ตาราง | เก็บอะไร |
 |---|---|
-| `users` | บัญชี, บทบาท, อีเมล, `google_sub`, รหัสนักศึกษา, ยอดแต้ม, `disabled`, `library_notebook_id` |
+| `users` | บัญชี, บทบาท, อีเมล, `google_sub`, รหัสนักศึกษา, ยอดแต้ม, `disabled` + `suspend_reason`/`suspended_until`, `library_notebook_id` |
 | `point_transactions` | ทุกการเคลื่อนไหวของแต้ม + `balance_after` |
-| `courses` | ห้องวิชา/ห้องพูดคุย (`kind`) + `notebook_id` |
-| `course_members` | ใครอยู่ห้องไหน |
-| `posts` | โพสต์ทั้งหมด + ตัวนับ + `content_hash` + ข้อมูลไฟล์แนบ |
+| `rooms` (เดิม `courses`) | ห้องวิชา/ห้องพูดคุย (`kind`) + `library_notebook_id`, `category_id`, `term`, `join_code`, `status`/`archived_at`, `is_private` |
+| `room_members` (เดิม `course_members`) | ใครอยู่ห้องไหน + `role` (`member`/`ta`) |
+| `categories` | หมวดหมู่รายวิชา (`slug`, ชื่อไทย/อังกฤษ, `sort_order`) |
+| `content_reports` | รายงานเนื้อหา: ผู้รายงาน เป้าหมาย (post/comment/user/document) ห้อง เหตุผล สถานะ การดำเนินการ ผู้ตรวจ |
+| `admin_audit_log` | บันทึกการกระทำของผู้ดูแล/เจ้าของห้อง: ใคร action เป้าหมาย detail JSON |
+| `posts` | โพสต์ทั้งหมด + ตัวนับ + `content_hash` + ข้อมูลไฟล์แนบ + `visibility` (public/course/private) |
 | `post_reactions` | like / helpful (PK: post + user + kind) |
 | `post_shares` | การแชร์ (PK: post + user) |
 | `post_comments` | คอมเมนต์ |

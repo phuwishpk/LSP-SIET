@@ -60,6 +60,11 @@ def _hash_owner_id(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()[:24]
 
 
+def accepts_query_token(path: str) -> bool:
+    """Routes that serve files and therefore may authenticate from ``?token=``."""
+    return path.endswith("/download") or path.endswith("/attachment")
+
+
 class PasswordAuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware to check password authentication for all API requests.
@@ -105,6 +110,13 @@ class PasswordAuthMiddleware(BaseHTTPMiddleware):
 
         # Check authorization header
         auth_header = request.headers.get("Authorization")
+        # File links (<a href>, <img src>, <video src>) cannot carry a header,
+        # so the download routes also take the bearer token as ?token=. GET
+        # only, and only on those routes, to keep tokens out of other URLs.
+        if not auth_header and request.method == "GET" and accepts_query_token(request.url.path):
+            query_token = request.query_params.get("token")
+            if query_token:
+                auth_header = f"Bearer {query_token}"
 
         if not auth_header:
             return JSONResponse(

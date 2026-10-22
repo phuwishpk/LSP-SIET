@@ -1,27 +1,27 @@
 :root {
-  --bg: #0c0c0c;
-  --surface: #111111;
-  --card: #161616;
-  --field: #141414;
-  --line: #2a2a2a;
-  --line-strong: #4a4a4a;
-  --text: #e6e6e6;
-  --text-strong: #f4f4f4;
-  --muted: #a8a8a8;
-  --accent: #2b6fde;
-  --accent-soft: #152238;
-  --accent-text: #b9d5ff;
-  --siet: #e11d48;
-  --danger: #f2a3af;
-  --danger-line: #5a2b33;
-  --danger-solid: #b4233c;
-  --green-bg: #14251f;
-  --green-line: #24483b;
-  --green-text: #8fddbb;
-  --violet-bg: #241b33;
-  --violet-line: #45326a;
-  --violet-text: #c9b4ff;
-  --gold: #f1d58a;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --card: #fafafa;
+  --field: #ffffff;
+  --line: #e5e5e5;
+  --line-strong: #cfcfcf;
+  --text: #3c3c3c;
+  --text-strong: #202124;
+  --muted: #777777;
+  --accent: #ed4988;
+  --accent-soft: #fce7f0;
+  --accent-text: #c92f6b;
+  --siet: #ed4988;
+  --danger: #ff4b4b;
+  --danger-line: #ffb8b8;
+  --danger-solid: #ff4b4b;
+  --green-bg: #e8f5ec;
+  --green-line: #b7e0c4;
+  --green-text: #2f7a4a;
+  --violet-bg: #f3e8ff;
+  --violet-line: #dcc5ff;
+  --violet-text: #7a3fd1;
+  --gold: #9a6b00;
   --topbar-h: 60px;
 }
 
@@ -34,13 +34,13 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
+  font-family: 'Nunito', 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
   font-size: 14px;
   line-height: 1.55;
 }
 
 a {
-  color: #8fbcff;
+  color: #1cb0f6;
 }
 
 a:hover {
@@ -56,7 +56,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid #8fbcff;
+  outline: 2px solid #1cb0f6;
   outline-offset: 2px;
 }
 
@@ -86,7 +86,7 @@ textarea {
 
 .body {
   margin: 0;
-  color: #c6c6c6;
+  color: #3c3c3c;
   text-wrap: pretty;
   white-space: pre-line;
 }
@@ -153,16 +153,16 @@ textarea {
   padding: 0 16px 0 8px;
   border: 1px solid var(--line-strong);
   border-radius: 22px;
-  color: #f2f2f2;
+  color: #202124;
   text-decoration: none;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .back-button:hover {
-  color: #ffffff;
-  border-color: #6a6a6a;
-  background: #1a1a1a;
+  color: #202124;
+  border-color: #cfcfcf;
+  background: #f7f7f8;
 }
 
 .siet-mark {
@@ -180,7 +180,7 @@ textarea {
 .topbar-divider {
   width: 1px;
   height: 24px;
-  background: #2f2f2f;
+  background: #e5e5e5;
 }
 
 .app-name {
@@ -193,19 +193,19 @@ textarea {
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #bdbdbd;
+  color: #777777;
   text-decoration: none;
   white-space: nowrap;
 }
 
 .app-name:hover {
-  background: #1a1a1a;
-  color: #ffffff;
+  background: #f7f7f8;
+  color: #202124;
 }
 
 /* Already on the roadmap home: a label, not a way to get there. */
 .app-name[aria-current='page'] {
-  color: #f2f2f2;
+  color: #202124;
   pointer-events: none;
 }
 
@@ -215,7 +215,7 @@ textarea {
   gap: 8px;
   height: 36px;
   padding: 0 14px;
-  border: 1px solid #3a3a3a;
+  border: 1px solid #e5e5e5;
   border-radius: 18px;
   color: var(--gold);
   font-weight: 600;
@@ -234,8 +234,8 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 16px;
-  background: #1f3b2f;
-  color: #9fe3c0;
+  background: #fce7f0;
+  color: #c92f6b;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,7 +244,7 @@ textarea {
 }
 
 .who-name {
-  color: #d6d6d6;
+  color: #3c3c3c;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -270,8 +270,8 @@ textarea {
 }
 
 .btn:hover:not(:disabled) {
-  background: #1c1c1c;
-  color: #ffffff;
+  background: #f7f7f8;
+  color: #202124;
 }
 
 .btn:disabled {
@@ -287,7 +287,7 @@ textarea {
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #3a7df0;
+  background: #d83a78;
 }
 
 .btn-outline-accent {
@@ -309,7 +309,7 @@ textarea {
 }
 
 .btn-danger-solid:hover:not(:disabled) {
-  background: #c92c47;
+  background: #e03b3b;
 }
 
 .btn-lg {
@@ -326,7 +326,7 @@ textarea {
   padding: 0;
   background: none;
   border: none;
-  color: #8fbcff;
+  color: #1cb0f6;
   text-decoration: underline;
   cursor: pointer;
 }
@@ -341,9 +341,9 @@ textarea {
 .chip {
   padding: 2px 10px;
   border-radius: 10px;
-  background: #1c1c1c;
-  border: 1px solid #333333;
-  color: #c9c9c9;
+  background: #f7f7f8;
+  border: 1px solid #e5e5e5;
+  color: #3c3c3c;
   font-size: 12px;
   white-space: nowrap;
 }
@@ -380,7 +380,7 @@ textarea {
 .field > legend {
   padding: 0;
   font-weight: 600;
-  color: #d6d6d6;
+  color: #3c3c3c;
 }
 
 .field > legend {
@@ -393,9 +393,9 @@ textarea {
   width: 100%;
   padding: 10px 12px;
   background: var(--field);
-  border: 1px solid #343434;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
-  color: #ededed;
+  color: #202124;
 }
 
 .field select,
@@ -415,7 +415,7 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   background: var(--field);
-  border: 1px solid #343434;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
   overflow-wrap: anywhere;
 }
@@ -438,17 +438,17 @@ textarea {
   min-height: 44px;
   padding: 0 16px;
   background: transparent;
-  border: 1px solid #343434;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
-  color: #d0d0d0;
+  color: #3c3c3c;
   cursor: pointer;
 }
 
 .segment-on {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
+  color: var(--accent-text);
+  font-weight: 800;
 }
 
 .segment:disabled {
@@ -467,14 +467,14 @@ textarea {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #3a3a3a;
-  background: #161616;
+  border: 1px solid #e5e5e5;
+  background: #fafafa;
 }
 
 .notice-warn {
-  border-color: #5c4a1c;
-  background: #231d0e;
-  color: #f0dca3;
+  border-color: #f5d08a;
+  background: #fff6df;
+  color: #7a5a00;
 }
 
 .progress {
@@ -486,7 +486,7 @@ textarea {
 .progress-bar {
   height: 4px;
   border-radius: 2px;
-  background: #1f1f1f;
+  background: #eeeeee;
   overflow: hidden;
   position: relative;
 }
@@ -531,7 +531,7 @@ textarea {
 .home-list {
   padding: 32px;
   background: var(--surface);
-  border-left: 1px solid #222222;
+  border-left: 1px solid #e5e5e5;
 }
 
 .mine {
@@ -546,7 +546,7 @@ textarea {
   flex-direction: column;
   gap: 12px;
   background: var(--card);
-  border: 1px solid #2b2b2b;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
 }
 
@@ -554,7 +554,7 @@ textarea {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #f0f0f0;
+  color: #202124;
 }
 
 .card-actions {
@@ -578,7 +578,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid #222222;
+  border-bottom: 1px solid #e5e5e5;
 }
 
 .viewer-head .h2 {
@@ -612,7 +612,7 @@ textarea {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: #d6d6d6;
+  color: #3c3c3c;
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
@@ -623,9 +623,9 @@ textarea {
 }
 
 .home-back:hover {
-  background: #1c1c1c;
-  border-color: #6a6a6a;
-  color: #ffffff;
+  background: #f7f7f8;
+  border-color: #cfcfcf;
+  color: #202124;
 }
 
 .home-back:hover svg {
@@ -649,25 +649,29 @@ textarea {
   overflow: auto;
 }
 
+.graph-fit {
+  margin: 0 auto;
+}
+
 .graph {
   position: relative;
-  margin: 0 auto;
+  transform-origin: 0 0;
 }
 
 .lane {
   position: absolute;
   left: 0;
   right: 0;
-  background: #101010;
-  border-top: 1px solid #1f1f1f;
+  background: #fafafa;
+  border-top: 1px solid #eeeeee;
 }
 
 .lane:last-of-type {
-  border-bottom: 1px solid #1f1f1f;
+  border-bottom: 1px solid #eeeeee;
 }
 
 .lane-alt {
-  background: #0d0d0d;
+  background: #fdf7f9;
 }
 
 .lane-label {
@@ -675,9 +679,13 @@ textarea {
   left: 16px;
   top: 12px;
   max-width: 144px;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
+  padding: 3px 11px;
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 800;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 999px;
 }
 
 .graph-lines {
@@ -689,13 +697,13 @@ textarea {
 }
 
 .line-solid {
-  stroke: #8c96a8;
+  stroke: #afafaf;
   stroke-width: 2;
   stroke-linecap: round;
 }
 
 .line-dashed {
-  stroke: #7c8698;
+  stroke: #ed4988;
   stroke-width: 2;
   stroke-dasharray: 6 6;
   stroke-linecap: round;
@@ -708,15 +716,17 @@ textarea {
   align-items: center;
   justify-content: center;
   text-align: center;
-  background: #1b1b1b;
-  border: 1px solid #3a3a3a;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
   border-radius: 10px;
-  color: #ededed;
+  color: #202124;
   cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .node:hover {
-  border-color: #6a6a6a;
+  border-color: #cfcfcf;
 }
 
 .node-label {
@@ -729,24 +739,25 @@ textarea {
 
 .node-sub,
 .node-detail {
-  background: #141414;
-  border-color: #333333;
+  background: #ffffff;
+  border-color: #e5e5e5;
   border-radius: 8px;
-  color: #cfcfcf;
-  font-size: 13px;
+  color: #3c3c3c;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .node-detail {
-  background: #101010;
-  border-color: #2c2c2c;
-  color: #b8b8b8;
+  background: #fafafa;
+  border-color: #e5e5e5;
+  color: #555555;
 }
 
 .node-selected,
 .node-selected:hover {
   background: var(--accent-soft);
   border: 2px solid var(--accent);
-  color: #ffffff;
+  color: #202124;
   font-weight: 600;
 }
 
@@ -756,7 +767,7 @@ textarea {
   flex-direction: column;
   gap: 20px;
   background: var(--surface);
-  border-left: 1px solid #222222;
+  border-left: 1px solid #e5e5e5;
 }
 
 .panel-section {
@@ -786,14 +797,14 @@ textarea {
   justify-content: space-between;
   gap: 10px;
   background: var(--card);
-  border: 1px solid #2b2b2b;
+  border: 1px solid #e5e5e5;
   border-radius: 8px;
-  color: #dadada;
+  color: #3c3c3c;
 }
 
 .source-link {
   text-decoration: none;
-  color: #8fbcff;
+  color: #1cb0f6;
 }
 
 .source-meta {
@@ -807,14 +818,14 @@ textarea {
 .dialog {
   width: min(560px, calc(100vw - 32px));
   padding: 0;
-  background: #141414;
-  border: 1px solid #2f2f2f;
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
   border-radius: 14px;
   color: var(--text);
 }
 
 .dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(32, 33, 36, 0.45);
 }
 
 .dialog-body {
@@ -846,7 +857,7 @@ textarea {
 
   .panel {
     border-left: none;
-    border-top: 1px solid #222222;
+    border-top: 1px solid #e5e5e5;
   }
 }
 
@@ -863,7 +874,7 @@ textarea {
   .home-list {
     padding: 24px 16px;
     border-left: none;
-    border-top: 1px solid #222222;
+    border-top: 1px solid #e5e5e5;
   }
 
   .viewer-head {
@@ -899,4 +910,50 @@ textarea {
   .back-button {
     padding: 0 12px 0 8px;
   }
+}
+
+
+/* ---------------------------------------------------------------------------
+   SIET Pink (root DESIGN.md) — light theme additions
+   --------------------------------------------------------------------------- */
+h1, h2, h3, .h1, .h2, .h3, .card-title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Primary action: 16px radius with a flat 4px lip in the pressed colour. */
+.btn-primary {
+  border-radius: 16px;
+  box-shadow: 0 4px 0 #c92f6b;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.btn-primary:disabled {
+  box-shadow: none;
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+.btn-primary:focus-visible {
+  outline: 3px solid #1cb0f6;
+  outline-offset: 3px;
+}
+
+/* Adventure-map nodes: pink = the node you are on, soft pink = its sub-steps. */
+.node {
+  border-radius: 12px;
+  border-width: 2px;
+}
+.node-selected {
+  background: #ed4988;
+  border-color: #c92f6b;
+  color: #ffffff;
+}
+.node-selected:hover {
+  background: #d83a78;
+  color: #ffffff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary { transition: none; }
 }

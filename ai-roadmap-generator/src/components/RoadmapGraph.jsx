@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { layoutRoadmap } from '@/lib/roadmap-layout'
 
 const pathOf = (points) => points.map(([x, y], i) => `${i ? 'L' : 'M'} ${x} ${y}`).join(' ')
@@ -14,12 +14,32 @@ function shorten(points) {
  * The roadmap drawn as lanes (one per learning stage) with main nodes down
  * the spine and sub-nodes branching right on dashed lines.
  */
+const MAX_SCALE = 1.6
+
 const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSelect }, ref) {
   const layout = useMemo(() => layoutRoadmap(nodes), [nodes])
 
+  // Grow the map to fill the space it has (never shrink below 1:1). The scale
+  // sits on a wrapper, so the exported PNG (taken from `.graph`) stays 1:1.
+  const scrollRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const fit = () => {
+      const available = el.clientWidth - 24
+      setScale(Math.min(MAX_SCALE, Math.max(1, available / layout.width)))
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [layout.width])
+
   return (
-    <div className="graph-scroll">
-      <div ref={ref} className="graph" style={{ width: layout.width, height: layout.height }}>
+    <div ref={scrollRef} className="graph-scroll">
+      <div className="graph-fit" style={{ width: layout.width * scale, height: layout.height * scale }}>
+      <div ref={ref} className="graph" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
         {layout.lanes.map((lane, index) => (
           <div
             key={`${lane.category}-${index}`}
@@ -35,10 +55,10 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
         <svg className="graph-lines" width={layout.width} height={layout.height} aria-hidden="true">
           <defs>
             <marker id="arrow-solid" orient="auto" markerWidth="6" markerHeight="6" refX="4" refY="3">
-              <path d="M0 0 L6 3 L0 6 Z" fill="#8C96A8" />
+              <path d="M0 0 L6 3 L0 6 Z" fill="#AFAFAF" />
             </marker>
             <marker id="arrow-dashed" orient="auto" markerWidth="6" markerHeight="6" refX="4" refY="3">
-              <path d="M0 0 L6 3 L0 6 Z" fill="#7C8698" />
+              <path d="M0 0 L6 3 L0 6 Z" fill="#ED4988" />
             </marker>
           </defs>
           {layout.lines.map((line, index) => (
@@ -64,6 +84,7 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
             <span className="node-label">{box.node.label}</span>
           </button>
         ))}
+      </div>
       </div>
     </div>
   )

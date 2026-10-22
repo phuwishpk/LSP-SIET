@@ -4,7 +4,9 @@ import { MessageSquare } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
+import { CategoriesPanel } from '@/components/admin/community/CategoriesPanel'
 import { CommentsPanel } from '@/components/admin/community/CommentsPanel'
+import { ReportsPanel } from '@/components/admin/community/ReportsPanel'
 import { CommunityStatsPanel } from '@/components/admin/community/CommunityStatsPanel'
 import { ModerationPanel } from '@/components/admin/ModerationPanel'
 import { RoomsPanel } from '@/components/admin/RoomsPanel'
@@ -17,7 +19,7 @@ export default function AdminCommunityPage() {
           <AdminPageHeader
             icon={MessageSquare}
             title="จัดการ Community"
-            description="ความเคลื่อนไหวในฟีด โพสต์ ความคิดเห็น และห้องทั้งหมดของ SIET Space"
+            description="ความเคลื่อนไหวในฟีด โพสต์ ความคิดเห็น รายงานเนื้อหา ห้อง และหมวดหมู่รายวิชาของ SIET Space"
           />
 
           <Tabs defaultValue="overview">
@@ -25,7 +27,9 @@ export default function AdminCommunityPage() {
               <TabsTrigger value="overview">ภาพรวม</TabsTrigger>
               <TabsTrigger value="posts">โพสต์</TabsTrigger>
               <TabsTrigger value="comments">ความคิดเห็น</TabsTrigger>
+              <TabsTrigger value="reports">รายงาน</TabsTrigger>
               <TabsTrigger value="rooms">ห้อง</TabsTrigger>
+              <TabsTrigger value="categories">หมวดหมู่</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="mt-4">
               <CommunityStatsPanel />
@@ -36,8 +40,14 @@ export default function AdminCommunityPage() {
             <TabsContent value="comments" className="mt-4">
               <CommentsPanel />
             </TabsContent>
+            <TabsContent value="reports" className="mt-4">
+              <ReportsPanel />
+            </TabsContent>
             <TabsContent value="rooms" className="mt-4">
               <RoomsPanel />
+            </TabsContent>
+            <TabsContent value="categories" className="mt-4">
+              <CategoriesPanel />
             </TabsContent>
           </Tabs>
         </div>

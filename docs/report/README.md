@@ -20,4 +20,6 @@ node md2docx.mjs ../4.1-infrastructure-database.md ../4.1-infrastructure-databas
 `render_figs.mjs` ใช้ Chromium ของ Playwright ที่ cache ไว้ใน `~/Library/Caches/ms-playwright/`
 (path ในสคริปต์) และอ่าน Mermaid ทุกบล็อกจากไฟล์ Markdown ตามลำดับ
 `md2docx.mjs` รองรับหัวข้อ ย่อหน้า ตาราง รายการ โค้ด รูป และ blockquote; บล็อก `<details>` ถูกตัดทิ้ง
-ฟอนต์ตั้งเป็น TH Sarabun New 16pt ตามเล่ม
+ฟอนต์ตั้งเป็น TH Sarabun New 16pt ตามเล่ม ขอบกระดาษ บน/ซ้าย 1.5 นิ้ว ล่าง/ขวา 1 นิ้ว เลขหน้ามุมขวาบน
+คำบรรยาย **ตารางที่** อยู่เหนือตาราง **รูปที่** อยู่ใต้รูป (ผูกกับรูปไม่ให้ตกหน้า)
+รูปกว้างมาก (ER diagram) ถูกจัดลงหน้าแนวนอนแยกต่างหาก ข้อความ `<placeholder>` ในตารางคงไว้ตามต้นฉบับ

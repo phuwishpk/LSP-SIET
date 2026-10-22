@@ -20,6 +20,7 @@ import { UsagePanel } from '@/components/admin/UsagePanel'
 import { HealthPanel } from '@/components/admin/HealthPanel'
 import { PointsLogPanel } from '@/components/admin/PointsLogPanel'
 import { ImportPanel } from '@/components/admin/ImportPanel'
+import { AuditPanel } from '@/components/admin/AuditPanel'
 import { CreateUserDialog } from '@/components/admin/CreateUserDialog'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { StatTile } from '@/components/admin/StatTile'
@@ -106,6 +107,7 @@ export default function AdminPage() {
               <TabsTrigger value="points">แต้ม</TabsTrigger>
               <TabsTrigger value="usage">การใช้ AI</TabsTrigger>
               <TabsTrigger value="import">นำเข้า CSV</TabsTrigger>
+              <TabsTrigger value="audit">บันทึกผู้ดูแล</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 space-y-4">
@@ -291,6 +293,9 @@ export default function AdminPage() {
             <TabsContent value="import" className="mt-4">
               <ImportPanel />
             </TabsContent>
+            <TabsContent value="audit" className="mt-4">
+              <AuditPanel />
+            </TabsContent>
           </Tabs>
         </div>
       </div>
@@ -328,6 +333,8 @@ function UserDialog({
   const [delta, setDelta] = useState('')
   const [note, setNote] = useState('')
   const [password, setPassword] = useState('')
+  const [suspendReason, setSuspendReason] = useState('')
+  const [suspendUntil, setSuspendUntil] = useState('')
 
   const busy = update.isPending || adjust.isPending || resetPassword.isPending
 
@@ -457,6 +464,33 @@ function UserDialog({
               </div>
             </div>
           )}
+
+          {/* Suspension: say why, and optionally until when - the person is told both. */}
+          {current.disabled ? (
+            <p className="rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">
+              ระงับอยู่{current.suspend_reason ? ` · เหตุผล: ${current.suspend_reason}` : ''}
+              {current.suspended_until ? ` · ปล่อยอัตโนมัติ ${current.suspended_until.slice(0, 10)}` : ' · ไม่มีกำหนด'}
+            </p>
+          ) : (
+            !isSelf && (
+              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
+                <div className="space-y-1">
+                  <Label htmlFor="adm-suspend-reason">เหตุผลที่ระงับ (แจ้งผู้ใช้)</Label>
+                  <Input
+                    id="adm-suspend-reason"
+                    value={suspendReason}
+                    onChange={(e) => setSuspendReason(e.target.value)}
+                    maxLength={255}
+                    placeholder="เช่น โพสต์สแปมซ้ำหลังเตือน"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="adm-suspend-until">ปล่อยอัตโนมัติวันที่</Label>
+                  <Input id="adm-suspend-until" type="date" value={suspendUntil} onChange={(e) => setSuspendUntil(e.target.value)} />
+                </div>
+              </div>
+            )
+          )}
         </div>
 
         <DialogFooter className="gap-2 sm:justify-between">
@@ -465,7 +499,18 @@ function UserDialog({
               variant={current.disabled ? 'outline' : 'destructive'}
               size="sm"
               disabled={isSelf || busy}
-              onClick={() => update.mutate({ id: current.id, disabled: !current.disabled })}
+              onClick={() =>
+                update.mutate(
+                  current.disabled
+                    ? { id: current.id, disabled: false }
+                    : {
+                        id: current.id,
+                        disabled: true,
+                        suspend_reason: suspendReason.trim() || undefined,
+                        suspended_until: suspendUntil || undefined,
+                      }
+                )
+              }
             >
               <UserX className="mr-1.5 h-4 w-4" />
               {current.disabled ? 'คืนสิทธิ์การใช้งาน' : 'ระงับบัญชี'}

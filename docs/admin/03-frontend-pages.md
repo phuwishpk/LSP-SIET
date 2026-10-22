@@ -121,7 +121,9 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 | `overview` ภาพรวม | `community/CommunityStatsPanel` | `GET /admin/community/stats` |
 | `posts` โพสต์ | `ModerationPanel` (เดิม) | `GET /admin/posts`, `DELETE /admin/posts/{id}`, `POST …/restore` |
 | `comments` ความคิดเห็น | `community/CommentsPanel` | `GET /admin/comments`, `DELETE /admin/comments/{id}` |
-| `rooms` ห้อง | `RoomsPanel` (เดิม) | `GET /admin/courses`, `DELETE /community/courses/{id}` |
+| `rooms` ห้อง | `RoomsPanel` (แก้ 22 ต.ค.) | `GET /admin/courses`, `DELETE /community/courses/{id}` (admin = ลบถาวร) |
+| `categories` หมวดหมู่ | `community/CategoriesPanel` (ใหม่ 22 ต.ค.) | `GET/POST /admin/categories`, `PATCH/DELETE /admin/categories/{id}` |
+| `reports` รายงาน | `community/ReportsPanel` (ใหม่ 22 ต.ค.) | `GET /admin/reports`, `POST /admin/reports/{id}` — สถิติ 4 ใบ, Segmented สถานะ, dialog จัดการ (ปัดตก/ซ่อน/กู้คืน/ลบคอมเมนต์/ลบเอกสาร/ระงับเจ้าของพร้อมเหตุผล+วันปล่อย); hooks ใน `use-moderation.ts`, API ใน `lib/api/moderation.ts` |
 
 ### 2.1 `CommunityStatsPanel` — `components/admin/community/CommunityStatsPanel.tsx`
 
@@ -154,11 +156,34 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 
 ### 2.4 `RoomsPanel` — `components/admin/RoomsPanel.tsx`
 
-- `useAdminCourses()`; ตาราง `min-w-[720px]`: ห้อง (ไอคอน `Hash` หรือ `MessagesSquare` สีเทา
-  `text-subtle-foreground`), เจ้าของ (หรือป้าย "ไม่มีเจ้าของ"), สมาชิก, โพสต์, เอกสาร (club = —),
-  โพสต์ล่าสุด, ปุ่มเปิด/ปิดห้อง
-- ปิดห้อง: `window.confirm` → `useDeleteCourse()` จาก `use-community.ts`
+- `useAdminCourses()`; ตาราง `min-w-[860px]`: ห้อง (ไอคอน `Hash` หรือ `MessagesSquare` สีเทา
+  `text-subtle-foreground`, ป้าย "เก็บถาวร", ไอคอน `KeyRound` ถ้าต้องใช้รหัสเข้าห้อง), **หมวดหมู่ / เทอม**,
+  เจ้าของ (หรือป้าย "ไม่มีเจ้าของ"), สมาชิก, โพสต์, เอกสาร (club = —), โพสต์ล่าสุด, ปุ่มเปิด/ลบถาวร
+- ลบถาวร: `window.confirm` (บอกว่าเอกสาร+notebook ของวิชาหายด้วย) → `usePurgeCourse()` จาก `use-courses.ts`
+  — backend ลบเอกสาร/Source/embeddings/notebook แล้วปลดโพสต์กลับฟีดรวม; อาจารย์ที่กด DELETE เดียวกันจะได้
+  "เก็บถาวร" แทน (ดู `docs/SYSTEM-GUIDE.md` §6.2.1)
 - โน้ตเรื่องห้องไม่มีเจ้าของเป็นกล่อง `bg-muted` (เดิมเหลือง)
+
+### 2.6 `ReportsPanel` / `AuditPanel` (ใหม่ 22 ต.ค. 2026)
+
+- `community/ReportsPanel.tsx`: `useAdminReports({status, offset, limit})` → ตารางรายการ (ป้ายชนิด, ชื่อเป้าหมาย, ป้าย "ซ่อน/ลบแล้ว"
+  เมื่อ `target_gone`), เหตุผล, ผู้รายงาน, `report_count`, สถานะ; ปุ่ม "จัดการ" → `ResolveDialog` เลือก action ตามชนิดเป้าหมาย
+  (`ACTIONS_FOR`) → `useResolveReport()`; invalidate posts/comments/users/rag/audit
+- `AuditPanel.tsx` (แท็บ "บันทึกผู้ดูแล" ใน `/admin`): `useAuditLog({action, offset})` กรอง prefix (debounce 300 ms),
+  แปล action เป็นไทยด้วย `ACTION_LABELS`, แสดง detail JSON ย่อ
+- `UserDialog` ใน `/admin`: ฟอร์มเหตุผล + วันปล่อยก่อนกด "ระงับบัญชี"; เมื่อระงับอยู่แสดงเหตุผล/วันปล่อย
+
+### 2.5 `CategoriesPanel` — `components/admin/community/CategoriesPanel.tsx` (ใหม่ 22 ต.ค. 2026)
+
+- `useAdminCategories()` → ตาราง หมวดหมู่ (ไทย + อังกฤษ), `slug`, ลำดับ, จำนวนห้องวิชา (+ที่เก็บถาวร)
+- ฟอร์มเพิ่มบนหัวตาราง (ชื่อไทยบังคับ ≥ 2 ตัว, ชื่ออังกฤษไม่บังคับ; `slug` backend สร้างจากชื่ออังกฤษ
+  หรือ `cat-xxxxxx` ถ้ามีแต่ไทย) → `useCreateCategory()`
+- แก้ไขในแถว (`Pencil` → input ชื่อ/อังกฤษ/ลำดับ → `Check`/`X`) → `useUpdateCategory()`
+- ลบ: `AlertDialog` บอกจำนวนห้องที่จะกลายเป็น "ไม่ระบุหมวด" → `useDeleteCategory()`
+- hooks ทั้งหมดอยู่ใน `lib/hooks/use-courses.ts` (คีย์ `COURSE_KEYS.adminCategories` / `categories`,
+  invalidate `['admin','courses']` ด้วยเพราะตารางห้องแสดงชื่อหมวด); API ใน `lib/api/courses.ts`
+  (`adminCategoriesApi`)
+- หมวดเริ่มต้น 13 สาขาของ SIET + "ทั่วไป" มาจาก `open_notebook/community/catalog.py` ตอน API เริ่มทำงาน
 
 ---
 
@@ -169,7 +194,7 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 | แท็บ | component | endpoint |
 |---|---|---|
 | `overview` ภาพรวม | `rag/RagStatsPanel` | `GET /admin/rag/stats` |
-| `documents` เอกสารที่ AI อ่าน | `rag/RagDocumentsPanel` | `GET /admin/rag/documents`, `POST …/{id}/retry`, `DELETE …/{id}` |
+| `documents` เอกสารที่ AI อ่าน | `rag/RagDocumentsPanel` | `GET /admin/rag/documents`, `POST …/{id}/retry`, `DELETE …/{id}`, ปุ่มดาวน์โหลด → `GET /community/library/{id}/download?token=` (22 ต.ค.) |
 | `knowledge` แหล่งความรู้ | `rag/RagKnowledgePanel` | `GET /community/knowledge` (endpoint เดิม, hook `useKnowledge` ใน `use-library.ts`) |
 
 ### 3.1 `RagStatsPanel` — `components/admin/rag/RagStatsPanel.tsx`

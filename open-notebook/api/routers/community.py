@@ -7,12 +7,15 @@ action is attributed to a MariaDB user id.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import asyncio
+import shutil
+import time
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from collections import deque
+from datetime import date, datetime, timedelta
+from typing import Any, Deque, Dict, List, Literal, Optional
 
 from fastapi import (
     APIRouter,
@@ -28,9 +31,10 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 
 from api.auth_jwt import get_current_user
-from open_notebook.community import library, points, ratelimit, throttle
+from open_notebook.community import library, moderation, points, ratelimit, throttle
 from open_notebook.community import repository as repo
 from open_notebook.cache.service import cache_service
 from open_notebook.community.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
@@ -96,6 +100,20 @@ def _insufficient(exc: points.InsufficientPoints) -> HTTPException:
     )
 
 
+
+def _internal_error(exc: Exception, what: str) -> HTTPException:
+    """
+    An unexpected failure: log the traceback with a short reference and give
+    the client that reference instead of the exception text, which can carry
+    provider responses, file paths or SQL.
+    """
+    ref = uuid.uuid4().hex[:8]
+    logger.exception(f"{what} [ref {ref}]")
+    return HTTPException(
+        status_code=500,
+        detail=f"เกิดข้อผิดพลาดภายในระบบ (รหัสอ้างอิง {ref}) ลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลพร้อมรหัสนี้",
+    )
+
 async def _guard_spam(user: User, action: str) -> None:
     """Stop rapid-fire / bulk submissions before any work is done."""
     try:
@@ -123,6 +141,35 @@ async def _post_or_404(post_id: int) -> Dict[str, Any]:
     return post
 
 
+async def _visible_post_or_404(post_id: int, user: User) -> Dict[str, Any]:
+    """
+    The raw post, but only if this viewer may read it. A hidden post answers
+    404 exactly like a missing one, so nobody can probe for private ids.
+    """
+    post = await _post_or_404(post_id)
+    uid = _uid(user)
+    room, is_member = None, False
+    room_id = post.get("course_id") or post.get("room_id")
+    if room_id:
+        room = await repo.get_course(int(room_id))
+        is_member = await repo.member_role(int(room_id), uid) is not None
+    if not repo.post_visible_to(
+        post, uid, is_admin=user.role == USER_ROLE_ADMIN, room=room, is_member=is_member
+    ):
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
+
+def _clean_visibility(value: Optional[str], *, has_room: bool) -> str:
+    """``course`` only means something inside a room; elsewhere it is public."""
+    v = (value or repo.VISIBILITY_PUBLIC).strip().lower()
+    if v not in repo.VISIBILITIES:
+        raise HTTPException(status_code=400, detail="visibility ต้องเป็น public, course หรือ private")
+    if v == repo.VISIBILITY_COURSE and not has_room:
+        return repo.VISIBILITY_PUBLIC
+    return v
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -139,12 +186,44 @@ class CourseCreate(BaseModel):
     code: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=255)
     kind: Literal["course", "club"] = "course"
+    category_id: Optional[int] = Field(default=None, ge=1)
+    term: Optional[str] = Field(default=None, max_length=16)
+    join_code: Optional[str] = Field(default=None, max_length=32)
+    is_private: bool = False
 
 
 class CourseUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=128)
     code: Optional[str] = Field(default=None, min_length=2, max_length=32)
     description: Optional[str] = Field(default=None, max_length=255)
+    # 0 clears the category; "" clears the term / join code.
+    category_id: Optional[int] = Field(default=None, ge=0)
+    term: Optional[str] = Field(default=None, max_length=16)
+    join_code: Optional[str] = Field(default=None, max_length=32)
+    is_private: Optional[bool] = None
+
+
+class CourseJoin(BaseModel):
+    code: Optional[str] = Field(default=None, max_length=32)
+
+
+class MemberRoleUpdate(BaseModel):
+    role: Literal["member", "ta"]
+
+
+class ReportCreate(BaseModel):
+    target_type: Literal["post", "comment", "user", "document"]
+    target_id: int = Field(..., ge=1)
+    reason: Literal["spam", "harassment", "inappropriate", "copyright", "other"]
+    detail: Optional[str] = Field(default=None, max_length=500)
+
+
+class RoomReportResolve(BaseModel):
+    """What a room owner may do about a report in their room."""
+
+    status: Literal["dismissed", "actioned"]
+    action: Literal["none", "hide_post", "delete_comment"] = "none"
+    note: Optional[str] = Field(default=None, max_length=255)
 
 
 class SavedCollectionCreate(BaseModel):
@@ -161,6 +240,8 @@ class PostEditBody(BaseModel):
     tags: Optional[str] = Field(default=None, max_length=255)
     # 0 or negative clears the course link
     course_id: Optional[int] = None
+    # who may read it; "private" is how an author hides a post without deleting it
+    visibility: Optional[Literal["public", "course", "private"]] = None
 
 
 class CommentBody(BaseModel):
@@ -274,9 +355,119 @@ async def wallet(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/categories")
+async def list_categories(user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
+    """The course categories (ภาควิชา/สาขา) with how many active rooms each holds."""
+    return await repo.list_categories()
+
+
+def _public_room(room: Dict[str, Any], *, manager: bool) -> Dict[str, Any]:
+    """
+    A room as the API hands it out. The join code is a secret the owner shares
+    in class, so only the room's managers get it back; everyone else learns
+    just whether one is required.
+    """
+    out = dict(room)
+    code = out.pop("join_code", None)
+    # List queries do not select the code itself, only a computed
+    # ``requires_code`` flag; detail queries carry the real column.
+    out["requires_code"] = bool(code) or bool(room.get("requires_code"))
+    if manager and "join_code" in room:
+        out["join_code"] = code
+    out["status"] = out.get("status") or repo.STATUS_ACTIVE
+    out["archived"] = out["status"] == repo.STATUS_ARCHIVED
+    out["is_private"] = bool(out.get("is_private"))
+    out["can_manage"] = manager
+    return out
+
+
+async def _room_or_404(course_id: int) -> Dict[str, Any]:
+    course = await repo.get_course(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="ไม่พบห้องนี้")
+    return course
+
+
+def _is_room_owner(course: Dict[str, Any], user: User) -> bool:
+    return user.role == USER_ROLE_ADMIN or int(course.get("created_by") or 0) == _uid(user)
+
+
+async def _can_manage_room(course: Dict[str, Any], user: User) -> bool:
+    """
+    Owner, admin, or a teaching assistant. The owner appoints TAs by hand, so
+    the account's role is beside the point - a graduate student assisting a
+    course manages its material like the teacher does.
+    """
+    if _is_room_owner(course, user):
+        return True
+    return await repo.member_role(int(course["id"]), _uid(user)) == repo.MEMBER_ROLE_TA
+
+
+async def _room_or_403(course_id: int, user: User) -> Dict[str, Any]:
+    """
+    Fetch a room the caller owns (or any room, for an admin). Settings,
+    archiving and the member list are the owner's call - a teaching assistant
+    manages content, not the room itself.
+    """
+    course = await _room_or_404(course_id)
+    if _is_room_owner(course, user):
+        return course
+    raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะห้องที่คุณสร้างเอง")
+
+
+async def _managed_room_or_403(course_id: int, user: User) -> Dict[str, Any]:
+    """Owner, admin or TA: the people who may add material and see the roster."""
+    course = await _room_or_404(course_id)
+    if await _can_manage_room(course, user):
+        return course
+    raise HTTPException(
+        status_code=403,
+        detail="เฉพาะผู้สอนหรือผู้ช่วยสอนของห้องนี้เท่านั้น",
+    )
+
+
+async def _category_or_400(category_id: Optional[int]) -> Optional[int]:
+    if not category_id:
+        return None
+    if not await repo.get_category(int(category_id)):
+        raise HTTPException(status_code=400, detail="ไม่พบหมวดหมู่ที่เลือก")
+    return int(category_id)
+
+
 @router.get("/courses")
-async def list_courses(user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    return await repo.list_courses(_uid(user))
+async def list_courses(
+    include_archived: bool = False,
+    category_id: Optional[int] = Query(default=None, ge=1),
+    user: User = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    uid = _uid(user)
+    rows = await repo.list_courses(uid, include_archived=include_archived, category_id=category_id)
+    admin = user.role == USER_ROLE_ADMIN
+    return [
+        _public_room(
+            r,
+            manager=admin
+            or int(r.get("created_by") or 0) == uid
+            or r.get("membership_role") == repo.MEMBER_ROLE_TA,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/courses/{course_id}")
+async def get_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """One room, with the join code and management flags for its managers."""
+    course = await _room_or_404(course_id)
+    manager = await _can_manage_room(course, user)
+    out = _public_room(course, manager=manager)
+    out["is_owner"] = _is_room_owner(course, user)
+    out["membership_role"] = await repo.member_role(course_id, _uid(user))
+    out["joined"] = out["membership_role"] is not None
+    if course.get("category_id"):
+        category = await repo.get_category(int(course["category_id"]))
+        out["category_name"] = category["name"] if category else None
+        out["category_slug"] = category["slug"] if category else None
+    return out
 
 
 @router.post("/courses", status_code=201)
@@ -314,43 +505,42 @@ async def create_course(body: CourseCreate, user: User = Depends(get_current_use
         if not body.code or len(body.code.strip()) < 2:
             raise HTTPException(status_code=400, detail="กรุณากรอกรหัสวิชา")
         code = body.code.strip()
-
-    try:
-        return await repo.create_course(code, name, body.description, _uid(user), kind=body.kind)
-    except Exception as exc:
-        if "Duplicate" in str(exc):
+        if await repo.find_course_by_code(code):
             raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
-        raise
 
-
-async def _room_or_403(course_id: int, user: User) -> Dict[str, Any]:
-    """
-    Fetch a room the caller is allowed to manage.
-
-    Admins manage every room; everyone else manages only the rooms they opened —
-    which now includes the course rooms a teacher created, so a typo in a course
-    code no longer needs an admin to fix.
-    """
-    course = await repo.get_course(course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="ไม่พบห้องนี้")
-    if user.role == USER_ROLE_ADMIN:
-        return course
-    if int(course.get("created_by") or 0) == _uid(user):
-        return course
-    raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะห้องที่คุณสร้างเอง")
+    category_id = await _category_or_400(body.category_id)
+    try:
+        course = await repo.create_course(
+            code,
+            name,
+            body.description,
+            _uid(user),
+            kind=body.kind,
+            category_id=category_id,
+            term=body.term,
+            join_code=body.join_code,
+            is_private=bool(body.is_private) and body.kind != repo.KIND_CLUB,
+        )
+    except IntegrityError:
+        # Two teachers raced for the same code; the pre-check above is advisory.
+        raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
+    return _public_room(course, manager=True)
 
 
 @router.patch("/courses/{course_id}")
 async def update_course(
     course_id: int, body: CourseUpdate, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Rename a room, fix its code, or reword its description."""
+    """Rename a room, fix its code, file it under a category, set the term or join code."""
     course = await _room_or_403(course_id, user)
     code = body.code
     if code is not None and course.get("kind") == repo.KIND_CLUB:
         # Discussion-room handles are generated; there is nothing to edit.
         code = None
+    if code is not None:
+        clash = await repo.find_course_by_code(code)
+        if clash and int(clash["id"]) != course_id:
+            raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
     name = " ".join(body.name.split()) if body.name else None
     if name and course.get("kind") == repo.KIND_CLUB:
         clash = await repo.find_room_by_name(name)
@@ -360,37 +550,237 @@ async def update_course(
                 detail=f'มีห้อง "{clash["name"]}" อยู่แล้ว',
                 headers={"X-Existing-Room": str(clash["id"])},
             )
+    category_id = body.category_id
+    if category_id:
+        category_id = await _category_or_400(category_id)
     try:
         updated = await repo.update_course(
-            course_id, name=name, description=body.description, code=code
+            course_id,
+            name=name,
+            description=body.description,
+            code=code,
+            category_id=category_id,
+            term=body.term,
+            join_code=body.join_code,
+            is_private=body.is_private,
         )
-    except Exception as exc:
-        if "Duplicate" in str(exc):
-            raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
-        raise
-    return updated or {}
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
+    return _public_room(updated or course, manager=True)
+
+
+@router.post("/courses/{course_id}/archive")
+async def archive_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Put a room away. It leaves the sidebar and pickers and stops taking members;
+    posts stay in the feed and the library stays readable. Reversible.
+    """
+    await _room_or_403(course_id, user)
+    await repo.set_course_status(course_id, archived=True)
+    return _public_room(await _room_or_404(course_id), manager=True)
+
+
+@router.post("/courses/{course_id}/restore")
+async def restore_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    await _room_or_403(course_id, user)
+    await repo.set_course_status(course_id, archived=False)
+    return _public_room(await _room_or_404(course_id), manager=True)
 
 
 @router.delete("/courses/{course_id}")
 async def delete_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Close a room. Its posts survive — they simply return to the main feed."""
-    await _room_or_403(course_id, user)
+    """
+    Close a room.
+
+    For an owner this archives it (see ``/archive``) - nothing is lost and it
+    can be restored. An admin removes it for good: course documents, their
+    SurrealDB sources and embeddings, the course notebook and the memberships
+    go; posts survive and return to the main feed.
+    """
+    course = await _room_or_403(course_id, user)
+    if user.role != USER_ROLE_ADMIN:
+        await repo.set_course_status(course_id, archived=True)
+        return {"ok": True, "id": course_id, "archived": True, "deleted": None}
+    purged = await library.purge_course_library(course)
     await repo.delete_course(course_id)
-    return {"ok": True, "deleted": course_id}
+    await moderation.log_action(
+        _uid(user), "room.purge", target_type="room", target_id=course_id,
+        detail={"code": course.get("code"), "name": course.get("name"), "purged": purged},
+    )
+    return {"ok": True, "id": course_id, "archived": False, "deleted": course_id, "purged": purged}
 
 
 @router.post("/courses/{course_id}/join")
-async def join_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    if not await repo.get_course(course_id):
-        raise HTTPException(status_code=404, detail="Course not found")
-    await repo.set_course_membership(course_id, _uid(user), True)
+async def join_course(
+    course_id: int,
+    body: Optional[CourseJoin] = None,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Join a room. A room with a join code admits students only with that code
+    (``X-Join-Code-Required: 1`` on the 403 tells the client to ask for it);
+    the room's managers never need it. Archived rooms take nobody new.
+    """
+    course = await _room_or_404(course_id)
+    if (course.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+        raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว ไม่รับสมาชิกใหม่")
+    uid = _uid(user)
+    if await repo.member_role(course_id, uid) is not None:
+        return {"ok": True, "joined": True}
+    if not await _can_manage_room(course, user) and not repo.join_code_matches(
+        course, body.code if body else None
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="ห้องนี้ต้องใช้รหัสเข้าห้องจากผู้สอน" if not (body and body.code) else "รหัสเข้าห้องไม่ถูกต้อง",
+            headers={"X-Join-Code-Required": "1"},
+        )
+    await repo.set_course_membership(course_id, uid, True)
     return {"ok": True, "joined": True}
 
 
 @router.delete("/courses/{course_id}/join")
 async def leave_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    await _room_or_404(course_id)
     await repo.set_course_membership(course_id, _uid(user), False)
     return {"ok": True, "joined": False}
+
+
+@router.get("/courses/{course_id}/members")
+async def list_course_members(
+    course_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """The roster, for the room's managers: who is in, since when, and who assists."""
+    course = await _managed_room_or_403(course_id, user)
+    items = await repo.list_course_members(course_id)
+    owner_id = int(course.get("created_by") or 0)
+    for m in items:
+        m["is_owner"] = int(m["user_id"]) == owner_id
+    return {
+        "items": items,
+        "owner_id": owner_id or None,
+        "totals": {
+            "members": len(items),
+            "assistants": sum(1 for m in items if m["role"] == repo.MEMBER_ROLE_TA),
+        },
+    }
+
+
+@router.patch("/courses/{course_id}/members/{member_id}")
+async def set_member_role(
+    course_id: int,
+    member_id: int,
+    body: MemberRoleUpdate,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Make a member a teaching assistant (or a plain member again). Owner only."""
+    course = await _room_or_403(course_id, user)
+    if member_id == int(course.get("created_by") or 0):
+        raise HTTPException(status_code=400, detail="ผู้สร้างห้องเป็นผู้สอนอยู่แล้ว")
+    if not await repo.set_member_role(course_id, member_id, body.role):
+        raise HTTPException(status_code=404, detail="คนนี้ไม่ได้อยู่ในห้อง")
+    return {"ok": True, "user_id": member_id, "role": body.role}
+
+
+@router.delete("/courses/{course_id}/members/{member_id}")
+async def remove_member(
+    course_id: int, member_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Take someone out of the room. Owner only; the owner cannot remove themselves here."""
+    course = await _room_or_403(course_id, user)
+    if member_id == int(course.get("created_by") or 0):
+        raise HTTPException(status_code=400, detail="ผู้สร้างห้องออกจากห้องตัวเองไม่ได้ — เก็บถาวรห้องแทน")
+    if await repo.member_role(course_id, member_id) is None:
+        raise HTTPException(status_code=404, detail="คนนี้ไม่ได้อยู่ในห้อง")
+    await repo.set_course_membership(course_id, member_id, False)
+    return {"ok": True, "user_id": member_id, "removed": True}
+
+
+# ---------------------------------------------------------------------------
+# Reports (รายงานเนื้อหา)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/reports", status_code=201)
+async def create_report(body: ReportCreate, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Flag a post, comment, person or document. One report per person per
+    target; nothing is hidden until a moderator looks. The room's teacher sees
+    reports about their own room, admins see everything.
+    """
+    uid = _uid(user)
+    if body.target_type == "post":
+        await _visible_post_or_404(body.target_id, user)   # you can only report what you can see
+    try:
+        created = await moderation.create_report(uid, body.target_type, body.target_id, body.reason, body.detail)
+    except moderation.DuplicateReport as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except moderation.ReportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "report_id": created["id"], "message": "ส่งรายงานแล้ว ผู้ดูแลจะตรวจสอบโดยเร็ว"}
+
+
+@router.get("/reports/mine")
+async def my_reports(
+    target_type: Literal["post", "comment", "user", "document"] = "post",
+    ids: str = Query(default="", max_length=2000, description="comma separated target ids"),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Which of these targets the caller already reported (to grey out the button)."""
+    wanted = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    reported = await moderation.reported_targets(_uid(user), target_type, wanted)
+    return {"target_type": target_type, "reported": sorted(reported)}
+
+
+@router.get("/courses/{course_id}/reports")
+async def room_reports(
+    course_id: int,
+    status: Literal["open", "dismissed", "actioned", "all"] = "open",
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Reports about content in this room, for the people who run it."""
+    await _managed_room_or_403(course_id, user)
+    return await moderation.list_reports(status=status, room_id=course_id, limit=limit, offset=offset)
+
+
+@router.post("/courses/{course_id}/reports/{report_id}")
+async def resolve_room_report(
+    course_id: int, report_id: int, body: RoomReportResolve, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    The room owner settles a report in their room: dismiss it, hide the post,
+    or remove the comment. Anything about people (suspending) stays with the
+    admins. Every action is written to the audit log.
+    """
+    await _room_or_403(course_id, user)
+    report = await moderation.get_report(report_id)
+    if not report or int(report.get("room_id") or 0) != course_id:
+        raise HTTPException(status_code=404, detail="ไม่พบรายงานนี้ในห้อง")
+    if report["status"] != "open":
+        raise HTTPException(status_code=400, detail="รายงานนี้ถูกจัดการไปแล้ว")
+    uid = _uid(user)
+    if body.action == "hide_post":
+        if report["target_type"] != "post":
+            raise HTTPException(status_code=400, detail="รายงานนี้ไม่ใช่โพสต์")
+        await repo.soft_delete_post(int(report["target_id"]))
+    elif body.action == "delete_comment":
+        if report["target_type"] != "comment":
+            raise HTTPException(status_code=400, detail="รายงานนี้ไม่ใช่ความคิดเห็น")
+        comment = await repo.get_comment(int(report["target_id"]))
+        if comment:
+            await repo.delete_comment(int(comment["id"]), int(comment["post_id"]))
+    await moderation.resolve_report(report_id, status=body.status, action=body.action, reviewer_id=uid, note=body.note)
+    if body.status == "actioned":
+        await moderation.resolve_sibling_reports(
+            report["target_type"], int(report["target_id"]), status="actioned", action=body.action, reviewer_id=uid
+        )
+    await moderation.log_action(
+        uid, f"room.report.{body.action}", target_type=report["target_type"], target_id=report["target_id"],
+        detail={"report_id": report_id, "room_id": course_id, "status": body.status, "note": body.note},
+    )
+    return {"ok": True, "report": await moderation.get_report(report_id)}
 
 
 # ---------------------------------------------------------------------------
@@ -416,6 +806,7 @@ async def list_posts(
 ) -> Dict[str, Any]:
     items = await repo.list_posts(
         _uid(user),
+        viewer_is_admin=user.role == USER_ROLE_ADMIN,
         course_id=course_id,
         post_type=type,
         author_id=author_id,
@@ -470,6 +861,7 @@ async def create_post(
     content: Optional[str] = Form(default=None),
     course_id: Optional[int] = Form(default=None),
     tags: Optional[str] = Form(default=None),
+    visibility: Optional[str] = Form(default=None),
     embed_type: Optional[str] = Form(default=None),
     embed_id: Optional[str] = Form(default=None),
     file: Optional[UploadFile] = File(default=None),
@@ -481,10 +873,15 @@ async def create_post(
         raise HTTPException(status_code=400, detail="Invalid post type")
     if post_type == "material" and not _is_staff(user):
         raise HTTPException(status_code=403, detail="Only teachers can publish course materials")
+    if course_id is not None and course_id > 0:
+        room = await repo.get_course(course_id)
+        if room and (room.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+            raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว โพสต์เพิ่มไม่ได้")
     if course_id is not None and course_id > 0 and not await repo.get_course(course_id):
         raise HTTPException(status_code=404, detail="Course not found")
     if course_id is not None and course_id <= 0:
         course_id = None
+    post_visibility = _clean_visibility(visibility, has_room=course_id is not None)
 
     snapshot: Optional[Dict[str, Any]] = None
     embed_type = (embed_type or "").strip().lower() or None
@@ -562,6 +959,7 @@ async def create_post(
         embed_snapshot=snapshot,
         attachment=attachment,
         content_hash=content_hash,
+        visibility=post_visibility,
     )
 
     # --- earn points for contributing ------------------------------------
@@ -586,7 +984,7 @@ async def create_post(
 
 @router.get("/posts/{post_id}")
 async def get_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    post = await repo.get_post(post_id, _uid(user))
+    post = await repo.get_post(post_id, _uid(user), viewer_is_admin=user.role == USER_ROLE_ADMIN)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     post["comments"] = await repo.list_comments(post_id)
@@ -602,12 +1000,17 @@ async def edit_post(
     quizzes/roadmaps are left untouched; only the text, tags and course move.
     """
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if int(post["author_id"]) != uid and user.role != USER_ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะโพสต์ของตัวเอง")
     if body.course_id is not None and body.course_id > 0 and not await repo.get_course(body.course_id):
         raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
 
+    will_have_room = (
+        (body.course_id or 0) > 0
+        if body.course_id is not None
+        else bool(post.get("course_id") or post.get("room_id"))
+    )
     await repo.update_post(
         post_id,
         title=body.title,
@@ -615,6 +1018,7 @@ async def edit_post(
         tags=[t for t in re.split(r"[,#\s]+", body.tags) if t] if body.tags is not None else None,
         course_id=body.course_id if (body.course_id or 0) > 0 else None,
         clear_course=body.course_id is not None and body.course_id <= 0,
+        visibility=_clean_visibility(body.visibility, has_room=will_have_room) if body.visibility else None,
     )
 
     # Improving an existing post is worth a small, tightly capped reward.
@@ -636,7 +1040,7 @@ async def edit_post(
 
 @router.delete("/posts/{post_id}")
 async def delete_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if int(post["author_id"]) != _uid(user) and user.role != USER_ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="You can only delete your own posts")
     await repo.soft_delete_post(post_id)
@@ -645,7 +1049,7 @@ async def delete_post(post_id: int, user: User = Depends(get_current_user)) -> D
 
 @router.get("/posts/{post_id}/attachment")
 async def download_attachment(post_id: int, user: User = Depends(get_current_user)):
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     path = post.get("attachment_path")
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Attachment not found")
@@ -659,7 +1063,7 @@ async def download_attachment(post_id: int, user: User = Depends(get_current_use
 @router.post("/posts/{post_id}/reactions")
 async def react(post_id: int, body: ReactionBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     active = await repo.toggle_reaction(post_id, uid, body.kind)
     author_id = int(post["author_id"])
     if active and author_id != uid:
@@ -699,14 +1103,14 @@ def _mark_deletable(
 
 @router.get("/posts/{post_id}/comments")
 async def list_comments(post_id: int, user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     return _mark_deletable(await repo.list_comments(post_id), user, post)
 
 
 @router.post("/posts/{post_id}/comments", status_code=201)
 async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     parent = None
     if body.parent_id is not None:
         parent = await repo.get_comment(body.parent_id)
@@ -730,7 +1134,7 @@ async def delete_comment(
     post_id: int, comment_id: int, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Remove a comment. Unlike a post, this really deletes the row."""
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     comment = await repo.get_comment(comment_id)
     if not comment or int(comment["post_id"]) != post_id:
         raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นนี้")
@@ -797,7 +1201,7 @@ async def remove_post_from_saved_collection(
 
 @router.post("/posts/{post_id}/save")
 async def toggle_save(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    await _post_or_404(post_id)
+    await _visible_post_or_404(post_id, user)
     saved = await repo.toggle_saved(post_id, _uid(user))
     return {"saved": saved}
 
@@ -805,7 +1209,7 @@ async def toggle_save(post_id: int, user: User = Depends(get_current_user)) -> D
 @router.post("/posts/{post_id}/share")
 async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     author_id = int(post["author_id"])
 
     # One share per person per post. The insert itself decides: a second call
@@ -855,7 +1259,7 @@ def _quiz_questions(post: Dict[str, Any]) -> List[Dict[str, Any]]:
 @router.post("/posts/{post_id}/quiz/start")
 async def quiz_start(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     questions = _quiz_questions(post)
     is_author = int(post["author_id"]) == uid
     plays = await repo.count_plays(post_id, uid)
@@ -885,7 +1289,7 @@ async def quiz_start(post_id: int, user: User = Depends(get_current_user)) -> Di
 @router.post("/posts/{post_id}/quiz/submit")
 async def quiz_submit(post_id: int, body: QuizSubmitBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     questions = _quiz_questions(post)
     play = await repo.get_play(body.play_id)
     if not play or int(play["user_id"]) != uid or int(play["post_id"]) != post_id:
@@ -939,7 +1343,7 @@ async def quiz_submit(post_id: int, body: QuizSubmitBody, user: User = Depends(g
 @router.post("/posts/{post_id}/quiz/import")
 async def quiz_import(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     questions = _quiz_questions(post)
     if int(post["author_id"]) == uid:
         raise HTTPException(status_code=400, detail="This quiz is already in your library")
@@ -981,7 +1385,7 @@ async def quiz_import(post_id: int, user: User = Depends(get_current_user)) -> D
 @router.post("/posts/{post_id}/roadmap/follow")
 async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if post.get("embed_type") != "roadmap" or not post.get("embed_snapshot"):
         raise HTTPException(status_code=400, detail="This post has no roadmap")
     snapshot = post["embed_snapshot"]
@@ -1185,13 +1589,18 @@ async def expand_my_roadmap(
         raise
     except Exception as exc:
         await points.refund(charge, "roadmap expansion failed")
-        logger.exception("roadmap expansion failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _internal_error(exc, "roadmap expansion failed")
 
     shared = await repo.roadmap_posts_for_author(uid, [str(session.id)])
+    # A roadmap that is already in the feed shows the new sub-nodes right away:
+    # readers follow the plan as it grows, no "update the post" step needed.
+    synced_post_id = shared.get(str(session.id))
+    if synced_post_id:
+        await repo.update_post_snapshot(int(synced_post_id), _roadmap_snapshot(session))
     return {
         **await _roadmap_detail(session, shared),
         "added": [node["id"] for node in added],
+        "synced_post_id": synced_post_id,
         "charged": charge.amount,
         "balance": await points.get_balance(uid),
     }
@@ -1208,11 +1617,11 @@ async def delete_my_roadmap(session_id: str, user: User = Depends(get_current_us
 @router.post("/posts/{post_id}/roadmap/sync")
 async def sync_roadmap_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """
-    Replace the post's copy of a roadmap with the author's current version
-    (after expanding it). Never automatic: the author decides what readers see.
+    Replace the post's copy of a roadmap with the author's current version.
+    Expansions sync the post by themselves; this is for anything else.
     """
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if int(post["author_id"]) != uid:
         raise HTTPException(status_code=403, detail="อัปเดตได้เฉพาะโพสต์ของตัวเอง")
     if post.get("embed_type") != "roadmap" or not post.get("embed_id"):
@@ -1316,15 +1725,119 @@ async def notifications_read(body: NotificationsRead, user: User = Depends(get_c
     return {"ok": True}
 
 
-@router.get("/search")
-async def search(q: str = Query(..., min_length=1, max_length=200), user: User = Depends(get_current_user)) -> Dict[str, Any]:
+# Document search embeds the query (one provider call per distinct query), so
+# it gets a small per-process burst limit. Posts/courses/users are plain SQL.
+SEARCH_DOCS_PER_MINUTE = int(os.getenv("SEARCH_DOCS_PER_MINUTE", "20"))
+_SEARCH_WINDOW: Dict[int, Deque[float]] = {}
+
+
+def _check_search_rate(user: User) -> None:
     uid = _uid(user)
-    return {
+    quota = SEARCH_DOCS_PER_MINUTE * (ratelimit.STAFF_MULTIPLIER if _is_staff(user) else 1)
+    now = time.monotonic()
+    window = _SEARCH_WINDOW.setdefault(uid, deque())
+    while window and now - window[0] > 60:
+        window.popleft()
+    if len(window) >= quota:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="ค้นหาเอกสารถี่เกินไป รอสักครู่แล้วลองใหม่",
+            headers={"Retry-After": str(int(61 - (now - window[0])))},
+        )
+    window.append(now)
+
+
+@router.get("/search")
+async def search(
+    q: str = Query(..., min_length=1, max_length=200),
+    kind: Literal["all", "posts", "courses", "documents", "users"] = "all",
+    course_id: Optional[int] = Query(default=None, ge=1),
+    category_id: Optional[int] = Query(default=None, ge=1),
+    type: Optional[str] = Query(default=None, pattern="^(summary|quiz|roadmap|question|material)$"),
+    author: Optional[str] = Query(default=None, max_length=32),
+    tag: Optional[str] = Query(default=None, max_length=40),
+    since: Optional[date] = None,
+    until: Optional[date] = None,
+    order: Literal["newest", "popular"] = "newest",
+    before_id: Optional[int] = None,
+    limit: int = Query(default=20, ge=1, le=50),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    One search box, four kinds of result.
+
+    * posts   - the feed query with every filter (room, category, type, author,
+                tag, date range, order); paged with ``before_id`` like the feed
+    * courses - active rooms by code / name / category
+    * documents - meaning-based search over the libraries the caller may read
+                (same vectors the RAG uses), plus title matches
+    * users   - by name; staff may also match e-mail / student code
+
+    ``kind=all`` returns a short list of each; a single kind returns a full
+    page. Everything respects post visibility and room privacy.
+    """
+    uid = _uid(user)
+    admin = user.role == USER_ROLE_ADMIN
+    wants = lambda k: kind in ("all", k)  # noqa: E731
+    preview = 5
+    out: Dict[str, Any] = {
         "query": q,
-        "posts": await repo.list_posts(uid, query=q, limit=10),
-        "users": await repo.search_users(q),
-        "courses": await repo.search_courses(q),
+        "kind": kind,
+        "posts": [],
+        "next_before_id": None,
+        "courses": [],
+        "documents": [],
+        "users": [],
+        "filters": {
+            "course_id": course_id, "category_id": category_id, "type": type, "author": author,
+            "tag": tag, "since": since.isoformat() if since else None,
+            "until": until.isoformat() if until else None, "order": order,
+        },
     }
+    if wants("posts"):
+        page = limit if kind == "posts" else preview
+        posts = await repo.list_posts(
+            uid,
+            viewer_is_admin=admin,
+            query=q,
+            course_id=course_id,
+            category_id=category_id,
+            post_type=type,
+            author_username=author,
+            tag=tag,
+            since=datetime.combine(since, datetime.min.time()) if since else None,
+            until=datetime.combine(until + timedelta(days=1), datetime.min.time()) if until else None,
+            order=order,
+            before_id=before_id,
+            limit=page,
+        )
+        out["posts"] = posts
+        out["next_before_id"] = posts[-1]["id"] if kind == "posts" and len(posts) >= page else None
+    if wants("courses"):
+        out["courses"] = await repo.search_courses(
+            q, limit=limit if kind == "courses" else preview, category_id=category_id, viewer_id=uid
+        )
+    if wants("users"):
+        out["users"] = await repo.search_users(
+            q, limit=limit if kind == "users" else preview, include_contact=_is_staff(user)
+        )
+    if wants("documents"):
+        _check_search_rate(user)
+        managed = await library.managed_room_ids(user)
+        docs = await library.search_documents(
+            user, q, course_id=course_id, category_id=category_id,
+            limit=limit if kind == "documents" else preview,
+        )
+        out["documents"] = [
+            {
+                **_doc_public(d, user, managed),
+                "snippet": d.get("snippet"),
+                "similarity": d.get("similarity"),
+                "match": d.get("match"),
+            }
+            for d in docs
+        ]
+    return out
 
 
 @router.get("/materials")
@@ -1352,12 +1865,18 @@ def _library_error(exc: library.LibraryError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
-def _doc_public(doc: Dict[str, Any], user: User) -> Dict[str, Any]:
+def _doc_public(
+    doc: Dict[str, Any], user: User, managed_rooms: Optional[set[int]] = None
+) -> Dict[str, Any]:
+    ext = os.path.splitext(doc.get("filename") or "")[1].lower()
+    is_file = doc.get("kind") == "file"
     return {
         "id": doc["id"],
         "title": doc["title"],
         "scope": doc["scope"],
         "kind": doc["kind"],
+        "is_media": is_file and library.is_media_ext(ext),
+        "download_url": f"/api/community/library/{doc['id']}/download" if is_file else None,
         "status": doc["status"],
         "error": doc.get("error"),
         "chunks": int(doc.get("chunks") or 0),
@@ -1382,7 +1901,7 @@ def _doc_public(doc: Dict[str, Any], user: User) -> Dict[str, Any]:
             "role": doc.get("owner_role"),
         },
         "is_owner": int(doc.get("owner_id") or 0) == int(user.id or 0),
-        "can_manage": library.can_manage_document(user, doc),
+        "can_manage": library.can_manage_document(user, doc, managed_rooms),
     }
 
 
@@ -1395,8 +1914,9 @@ async def list_library(
 ) -> Dict[str, Any]:
     """Documents the caller may read: every course library + their own uploads."""
     docs = await library.list_documents(user, scope=scope, course_id=course_id, limit=limit)
+    managed = await library.managed_room_ids(user)
     return {
-        "items": [_doc_public(d, user) for d in docs],
+        "items": [_doc_public(d, user, managed) for d in docs],
         "stats": await library.library_stats(user),
         "can_publish_course": _is_staff(user),
     }
@@ -1407,9 +1927,31 @@ async def get_library_document(
     doc_id: int, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     doc = await library.get_document(doc_id)
-    if not doc or not library.can_read_document(user, doc):
+    if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    return _doc_public(doc, user)
+    return _doc_public(doc, user, await library.managed_room_ids(user))
+
+
+@router.get("/library/{doc_id}/download")
+async def download_library_document(doc_id: int, user: User = Depends(get_current_user)):
+    """
+    The uploaded file itself. Readable by whoever may read the document (so a
+    private room's files stay inside the room); PDFs, images and video open
+    inline, everything else downloads.
+    """
+    doc = await library.get_document(doc_id)
+    if not doc or not await library.can_read_document(user, doc):
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+    path = doc.get("file_path")
+    if doc.get("kind") != "file" or not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="เอกสารนี้ไม่มีไฟล์ให้ดาวน์โหลด")
+    mime = doc.get("mime") or "application/octet-stream"
+    return FileResponse(
+        path,
+        media_type=mime,
+        filename=doc.get("filename") or os.path.basename(path),
+        content_disposition_type="inline" if mime in library.INLINE_MIMES else "attachment",
+    )
 
 
 @router.post("/library", status_code=201)
@@ -1438,16 +1980,18 @@ async def upload_library_document(
 
     # --- resolve scope + destination notebook -----------------------------
     if scope == library.SCOPE_COURSE:
-        if not _is_staff(user):
-            raise HTTPException(
-                status_code=403,
-                detail="เฉพาะอาจารย์หรือผู้ดูแลเท่านั้นที่เพิ่มเนื้อหาเข้าคลังของรายวิชาได้",
-            )
         if not course_id:
             raise HTTPException(status_code=400, detail="กรุณาเลือกรายวิชา")
-        course = await library.get_course(course_id)
+        course = await repo.get_course(course_id)
         if not course:
             raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
+        if not await _can_manage_room(course, user):
+            raise HTTPException(
+                status_code=403,
+                detail="เพิ่มเนื้อหาได้เฉพาะวิชาที่คุณเป็นผู้สอนหรือผู้ช่วยสอน",
+            )
+        if (course.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+            raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว")
         if course.get("kind") == repo.KIND_CLUB:
             # Discussion rooms have no shared library on purpose, so nothing a
             # student opens can end up grounding the RAG.
@@ -1476,27 +2020,22 @@ async def upload_library_document(
             library.validate_extension(filename)
         except library.LibraryError as exc:
             raise _library_error(exc)
+        ext = os.path.splitext(filename)[1].lower()
         file_path = library.storage_path(filename)
-        limit = library.MAX_UPLOAD_MB * 1024 * 1024
-        size = 0
-        digest = hashlib.md5()
-        with open(file_path, "wb") as fh:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > limit:
-                    fh.close()
-                    os.remove(file_path)
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"ไฟล์ใหญ่เกิน {library.MAX_UPLOAD_MB} MB",
-                    )
-                digest.update(chunk)
-                fh.write(chunk)
-        mime = file.content_type
-        content_hash = digest.hexdigest()
+        try:
+            size, content_hash = await library.save_upload(
+                file, file_path, library.upload_limit_bytes(ext)
+            )
+        except library.LibraryError as exc:
+            raise HTTPException(status_code=413, detail=str(exc))
+        # The extension is a claim; the first bytes are the evidence.
+        try:
+            detected = library.check_signature(file_path, ext)
+        except library.LibraryError as exc:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+            raise _library_error(exc)
+        mime = detected or file.content_type
     elif url and url.strip():
         kind = "url"
         cleaned = url.strip()
@@ -1546,6 +2085,13 @@ async def upload_library_document(
         post_type = "material" if scope == library.SCOPE_COURSE else "summary"
         if post_type == "material" and not _is_staff(user):
             post_type = "summary"
+        # The post owns a copy: deleting the library document later must not
+        # turn the feed's attachment into a 404.
+        attachment_path = None
+        if kind == "file" and file_path:
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            attachment_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}_{filename}")
+            await asyncio.to_thread(shutil.copyfile, file_path, attachment_path)
         post_id = await repo.create_post(
             author_id=uid,
             post_type=post_type,
@@ -1558,10 +2104,11 @@ async def upload_library_document(
             course_id=course_id,
             tags=[],
             attachment=(
-                {"name": filename, "path": file_path, "size": size, "mime": mime}
+                {"name": filename, "path": attachment_path, "size": size, "mime": mime}
                 if kind == "file"
                 else None
             ),
+            visibility=repo.VISIBILITY_PUBLIC,
         )
         await library.update_document(doc_id, post_id=post_id)
 
@@ -1569,7 +2116,7 @@ async def upload_library_document(
 
     doc = await library.get_document(doc_id)
     return {
-        "document": _doc_public(doc or {}, user),
+        "document": _doc_public(doc or {}, user, await library.managed_room_ids(user)),
         "post_id": post_id,
         "message": "กำลังประมวลผลเอกสาร ระบบจะพร้อมใช้ภายในไม่กี่วินาที",
     }
@@ -1580,9 +2127,9 @@ async def retry_library_document(
     doc_id: int, background: BackgroundTasks, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     doc = await library.get_document(doc_id)
-    if not doc or not library.can_read_document(user, doc):
+    if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    if not library.can_manage_document(user, doc):
+    if not library.can_manage_document(user, doc, await library.managed_room_ids(user)):
         raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์จัดการเอกสารนี้")
     if doc["kind"] == "text":
         raise HTTPException(status_code=400, detail="เอกสารแบบข้อความต้องอัปโหลดใหม่")
@@ -1596,9 +2143,9 @@ async def delete_library_document(
     doc_id: int, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     doc = await library.get_document(doc_id)
-    if not doc or not library.can_read_document(user, doc):
+    if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    if not library.can_manage_document(user, doc):
+    if not library.can_manage_document(user, doc, await library.managed_room_ids(user)):
         raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์ลบเอกสารนี้")
     await library.delete_document(doc)
     return {"ok": True}
@@ -1712,8 +2259,7 @@ async def study_quiz(
         raise
     except Exception as exc:
         await points.refund(charge, "quiz generation failed")
-        logger.exception("study quiz failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _internal_error(exc, "study quiz failed")
 
     if report.get("cached"):
         await points.refund(charge, "cached quiz – no compute cost")
@@ -1798,8 +2344,7 @@ async def study_roadmap(
         raise
     except Exception as exc:
         await points.refund(charge, "roadmap generation failed")
-        logger.exception("study roadmap failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _internal_error(exc, "study roadmap failed")
 
     if report.get("cached"):
         await points.refund(charge, "cached roadmap – no compute cost")
@@ -1999,12 +2544,17 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     charge: Optional[points.Charge] = None
     session: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = body.session_id
+    # A session message credit is *reserved* up front with one atomic UPDATE
+    # (credits_left > 0), so two questions fired at once cannot both pass a
+    # read-then-write check; the credit is given back if the answer fails.
+    credits_after: Optional[int] = None
 
     if session_id:
         session = await repo.get_rag_session(session_id, uid)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        if int(session.get("credits_left") or 0) <= 0:
+        credits_after = await repo.reserve_rag_credit(session_id, uid)
+        if credits_after is None:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail=f"เซสชันนี้ใช้ครบ {points.RAG_SESSION_MESSAGES} ข้อความแล้ว เริ่มเซสชันใหม่ ({points.COSTS['rag_session']} แต้ม) หรือถามแบบคำถามเดี่ยว ({points.COSTS['rag_question']} แต้ม)",
@@ -2018,6 +2568,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         session_id = await repo.create_rag_session(uid, points.RAG_SESSION_MESSAGES)
         await points.set_charge_ref(charge, "rag_session", session_id)
         session = {"id": session_id, "messages": [], "credits_left": points.RAG_SESSION_MESSAGES}
+        credits_after = await repo.reserve_rag_credit(session_id, uid)
     else:
         try:
             charge = await points.charge(user, "rag_question", ref_type="rag_question")
@@ -2078,19 +2629,26 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
         raise HTTPException(status_code=400, detail=str(exc))
     except ExternalServiceError as exc:
         await points.refund(charge, "ask failed")
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
         raise HTTPException(status_code=502, detail=str(exc))
     except (throttle.ProviderBusy, RateLimitError):
         # Queue full / provider rate limit: the global handlers answer 503 / 429
         # with Retry-After; the student keeps the point.
         await points.refund(charge, "ask throttled")
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
         raise
     except Exception as exc:
         await points.refund(charge, "ask failed")
-        logger.exception("quick ask failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
+        raise _internal_error(exc, "quick ask failed")
     finally:
         if leader is not None:
             _INFLIGHT.pop(cache_key or "", None)
@@ -2111,8 +2669,8 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     if session:
         history.append({"role": "user", "content": body.question})
         history.append({"role": "assistant", "content": result["answer"]})
-        credits_left = int(session.get("credits_left") or 0) - 1
-        await repo.update_rag_session(session_id or "", history, credits_left)
+        credits_left = credits_after if credits_after is not None else int(session.get("credits_left") or 0) - 1
+        await repo.save_rag_messages(session_id or "", history)
 
     charged_amount = charge.amount if charge and charge.charged else 0
     conversation_id = await _store_exchange(

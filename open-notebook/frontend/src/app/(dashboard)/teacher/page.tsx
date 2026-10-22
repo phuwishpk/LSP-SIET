@@ -19,10 +19,15 @@ import {
   GraduationCap,
   Hash,
   Library,
+  Archive,
+  ArchiveRestore,
+  Download,
+  KeyRound,
+  Lock,
   MessagesSquare,
   Pencil,
   Plus,
-  Trash2,
+  Settings2,
   Upload,
   Users,
 } from 'lucide-react'
@@ -54,14 +59,17 @@ import {
 } from '@/components/ui/dialog'
 import { useAuth } from '@/lib/hooks/use-auth'
 import {
-  useDeleteCourse,
   useFeed,
   useTeacherOverview,
   useTeacherQuizResults,
   useUpdateCourse,
 } from '@/lib/hooks/use-community'
+import { useArchiveCourse } from '@/lib/hooks/use-courses'
 import { useLibrary } from '@/lib/hooks/use-library'
+import { libraryDownloadUrl } from '@/lib/api/library'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import type { TeacherCourse } from '@/lib/api/community'
+import type { TeacherRoom } from '@/lib/api/courses'
 import { formatBytes, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
@@ -72,8 +80,8 @@ export default function TeacherPage() {
 
   const overview = useTeacherOverview(isStaff)
   const [editing, setEditing] = useState<TeacherCourse | null>(null)
-  const [pendingDelete, setPendingDelete] = useState<TeacherCourse | null>(null)
-  const remove = useDeleteCourse()
+  const [pendingArchive, setPendingArchive] = useState<TeacherRoom | null>(null)
+  const archive = useArchiveCourse()
 
   if (user && !isStaff) {
     return (
@@ -88,9 +96,11 @@ export default function TeacherPage() {
     )
   }
 
-  const courses = overview.data?.courses ?? []
-  const rooms = courses.filter((c) => c.kind !== 'club')
-  const clubs = courses.filter((c) => c.kind === 'club')
+  // The overview now carries category / term / status for every room.
+  const courses = (overview.data?.courses ?? []) as TeacherRoom[]
+  const rooms = courses.filter((c) => c.kind !== 'club' && !c.archived)
+  const archived = courses.filter((c) => c.archived)
+  const clubs = courses.filter((c) => c.kind === 'club' && !c.archived)
   const totals = overview.data?.totals
 
   return (
@@ -133,8 +143,8 @@ export default function TeacherPage() {
                 <CardHeader className="pb-3">
                   <CardTitle className="text-base">ห้องวิชา</CardTitle>
                   <CardDescription>
-                    ห้องที่คุณสร้างเอง แก้ชื่อ/รหัส หรือปิดห้องได้ — โพสต์ในห้องจะไม่ถูกลบ
-                    แต่ย้ายไปฟีดรวม
+                    ห้องที่คุณสร้างหรือช่วยสอน — “ตั้งค่า” เพื่อจัดหมวดหมู่ เทอม รหัสเข้าห้อง และสมาชิก;
+                    จบเทอมแล้วเก็บถาวรได้ ไม่มีอะไรถูกลบ
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-2">
@@ -149,7 +159,7 @@ export default function TeacherPage() {
                       key={c.id}
                       course={c}
                       onEdit={() => setEditing(c)}
-                      onDelete={() => setPendingDelete(c)}
+                      onArchive={() => setPendingArchive(c)}
                     />
                   ))}
                   <Button asChild variant="outline" size="sm" className="mt-1 gap-1.5">
@@ -171,7 +181,28 @@ export default function TeacherPage() {
                         key={c.id}
                         course={c}
                         onEdit={() => setEditing(c)}
-                        onDelete={() => setPendingDelete(c)}
+                        onArchive={() => setPendingArchive(c)}
+                      />
+                    ))}
+                  </CardContent>
+                </Card>
+              )}
+
+              {archived.length > 0 && (
+                <Card>
+                  <CardHeader className="pb-3">
+                    <CardTitle className="text-base">ห้องที่เก็บถาวร</CardTitle>
+                    <CardDescription>
+                      ไม่ขึ้นในรายการให้เข้าร่วมและโพสต์เพิ่มไม่ได้ สมาชิกเดิมยังอ่านได้ — เปิดกลับมาใช้ได้ทุกเมื่อ
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-2">
+                    {archived.map((c) => (
+                      <RoomRow
+                        key={c.id}
+                        course={c}
+                        onEdit={() => setEditing(c)}
+                        onArchive={() => archive.mutate({ courseId: c.id, archived: false })}
                       />
                     ))}
                   </CardContent>
@@ -198,28 +229,29 @@ export default function TeacherPage() {
       </div>
 
       <EditRoomDialog course={editing} onClose={() => setEditing(null)} />
-      <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+      <AlertDialog open={pendingArchive !== null} onOpenChange={(o) => !o && setPendingArchive(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>ปิดห้อง “{pendingDelete?.name}” ?</AlertDialogTitle>
+            <AlertDialogTitle>เก็บถาวรห้อง “{pendingArchive?.name}” ?</AlertDialogTitle>
             <AlertDialogDescription>
-              สมาชิก {pendingDelete?.member_count ?? 0} คนจะออกจากห้องนี้ และโพสต์{' '}
-              {pendingDelete?.post_count ?? 0} รายการจะย้ายไปฟีดรวม (ไม่ถูกลบ)
-              {(pendingDelete?.document_count ?? 0) > 0 &&
-                ` · เอกสารในคลังของวิชานี้ ${pendingDelete?.document_count} ฉบับจะไม่ถูกใช้อ้างอิงอีก`}
+              ห้องจะหายจากรายการให้เข้าร่วมและรับโพสต์ใหม่ไม่ได้ สมาชิก {pendingArchive?.member_count ?? 0} คน
+              ยังอ่านโพสต์ {pendingArchive?.post_count ?? 0} รายการ
+              {(pendingArchive?.document_count ?? 0) > 0 &&
+                ` และเอกสาร ${pendingArchive?.document_count} ฉบับ`}{' '}
+              ได้ตามเดิม — เปิดกลับมาใช้ได้ทุกเมื่อ ไม่มีอะไรถูกลบ
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
-                if (!pendingDelete) return
-                const id = pendingDelete.id
-                setPendingDelete(null)
-                remove.mutate(id)
+                if (!pendingArchive) return
+                const id = pendingArchive.id
+                setPendingArchive(null)
+                archive.mutate({ courseId: id, archived: true })
               }}
             >
-              ปิดห้อง
+              เก็บถาวร
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -255,15 +287,21 @@ function StatCard({
 function RoomRow({
   course,
   onEdit,
-  onDelete,
+  onArchive,
 }: {
-  course: TeacherCourse
+  course: TeacherRoom
   onEdit: () => void
-  onDelete: () => void
+  /** Archive an active room; restore an archived one. */
+  onArchive: () => void
 }) {
   const isClub = course.kind === 'club'
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-lg border p-3">
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-2 rounded-lg border p-3',
+        course.archived && 'bg-muted/40 text-muted-foreground'
+      )}
+    >
       <span
         className={cn(
           'flex h-8 w-8 items-center justify-center rounded-lg',
@@ -273,8 +311,20 @@ function RoomRow({
         {isClub ? <MessagesSquare className="h-4 w-4" /> : <Hash className="h-4 w-4" />}
       </span>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium">
-          {isClub ? course.name : `${course.code} ${course.name}`}
+        <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">
+          <span className="truncate">{isClub ? course.name : `${course.code} ${course.name}`}</span>
+          {course.category_name && (
+            <Badge variant="outline" className="h-5 font-normal">
+              {course.category_name}
+            </Badge>
+          )}
+          {course.term && (
+            <Badge variant="outline" className="h-5 font-normal">
+              {course.term}
+            </Badge>
+          )}
+          {course.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="ห้องส่วนตัว" />}
+          {course.requires_code && <KeyRound className="h-3.5 w-3.5 text-muted-foreground" aria-label="ต้องใช้รหัสเข้าห้อง" />}
         </p>
         <p className="truncate text-xs text-muted-foreground">
           {course.description || 'ไม่มีคำอธิบาย'}
@@ -297,17 +347,22 @@ function RoomRow({
         <Button asChild variant="ghost" size="sm" className="h-8 px-2 text-xs">
           <Link href={`/community?course=${course.id}`}>เปิดห้อง</Link>
         </Button>
+        <Button asChild variant="ghost" size="sm" className="h-8 gap-1 px-2 text-xs">
+          <Link href={`/teacher/courses/${course.id}`}>
+            <Settings2 className="h-3.5 w-3.5" /> ตั้งค่า
+          </Link>
+        </Button>
         <Button variant="ghost" size="sm" className="h-8 px-2" onClick={onEdit} aria-label="แก้ไขห้อง">
           <Pencil className="h-3.5 w-3.5" />
         </Button>
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 px-2 text-destructive hover:text-destructive"
-          onClick={onDelete}
-          aria-label="ปิดห้อง"
+          className="h-8 px-2"
+          onClick={onArchive}
+          aria-label={course.archived ? 'เปิดห้องกลับมาใช้งาน' : 'เก็บถาวรห้อง'}
         >
-          <Trash2 className="h-3.5 w-3.5" />
+          {course.archived ? <ArchiveRestore className="h-3.5 w-3.5" /> : <Archive className="h-3.5 w-3.5" />}
         </Button>
       </div>
     </div>
@@ -401,6 +456,7 @@ function EditRoomDialog({ course, onClose }: { course: TeacherCourse | null; onC
 
 function DocumentsByCourse({ courses, loading }: { courses: TeacherCourse[]; loading: boolean }) {
   const { data, isLoading } = useLibrary({ scope: 'course' })
+  const token = useAuthStore((s) => s.token)
 
   const grouped = useMemo(() => {
     const byCourse = new Map<number, typeof docs>()
@@ -455,7 +511,7 @@ function DocumentsByCourse({ courses, loading }: { courses: TeacherCourse[]; loa
                       <Library className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{d.title}</span>
                       <span className="text-xs text-muted-foreground">
-                        {d.chunks > 0 ? `${d.chunks} ชิ้น` : ''} {formatBytes(d.size)}
+                        {d.is_media ? 'สื่อ' : d.chunks > 0 ? `${d.chunks} ชิ้น` : ''} {formatBytes(d.size)}
                       </span>
                       <Badge
                         variant={d.status === 'ready' ? 'secondary' : 'outline'}
@@ -464,8 +520,15 @@ function DocumentsByCourse({ courses, loading }: { courses: TeacherCourse[]; loa
                           d.status === 'failed' && 'border-destructive text-destructive'
                         )}
                       >
-                        {d.status === 'ready' ? 'พร้อมใช้' : d.status === 'processing' ? 'กำลังประมวลผล' : 'ล้มเหลว'}
+                        {d.status === 'ready' ? (d.is_media ? 'เก็บแล้ว' : 'พร้อมใช้') : d.status === 'processing' ? 'กำลังประมวลผล' : 'ล้มเหลว'}
                       </Badge>
+                      {d.download_url && (
+                        <Button asChild variant="ghost" size="sm" className="h-7 px-2" aria-label="ดาวน์โหลด">
+                          <a href={libraryDownloadUrl(d, token) ?? '#'} target="_blank" rel="noreferrer">
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>

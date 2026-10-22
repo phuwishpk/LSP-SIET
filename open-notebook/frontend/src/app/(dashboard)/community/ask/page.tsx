@@ -14,7 +14,6 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
-  Bot,
   Coins,
   FileText,
   Globe2,
@@ -22,7 +21,6 @@ import {
   Plus,
   RotateCcw,
   Send,
-  Sparkles,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -30,6 +28,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
+import { OwlMascot } from '@/components/common/OwlMascot'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { AnswerReferences } from '@/components/community/AnswerReferences'
 import { AskHistoryPanel } from '@/components/community/AskHistoryPanel'
@@ -47,6 +46,7 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useKnowledge, useLibrary } from '@/lib/hooks/use-library'
+import { useForcedLightTheme } from '@/lib/hooks/use-forced-light-theme'
 import {
   describeApiError,
   type AskCitation,
@@ -117,6 +117,7 @@ export default function AskPage() {
 
 function AskContent() {
   const router = useRouter()
+  useForcedLightTheme() // SIET Pink page: light only, whatever the app-wide toggle says
   const params = useSearchParams()
   const ask = useAsk()
   const { data: wallet } = useWallet()
@@ -348,7 +349,7 @@ function AskContent() {
     : costs?.rag_question ?? 1
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="theme-adventure min-h-screen bg-canvas">
       <CommunityHeader
         query=""
         onSearch={(q) => router.push(q ? `/community?q=${encodeURIComponent(q)}` : '/community')}
@@ -362,9 +363,7 @@ function AskContent() {
             <ArrowLeft className="h-4 w-4" /> กลับไปฟีด
           </Button>
           <div className="flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
-              <Bot className="h-4 w-4" />
-            </span>
+            <OwlMascot state={ask.isPending ? 'thinking' : 'idle'} size={40} />
             <div>
               <h1 className="text-base font-semibold leading-tight">KMITL RAG AI</h1>
               <p className="text-xs text-muted-foreground">
@@ -510,7 +509,7 @@ function AskContent() {
                       className={cn(
                         'rounded-lg border px-2 py-1.5 text-[11px] transition',
                         webMode === value
-                          ? 'border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100'
+                          ? 'border-primary bg-primary/10 text-primary'
                           : 'hover:bg-accent'
                       )}
                     >
@@ -591,9 +590,7 @@ function AskContent() {
                 )}
                 {messages.length === 0 && !ask.isPending && !(conversationId && stored.isLoading) && (
                   <div className="flex h-full flex-col items-center justify-center gap-4 py-8 text-center">
-                    <span className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-to-br from-violet-500 to-fuchsia-500 text-white">
-                      <Sparkles className="h-6 w-6" />
-                    </span>
+                    <OwlMascot state="idle" size={72} />
                     <div>
                       <p className="text-sm font-medium">เริ่มถามได้เลย</p>
                       <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
@@ -618,6 +615,7 @@ function AskContent() {
 
                 {messages.map((m, i) => (
                   <div key={`${m.at}-${i}`} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
+                    {m.role === 'assistant' && <OwlMascot state="idle" size={36} className="mr-2 mt-1" />}
                     <div
                       className={cn(
                         'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
@@ -660,6 +658,7 @@ function AskContent() {
 
                 {ask.isPending && (
                   <div className="flex justify-start">
+                    <OwlMascot state="thinking" size={36} className="mr-2 mt-1" />
                     <div className="rounded-2xl border bg-background px-4 py-2.5 text-sm text-muted-foreground">
                       กำลังค้นคลังความรู้และเรียบเรียงคำตอบ…
                     </div>
@@ -743,7 +742,7 @@ function ScopeButton({
       className={cn(
         'flex flex-col items-start gap-1 rounded-lg border px-2.5 py-2 text-left text-[11px] transition',
         active
-          ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-950/50 dark:text-violet-100'
+          ? 'border-primary bg-primary/10 text-primary'
           : 'hover:bg-accent'
       )}
     >
@@ -773,7 +772,7 @@ function ModeRow({
       className={cn(
         'flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition',
         active
-          ? 'border-violet-500 bg-violet-100 dark:bg-violet-950/50'
+          ? 'border-primary bg-primary/10'
           : 'hover:bg-accent'
       )}
     >

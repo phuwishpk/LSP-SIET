@@ -6,23 +6,27 @@
  * column, their details in a third. Pure function - no DOM.
  */
 
-const MAIN = { x: 176, w: 232, h: 48 }
-const SUB = { x: 488, w: 208, h: 40 }
-const DETAIL = { x: 760, w: 208, h: 40 }
-const GAP_MAIN = 28
-const GAP_BRANCH = 10
-const LANE_PAD = 22
+const MAIN = { x: 184, w: 272, h: 56 }
+const SUB = { x: 536, w: 240, h: 46 }
+const DETAIL = { x: 840, w: 240, h: 46 }
+const GAP_MAIN = 30
+const GAP_BRANCH = 12
+const LANE_PAD = 24
 const EDGE_PAD = 16
 
-/** The five learning stages get fixed colours; anything else cycles. */
+/**
+ * The five learning stages get fixed colours; anything else cycles.
+ * Text-safe shades of the SIET Pink accents (root DESIGN.md: blue, green,
+ * orange, purple, pink, gold) so a 12px lane label still reads on white.
+ */
 const STAGE_COLORS = {
-  พื้นฐาน: '#6EA8FF',
-  แนวคิดหลัก: '#46C7B2',
-  ฝึกปฏิบัติ: '#E9B949',
-  ประยุกต์: '#F0925A',
-  'ทบทวน/ประเมิน': '#B79CFF',
+  พื้นฐาน: '#1686BD',
+  แนวคิดหลัก: '#3E8A50',
+  ฝึกปฏิบัติ: '#C66F00',
+  ประยุกต์: '#9A4FE0',
+  'ทบทวน/ประเมิน': '#C92F6B',
 }
-const FALLBACK_COLORS = ['#6EA8FF', '#46C7B2', '#E9B949', '#F0925A', '#B79CFF', '#F28FB5']
+const FALLBACK_COLORS = ['#1686BD', '#3E8A50', '#C66F00', '#9A4FE0', '#C92F6B', '#9A6B00']
 
 export function categoryColor(category, index = 0) {
   const key = String(category || '').replace(/\s+/g, '')

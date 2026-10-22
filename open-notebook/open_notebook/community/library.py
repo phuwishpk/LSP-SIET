@@ -20,6 +20,8 @@ surreal-commands, so it also works in the dev stack where no worker runs.
 
 from __future__ import annotations
 
+import hashlib
+import json
 import os
 import re
 import uuid
@@ -37,11 +39,39 @@ from open_notebook.domain.user import User, _mariadb_session
 
 UPLOAD_DIR = os.path.join(DATA_FOLDER, "library")
 MAX_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_UPLOAD_MB", "100"))
-ALLOWED_EXT = {
+# Teaching media (slides recorded as video, figure packs, zipped source code)
+# is stored and served but never read by the RAG; it gets its own, larger cap.
+MAX_MEDIA_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_MEDIA_MB", "200"))
+# Extensions whose text is extracted, chunked and embedded.
+DOCUMENT_EXT = {
     ".pdf", ".txt", ".md", ".markdown", ".docx", ".pptx", ".xlsx", ".csv",
     ".html", ".htm", ".epub", ".rtf", ".odt",
 }
+# Extensions kept as files only (status becomes "ready" with 0 chunks).
+MEDIA_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".webm", ".zip"}
+ALLOWED_EXT = DOCUMENT_EXT | MEDIA_EXT
 MAX_TEXT_CHARS = 400_000
+# A document still "processing" after this long was lost with a restart (the
+# ingest is a FastAPI background task); the reaper marks it failed + retryable.
+PROCESSING_TIMEOUT_MINUTES = int(os.getenv("LIBRARY_PROCESSING_TIMEOUT_MINUTES", "30"))
+# Browsers may render these in a tab; everything else downloads as a file.
+INLINE_MIMES = {
+    "application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp",
+    "video/mp4", "video/webm", "text/plain", "text/markdown", "text/csv", "text/html",
+}
+# What a correctly named file must start with (magic bytes, via ``filetype``).
+# Office/EPUB/ODT are zip containers; text formats have no signature and are
+# checked for being decodable text instead.
+_EXPECTED_FAMILY = {
+    ".pdf": {"application/pdf"},
+    ".png": {"image/png"}, ".jpg": {"image/jpeg"}, ".jpeg": {"image/jpeg"},
+    ".gif": {"image/gif"}, ".webp": {"image/webp"},
+    ".mp4": {"video/mp4", "video/quicktime"}, ".webm": {"video/webm", "video/x-matroska"},
+    ".zip": {"application/zip"}, ".docx": {"application/zip"}, ".pptx": {"application/zip"},
+    ".xlsx": {"application/zip"}, ".epub": {"application/zip", "application/epub+zip"},
+    ".odt": {"application/zip"},
+}
+_TEXT_EXT = {".txt", ".md", ".markdown", ".csv", ".html", ".htm", ".rtf"}
 
 SCOPE_COURSE = "course"
 SCOPE_PERSONAL = "personal"
@@ -114,13 +144,57 @@ async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
         row = (
             await session.execute(
                 text(
-                    "SELECT id, code, name, kind, library_notebook_id AS notebook_id "
+                    "SELECT id, code, name, kind, library_notebook_id AS notebook_id, "
+                    "created_by, is_private, status "
                     "FROM rooms WHERE id = :cid"
                 ),
                 {"cid": course_id},
             )
         ).first()
     return dict(row._mapping) if row else None
+
+
+async def room_ids_readable_by(user: User) -> Optional[set[int]]:
+    """
+    Course rooms whose posts and library this user may read: every public room
+    plus the private rooms they belong to or run. ``None`` means "all" (admin).
+    """
+    if is_admin(user):
+        return None
+    uid = int(user.id or 0)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT c.id FROM rooms c
+                     WHERE c.is_private = 0
+                        OR c.created_by = :uid
+                        OR EXISTS(SELECT 1 FROM room_members m
+                                   WHERE m.room_id = c.id AND m.user_id = :uid)
+                    """
+                ),
+                {"uid": uid},
+            )
+        ).all()
+    return {int(r[0]) for r in rows}
+
+
+async def can_read_room(user: User, room: Dict[str, Any]) -> bool:
+    """Public room: anyone signed in. Private room: members, the owner, admins."""
+    if not room.get("is_private") or is_admin(user):
+        return True
+    uid = int(user.id or 0)
+    if int(room.get("created_by") or 0) == uid:
+        return True
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT 1 FROM room_members WHERE room_id = :cid AND user_id = :uid"),
+                {"cid": room["id"], "uid": uid},
+            )
+        ).first()
+    return row is not None
 
 
 async def notebook_ids_for_scope(
@@ -134,7 +208,7 @@ async def notebook_ids_for_scope(
     Resolve a retrieval scope into the notebook ids the RAG should search.
 
     * ``document`` – the notebooks holding the given (readable) documents
-    * ``course``   – one course library (any authenticated user may read it)
+    * ``course``   – one course library (public room: anyone; private room: members)
     * ``personal`` – only the caller's own uploads
     * ``auto``     – personal library + every course the caller belongs to
                      (staff see every course library) + every shared staff
@@ -154,6 +228,8 @@ async def notebook_ids_for_scope(
         course = await get_course(course_id)
         if not course:
             raise LibraryError("ไม่พบรายวิชานี้")
+        if not await can_read_room(user, course):
+            raise LibraryError("ห้องนี้เป็นห้องส่วนตัว ต้องเป็นสมาชิกจึงจะถามจากคลังของห้องได้")
         if course.get("notebook_id"):
             ids.append(str(course["notebook_id"]))
         return ids
@@ -167,13 +243,29 @@ async def notebook_ids_for_scope(
     if user.library_notebook_id:
         ids.append(str(user.library_notebook_id))
     async with _mariadb_session() as session:
-        if user.is_points_exempt:  # admins + teachers see every course library
+        if is_admin(user):  # the operator sees every course library
             rows = (
                 await session.execute(
                     text(
                         "SELECT library_notebook_id FROM rooms "
                         "WHERE library_notebook_id IS NOT NULL"
                     )
+                )
+            ).all()
+        elif user.is_points_exempt:  # teachers: every public library + their own private rooms
+            rows = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT c.library_notebook_id
+                          FROM rooms c
+                         WHERE c.library_notebook_id IS NOT NULL
+                           AND (c.is_private = 0 OR c.created_by = :uid
+                                OR EXISTS(SELECT 1 FROM room_members m
+                                           WHERE m.room_id = c.id AND m.user_id = :uid))
+                        """
+                    ),
+                    {"uid": uid},
                 )
             ).all()
         else:
@@ -279,7 +371,8 @@ async def _sharing_context() -> Dict[str, Any]:
         course_rows = (
             await session.execute(
                 text(
-                    "SELECT id, code, name, library_notebook_id AS notebook_id "
+                    "SELECT id, code, name, library_notebook_id AS notebook_id, "
+                    "created_by, is_private "
                     "FROM rooms WHERE kind = 'course'"
                 )
             )
@@ -299,6 +392,15 @@ async def _sharing_context() -> Dict[str, Any]:
             str(c["notebook_id"]) for c in courses.values() if c.get("notebook_id")
         },
     }
+
+
+async def _course_ids_for_viewer(ctx: Dict[str, Any], viewer: Optional[User]) -> set[int]:
+    """Course rooms whose library the viewer may read (private rooms need membership)."""
+    all_ids = set(ctx["courses"])
+    if viewer is None or is_admin(viewer):
+        return all_ids
+    readable = await room_ids_readable_by(viewer)
+    return all_ids if readable is None else all_ids & readable
 
 
 async def _owner_names(owner_ids: Sequence[str]) -> Dict[int, Dict[str, Any]]:
@@ -335,7 +437,8 @@ async def list_shared_notebooks(
     see_all = is_admin(viewer)
     ctx = await _sharing_context()
     staff_owner_ids = [str(uid) for uid in ctx["staff"]]
-    course_owner_ids = [f"course:{cid}" for cid in ctx["courses"]]
+    # A private room's library is not "shared": only its members see it here.
+    course_owner_ids = [f"course:{cid}" for cid in await _course_ids_for_viewer(ctx, viewer)]
     try:
         if see_all:
             rows = await repo_query(
@@ -506,7 +609,12 @@ async def resolve_knowledge_pick(
     shared = await list_shared_notebooks(with_sources=False, viewer=user)
     names = {nb["id"]: nb["name"] for nb in shared}
     ctx = await _sharing_context()
-    allowed = set(names) | ctx["course_notebooks"]
+    readable_courses = await _course_ids_for_viewer(ctx, user)
+    allowed = set(names) | {
+        str(c["notebook_id"])
+        for cid, c in ctx["courses"].items()
+        if c.get("notebook_id") and cid in readable_courses
+    }
     if user.library_notebook_id:
         allowed.add(str(user.library_notebook_id))
 
@@ -651,17 +759,71 @@ async def update_document(doc_id: int, **fields: Any) -> None:
         )
 
 
-def can_read_document(user: User, doc: Dict[str, Any]) -> bool:
-    """Course documents are readable by everyone; personal ones by their owner."""
-    if doc.get("scope") == SCOPE_COURSE:
+async def can_read_document(user: User, doc: Dict[str, Any]) -> bool:
+    """
+    Personal documents: their owner. Course documents: anyone for a public room,
+    members (and the people running it) for a private room, admins always.
+    """
+    if int(doc.get("owner_id") or 0) == int(user.id or 0) or is_admin(user):
         return True
-    return int(doc.get("owner_id") or 0) == int(user.id or 0)
+    if doc.get("scope") != SCOPE_COURSE:
+        return False
+    if not doc.get("room_id"):
+        return True
+    room = await get_course(int(doc["room_id"]))
+    return bool(room) and await can_read_room(user, room)
 
 
-def can_manage_document(user: User, doc: Dict[str, Any]) -> bool:
-    if int(doc.get("owner_id") or 0) == int(user.id or 0):
+# SQL twin of can_read_document for list queries (aliases: library_documents d,
+# LEFT JOIN rooms c). Parameters: :uid, :is_admin.
+_DOC_READABLE_SQL = """
+    (
+        :is_admin = 1
+        OR d.owner_id = :uid
+        OR (d.scope = 'course' AND (
+                d.room_id IS NULL OR COALESCE(c.is_private, 0) = 0 OR c.created_by = :uid
+                OR EXISTS(SELECT 1 FROM room_members vm
+                           WHERE vm.room_id = d.room_id AND vm.user_id = :uid)))
+    )
+"""
+
+
+async def managed_room_ids(user: User) -> Optional[set[int]]:
+    """Rooms this user runs (owner or TA); ``None`` = every room (admin)."""
+    if is_admin(user):
+        return None
+    uid = int(user.id or 0)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id FROM rooms WHERE created_by = :uid
+                    UNION
+                    SELECT room_id FROM room_members WHERE user_id = :uid AND role = 'ta'
+                    """
+                ),
+                {"uid": uid},
+            )
+        ).all()
+    return {int(r[0]) for r in rows}
+
+
+def can_manage_document(
+    user: User, doc: Dict[str, Any], managed_rooms: Optional[set[int]] = None
+) -> bool:
+    """
+    The uploader and admins always; the teacher/TA of the room for course
+    documents, so a course owner can clean up material a colleague left behind.
+    ``managed_rooms`` comes from :func:`managed_room_ids` (``None`` = admin).
+    """
+    if int(doc.get("owner_id") or 0) == int(user.id or 0) or is_admin(user):
         return True
-    return (user.role or "") == "admin"
+    if doc.get("scope") != SCOPE_COURSE or not doc.get("course_id"):
+        return False
+    if managed_rooms is None:
+        return False
+    return int(doc["course_id"]) in managed_rooms
 
 
 async def list_documents_by_ids(user: User, ids: Sequence[int]) -> List[Dict[str, Any]]:
@@ -669,19 +831,23 @@ async def list_documents_by_ids(user: User, ids: Sequence[int]) -> List[Dict[str
     if not clean:
         return []
     placeholders = ", ".join(f":id{i}" for i in range(len(clean)))
-    params = {f"id{i}": v for i, v in enumerate(clean)}
+    params: Dict[str, Any] = {f"id{i}": v for i, v in enumerate(clean)}
+    params.update({"uid": int(user.id or 0), "is_admin": 1 if is_admin(user) else 0})
     async with _mariadb_session() as session:
         rows = (
             await session.execute(
                 text(
-                    f"SELECT {_DOC_COLUMNS} FROM library_documents d "
-                    f"WHERE d.id IN ({placeholders}) AND d.status = 'ready'"
+                    f"""
+                    SELECT {_DOC_COLUMNS} FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                     WHERE d.id IN ({placeholders}) AND d.status = 'ready'
+                       AND {_DOC_READABLE_SQL}
+                    """
                 ),
                 params,
             )
         ).all()
-    docs = [_row(r) for r in rows]
-    return [d for d in docs if can_read_document(user, d)]
+    return [_row(r) for r in rows]
 
 
 async def list_documents(
@@ -691,10 +857,10 @@ async def list_documents(
     course_id: Optional[int] = None,
     limit: int = 100,
 ) -> List[Dict[str, Any]]:
-    """List documents the caller may read, newest first."""
+    """List documents the caller may read, newest first (private rooms: members only)."""
     uid = int(user.id or 0)
-    where = ["(d.scope = 'course' OR d.owner_id = :uid)"]
-    params: Dict[str, Any] = {"uid": uid, "limit": int(limit)}
+    where = [_DOC_READABLE_SQL]
+    params: Dict[str, Any] = {"uid": uid, "is_admin": 1 if is_admin(user) else 0, "limit": int(limit)}
     if scope in (SCOPE_COURSE, SCOPE_PERSONAL):
         where.append("d.scope = :scope")
         params["scope"] = scope
@@ -868,9 +1034,79 @@ def validate_extension(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXT:
         raise LibraryError(
-            f"ไม่รองรับไฟล์ชนิด {ext or '(ไม่ทราบชนิด)'} – รองรับ PDF, Word, PowerPoint, Excel, CSV, Markdown และ text"
+            f"ไม่รองรับไฟล์ชนิด {ext or '(ไม่ทราบชนิด)'} – รองรับเอกสาร (PDF, Word, PowerPoint, Excel, CSV, "
+            "Markdown, text) และสื่อ (รูป PNG/JPG/GIF/WebP, วิดีโอ MP4/WebM, ZIP)"
         )
     return ext
+
+
+def is_media_ext(ext: str) -> bool:
+    """Media is stored and served, never extracted or embedded."""
+    return (ext or "").lower() in MEDIA_EXT
+
+
+def upload_limit_bytes(ext: str) -> int:
+    mb = MAX_MEDIA_UPLOAD_MB if is_media_ext(ext) else MAX_UPLOAD_MB
+    return mb * 1024 * 1024
+
+
+def check_signature(path: str, ext: str) -> Optional[str]:
+    """
+    Make sure the bytes match the extension (a .pdf that is really an .exe is
+    refused). Returns the detected MIME type when one is known.
+    """
+    import filetype
+
+    ext = (ext or "").lower()
+    with open(path, "rb") as fh:
+        head = fh.read(8192)
+    kind = filetype.guess(head)
+    detected = kind.mime if kind else None
+    expected = _EXPECTED_FAMILY.get(ext)
+    if expected is not None:
+        if detected not in expected:
+            raise LibraryError(
+                f"เนื้อหาไฟล์ไม่ตรงกับนามสกุล {ext} (ตรวจพบ {detected or 'ชนิดที่ไม่รู้จัก'}) "
+                "กรุณาอัปโหลดไฟล์ต้นฉบับ"
+            )
+        return detected
+    if ext in _TEXT_EXT:
+        if b"\x00" in head:
+            raise LibraryError(f"ไฟล์ {ext} นี้ไม่ใช่ไฟล์ข้อความ")
+        try:
+            head.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                head.decode("cp874")   # Thai Windows text files
+            except UnicodeDecodeError:
+                raise LibraryError(f"อ่านไฟล์ {ext} นี้เป็นข้อความไม่ได้ (encoding ไม่รองรับ)")
+        return None
+    return detected
+
+
+async def save_upload(upload: Any, path: str, limit: int) -> tuple[int, str]:
+    """
+    Stream an UploadFile to disk without blocking the event loop.
+    Returns ``(size, md5)``; removes the partial file and raises when the limit
+    is passed.
+    """
+    import anyio
+
+    size = 0
+    digest = hashlib.md5()
+    async with await anyio.open_file(path, "wb") as fh:
+        while True:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > limit:
+                await fh.aclose()
+                os.remove(path)
+                raise LibraryError(f"ไฟล์ใหญ่เกิน {limit // (1024 * 1024)} MB")
+            digest.update(chunk)
+            await fh.write(chunk)
+    return size, digest.hexdigest()
 
 
 def storage_path(filename: str) -> str:
@@ -923,6 +1159,18 @@ async def ingest_document(doc_id: int, raw_text: Optional[str] = None) -> None:
         logger.warning(f"library: document {doc_id} vanished before ingestion")
         return
     usage.set_context(feature="ingest", user_id=doc.get("owner_id"))
+
+    ext = os.path.splitext(doc.get("filename") or "")[1].lower()
+    if doc.get("kind") == "file" and is_media_ext(ext):
+        # Nothing to read: the file is the content. Served by /download only.
+        await update_document(doc_id, status="ready", chunks=0, chars=0, error=None)
+        logger.info(f"library: media document {doc_id} stored ({ext})")
+        return
+
+    # A retry must not leave the previous Source + embeddings behind.
+    if doc.get("source_id"):
+        await _discard_source(str(doc["source_id"]))
+        await update_document(doc_id, source_id=None, chunks=0)
 
     try:
         if raw_text is not None:
@@ -998,29 +1246,303 @@ async def _embed_source(source_id: str, content: str, file_path: Optional[str]) 
     return len(chunks)
 
 
+async def _discard_source(source_id: str) -> None:
+    """Delete a Source and its embeddings; tolerant of it already being gone."""
+    try:
+        await repo_query(
+            "DELETE source_embedding WHERE source = $source_id",
+            {"source_id": ensure_record_id(source_id)},
+        )
+        source = await Source.get(source_id)
+        if source:
+            await source.delete()
+    except Exception as exc:
+        logger.warning(f"library: could not delete source {source_id}: {exc}")
+
+
+async def _file_still_referenced(path: str, except_doc_id: int) -> bool:
+    """Older uploads shared one file between a document and its feed post."""
+    async with _mariadb_session() as session:
+        posts = (
+            await session.execute(
+                text("SELECT 1 FROM posts WHERE attachment_path = :p LIMIT 1"), {"p": path}
+            )
+        ).first()
+        docs = (
+            await session.execute(
+                text("SELECT 1 FROM library_documents WHERE file_path = :p AND id <> :id LIMIT 1"),
+                {"p": path, "id": except_doc_id},
+            )
+        ).first()
+    return bool(posts or docs)
+
+
+async def reap_stuck_documents(max_age_minutes: int = PROCESSING_TIMEOUT_MINUTES) -> int:
+    """
+    Startup sweep: ingestion runs as a background task, so an API restart loses
+    whatever was mid-flight. Those rows would say "processing" forever; mark
+    them failed with a retry hint instead. Returns how many were touched.
+    """
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                UPDATE library_documents
+                   SET status = 'failed',
+                       error = 'ประมวลผลค้างนานเกินไป (เซิร์ฟเวอร์อาจรีสตาร์ตระหว่างทาง) กดลองใหม่ได้'
+                 WHERE status = 'processing'
+                   AND COALESCE(updated_at, created_at) < UTC_TIMESTAMP() - INTERVAL :minutes MINUTE
+                """
+            ),
+            {"minutes": int(max_age_minutes)},
+        )
+    count = int(result.rowcount or 0)
+    if count:
+        logger.warning(f"library: {count} document(s) stuck in processing marked failed")
+    return count
+
+
 async def delete_document(doc: Dict[str, Any]) -> None:
     """Remove the document, its Source, embeddings and uploaded file."""
     source_id = doc.get("source_id")
     if source_id:
-        try:
-            await repo_query(
-                "DELETE source_embedding WHERE source = $source_id",
-                {"source_id": ensure_record_id(source_id)},
-            )
-            source = await Source.get(source_id)
-            if source:
-                await source.delete()
-        except Exception as exc:
-            logger.warning(f"library: could not delete source {source_id}: {exc}")
+        await _discard_source(str(source_id))
 
     path = doc.get("file_path")
     if doc.get("kind") == "file" and path and os.path.isfile(path):
-        try:
-            os.remove(path)
-        except OSError as exc:
-            logger.warning(f"library: could not remove file {path}: {exc}")
+        if await _file_still_referenced(path, int(doc.get("id") or 0)):
+            logger.info(f"library: keeping {path}, a post or another document still uses it")
+        else:
+            try:
+                os.remove(path)
+            except OSError as exc:
+                logger.warning(f"library: could not remove file {path}: {exc}")
 
     async with _mariadb_session() as session:
         await session.execute(
             text("DELETE FROM library_documents WHERE id = :id"), {"id": doc["id"]}
         )
+
+
+async def purge_course_library(course: Dict[str, Any]) -> Dict[str, int]:
+    """
+    Admin hard delete of a room: every course document (file, Source and
+    embeddings) and the notebook that backed the course library. Owners never
+    reach this - they archive - so nothing here needs to be reversible.
+    """
+    removed = {"documents": 0, "notebooks": 0}
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {_DOC_COLUMNS}
+                      FROM library_documents d
+                     WHERE d.room_id = :cid AND d.scope = 'course'
+                    """
+                ),
+                {"cid": course["id"]},
+            )
+        ).all()
+    for r in rows:
+        await delete_document(_row(r))
+        removed["documents"] += 1
+
+    notebook_id = course.get("notebook_id")
+    if notebook_id:
+        try:
+            notebook = await Notebook.get(str(notebook_id))
+            if notebook:
+                await notebook.delete(delete_exclusive_sources=True)
+                removed["notebooks"] = 1
+        except Exception as exc:
+            logger.warning(f"library: could not delete course notebook {notebook_id}: {exc}")
+    logger.info(f"library: purged course {course.get('code')}: {removed}")
+    return removed
+
+
+# ---------------------------------------------------------------------------
+# Document search (4.3.3): meaning-based, inside what the viewer may read
+# ---------------------------------------------------------------------------
+
+SEARCH_CACHE_TTL = 300
+
+
+async def _searchable_notebooks(
+    user: User, *, course_id: Optional[int] = None, category_id: Optional[int] = None
+) -> List[str]:
+    """
+    Notebooks whose documents this user may read: the course libraries of
+    readable rooms (public, or private ones they belong to), narrowed by room /
+    category when asked, plus their own personal library.
+    """
+    readable = await room_ids_readable_by(user)
+    where = ["c.library_notebook_id IS NOT NULL", "c.status = 'active'"]
+    params: Dict[str, Any] = {}
+    if course_id:
+        where.append("c.id = :course_id")
+        params["course_id"] = int(course_id)
+    if category_id:
+        where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(f"SELECT c.id, c.library_notebook_id FROM rooms c WHERE {' AND '.join(where)}"),
+                params,
+            )
+        ).all()
+    ids = [str(r[1]) for r in rows if readable is None or int(r[0]) in readable]
+    if not course_id and not category_id and user.library_notebook_id:
+        ids.append(str(user.library_notebook_id))
+    return list(dict.fromkeys(ids))
+
+
+async def search_documents(
+    user: User,
+    query: str,
+    *,
+    course_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Library documents about ``query``: a cosine search over the chunks of every
+    notebook the viewer may read (same vectors the RAG uses), folded back to
+    one row per document with its best-matching passage, plus plain title
+    matches so a document is found even before it is embedded.
+
+    Results are cached for five minutes per (viewer-scope, filters, query).
+    """
+    from open_notebook.cache.service import cache_service
+    from open_notebook.community.retrieval import search_in_notebooks
+
+    q = " ".join((query or "").split())
+    if not q:
+        return []
+    notebook_ids = await _searchable_notebooks(user, course_id=course_id, category_id=category_id)
+    cache_key = "search:docs:v1:" + hashlib.sha1(
+        json.dumps([sorted(notebook_ids), int(user.id or 0), q.lower(), int(limit)], ensure_ascii=False).encode()
+    ).hexdigest()
+    try:
+        cached = await cache_service.get_json(cache_key)
+        if isinstance(cached, list):
+            return cached
+    except Exception as exc:  # cache is a convenience, never a dependency
+        logger.debug(f"document search cache read skipped: {exc}")
+
+    by_source: Dict[str, Dict[str, Any]] = {}
+    if notebook_ids:
+        try:
+            hits = await search_in_notebooks(q, notebook_ids, results=max(int(limit) * 3, 12), include_notes=False)
+        except Exception as exc:
+            logger.warning(f"document search: retrieval failed, falling back to titles: {exc}")
+            hits = []
+        for h in hits:
+            sid = str(h.get("id") or "")
+            if sid and sid not in by_source:
+                by_source[sid] = {"similarity": float(h.get("similarity") or 0.0), "snippet": (h.get("content") or "")[:280]}
+
+    uid, admin = int(user.id or 0), 1 if is_admin(user) else 0
+    params: Dict[str, Any] = {"uid": uid, "is_admin": admin, "q": "%" + q.replace("%", "\\%").replace("_", "\\_") + "%", "limit": int(limit) * 2}
+    source_clause = ""
+    if by_source:
+        placeholders = ", ".join(f":s{i}" for i in range(len(by_source)))
+        params.update({f"s{i}": sid for i, sid in enumerate(by_source)})
+        source_clause = f"OR d.source_id IN ({placeholders})"
+    scope_where = []
+    if course_id:
+        scope_where.append("d.room_id = :course_id")
+        params["course_id"] = int(course_id)
+    if category_id:
+        scope_where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {_DOC_COLUMNS}, c.code AS course_code, c.name AS course_name,
+                           u.username AS owner_username, u.display_name AS owner_display_name,
+                           u.role AS owner_role
+                      FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                      LEFT JOIN users u ON u.id = d.owner_id
+                     WHERE {_DOC_READABLE_SQL}
+                       AND d.status = 'ready'
+                       AND (d.title LIKE :q OR d.filename LIKE :q {source_clause})
+                       {"AND " + " AND ".join(scope_where) if scope_where else ""}
+                     LIMIT :limit
+                    """
+                ),
+                params,
+            )
+        ).all()
+    docs = [_row(r) for r in rows]
+    for d in docs:
+        hit = by_source.get(str(d.get("source_id") or ""))
+        d["similarity"] = hit["similarity"] if hit else None
+        d["snippet"] = hit["snippet"] if hit else None
+        d["match"] = "semantic" if hit else "title"
+    docs.sort(key=lambda d: (d["similarity"] is None, -(d["similarity"] or 0.0), -(d.get("id") or 0)))
+    result = docs[: int(limit)]
+    try:
+        await cache_service.set_json(cache_key, result, ttl=SEARCH_CACHE_TTL)
+    except Exception as exc:
+        logger.debug(f"document search cache write skipped: {exc}")
+    return result
+
+
+
+async def purge_user_library(user_id: int) -> Dict[str, int]:
+    """
+    Before an account is deleted: remove the person's personal documents
+    (files, Sources, embeddings) and their personal notebook; hand their
+    course documents to the room's owner so course material survives the
+    teacher who uploaded it, or delete them when the room has no owner.
+    """
+    removed = {"personal_documents": 0, "course_documents_reassigned": 0, "course_documents_deleted": 0, "notebooks": 0}
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {_DOC_COLUMNS}, c.created_by AS room_owner_id
+                      FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                     WHERE d.owner_id = :uid
+                    """
+                ),
+                {"uid": int(user_id)},
+            )
+        ).all()
+        notebook_row = (
+            await session.execute(
+                text("SELECT library_notebook_id FROM users WHERE id = :uid"), {"uid": int(user_id)}
+            )
+        ).first()
+    docs = [_row(r) for r in rows]
+    for d in docs:
+        new_owner = d.get("room_owner_id")
+        if d.get("scope") == SCOPE_COURSE and new_owner and int(new_owner) != int(user_id):
+            async with _mariadb_session() as session:
+                await session.execute(
+                    text("UPDATE library_documents SET owner_id = :owner WHERE id = :id"),
+                    {"owner": int(new_owner), "id": d["id"]},
+                )
+            removed["course_documents_reassigned"] += 1
+            continue
+        await delete_document(d)
+        removed["personal_documents" if d.get("scope") != SCOPE_COURSE else "course_documents_deleted"] += 1
+
+    notebook_id = notebook_row[0] if notebook_row else None
+    if notebook_id:
+        try:
+            notebook = await Notebook.get(str(notebook_id))
+            if notebook:
+                await notebook.delete(delete_exclusive_sources=True)
+                removed["notebooks"] = 1
+        except Exception as exc:
+            logger.warning(f"library: could not delete personal notebook {notebook_id}: {exc}")
+    logger.info(f"library: purged library of user {user_id}: {removed}")
+    return removed

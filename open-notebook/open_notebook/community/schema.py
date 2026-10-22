@@ -74,6 +74,10 @@ STATEMENTS: list[str] = RENAMES + [
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS points_balance INT NOT NULL DEFAULT 0",
     # Suspended accounts keep their data but cannot sign in.
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS disabled TINYINT(1) NOT NULL DEFAULT 0",
+    # Why and until when an account is suspended; NULL until = indefinitely.
+    # The suspension lifts itself once suspended_until has passed.
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS suspend_reason VARCHAR(255) NULL",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS suspended_until DATETIME NULL",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_email (email)",
     "ALTER TABLE users ADD UNIQUE INDEX IF NOT EXISTS idx_users_google_sub (google_sub)",
     # ------------------------------------------------------------ points
@@ -112,6 +116,35 @@ STATEMENTS: list[str] = RENAMES + [
     "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS kind "
     "ENUM('course','club') NOT NULL DEFAULT 'course'",
     "ALTER TABLE rooms ADD INDEX IF NOT EXISTS idx_courses_creator (created_by, created_at)",
+    # ------------------------------------------------------- categories
+    # One flat level of grouping for course rooms (ภาควิชา / สาขา / ทั่วไป).
+    # SIET is a single faculty, so a department tree would be a level nobody
+    # browses; the term lives on the room itself ("1/2569").
+    f"""
+    CREATE TABLE IF NOT EXISTS categories (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        slug       VARCHAR(64)  NOT NULL UNIQUE,
+        name       VARCHAR(128) NOT NULL,
+        name_en    VARCHAR(128) NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) {_TABLE_OPTS}
+    """,
+    # No FOREIGN KEY on purpose (see docs/DATABASE_ARCHITECTURE.md): deleting a
+    # category sets rooms.category_id back to NULL in the repository.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS category_id INT NULL",
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS term VARCHAR(16) NULL",
+    # NULL = anyone may join; otherwise students must type this code once.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS join_code VARCHAR(32) NULL",
+    # Owners archive instead of deleting: the room disappears from pickers and
+    # stops accepting members, but its posts and library stay readable.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS status "
+    "ENUM('active','archived') NOT NULL DEFAULT 'active'",
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL",
+    "ALTER TABLE rooms ADD INDEX IF NOT EXISTS idx_rooms_category (category_id, status)",
+    # A private room shows its posts and library only to its members (and the
+    # people who run it); a public room is readable by every signed-in user.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private TINYINT(1) NOT NULL DEFAULT 0",
     # Personal knowledge library (one Open Notebook notebook per user).
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     f"""
@@ -123,6 +156,10 @@ STATEMENTS: list[str] = RENAMES + [
         INDEX idx_cm_user (user_id)
     ) {_TABLE_OPTS}
     """,
+    # 'ta' (teaching assistant) may manage the room's library and members the
+    # way the owner does; the owner is rooms.created_by, not a membership role.
+    "ALTER TABLE room_members ADD COLUMN IF NOT EXISTS role "
+    "ENUM('member','ta') NOT NULL DEFAULT 'member'",
     # ------------------------------------------------------------- posts
     # linked_* is the quiz/roadmap attached to a post (not a vector embedding).
     f"""
@@ -163,6 +200,11 @@ STATEMENTS: list[str] = RENAMES + [
     # MD5(title + content + linked_id) fingerprint ใช้กรอง duplicate/spam posts
     "ALTER TABLE posts ADD COLUMN IF NOT EXISTS content_hash CHAR(32) NULL",
     "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_dupe (author_id, content_hash, created_at)",
+    # Who may read a post: everyone / members of its room / only its author.
+    # Room privacy (rooms.is_private) is applied on top of this in every query.
+    "ALTER TABLE posts ADD COLUMN IF NOT EXISTS visibility "
+    "ENUM('public','course','private') NOT NULL DEFAULT 'public'",
+    "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_visibility (visibility, id)",
     "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_author_time (author_id, created_at)",
     f"""
     CREATE TABLE IF NOT EXISTS post_reactions (
@@ -337,6 +379,48 @@ STATEMENTS: list[str] = RENAMES + [
     "ALTER TABLE library_documents ADD COLUMN IF NOT EXISTS content_hash CHAR(32) NULL",
     "ALTER TABLE library_documents ADD INDEX IF NOT EXISTS idx_lib_dupe (owner_id, content_hash)",
     "ALTER TABLE library_documents ADD INDEX IF NOT EXISTS idx_lib_owner_time (owner_id, created_at)",
+    # ---------------------------------------------------- content reports
+    # A member flags a post / comment / user / document. One report per
+    # person per target; moderators resolve it from a queue. Reports are
+    # never auto-actioned: a small community can be gamed by three friends.
+    f"""
+    CREATE TABLE IF NOT EXISTS content_reports (
+        id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+        reporter_id INT NOT NULL,
+        target_type ENUM('post','comment','user','document') NOT NULL,
+        target_id   BIGINT NOT NULL,
+        room_id     INT NULL,
+        reason      ENUM('spam','harassment','inappropriate','copyright','other') NOT NULL,
+        detail      VARCHAR(500) NULL,
+        status      ENUM('open','dismissed','actioned') NOT NULL DEFAULT 'open',
+        action      VARCHAR(32) NULL,
+        note        VARCHAR(255) NULL,
+        reviewed_by INT NULL,
+        reviewed_at DATETIME NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_report (reporter_id, target_type, target_id),
+        INDEX idx_reports_status (status, created_at),
+        INDEX idx_reports_target (target_type, target_id),
+        INDEX idx_reports_room (room_id, status)
+    ) {_TABLE_OPTS}
+    """,
+    # ---------------------------------------------------- admin audit log
+    # Every change an admin (or a room owner acting on a report) makes:
+    # who, what, to which record, with the request's detail as JSON text.
+    f"""
+    CREATE TABLE IF NOT EXISTS admin_audit_log (
+        id          BIGINT AUTO_INCREMENT PRIMARY KEY,
+        actor_id    INT NOT NULL,
+        action      VARCHAR(64) NOT NULL,
+        target_type VARCHAR(32) NULL,
+        target_id   VARCHAR(64) NULL,
+        detail      TEXT NULL,
+        created_at  DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_audit_time (created_at),
+        INDEX idx_audit_actor (actor_id, created_at),
+        INDEX idx_audit_action (action, created_at)
+    ) {_TABLE_OPTS}
+    """,
     f"""
     CREATE TABLE IF NOT EXISTS notifications (
         id           BIGINT AUTO_INCREMENT PRIMARY KEY,

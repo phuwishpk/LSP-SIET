@@ -47,6 +47,8 @@ class _UserRow(_Base):
     student_id    = Column("student_code", String(32), nullable=True)
     points_balance = Column(Integer, nullable=False, default=0)
     disabled       = Column(Integer, nullable=False, default=0)
+    suspend_reason  = Column(String(255), nullable=True)
+    suspended_until = Column(DateTime, nullable=True)
     # Open Notebook notebook holding this user's private uploaded documents.
     library_notebook_id = Column(String(128), nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
@@ -162,6 +164,9 @@ class User(BaseModel):
     student_id: Optional[str] = None
     points_balance: int = 0
     disabled: bool = False
+    # Why / until when (ISO) the account is suspended; None until = indefinitely.
+    suspend_reason: Optional[str] = None
+    suspended_until: Optional[str] = None
     library_notebook_id: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
@@ -215,6 +220,7 @@ def _row_to_user(row: Any) -> User:
     created_at = getattr(row, "created_at", None)
     updated_at = getattr(row, "updated_at", None)
     last_login = getattr(row, "last_login_at", None)
+    suspended_until = getattr(row, "suspended_until", None)
 
     return User(
         id=getattr(row, "id", None),
@@ -228,6 +234,8 @@ def _row_to_user(row: Any) -> User:
         student_id=getattr(row, "student_id", None),
         points_balance=int(getattr(row, "points_balance", 0) or 0),
         disabled=bool(getattr(row, "disabled", 0) or 0),
+        suspend_reason=getattr(row, "suspend_reason", None),
+        suspended_until=suspended_until.isoformat() if suspended_until else None,
         library_notebook_id=getattr(row, "library_notebook_id", None),
         created_at=created_at.isoformat() if created_at else None,
         updated_at=updated_at.isoformat() if updated_at else None,
@@ -508,7 +516,7 @@ async def admin_list_users(
                 _text(
                     f"""
                     SELECT id, username, display_name, role, email, student_code AS student_id,
-                           avatar_url, points_balance, disabled,
+                           avatar_url, points_balance, disabled, suspend_reason, suspended_until,
                            created_at, last_login_at
                       FROM users {clause}
                      ORDER BY role = 'admin' DESC, role = 'teacher' DESC, id ASC
@@ -607,6 +615,16 @@ async def admin_delete_user(user_id: int) -> Dict[str, int]:
         await _run("DELETE FROM room_members WHERE user_id = :uid", "memberships")
         await _run("DELETE FROM library_documents WHERE owner_id = :uid", "documents")
         await _run("DELETE FROM rag_credit_sessions WHERE user_id = :uid", "rag_sessions")
+        # Chat history is the person's own data: it goes with the account.
+        await _run(
+            "DELETE m FROM rag_messages m JOIN rag_conversations c ON c.id = m.conversation_id "
+            "WHERE c.user_id = :uid",
+            "rag_messages",
+        )
+        await _run("DELETE FROM rag_conversations WHERE user_id = :uid", "rag_conversations")
+        await _run("DELETE FROM saved_collection_posts WHERE user_id = :uid", "collection_items")
+        await _run("DELETE FROM saved_collections WHERE user_id = :uid", "collections")
+        await _run("DELETE FROM content_reports WHERE reporter_id = :uid", "reports_filed")
         await _run(
             "DELETE FROM notifications WHERE recipient_id = :uid OR actor_id = :uid", "notifications"
         )
@@ -632,7 +650,17 @@ async def admin_delete_user(user_id: int) -> Dict[str, int]:
     return removed
 
 
-async def set_disabled(user_id: int | str, disabled: bool) -> None:
+async def set_disabled(
+    user_id: int | str,
+    disabled: bool,
+    *,
+    reason: Optional[str] = None,
+    until: Optional[datetime] = None,
+) -> None:
+    """
+    Suspend (with an optional reason and release time) or restore an account.
+    Restoring always clears the reason and the release time.
+    """
     try:
         uid = int(user_id)
     except (ValueError, TypeError):
@@ -641,5 +669,44 @@ async def set_disabled(user_id: int | str, disabled: bool) -> None:
         await session.execute(
             update(_UserRow)
             .where(_UserRow.id == uid)
-            .values(disabled=1 if disabled else 0, updated_at=datetime.utcnow())
+            .values(
+                disabled=1 if disabled else 0,
+                suspend_reason=(" ".join((reason or "").split())[:255] or None) if disabled else None,
+                suspended_until=until if disabled else None,
+                updated_at=datetime.utcnow(),
+            )
         )
+
+
+def suspension_text(user: User) -> str:
+    """The message a suspended person sees, with the reason and end date when set."""
+    parts = ["บัญชีนี้ถูกระงับการใช้งาน"]
+    if user.suspend_reason:
+        parts.append(f"เหตุผล: {user.suspend_reason}")
+    if user.suspended_until:
+        parts.append(f"จนถึง {user.suspended_until[:10]}")
+    parts.append("กรุณาติดต่อผู้ดูแลระบบ")
+    return " ".join(parts)
+
+
+async def suspension_lifted(user: User) -> bool:
+    """
+    A timed suspension ends by itself: when ``suspended_until`` has passed the
+    account is restored on its next request and this returns True.
+    """
+    if not user.disabled or not user.suspended_until or user.id is None:
+        return False
+    try:
+        until = datetime.fromisoformat(user.suspended_until)
+    except ValueError:
+        return False
+    if until.tzinfo is not None:
+        until = until.astimezone(timezone.utc).replace(tzinfo=None)
+    if until > datetime.utcnow():
+        return False
+    await set_disabled(user.id, False)
+    user.disabled = False
+    user.suspend_reason = None
+    user.suspended_until = None
+    logger.info(f"suspension of user {user.id} expired and was lifted")
+    return True
