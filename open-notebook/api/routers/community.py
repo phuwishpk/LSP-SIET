@@ -28,6 +28,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from loguru import logger
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 
 from api.auth_jwt import get_current_user
 from open_notebook.community import library, points, ratelimit, throttle
@@ -139,12 +140,27 @@ class CourseCreate(BaseModel):
     code: Optional[str] = Field(default=None, max_length=32)
     description: Optional[str] = Field(default=None, max_length=255)
     kind: Literal["course", "club"] = "course"
+    category_id: Optional[int] = Field(default=None, ge=1)
+    term: Optional[str] = Field(default=None, max_length=16)
+    join_code: Optional[str] = Field(default=None, max_length=32)
 
 
 class CourseUpdate(BaseModel):
     name: Optional[str] = Field(default=None, min_length=2, max_length=128)
     code: Optional[str] = Field(default=None, min_length=2, max_length=32)
     description: Optional[str] = Field(default=None, max_length=255)
+    # 0 clears the category; "" clears the term / join code.
+    category_id: Optional[int] = Field(default=None, ge=0)
+    term: Optional[str] = Field(default=None, max_length=16)
+    join_code: Optional[str] = Field(default=None, max_length=32)
+
+
+class CourseJoin(BaseModel):
+    code: Optional[str] = Field(default=None, max_length=32)
+
+
+class MemberRoleUpdate(BaseModel):
+    role: Literal["member", "ta"]
 
 
 class SavedCollectionCreate(BaseModel):
@@ -274,9 +290,116 @@ async def wallet(
 # ---------------------------------------------------------------------------
 
 
+@router.get("/categories")
+async def list_categories(user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
+    """The course categories (ภาควิชา/สาขา) with how many active rooms each holds."""
+    return await repo.list_categories()
+
+
+def _public_room(room: Dict[str, Any], *, manager: bool) -> Dict[str, Any]:
+    """
+    A room as the API hands it out. The join code is a secret the owner shares
+    in class, so only the room's managers get it back; everyone else learns
+    just whether one is required.
+    """
+    out = dict(room)
+    code = out.pop("join_code", None)
+    out["requires_code"] = bool(code)
+    if manager:
+        out["join_code"] = code
+    out["status"] = out.get("status") or repo.STATUS_ACTIVE
+    out["archived"] = out["status"] == repo.STATUS_ARCHIVED
+    out["can_manage"] = manager
+    return out
+
+
+async def _room_or_404(course_id: int) -> Dict[str, Any]:
+    course = await repo.get_course(course_id)
+    if not course:
+        raise HTTPException(status_code=404, detail="ไม่พบห้องนี้")
+    return course
+
+
+def _is_room_owner(course: Dict[str, Any], user: User) -> bool:
+    return user.role == USER_ROLE_ADMIN or int(course.get("created_by") or 0) == _uid(user)
+
+
+async def _can_manage_room(course: Dict[str, Any], user: User) -> bool:
+    """
+    Owner, admin, or a teaching assistant. The owner appoints TAs by hand, so
+    the account's role is beside the point - a graduate student assisting a
+    course manages its material like the teacher does.
+    """
+    if _is_room_owner(course, user):
+        return True
+    return await repo.member_role(int(course["id"]), _uid(user)) == repo.MEMBER_ROLE_TA
+
+
+async def _room_or_403(course_id: int, user: User) -> Dict[str, Any]:
+    """
+    Fetch a room the caller owns (or any room, for an admin). Settings,
+    archiving and the member list are the owner's call - a teaching assistant
+    manages content, not the room itself.
+    """
+    course = await _room_or_404(course_id)
+    if _is_room_owner(course, user):
+        return course
+    raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะห้องที่คุณสร้างเอง")
+
+
+async def _managed_room_or_403(course_id: int, user: User) -> Dict[str, Any]:
+    """Owner, admin or TA: the people who may add material and see the roster."""
+    course = await _room_or_404(course_id)
+    if await _can_manage_room(course, user):
+        return course
+    raise HTTPException(
+        status_code=403,
+        detail="เฉพาะผู้สอนหรือผู้ช่วยสอนของห้องนี้เท่านั้น",
+    )
+
+
+async def _category_or_400(category_id: Optional[int]) -> Optional[int]:
+    if not category_id:
+        return None
+    if not await repo.get_category(int(category_id)):
+        raise HTTPException(status_code=400, detail="ไม่พบหมวดหมู่ที่เลือก")
+    return int(category_id)
+
+
 @router.get("/courses")
-async def list_courses(user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    return await repo.list_courses(_uid(user))
+async def list_courses(
+    include_archived: bool = False,
+    category_id: Optional[int] = Query(default=None, ge=1),
+    user: User = Depends(get_current_user),
+) -> List[Dict[str, Any]]:
+    uid = _uid(user)
+    rows = await repo.list_courses(uid, include_archived=include_archived, category_id=category_id)
+    admin = user.role == USER_ROLE_ADMIN
+    return [
+        _public_room(
+            r,
+            manager=admin
+            or int(r.get("created_by") or 0) == uid
+            or r.get("membership_role") == repo.MEMBER_ROLE_TA,
+        )
+        for r in rows
+    ]
+
+
+@router.get("/courses/{course_id}")
+async def get_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """One room, with the join code and management flags for its managers."""
+    course = await _room_or_404(course_id)
+    manager = await _can_manage_room(course, user)
+    out = _public_room(course, manager=manager)
+    out["is_owner"] = _is_room_owner(course, user)
+    out["membership_role"] = await repo.member_role(course_id, _uid(user))
+    out["joined"] = out["membership_role"] is not None
+    if course.get("category_id"):
+        category = await repo.get_category(int(course["category_id"]))
+        out["category_name"] = category["name"] if category else None
+        out["category_slug"] = category["slug"] if category else None
+    return out
 
 
 @router.post("/courses", status_code=201)
@@ -314,43 +437,41 @@ async def create_course(body: CourseCreate, user: User = Depends(get_current_use
         if not body.code or len(body.code.strip()) < 2:
             raise HTTPException(status_code=400, detail="กรุณากรอกรหัสวิชา")
         code = body.code.strip()
-
-    try:
-        return await repo.create_course(code, name, body.description, _uid(user), kind=body.kind)
-    except Exception as exc:
-        if "Duplicate" in str(exc):
+        if await repo.find_course_by_code(code):
             raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
-        raise
 
-
-async def _room_or_403(course_id: int, user: User) -> Dict[str, Any]:
-    """
-    Fetch a room the caller is allowed to manage.
-
-    Admins manage every room; everyone else manages only the rooms they opened —
-    which now includes the course rooms a teacher created, so a typo in a course
-    code no longer needs an admin to fix.
-    """
-    course = await repo.get_course(course_id)
-    if not course:
-        raise HTTPException(status_code=404, detail="ไม่พบห้องนี้")
-    if user.role == USER_ROLE_ADMIN:
-        return course
-    if int(course.get("created_by") or 0) == _uid(user):
-        return course
-    raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะห้องที่คุณสร้างเอง")
+    category_id = await _category_or_400(body.category_id)
+    try:
+        course = await repo.create_course(
+            code,
+            name,
+            body.description,
+            _uid(user),
+            kind=body.kind,
+            category_id=category_id,
+            term=body.term,
+            join_code=body.join_code,
+        )
+    except IntegrityError:
+        # Two teachers raced for the same code; the pre-check above is advisory.
+        raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
+    return _public_room(course, manager=True)
 
 
 @router.patch("/courses/{course_id}")
 async def update_course(
     course_id: int, body: CourseUpdate, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
-    """Rename a room, fix its code, or reword its description."""
+    """Rename a room, fix its code, file it under a category, set the term or join code."""
     course = await _room_or_403(course_id, user)
     code = body.code
     if code is not None and course.get("kind") == repo.KIND_CLUB:
         # Discussion-room handles are generated; there is nothing to edit.
         code = None
+    if code is not None:
+        clash = await repo.find_course_by_code(code)
+        if clash and int(clash["id"]) != course_id:
+            raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
     name = " ".join(body.name.split()) if body.name else None
     if name and course.get("kind") == repo.KIND_CLUB:
         clash = await repo.find_room_by_name(name)
@@ -360,37 +481,145 @@ async def update_course(
                 detail=f'มีห้อง "{clash["name"]}" อยู่แล้ว',
                 headers={"X-Existing-Room": str(clash["id"])},
             )
+    category_id = body.category_id
+    if category_id:
+        category_id = await _category_or_400(category_id)
     try:
         updated = await repo.update_course(
-            course_id, name=name, description=body.description, code=code
+            course_id,
+            name=name,
+            description=body.description,
+            code=code,
+            category_id=category_id,
+            term=body.term,
+            join_code=body.join_code,
         )
-    except Exception as exc:
-        if "Duplicate" in str(exc):
-            raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
-        raise
-    return updated or {}
+    except IntegrityError:
+        raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
+    return _public_room(updated or course, manager=True)
+
+
+@router.post("/courses/{course_id}/archive")
+async def archive_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Put a room away. It leaves the sidebar and pickers and stops taking members;
+    posts stay in the feed and the library stays readable. Reversible.
+    """
+    await _room_or_403(course_id, user)
+    await repo.set_course_status(course_id, archived=True)
+    return _public_room(await _room_or_404(course_id), manager=True)
+
+
+@router.post("/courses/{course_id}/restore")
+async def restore_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    await _room_or_403(course_id, user)
+    await repo.set_course_status(course_id, archived=False)
+    return _public_room(await _room_or_404(course_id), manager=True)
 
 
 @router.delete("/courses/{course_id}")
 async def delete_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Close a room. Its posts survive — they simply return to the main feed."""
-    await _room_or_403(course_id, user)
+    """
+    Close a room.
+
+    For an owner this archives it (see ``/archive``) - nothing is lost and it
+    can be restored. An admin removes it for good: course documents, their
+    SurrealDB sources and embeddings, the course notebook and the memberships
+    go; posts survive and return to the main feed.
+    """
+    course = await _room_or_403(course_id, user)
+    if user.role != USER_ROLE_ADMIN:
+        await repo.set_course_status(course_id, archived=True)
+        return {"ok": True, "id": course_id, "archived": True, "deleted": None}
+    purged = await library.purge_course_library(course)
     await repo.delete_course(course_id)
-    return {"ok": True, "deleted": course_id}
+    return {"ok": True, "id": course_id, "archived": False, "deleted": course_id, "purged": purged}
 
 
 @router.post("/courses/{course_id}/join")
-async def join_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    if not await repo.get_course(course_id):
-        raise HTTPException(status_code=404, detail="Course not found")
-    await repo.set_course_membership(course_id, _uid(user), True)
+async def join_course(
+    course_id: int,
+    body: Optional[CourseJoin] = None,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Join a room. A room with a join code admits students only with that code
+    (``X-Join-Code-Required: 1`` on the 403 tells the client to ask for it);
+    the room's managers never need it. Archived rooms take nobody new.
+    """
+    course = await _room_or_404(course_id)
+    if (course.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+        raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว ไม่รับสมาชิกใหม่")
+    uid = _uid(user)
+    if await repo.member_role(course_id, uid) is not None:
+        return {"ok": True, "joined": True}
+    if not await _can_manage_room(course, user) and not repo.join_code_matches(
+        course, body.code if body else None
+    ):
+        raise HTTPException(
+            status_code=403,
+            detail="ห้องนี้ต้องใช้รหัสเข้าห้องจากผู้สอน" if not (body and body.code) else "รหัสเข้าห้องไม่ถูกต้อง",
+            headers={"X-Join-Code-Required": "1"},
+        )
+    await repo.set_course_membership(course_id, uid, True)
     return {"ok": True, "joined": True}
 
 
 @router.delete("/courses/{course_id}/join")
 async def leave_course(course_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    await _room_or_404(course_id)
     await repo.set_course_membership(course_id, _uid(user), False)
     return {"ok": True, "joined": False}
+
+
+@router.get("/courses/{course_id}/members")
+async def list_course_members(
+    course_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """The roster, for the room's managers: who is in, since when, and who assists."""
+    course = await _managed_room_or_403(course_id, user)
+    items = await repo.list_course_members(course_id)
+    owner_id = int(course.get("created_by") or 0)
+    for m in items:
+        m["is_owner"] = int(m["user_id"]) == owner_id
+    return {
+        "items": items,
+        "owner_id": owner_id or None,
+        "totals": {
+            "members": len(items),
+            "assistants": sum(1 for m in items if m["role"] == repo.MEMBER_ROLE_TA),
+        },
+    }
+
+
+@router.patch("/courses/{course_id}/members/{member_id}")
+async def set_member_role(
+    course_id: int,
+    member_id: int,
+    body: MemberRoleUpdate,
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Make a member a teaching assistant (or a plain member again). Owner only."""
+    course = await _room_or_403(course_id, user)
+    if member_id == int(course.get("created_by") or 0):
+        raise HTTPException(status_code=400, detail="ผู้สร้างห้องเป็นผู้สอนอยู่แล้ว")
+    if not await repo.set_member_role(course_id, member_id, body.role):
+        raise HTTPException(status_code=404, detail="คนนี้ไม่ได้อยู่ในห้อง")
+    return {"ok": True, "user_id": member_id, "role": body.role}
+
+
+@router.delete("/courses/{course_id}/members/{member_id}")
+async def remove_member(
+    course_id: int, member_id: int, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Take someone out of the room. Owner only; the owner cannot remove themselves here."""
+    course = await _room_or_403(course_id, user)
+    if member_id == int(course.get("created_by") or 0):
+        raise HTTPException(status_code=400, detail="ผู้สร้างห้องออกจากห้องตัวเองไม่ได้ — เก็บถาวรห้องแทน")
+    if await repo.member_role(course_id, member_id) is None:
+        raise HTTPException(status_code=404, detail="คนนี้ไม่ได้อยู่ในห้อง")
+    await repo.set_course_membership(course_id, member_id, False)
+    return {"ok": True, "user_id": member_id, "removed": True}
 
 
 # ---------------------------------------------------------------------------
@@ -481,6 +710,10 @@ async def create_post(
         raise HTTPException(status_code=400, detail="Invalid post type")
     if post_type == "material" and not _is_staff(user):
         raise HTTPException(status_code=403, detail="Only teachers can publish course materials")
+    if course_id is not None and course_id > 0:
+        room = await repo.get_course(course_id)
+        if room and (room.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+            raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว โพสต์เพิ่มไม่ได้")
     if course_id is not None and course_id > 0 and not await repo.get_course(course_id):
         raise HTTPException(status_code=404, detail="Course not found")
     if course_id is not None and course_id <= 0:
@@ -1438,16 +1671,18 @@ async def upload_library_document(
 
     # --- resolve scope + destination notebook -----------------------------
     if scope == library.SCOPE_COURSE:
-        if not _is_staff(user):
-            raise HTTPException(
-                status_code=403,
-                detail="เฉพาะอาจารย์หรือผู้ดูแลเท่านั้นที่เพิ่มเนื้อหาเข้าคลังของรายวิชาได้",
-            )
         if not course_id:
             raise HTTPException(status_code=400, detail="กรุณาเลือกรายวิชา")
-        course = await library.get_course(course_id)
+        course = await repo.get_course(course_id)
         if not course:
             raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
+        if not await _can_manage_room(course, user):
+            raise HTTPException(
+                status_code=403,
+                detail="เพิ่มเนื้อหาได้เฉพาะวิชาที่คุณเป็นผู้สอนหรือผู้ช่วยสอน",
+            )
+        if (course.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+            raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว")
         if course.get("kind") == repo.KIND_CLUB:
             # Discussion rooms have no shared library on purpose, so nothing a
             # student opens can end up grounding the RAG.

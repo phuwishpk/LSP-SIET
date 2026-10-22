@@ -1024,3 +1024,40 @@ async def delete_document(doc: Dict[str, Any]) -> None:
         await session.execute(
             text("DELETE FROM library_documents WHERE id = :id"), {"id": doc["id"]}
         )
+
+
+async def purge_course_library(course: Dict[str, Any]) -> Dict[str, int]:
+    """
+    Admin hard delete of a room: every course document (file, Source and
+    embeddings) and the notebook that backed the course library. Owners never
+    reach this - they archive - so nothing here needs to be reversible.
+    """
+    removed = {"documents": 0, "notebooks": 0}
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {_DOC_COLUMNS}
+                      FROM library_documents d
+                     WHERE d.room_id = :cid AND d.scope = 'course'
+                    """
+                ),
+                {"cid": course["id"]},
+            )
+        ).all()
+    for r in rows:
+        await delete_document(_row(r))
+        removed["documents"] += 1
+
+    notebook_id = course.get("notebook_id")
+    if notebook_id:
+        try:
+            notebook = await Notebook.get(str(notebook_id))
+            if notebook:
+                await notebook.delete(delete_exclusive_sources=True)
+                removed["notebooks"] = 1
+        except Exception as exc:
+            logger.warning(f"library: could not delete course notebook {notebook_id}: {exc}")
+    logger.info(f"library: purged course {course.get('code')}: {removed}")
+    return removed

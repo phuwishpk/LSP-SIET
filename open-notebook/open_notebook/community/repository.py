@@ -25,6 +25,15 @@ REACTION_KINDS = ("like", "helpful")
 KIND_COURSE = "course"
 KIND_CLUB = "club"
 
+# A room is archived rather than deleted by its owner; only an admin purges it.
+STATUS_ACTIVE = "active"
+STATUS_ARCHIVED = "archived"
+
+# Membership roles. The owner is rooms.created_by, not a row in room_members.
+MEMBER_ROLE_MEMBER = "member"
+MEMBER_ROLE_TA = "ta"
+MEMBER_ROLES = (MEMBER_ROLE_MEMBER, MEMBER_ROLE_TA)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -65,8 +74,23 @@ _POST_COLUMNS = """
 
 _ROOM_COLUMNS = """
     id, code, name, description, kind, created_by, created_at,
-    library_notebook_id AS notebook_id
+    library_notebook_id AS notebook_id,
+    category_id, term, join_code, status, archived_at
 """
+
+# The public shape of a room's category + lifecycle, joined in list queries.
+_ROOM_META_COLUMNS = """
+    c.category_id, cat.name AS category_name, cat.slug AS category_slug,
+    c.term, c.status, c.archived_at,
+    (c.join_code IS NOT NULL AND c.join_code <> '') AS requires_code
+"""
+
+
+def _room_meta(r: Dict[str, Any]) -> Dict[str, Any]:
+    r["requires_code"] = bool(r.get("requires_code"))
+    r["status"] = r.get("status") or STATUS_ACTIVE
+    r["archived"] = r["status"] == STATUS_ARCHIVED
+    return r
 
 
 def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
@@ -205,23 +229,43 @@ _POST_SELECT = f"""
 # ---------------------------------------------------------------------------
 
 
-async def list_courses(user_id: int) -> List[Dict[str, Any]]:
+async def list_courses(
+    user_id: int,
+    *,
+    include_archived: bool = False,
+    category_id: Optional[int] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Rooms as the sidebar and pickers see them. Archived rooms are left out
+    unless asked for; their posts still show in the feed, they just stop
+    being somewhere to join or post into.
+    """
+    where = ["1 = 1"] if include_archived else ["c.status = 'active'"]
+    params: Dict[str, Any] = {"uid": user_id}
+    if category_id:
+        where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
-                """
+                f"""
                 SELECT c.id, c.code, c.name, c.description, c.kind,
                        c.created_by, c.created_at,
+                       {_ROOM_META_COLUMNS},
                        COALESCE(instructor.display_name, instructor.username) AS instructor_name,
                        (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
                        (SELECT COUNT(*) FROM posts p WHERE p.room_id = c.id AND p.is_deleted = 0) AS post_count,
-                       EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :uid) AS joined
+                       EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :uid) AS joined,
+                       (SELECT m.role FROM room_members m
+                         WHERE m.room_id = c.id AND m.user_id = :uid) AS membership_role
                   FROM rooms c
                   LEFT JOIN users instructor ON instructor.id = c.created_by
+                  LEFT JOIN categories cat ON cat.id = c.category_id
+                 WHERE {' AND '.join(where)}
                  ORDER BY c.kind ASC, c.code ASC
                 """
             ),
-            {"uid": user_id},
+            params,
         )
         rows = _rows(result)
     for r in rows:
@@ -229,6 +273,7 @@ async def list_courses(user_id: int) -> List[Dict[str, Any]]:
         r["member_count"] = int(r.get("member_count") or 0)
         r["post_count"] = int(r.get("post_count") or 0)
         r["kind"] = r.get("kind") or KIND_COURSE
+        _room_meta(r)
     return rows
 
 
@@ -248,13 +293,19 @@ async def create_course(
     description: Optional[str],
     created_by: int,
     kind: str = KIND_COURSE,
+    *,
+    category_id: Optional[int] = None,
+    term: Optional[str] = None,
+    join_code: Optional[str] = None,
 ) -> Dict[str, Any]:
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
                 """
-                INSERT INTO rooms (code, name, description, created_by, kind)
-                VALUES (:code, :name, :description, :created_by, :kind)
+                INSERT INTO rooms (code, name, description, created_by, kind,
+                                   category_id, term, join_code)
+                VALUES (:code, :name, :description, :created_by, :kind,
+                        :category_id, :term, :join_code)
                 """
             ),
             {
@@ -263,6 +314,9 @@ async def create_course(
                 "description": (description or "").strip()[:255] or None,
                 "created_by": created_by,
                 "kind": kind if kind in (KIND_COURSE, KIND_CLUB) else KIND_COURSE,
+                "category_id": int(category_id) if category_id else None,
+                "term": _clean_term(term),
+                "join_code": _clean_join_code(join_code),
             },
         )
         course_id = int(result.lastrowid)
@@ -277,18 +331,47 @@ async def create_course(
     return course
 
 
-async def ensure_course(code: str, name: str, description: Optional[str] = None) -> None:
-    """Seed helper – insert the course only if the code is not taken."""
+async def ensure_course(
+    code: str,
+    name: str,
+    description: Optional[str] = None,
+    *,
+    category_id: Optional[int] = None,
+    term: Optional[str] = None,
+) -> None:
+    """
+    Seed helper – insert the course only if the code is not taken. A room that
+    already exists only gains a category/term it did not have; nothing a
+    teacher typed is overwritten.
+    """
     async with _mariadb_session() as session:
         await session.execute(
             text(
                 """
-                INSERT IGNORE INTO rooms (code, name, description)
-                VALUES (:code, :name, :description)
+                INSERT IGNORE INTO rooms (code, name, description, category_id, term)
+                VALUES (:code, :name, :description, :category_id, :term)
                 """
             ),
-            {"code": code, "name": name, "description": description},
+            {
+                "code": code,
+                "name": name,
+                "description": description,
+                "category_id": category_id,
+                "term": _clean_term(term),
+            },
         )
+        if category_id or term:
+            await session.execute(
+                text(
+                    """
+                    UPDATE rooms
+                       SET category_id = COALESCE(category_id, :category_id),
+                           term        = COALESCE(term, :term)
+                     WHERE code = :code
+                    """
+                ),
+                {"code": code, "category_id": category_id, "term": _clean_term(term)},
+            )
 
 
 async def update_course(
@@ -297,8 +380,14 @@ async def update_course(
     name: Optional[str] = None,
     description: Optional[str] = None,
     code: Optional[str] = None,
+    category_id: Optional[int] = None,
+    term: Optional[str] = None,
+    join_code: Optional[str] = None,
 ) -> Optional[Dict[str, Any]]:
-    """Rename / re-code a room. Only the fields that are passed are touched."""
+    """
+    Rename / re-code a room. Only the fields that are passed are touched;
+    ``category_id=0``, ``term=""`` and ``join_code=""`` clear the value.
+    """
     sets: List[str] = []
     values: Dict[str, Any] = {"cid": course_id}
     if name is not None:
@@ -310,6 +399,15 @@ async def update_course(
     if code is not None:
         sets.append("code = :code")
         values["code"] = code.strip().upper()[:32]
+    if category_id is not None:
+        sets.append("category_id = :category_id")
+        values["category_id"] = int(category_id) or None
+    if term is not None:
+        sets.append("term = :term")
+        values["term"] = _clean_term(term)
+    if join_code is not None:
+        sets.append("join_code = :join_code")
+        values["join_code"] = _clean_join_code(join_code)
     if not sets:
         return await get_course(course_id)
     async with _mariadb_session() as session:
@@ -320,13 +418,17 @@ async def update_course(
 
 
 async def courses_owned_by(user_id: int) -> List[Dict[str, Any]]:
-    """Rooms this person created, with the numbers a teacher actually wants."""
+    """
+    Rooms this person created or assists in (TA), with the numbers a teacher
+    actually wants. Archived rooms are included so they can be restored.
+    """
     async with _mariadb_session() as session:
         rows = _rows(
             await session.execute(
                 text(
-                    """
+                    f"""
                     SELECT c.id, c.code, c.name, c.description, c.kind, c.created_at,
+                           {_ROOM_META_COLUMNS},
                            (SELECT COUNT(*) FROM room_members m
                              WHERE m.room_id = c.id) AS member_count,
                            (SELECT COUNT(*) FROM posts p
@@ -334,8 +436,11 @@ async def courses_owned_by(user_id: int) -> List[Dict[str, Any]]:
                            (SELECT COUNT(*) FROM library_documents d
                              WHERE d.room_id = c.id AND d.scope = 'course') AS document_count
                       FROM rooms c
+                      LEFT JOIN categories cat ON cat.id = c.category_id
                      WHERE c.created_by = :uid
-                     ORDER BY c.kind ASC, c.code ASC
+                        OR EXISTS(SELECT 1 FROM room_members m
+                                   WHERE m.room_id = c.id AND m.user_id = :uid AND m.role = 'ta')
+                     ORDER BY c.status ASC, c.kind ASC, c.code ASC
                     """
                 ),
                 {"uid": user_id},
@@ -344,6 +449,7 @@ async def courses_owned_by(user_id: int) -> List[Dict[str, Any]]:
     for r in rows:
         for key in ("member_count", "post_count", "document_count"):
             r[key] = int(r.get(key) or 0)
+        _room_meta(r)
     return rows
 
 
@@ -420,12 +526,19 @@ async def find_room_by_name(name: str, kind: str = KIND_CLUB) -> Optional[Dict[s
 
 async def delete_course(course_id: int) -> None:
     """
-    Remove a room. Posts are *detached*, not deleted: a room owner should not be
-    able to wipe out other people's work by closing the room.
+    Remove a room for good (admin only - owners archive instead). Posts are
+    *detached*, not deleted: nobody should be able to wipe out other people's
+    work by closing a room. Library rows are swept here as a last resort; the
+    caller (``library.purge_course_library``) has already removed their files,
+    SurrealDB sources and embeddings.
     """
     async with _mariadb_session() as session:
         await session.execute(
             text("UPDATE posts SET room_id = NULL WHERE room_id = :cid"),
+            {"cid": course_id},
+        )
+        await session.execute(
+            text("DELETE FROM library_documents WHERE room_id = :cid AND scope = 'course'"),
             {"cid": course_id},
         )
         await session.execute(
@@ -434,18 +547,238 @@ async def delete_course(course_id: int) -> None:
         await session.execute(text("DELETE FROM rooms WHERE id = :cid"), {"cid": course_id})
 
 
-async def set_course_membership(course_id: int, user_id: int, joined: bool) -> None:
+async def set_course_status(course_id: int, archived: bool) -> None:
+    """Archive (or restore) a room. Archiving keeps every row; see list_courses."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE rooms
+                   SET status = :status,
+                       archived_at = CASE WHEN :archived THEN UTC_TIMESTAMP() ELSE NULL END
+                 WHERE id = :cid
+                """
+            ),
+            {
+                "cid": course_id,
+                "status": STATUS_ARCHIVED if archived else STATUS_ACTIVE,
+                "archived": 1 if archived else 0,
+            },
+        )
+
+
+async def set_course_membership(
+    course_id: int, user_id: int, joined: bool, role: str = MEMBER_ROLE_MEMBER
+) -> None:
     async with _mariadb_session() as session:
         if joined:
             await session.execute(
-                text("INSERT IGNORE INTO room_members (room_id, user_id) VALUES (:cid, :uid)"),
-                {"cid": course_id, "uid": user_id},
+                text(
+                    "INSERT IGNORE INTO room_members (room_id, user_id, role) "
+                    "VALUES (:cid, :uid, :role)"
+                ),
+                {
+                    "cid": course_id,
+                    "uid": user_id,
+                    "role": role if role in MEMBER_ROLES else MEMBER_ROLE_MEMBER,
+                },
             )
         else:
             await session.execute(
                 text("DELETE FROM room_members WHERE room_id = :cid AND user_id = :uid"),
                 {"cid": course_id, "uid": user_id},
             )
+
+
+async def member_role(course_id: int, user_id: int) -> Optional[str]:
+    """``'member'`` / ``'ta'`` for a member of the room, ``None`` for anyone else."""
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT role FROM room_members WHERE room_id = :cid AND user_id = :uid"),
+                {"cid": course_id, "uid": user_id},
+            )
+        ).first()
+    return str(row[0]) if row else None
+
+
+async def set_member_role(course_id: int, user_id: int, role: str) -> bool:
+    if role not in MEMBER_ROLES:
+        raise ValueError(f"unknown member role {role!r}")
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                "UPDATE room_members SET role = :role "
+                "WHERE room_id = :cid AND user_id = :uid"
+            ),
+            {"cid": course_id, "uid": user_id, "role": role},
+        )
+    return bool(result.rowcount)
+
+
+async def list_course_members(course_id: int) -> List[Dict[str, Any]]:
+    """Everyone in the room, assistants first. For the room's managers only."""
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT m.user_id, m.role, m.joined_at,
+                           u.username, u.display_name, u.avatar_url,
+                           u.role AS user_role, u.student_code,
+                           (SELECT COUNT(*) FROM posts p
+                             WHERE p.room_id = m.room_id AND p.author_id = m.user_id
+                               AND p.is_deleted = 0) AS post_count
+                      FROM room_members m
+                      JOIN users u ON u.id = m.user_id
+                     WHERE m.room_id = :cid
+                     ORDER BY FIELD(m.role, 'ta', 'member'), m.joined_at ASC
+                    """
+                ),
+                {"cid": course_id},
+            )
+        )
+    for r in rows:
+        r["post_count"] = int(r.get("post_count") or 0)
+    return rows
+
+
+def _clean_term(term: Optional[str]) -> Optional[str]:
+    """An academic term such as ``1/2569``; whitespace only means "not set"."""
+    cleaned = " ".join((term or "").split())[:16]
+    return cleaned or None
+
+
+def _clean_join_code(code: Optional[str]) -> Optional[str]:
+    """Join codes compare case-insensitively, so store them upper-cased."""
+    cleaned = "".join((code or "").split()).upper()[:32]
+    return cleaned or None
+
+
+def join_code_matches(room: Dict[str, Any], given: Optional[str]) -> bool:
+    expected = _clean_join_code(room.get("join_code"))
+    return expected is None or _clean_join_code(given) == expected
+
+
+# ---------------------------------------------------------------------------
+# Categories (ภาควิชา / สาขา / หมวดทั่วไป) - one flat level for course rooms
+# ---------------------------------------------------------------------------
+
+
+async def list_categories() -> List[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        rows = _rows(
+            await session.execute(
+                text(
+                    """
+                    SELECT cat.id, cat.slug, cat.name, cat.name_en, cat.sort_order, cat.created_at,
+                           (SELECT COUNT(*) FROM rooms c
+                             WHERE c.category_id = cat.id AND c.status = 'active') AS course_count,
+                           (SELECT COUNT(*) FROM rooms c
+                             WHERE c.category_id = cat.id AND c.status = 'archived') AS archived_count
+                      FROM categories cat
+                     ORDER BY cat.sort_order ASC, cat.name ASC
+                    """
+                )
+            )
+        )
+    for r in rows:
+        r["course_count"] = int(r.get("course_count") or 0)
+        r["archived_count"] = int(r.get("archived_count") or 0)
+    return rows
+
+
+async def get_category(category_id: int) -> Optional[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT id, slug, name, name_en, sort_order, created_at FROM categories WHERE id = :id"),
+                {"id": category_id},
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def find_category_by_slug(slug: str) -> Optional[Dict[str, Any]]:
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT id, slug, name, name_en, sort_order, created_at FROM categories WHERE slug = :slug"),
+                {"slug": (slug or "").strip().lower()[:64]},
+            )
+        ).first()
+    return _row(row) if row else None
+
+
+async def create_category(
+    slug: str, name: str, name_en: Optional[str] = None, sort_order: int = 0
+) -> Dict[str, Any]:
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                INSERT INTO categories (slug, name, name_en, sort_order)
+                VALUES (:slug, :name, :name_en, :sort_order)
+                """
+            ),
+            {
+                "slug": slug.strip().lower()[:64],
+                "name": " ".join(name.split())[:128],
+                "name_en": (" ".join((name_en or "").split())[:128]) or None,
+                "sort_order": int(sort_order or 0),
+            },
+        )
+        category_id = int(result.lastrowid)
+    category = await get_category(category_id)
+    assert category is not None
+    return category
+
+
+async def ensure_category(
+    slug: str, name: str, name_en: Optional[str] = None, sort_order: int = 0
+) -> int:
+    """Seed helper - create the category if the slug is new; return its id."""
+    existing = await find_category_by_slug(slug)
+    if existing:
+        return int(existing["id"])
+    return int((await create_category(slug, name, name_en, sort_order))["id"])
+
+
+async def update_category(
+    category_id: int,
+    *,
+    name: Optional[str] = None,
+    name_en: Optional[str] = None,
+    sort_order: Optional[int] = None,
+) -> Optional[Dict[str, Any]]:
+    sets: List[str] = []
+    values: Dict[str, Any] = {"id": category_id}
+    if name is not None:
+        sets.append("name = :name")
+        values["name"] = " ".join(name.split())[:128]
+    if name_en is not None:
+        sets.append("name_en = :name_en")
+        values["name_en"] = (" ".join(name_en.split())[:128]) or None
+    if sort_order is not None:
+        sets.append("sort_order = :sort_order")
+        values["sort_order"] = int(sort_order)
+    if sets:
+        async with _mariadb_session() as session:
+            await session.execute(
+                text(f"UPDATE categories SET {', '.join(sets)} WHERE id = :id"), values
+            )
+    return await get_category(category_id)
+
+
+async def delete_category(category_id: int) -> int:
+    """Drop a category; its rooms become uncategorised. Returns rooms touched."""
+    async with _mariadb_session() as session:
+        moved = await session.execute(
+            text("UPDATE rooms SET category_id = NULL WHERE category_id = :id"),
+            {"id": category_id},
+        )
+        await session.execute(text("DELETE FROM categories WHERE id = :id"), {"id": category_id})
+    return int(moved.rowcount or 0)
 
 
 # ---------------------------------------------------------------------------
@@ -1175,9 +1508,10 @@ async def admin_list_courses() -> List[Dict[str, Any]]:
         rows = _rows(
             await session.execute(
                 text(
-                    """
+                    f"""
                     SELECT c.id, c.code, c.name, c.description, c.kind, c.created_at,
                            c.created_by,
+                           {_ROOM_META_COLUMNS},
                            u.username     AS owner_username,
                            u.display_name AS owner_display_name,
                            u.role         AS owner_role,
@@ -1190,7 +1524,8 @@ async def admin_list_courses() -> List[Dict[str, Any]]:
                              WHERE p.room_id = c.id AND p.is_deleted = 0) AS last_post_at
                       FROM rooms c
                       LEFT JOIN users u ON u.id = c.created_by
-                     ORDER BY c.kind ASC, c.code ASC
+                      LEFT JOIN categories cat ON cat.id = c.category_id
+                     ORDER BY c.status ASC, c.kind ASC, c.code ASC
                     """
                 )
             )
@@ -1198,6 +1533,7 @@ async def admin_list_courses() -> List[Dict[str, Any]]:
     for r in rows:
         for key in ("member_count", "post_count", "document_count"):
             r[key] = int(r.get(key) or 0)
+        _room_meta(r)
     return rows
 
 

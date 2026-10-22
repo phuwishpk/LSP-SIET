@@ -71,6 +71,19 @@ class BulkUserIds(BaseModel):
     ids: List[int] = Field(..., min_length=1, max_length=200)
 
 
+class CategoryCreate(BaseModel):
+    name: str = Field(..., min_length=2, max_length=128)
+    name_en: Optional[str] = Field(default=None, max_length=128)
+    slug: Optional[str] = Field(default=None, min_length=2, max_length=64)
+    sort_order: int = Field(default=0, ge=0, le=9999)
+
+
+class CategoryUpdate(BaseModel):
+    name: Optional[str] = Field(default=None, min_length=2, max_length=128)
+    name_en: Optional[str] = Field(default=None, max_length=128)
+    sort_order: Optional[int] = Field(default=None, ge=0, le=9999)
+
+
 class CsvImport(BaseModel):
     # Raw CSV text, pasted into the box or read from a file by the browser.
     csv: str = Field(..., min_length=1, max_length=500_000)
@@ -865,6 +878,62 @@ async def delete_any_document(doc_id: int, user: User = Depends(get_current_user
 
 
 # ---------------------------------------------------------------------------
+# Categories (หมวดหมู่รายวิชา)
+# ---------------------------------------------------------------------------
+
+
+def _slugify(value: str) -> str:
+    """ASCII handle for a category; Thai-only names fall back to a random one."""
+    import re as _re
+    import uuid as _uuid
+
+    slug = _re.sub(r"[^a-z0-9]+", "-", (value or "").lower()).strip("-")[:64]
+    return slug or f"cat-{_uuid.uuid4().hex[:6]}"
+
+
+@router.get("/categories")
+async def list_categories(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    _require_admin(user)
+    items = await repo.list_categories()
+    return {"items": items, "total": len(items)}
+
+
+@router.post("/categories", status_code=201)
+async def create_category(body: CategoryCreate, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    _require_admin(user)
+    slug = _slugify(body.slug or body.name_en or body.name)
+    if await repo.find_category_by_slug(slug):
+        raise HTTPException(status_code=409, detail=f"มีหมวดหมู่ที่ใช้รหัส {slug} อยู่แล้ว")
+    category = await repo.create_category(slug, body.name, body.name_en, body.sort_order)
+    logger.info(f"admin {user.username} created category {slug}")
+    return category
+
+
+@router.patch("/categories/{category_id}")
+async def update_category(
+    category_id: int, body: CategoryUpdate, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    _require_admin(user)
+    if not await repo.get_category(category_id):
+        raise HTTPException(status_code=404, detail="ไม่พบหมวดหมู่นี้")
+    updated = await repo.update_category(
+        category_id, name=body.name, name_en=body.name_en, sort_order=body.sort_order
+    )
+    return updated or {}
+
+
+@router.delete("/categories/{category_id}")
+async def delete_category(category_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Remove a category; the rooms filed under it simply become uncategorised."""
+    _require_admin(user)
+    if not await repo.get_category(category_id):
+        raise HTTPException(status_code=404, detail="ไม่พบหมวดหมู่นี้")
+    moved = await repo.delete_category(category_id)
+    logger.info(f"admin {user.username} deleted category {category_id} ({moved} rooms uncategorised)")
+    return {"ok": True, "deleted": category_id, "rooms_uncategorised": moved}
+
+
+# ---------------------------------------------------------------------------
 # Rooms
 # ---------------------------------------------------------------------------
 
@@ -911,13 +980,20 @@ async def points_log(
 @router.post("/import/courses")
 async def import_courses(body: CsvImport, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """
-    Bulk-create course rooms from ``code,name,description``.
+    Bulk-create course rooms from ``code,name,description,category,term``.
 
-    A header row is optional and rows whose code already exists are reported as
-    skipped rather than failing the whole import.
+    ``category`` is a category slug or its exact name; ``term`` looks like
+    ``1/2569``. A header row is optional and rows whose code already exists are
+    reported as skipped rather than failing the whole import.
     """
     admin_id = _require_admin(user)
-    rows = _parse_csv(body.csv, required=("code", "name"), optional=("description",))
+    rows = _parse_csv(
+        body.csv, required=("code", "name"), optional=("description", "category", "term")
+    )
+    categories = await repo.list_categories()
+    by_key = {c["slug"].lower(): c for c in categories}
+    by_key.update({c["name"].strip().lower(): c for c in categories})
+    by_key.update({(c.get("name_en") or "").strip().lower(): c for c in categories if c.get("name_en")})
     created, skipped, errors = [], [], []
     for line_no, row in rows:
         code = (row.get("code") or "").strip().upper()[:32]
@@ -925,6 +1001,14 @@ async def import_courses(body: CsvImport, user: User = Depends(get_current_user)
         if not code or len(name) < 2:
             errors.append({"line": line_no, "reason": "ต้องมีรหัสวิชาและชื่อวิชา"})
             continue
+        category_id = None
+        wanted = (row.get("category") or "").strip().lower()
+        if wanted:
+            category = by_key.get(wanted)
+            if not category:
+                errors.append({"line": line_no, "code": code, "reason": f"ไม่พบหมวดหมู่ '{row.get('category')}'"})
+                continue
+            category_id = int(category["id"])
         existing = await repo.find_course_by_code(code)
         if existing:
             skipped.append({"line": line_no, "code": code, "reason": "มีรหัสนี้อยู่แล้ว"})
@@ -932,7 +1016,10 @@ async def import_courses(body: CsvImport, user: User = Depends(get_current_user)
         if body.dry_run:
             created.append({"line": line_no, "code": code, "name": name})
             continue
-        course = await repo.create_course(code, name, row.get("description"), admin_id)
+        course = await repo.create_course(
+            code, name, row.get("description"), admin_id,
+            category_id=category_id, term=row.get("term"),
+        )
         created.append({"line": line_no, "code": course["code"], "name": course["name"],
                         "id": course["id"]})
     return {"created": created, "skipped": skipped, "errors": errors, "dry_run": body.dry_run}

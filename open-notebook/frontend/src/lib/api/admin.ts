@@ -79,6 +79,14 @@ export interface AdminCourse {
   document_count: number
   created_at?: string | null
   last_post_at?: string | null
+  category_id?: number | null
+  category_name?: string | null
+  category_slug?: string | null
+  term?: string | null
+  status: 'active' | 'archived'
+  archived: boolean
+  archived_at?: string | null
+  requires_code: boolean
 }
 
 export interface AdminCourseList {

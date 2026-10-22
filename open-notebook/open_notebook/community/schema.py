@@ -112,6 +112,32 @@ STATEMENTS: list[str] = RENAMES + [
     "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS kind "
     "ENUM('course','club') NOT NULL DEFAULT 'course'",
     "ALTER TABLE rooms ADD INDEX IF NOT EXISTS idx_courses_creator (created_by, created_at)",
+    # ------------------------------------------------------- categories
+    # One flat level of grouping for course rooms (ภาควิชา / สาขา / ทั่วไป).
+    # SIET is a single faculty, so a department tree would be a level nobody
+    # browses; the term lives on the room itself ("1/2569").
+    f"""
+    CREATE TABLE IF NOT EXISTS categories (
+        id         INT AUTO_INCREMENT PRIMARY KEY,
+        slug       VARCHAR(64)  NOT NULL UNIQUE,
+        name       VARCHAR(128) NOT NULL,
+        name_en    VARCHAR(128) NULL,
+        sort_order INT NOT NULL DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    ) {_TABLE_OPTS}
+    """,
+    # No FOREIGN KEY on purpose (see docs/DATABASE_ARCHITECTURE.md): deleting a
+    # category sets rooms.category_id back to NULL in the repository.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS category_id INT NULL",
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS term VARCHAR(16) NULL",
+    # NULL = anyone may join; otherwise students must type this code once.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS join_code VARCHAR(32) NULL",
+    # Owners archive instead of deleting: the room disappears from pickers and
+    # stops accepting members, but its posts and library stay readable.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS status "
+    "ENUM('active','archived') NOT NULL DEFAULT 'active'",
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL",
+    "ALTER TABLE rooms ADD INDEX IF NOT EXISTS idx_rooms_category (category_id, status)",
     # Personal knowledge library (one Open Notebook notebook per user).
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     f"""
@@ -123,6 +149,10 @@ STATEMENTS: list[str] = RENAMES + [
         INDEX idx_cm_user (user_id)
     ) {_TABLE_OPTS}
     """,
+    # 'ta' (teaching assistant) may manage the room's library and members the
+    # way the owner does; the owner is rooms.created_by, not a membership role.
+    "ALTER TABLE room_members ADD COLUMN IF NOT EXISTS role "
+    "ENUM('member','ta') NOT NULL DEFAULT 'member'",
     # ------------------------------------------------------------- posts
     # linked_* is the quiz/roadmap attached to a post (not a vector embedding).
     f"""
