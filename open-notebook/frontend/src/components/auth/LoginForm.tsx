@@ -2,15 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { useAuth } from '@/lib/hooks/use-auth'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { getApiUrl, getConfig } from '@/lib/config'
+import { getApiUrl } from '@/lib/config'
 import { authApi } from '@/lib/api/auth'
 import { peekPostLoginPath } from '@/lib/auth-redirect'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import {
   Card,
   CardContent,
@@ -18,20 +14,38 @@ import {
   CardHeader,
   CardTitle,
 } from '@/components/ui/card'
-import { AlertCircle, ChevronDown, ChevronUp, FlaskConical, KeyRound, LogIn } from 'lucide-react'
+import {
+  AlertCircle,
+  GraduationCap,
+  Sparkles,
+} from 'lucide-react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 
-function GoogleGlyph({ className }: { className?: string }) {
+function GoogleMultiColorIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
-    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
-      <path fill="#EA4335" d="M12 10.2v3.9h5.4c-.2 1.3-1.6 3.8-5.4 3.8-3.3 0-5.9-2.7-5.9-6s2.6-6 5.9-6c1.9 0 3.1.8 3.8 1.5l2.6-2.5C16.8 3.3 14.6 2.4 12 2.4 6.7 2.4 2.4 6.7 2.4 12S6.7 21.6 12 21.6c5.5 0 9.2-3.9 9.2-9.4 0-.6-.1-1.1-.2-1.6H12z" />
+    <svg className={className} viewBox="0 0 24 24" aria-hidden="true">
+      <path
+        fill="#4285F4"
+        d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.66-5.17 3.66-9.17z"
+      />
+      <path
+        fill="#34A853"
+        d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.25v3.15C3.26 21.36 7.33 24 12 24z"
+      />
+      <path
+        fill="#FBBC05"
+        d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.25C.45 8.17 0 9.99 0 12s.45 3.83 1.25 5.42l4.03-3.15z"
+      />
+      <path
+        fill="#EA4335"
+        d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.33 0 3.26 2.64 1.25 6.58l4.03 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
+      />
     </svg>
   )
 }
 
 export function LoginForm() {
   const router = useRouter()
-  const { login, isLoading, error, registrationEnabled } = useAuth()
   const {
     authRequired,
     checkAuthRequired,
@@ -42,29 +56,9 @@ export function LoginForm() {
     allowedDomains,
   } = useAuthStore()
 
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
   const [isCheckingAuth, setIsCheckingAuth] = useState(true)
-  const [showPassword, setShowPassword] = useState(false)
   const [googleBusy, setGoogleBusy] = useState(false)
   const [googleError, setGoogleError] = useState<string | null>(null)
-  const [configInfo, setConfigInfo] = useState<{
-    apiUrl: string
-    version: string
-    buildTime: string
-  } | null>(null)
-
-  useEffect(() => {
-    getConfig()
-      .then((cfg) => {
-        setConfigInfo({
-          apiUrl: cfg.apiUrl,
-          version: cfg.version,
-          buildTime: cfg.buildTime,
-        })
-      })
-      .catch((err) => console.error('Failed to load config:', err))
-  }, [])
 
   useEffect(() => {
     if (!hasHydrated) return
@@ -109,31 +103,25 @@ export function LoginForm() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <CardTitle>Connection error</CardTitle>
+            <CardTitle>เกิดข้อผิดพลาดในการเชื่อมต่อ</CardTitle>
             <CardDescription>
-              Unable to reach the Open Notebook API.
+              ไม่สามารถเชื่อมต่อกับบริการ API ของระบบได้
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="flex items-start gap-2 text-red-600 text-sm">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
-                {error || 'Please verify the API container is running.'}
+                กรุณาตรวจสอบว่าเซิร์ฟเวอร์ Backend กำลังทำงานอยู่
               </div>
             </div>
             <Button onClick={() => window.location.reload()} className="w-full mt-4">
-              Retry
+              ลองใหม่อีกครั้ง
             </Button>
           </CardContent>
         </Card>
       </div>
     )
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!username.trim() || !password.trim()) return
-    await login(username.trim(), password)
   }
 
   const handleGoogle = async () => {
@@ -150,161 +138,119 @@ export function LoginForm() {
       }
     } catch (err) {
       const detail = (err as { detail?: string; message?: string })?.detail
-      setGoogleError(detail || (err as Error)?.message || 'ไม่สามารถเริ่มการเข้าสู่ระบบด้วย Google ได้')
+      setGoogleError(
+        detail || (err as Error)?.message || 'ไม่สามารถเริ่มการเข้าสู่ระบบด้วย Google ได้ กรุณาลองใหม่อีกครั้ง'
+      )
       setGoogleBusy(false)
     }
   }
 
-  const domainLabel = (allowedDomains?.length ? allowedDomains : ['kmitl.ac.th'])
-    .map((d) => `@${d}`)
-    .join(', ')
+  const domainsList = allowedDomains?.length ? allowedDomains : ['kmitl.ac.th']
+  const domainLabel = domainsList.map((d) => `@${d}`).join(', ')
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 via-background to-rose-50 dark:from-background dark:via-background dark:to-background p-4">
-      <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center space-y-1">
-          <div className="mx-auto mb-2 flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-orange-500 to-rose-500 text-2xl font-black text-white shadow">
-            S
-          </div>
-          <CardTitle className="text-2xl">SIET Space</CardTitle>
-          <CardDescription>
-            ชุมชนการเรียนรู้ KMITL · แชร์สรุป ทำควิซ วางแผนการเรียนด้วย AI
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {googleLoginEnabled ? (
-            <div className="space-y-2">
-              <Button
-                type="button"
-                size="lg"
-                className="w-full gap-3 bg-white text-slate-900 border shadow-sm hover:bg-slate-50 dark:bg-white dark:text-slate-900"
-                onClick={handleGoogle}
-                disabled={googleBusy}
-              >
-                {googleBusy ? (
-                  <LoadingSpinner size="sm" />
-                ) : (
-                  <GoogleGlyph className="h-5 w-5" />
-                )}
-                เข้าสู่ระบบด้วย Google Workspace ({domainLabel})
-              </Button>
-              <p className="text-center text-xs text-muted-foreground">
-                ใช้บัญชีสถาบันเท่านั้น · ระบบจะดึงรหัสนักศึกษา ชื่อ และรูปโปรไฟล์ให้อัตโนมัติ
-                · เข้าใช้ครั้งแรกรับ 20 แต้ม
-              </p>
-              {googleLoginMock && (
-                <p className="flex items-center justify-center gap-1 text-center text-[11px] text-amber-700 dark:text-amber-300">
-                  <FlaskConical className="h-3 w-3" /> โหมดจำลอง (ยังไม่ได้ตั้งค่า Google OAuth Client)
-                </p>
-              )}
-              {googleError && (
-                <div className="flex items-center gap-2 text-red-600 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  {googleError}
-                </div>
-              )}
-            </div>
-          ) : (
-            <p className="rounded-md border border-dashed p-3 text-center text-xs text-muted-foreground">
-              ยังไม่ได้เปิดใช้การเข้าสู่ระบบด้วย Google (ตั้งค่า GOOGLE_OAUTH_CLIENT_ID/SECRET หรือ
-              GOOGLE_OAUTH_MOCK=1)
-            </p>
-          )}
+    <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#faf7f9] selection:bg-pink-100 selection:text-pink-600">
+      {/* Background Decorative Grid Pattern */}
+      <div
+        className="absolute inset-0 pointer-events-none opacity-40"
+        style={{
+          backgroundImage: `
+            linear-gradient(to right, #f2cdd9 1px, transparent 1px),
+            linear-gradient(to bottom, #f2cdd9 1px, transparent 1px)
+          `,
+          backgroundSize: '36px 36px',
+        }}
+      />
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-[11px] uppercase tracking-wider text-muted-foreground">
-              <span className="bg-card px-2">หรือ</span>
-            </div>
-          </div>
+      {/* Decorative Glow Blobs */}
+      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-pink-200/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-rose-200/40 rounded-full blur-3xl pointer-events-none" />
 
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            className="flex w-full items-center justify-between rounded-md border px-3 py-2 text-sm hover:bg-accent"
-          >
-            <span className="flex items-center gap-2">
-              <KeyRound className="h-4 w-4 text-muted-foreground" />
-              เข้าสู่ระบบด้วยชื่อผู้ใช้ (ผู้ดูแล / บัญชีทดสอบ)
+      {/* Main Login Card */}
+      <Card className="relative z-10 w-full max-w-[480px] rounded-3xl border border-pink-100/90 bg-white/95 p-3 sm:p-5 shadow-[0_20px_60px_rgba(236,72,153,0.10)] backdrop-blur-md transition-all">
+        <CardHeader className="text-center space-y-3 pb-3">
+          {/* Logo & Brand */}
+          <div className="flex items-center justify-center gap-2.5">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200/70 shadow-sm text-pink-600">
+              <GraduationCap className="w-6 h-6 stroke-[2]" />
+            </div>
+            <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-800">
+              StudyTogether
             </span>
-            {showPassword ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-          </button>
+          </div>
 
-          {(showPassword || !googleLoginEnabled) && (
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-1.5">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  autoComplete="username"
-                  placeholder="e.g. admin1"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="password">Password</Label>
-                <Input
-                  id="password"
-                  type="password"
-                  autoComplete="current-password"
-                  placeholder="Your password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  disabled={isLoading}
-                  required
-                />
+          {/* Badge */}
+          <div className="flex justify-center">
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-xs font-semibold text-pink-600 border border-pink-200/60 shadow-xs">
+              <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse" />
+              <span>พื้นที่ชุมชนการเรียนรู้ SIET · KMITL</span>
+            </div>
+          </div>
+
+          {/* Welcome Text */}
+          <div className="space-y-1.5 pt-1">
+            <CardTitle className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900">
+              เข้าสู่ระบบการเรียนรู้
+            </CardTitle>
+            <p className="text-sm text-slate-600">
+              พื้นที่แลกเปลี่ยนและผู้ช่วยการเรียนรู้ AI สำหรับชาว สจล.
+            </p>
+          </div>
+        </CardHeader>
+
+        <CardContent className="space-y-4 px-3 sm:px-6 pt-2">
+          {/* Single Google Sign-in Action Button */}
+          <div className="space-y-3 pt-1">
+            <button
+              id="google-signin-btn"
+              type="button"
+              onClick={handleGoogle}
+              disabled={googleBusy}
+              className="group relative flex w-full items-center justify-center gap-3.5 rounded-2xl border-2 border-slate-200/90 bg-white px-5 py-4 text-left shadow-sm transition-all duration-200 hover:border-pink-300 hover:shadow-md hover:bg-slate-50/80 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 shadow-2xs transition-transform group-hover:scale-105">
+                <GoogleMultiColorIcon className="w-5 h-5" />
               </div>
 
-              {error && (
-                <div className="flex items-center gap-2 text-red-600 text-sm">
-                  <AlertCircle className="h-4 w-4" />
-                  {error}
+              <div className="flex-1 min-w-0">
+                <div className="text-base font-bold text-slate-800 group-hover:text-pink-600 transition-colors">
+                  Sign in with Google
+                </div>
+                <div className="text-xs text-slate-500 truncate">
+                  เข้าสู่ระบบด้วยบัญชีสถาบัน ({domainLabel})
+                </div>
+              </div>
+
+              {googleBusy ? (
+                <LoadingSpinner size="sm" />
+              ) : (
+                <div className="text-slate-300 group-hover:text-pink-500 transition-colors">
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
                 </div>
               )}
+            </button>
 
-              <Button
-                type="submit"
-                className="w-full"
-                variant="secondary"
-                disabled={isLoading || !username.trim() || !password.trim()}
-              >
-                <LogIn className="mr-2 h-4 w-4" />
-                {isLoading ? 'Signing in…' : 'Sign in'}
-              </Button>
 
-            </form>
-          )}
+            {/* Google OAuth Error Alert */}
+            {googleError && (
+              <div className="flex items-start gap-2.5 rounded-2xl bg-red-50 p-3 text-xs text-red-600 border border-red-200/80 shadow-xs animate-in fade-in">
+                <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+                <div className="flex-1 leading-relaxed">{googleError}</div>
+              </div>
+            )}
+          </div>
 
-          {/* Sign-up used to be hidden inside the collapsed password form, so
-              the workspace looked as if it had no registration at all. */}
-          {registrationEnabled && (
-            <div className="rounded-md border border-dashed p-3 text-center text-sm">
-              <p className="text-muted-foreground">
-                ยังไม่มีบัญชี?{' '}
-                <Link href="/register" className="font-medium text-primary hover:underline">
-                  สมัครสมาชิกด้วยชื่อผู้ใช้
-                </Link>
-              </p>
-              <p className="mt-1 text-[11px] text-muted-foreground">
-                บัญชีที่สมัครเองจะเป็น <b>นักศึกษา</b> · อาจารย์ให้เข้าสู่ระบบด้วย Google
-                ของ KMITL
-              </p>
-            </div>
-          )}
-
-          {configInfo && (
-            <div className="text-xs text-center text-muted-foreground pt-2 border-t">
-              <div>v{configInfo.version}</div>
-              <div className="font-mono text-[10px] break-all">{configInfo.apiUrl}</div>
-            </div>
-          )}
+          {/* Privacy & PDPA Compliance Footer */}
+          <div className="pt-2 text-center">
+            <p className="text-[11px] text-slate-400">
+              เฉพาะบัญชี Google Workspace ของ สจล. (@kmitl.ac.th)
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
   )
 }
+
