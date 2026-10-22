@@ -481,9 +481,24 @@ body.theme-siet {
   font-family: var(--font-nunito), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
-/* Keep the page light even when the app-wide dark toggle is on: DESIGN.md has no dark mode. */
+/* Keep the page light even when the app-wide dark toggle is on: DESIGN.md has no dark mode.
+   (The page also drops the html `dark` class while mounted - see useForcedLightTheme - so
+   `dark:` utilities inside shared components do not fire; this is the fallback.) */
 .dark .theme-adventure {
   color-scheme: light;
+}
+
+/* Shared community panels still carry violet/sky accents; inside this theme they
+   read as DESIGN.md pink (selection) and a text-safe blue (links). */
+.theme-adventure .bg-violet-100 {
+  background-color: #fce7f0;
+}
+.theme-adventure .text-violet-900 {
+  color: #c92f6b;
+}
+.theme-adventure .text-violet-700,
+.theme-adventure .text-sky-700 {
+  color: #1686bd;
 }
 
 .theme-adventure h1,
