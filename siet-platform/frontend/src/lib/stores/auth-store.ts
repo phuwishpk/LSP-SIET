@@ -13,6 +13,8 @@ export interface AuthUser {
   student_id?: string | null
   points_balance?: number
   points_exempt?: boolean
+  disabled?: boolean
+  suspend_reason?: string | null
   pdpa_consented_at?: string | null
   created_at?: string | null
   last_login_at?: string | null
