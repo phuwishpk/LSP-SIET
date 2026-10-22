@@ -20,6 +20,7 @@ surreal-commands, so it also works in the dev stack where no worker runs.
 
 from __future__ import annotations
 
+import hashlib
 import os
 import re
 import uuid
@@ -37,11 +38,39 @@ from open_notebook.domain.user import User, _mariadb_session
 
 UPLOAD_DIR = os.path.join(DATA_FOLDER, "library")
 MAX_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_UPLOAD_MB", "100"))
-ALLOWED_EXT = {
+# Teaching media (slides recorded as video, figure packs, zipped source code)
+# is stored and served but never read by the RAG; it gets its own, larger cap.
+MAX_MEDIA_UPLOAD_MB = int(os.getenv("LIBRARY_MAX_MEDIA_MB", "200"))
+# Extensions whose text is extracted, chunked and embedded.
+DOCUMENT_EXT = {
     ".pdf", ".txt", ".md", ".markdown", ".docx", ".pptx", ".xlsx", ".csv",
     ".html", ".htm", ".epub", ".rtf", ".odt",
 }
+# Extensions kept as files only (status becomes "ready" with 0 chunks).
+MEDIA_EXT = {".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp4", ".webm", ".zip"}
+ALLOWED_EXT = DOCUMENT_EXT | MEDIA_EXT
 MAX_TEXT_CHARS = 400_000
+# A document still "processing" after this long was lost with a restart (the
+# ingest is a FastAPI background task); the reaper marks it failed + retryable.
+PROCESSING_TIMEOUT_MINUTES = int(os.getenv("LIBRARY_PROCESSING_TIMEOUT_MINUTES", "30"))
+# Browsers may render these in a tab; everything else downloads as a file.
+INLINE_MIMES = {
+    "application/pdf", "image/png", "image/jpeg", "image/gif", "image/webp",
+    "video/mp4", "video/webm", "text/plain", "text/markdown", "text/csv", "text/html",
+}
+# What a correctly named file must start with (magic bytes, via ``filetype``).
+# Office/EPUB/ODT are zip containers; text formats have no signature and are
+# checked for being decodable text instead.
+_EXPECTED_FAMILY = {
+    ".pdf": {"application/pdf"},
+    ".png": {"image/png"}, ".jpg": {"image/jpeg"}, ".jpeg": {"image/jpeg"},
+    ".gif": {"image/gif"}, ".webp": {"image/webp"},
+    ".mp4": {"video/mp4", "video/quicktime"}, ".webm": {"video/webm", "video/x-matroska"},
+    ".zip": {"application/zip"}, ".docx": {"application/zip"}, ".pptx": {"application/zip"},
+    ".xlsx": {"application/zip"}, ".epub": {"application/zip", "application/epub+zip"},
+    ".odt": {"application/zip"},
+}
+_TEXT_EXT = {".txt", ".md", ".markdown", ".csv", ".html", ".htm", ".rtf"}
 
 SCOPE_COURSE = "course"
 SCOPE_PERSONAL = "personal"
@@ -758,10 +787,42 @@ _DOC_READABLE_SQL = """
 """
 
 
-def can_manage_document(user: User, doc: Dict[str, Any]) -> bool:
-    if int(doc.get("owner_id") or 0) == int(user.id or 0):
+async def managed_room_ids(user: User) -> Optional[set[int]]:
+    """Rooms this user runs (owner or TA); ``None`` = every room (admin)."""
+    if is_admin(user):
+        return None
+    uid = int(user.id or 0)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT id FROM rooms WHERE created_by = :uid
+                    UNION
+                    SELECT room_id FROM room_members WHERE user_id = :uid AND role = 'ta'
+                    """
+                ),
+                {"uid": uid},
+            )
+        ).all()
+    return {int(r[0]) for r in rows}
+
+
+def can_manage_document(
+    user: User, doc: Dict[str, Any], managed_rooms: Optional[set[int]] = None
+) -> bool:
+    """
+    The uploader and admins always; the teacher/TA of the room for course
+    documents, so a course owner can clean up material a colleague left behind.
+    ``managed_rooms`` comes from :func:`managed_room_ids` (``None`` = admin).
+    """
+    if int(doc.get("owner_id") or 0) == int(user.id or 0) or is_admin(user):
         return True
-    return (user.role or "") == "admin"
+    if doc.get("scope") != SCOPE_COURSE or not doc.get("course_id"):
+        return False
+    if managed_rooms is None:
+        return False
+    return int(doc["course_id"]) in managed_rooms
 
 
 async def list_documents_by_ids(user: User, ids: Sequence[int]) -> List[Dict[str, Any]]:
@@ -972,9 +1033,79 @@ def validate_extension(filename: str) -> str:
     ext = os.path.splitext(filename)[1].lower()
     if ext not in ALLOWED_EXT:
         raise LibraryError(
-            f"ไม่รองรับไฟล์ชนิด {ext or '(ไม่ทราบชนิด)'} – รองรับ PDF, Word, PowerPoint, Excel, CSV, Markdown และ text"
+            f"ไม่รองรับไฟล์ชนิด {ext or '(ไม่ทราบชนิด)'} – รองรับเอกสาร (PDF, Word, PowerPoint, Excel, CSV, "
+            "Markdown, text) และสื่อ (รูป PNG/JPG/GIF/WebP, วิดีโอ MP4/WebM, ZIP)"
         )
     return ext
+
+
+def is_media_ext(ext: str) -> bool:
+    """Media is stored and served, never extracted or embedded."""
+    return (ext or "").lower() in MEDIA_EXT
+
+
+def upload_limit_bytes(ext: str) -> int:
+    mb = MAX_MEDIA_UPLOAD_MB if is_media_ext(ext) else MAX_UPLOAD_MB
+    return mb * 1024 * 1024
+
+
+def check_signature(path: str, ext: str) -> Optional[str]:
+    """
+    Make sure the bytes match the extension (a .pdf that is really an .exe is
+    refused). Returns the detected MIME type when one is known.
+    """
+    import filetype
+
+    ext = (ext or "").lower()
+    with open(path, "rb") as fh:
+        head = fh.read(8192)
+    kind = filetype.guess(head)
+    detected = kind.mime if kind else None
+    expected = _EXPECTED_FAMILY.get(ext)
+    if expected is not None:
+        if detected not in expected:
+            raise LibraryError(
+                f"เนื้อหาไฟล์ไม่ตรงกับนามสกุล {ext} (ตรวจพบ {detected or 'ชนิดที่ไม่รู้จัก'}) "
+                "กรุณาอัปโหลดไฟล์ต้นฉบับ"
+            )
+        return detected
+    if ext in _TEXT_EXT:
+        if b"\x00" in head:
+            raise LibraryError(f"ไฟล์ {ext} นี้ไม่ใช่ไฟล์ข้อความ")
+        try:
+            head.decode("utf-8")
+        except UnicodeDecodeError:
+            try:
+                head.decode("cp874")   # Thai Windows text files
+            except UnicodeDecodeError:
+                raise LibraryError(f"อ่านไฟล์ {ext} นี้เป็นข้อความไม่ได้ (encoding ไม่รองรับ)")
+        return None
+    return detected
+
+
+async def save_upload(upload: Any, path: str, limit: int) -> tuple[int, str]:
+    """
+    Stream an UploadFile to disk without blocking the event loop.
+    Returns ``(size, md5)``; removes the partial file and raises when the limit
+    is passed.
+    """
+    import anyio
+
+    size = 0
+    digest = hashlib.md5()
+    async with await anyio.open_file(path, "wb") as fh:
+        while True:
+            chunk = await upload.read(1024 * 1024)
+            if not chunk:
+                break
+            size += len(chunk)
+            if size > limit:
+                await fh.aclose()
+                os.remove(path)
+                raise LibraryError(f"ไฟล์ใหญ่เกิน {limit // (1024 * 1024)} MB")
+            digest.update(chunk)
+            await fh.write(chunk)
+    return size, digest.hexdigest()
 
 
 def storage_path(filename: str) -> str:
@@ -1027,6 +1158,18 @@ async def ingest_document(doc_id: int, raw_text: Optional[str] = None) -> None:
         logger.warning(f"library: document {doc_id} vanished before ingestion")
         return
     usage.set_context(feature="ingest", user_id=doc.get("owner_id"))
+
+    ext = os.path.splitext(doc.get("filename") or "")[1].lower()
+    if doc.get("kind") == "file" and is_media_ext(ext):
+        # Nothing to read: the file is the content. Served by /download only.
+        await update_document(doc_id, status="ready", chunks=0, chars=0, error=None)
+        logger.info(f"library: media document {doc_id} stored ({ext})")
+        return
+
+    # A retry must not leave the previous Source + embeddings behind.
+    if doc.get("source_id"):
+        await _discard_source(str(doc["source_id"]))
+        await update_document(doc_id, source_id=None, chunks=0)
 
     try:
         if raw_text is not None:
@@ -1102,27 +1245,77 @@ async def _embed_source(source_id: str, content: str, file_path: Optional[str]) 
     return len(chunks)
 
 
+async def _discard_source(source_id: str) -> None:
+    """Delete a Source and its embeddings; tolerant of it already being gone."""
+    try:
+        await repo_query(
+            "DELETE source_embedding WHERE source = $source_id",
+            {"source_id": ensure_record_id(source_id)},
+        )
+        source = await Source.get(source_id)
+        if source:
+            await source.delete()
+    except Exception as exc:
+        logger.warning(f"library: could not delete source {source_id}: {exc}")
+
+
+async def _file_still_referenced(path: str, except_doc_id: int) -> bool:
+    """Older uploads shared one file between a document and its feed post."""
+    async with _mariadb_session() as session:
+        posts = (
+            await session.execute(
+                text("SELECT 1 FROM posts WHERE attachment_path = :p LIMIT 1"), {"p": path}
+            )
+        ).first()
+        docs = (
+            await session.execute(
+                text("SELECT 1 FROM library_documents WHERE file_path = :p AND id <> :id LIMIT 1"),
+                {"p": path, "id": except_doc_id},
+            )
+        ).first()
+    return bool(posts or docs)
+
+
+async def reap_stuck_documents(max_age_minutes: int = PROCESSING_TIMEOUT_MINUTES) -> int:
+    """
+    Startup sweep: ingestion runs as a background task, so an API restart loses
+    whatever was mid-flight. Those rows would say "processing" forever; mark
+    them failed with a retry hint instead. Returns how many were touched.
+    """
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                UPDATE library_documents
+                   SET status = 'failed',
+                       error = 'ประมวลผลค้างนานเกินไป (เซิร์ฟเวอร์อาจรีสตาร์ตระหว่างทาง) กดลองใหม่ได้'
+                 WHERE status = 'processing'
+                   AND COALESCE(updated_at, created_at) < UTC_TIMESTAMP() - INTERVAL :minutes MINUTE
+                """
+            ),
+            {"minutes": int(max_age_minutes)},
+        )
+    count = int(result.rowcount or 0)
+    if count:
+        logger.warning(f"library: {count} document(s) stuck in processing marked failed")
+    return count
+
+
 async def delete_document(doc: Dict[str, Any]) -> None:
     """Remove the document, its Source, embeddings and uploaded file."""
     source_id = doc.get("source_id")
     if source_id:
-        try:
-            await repo_query(
-                "DELETE source_embedding WHERE source = $source_id",
-                {"source_id": ensure_record_id(source_id)},
-            )
-            source = await Source.get(source_id)
-            if source:
-                await source.delete()
-        except Exception as exc:
-            logger.warning(f"library: could not delete source {source_id}: {exc}")
+        await _discard_source(str(source_id))
 
     path = doc.get("file_path")
     if doc.get("kind") == "file" and path and os.path.isfile(path):
-        try:
-            os.remove(path)
-        except OSError as exc:
-            logger.warning(f"library: could not remove file {path}: {exc}")
+        if await _file_still_referenced(path, int(doc.get("id") or 0)):
+            logger.info(f"library: keeping {path}, a post or another document still uses it")
+        else:
+            try:
+                os.remove(path)
+            except OSError as exc:
+                logger.warning(f"library: could not remove file {path}: {exc}")
 
     async with _mariadb_session() as session:
         await session.execute(

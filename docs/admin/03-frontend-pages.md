@@ -184,7 +184,7 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 | แท็บ | component | endpoint |
 |---|---|---|
 | `overview` ภาพรวม | `rag/RagStatsPanel` | `GET /admin/rag/stats` |
-| `documents` เอกสารที่ AI อ่าน | `rag/RagDocumentsPanel` | `GET /admin/rag/documents`, `POST …/{id}/retry`, `DELETE …/{id}` |
+| `documents` เอกสารที่ AI อ่าน | `rag/RagDocumentsPanel` | `GET /admin/rag/documents`, `POST …/{id}/retry`, `DELETE …/{id}`, ปุ่มดาวน์โหลด → `GET /community/library/{id}/download?token=` (22 ต.ค.) |
 | `knowledge` แหล่งความรู้ | `rag/RagKnowledgePanel` | `GET /community/knowledge` (endpoint เดิม, hook `useKnowledge` ใน `use-library.ts`) |
 
 ### 3.1 `RagStatsPanel` — `components/admin/rag/RagStatsPanel.tsx`

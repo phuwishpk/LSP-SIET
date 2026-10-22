@@ -7,10 +7,10 @@ action is attributed to a MariaDB user id.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import re
 import asyncio
+import shutil
 import uuid
 from typing import Any, Dict, List, Literal, Optional
 
@@ -1633,12 +1633,18 @@ def _library_error(exc: library.LibraryError) -> HTTPException:
     return HTTPException(status_code=400, detail=str(exc))
 
 
-def _doc_public(doc: Dict[str, Any], user: User) -> Dict[str, Any]:
+def _doc_public(
+    doc: Dict[str, Any], user: User, managed_rooms: Optional[set[int]] = None
+) -> Dict[str, Any]:
+    ext = os.path.splitext(doc.get("filename") or "")[1].lower()
+    is_file = doc.get("kind") == "file"
     return {
         "id": doc["id"],
         "title": doc["title"],
         "scope": doc["scope"],
         "kind": doc["kind"],
+        "is_media": is_file and library.is_media_ext(ext),
+        "download_url": f"/api/community/library/{doc['id']}/download" if is_file else None,
         "status": doc["status"],
         "error": doc.get("error"),
         "chunks": int(doc.get("chunks") or 0),
@@ -1663,7 +1669,7 @@ def _doc_public(doc: Dict[str, Any], user: User) -> Dict[str, Any]:
             "role": doc.get("owner_role"),
         },
         "is_owner": int(doc.get("owner_id") or 0) == int(user.id or 0),
-        "can_manage": library.can_manage_document(user, doc),
+        "can_manage": library.can_manage_document(user, doc, managed_rooms),
     }
 
 
@@ -1676,8 +1682,9 @@ async def list_library(
 ) -> Dict[str, Any]:
     """Documents the caller may read: every course library + their own uploads."""
     docs = await library.list_documents(user, scope=scope, course_id=course_id, limit=limit)
+    managed = await library.managed_room_ids(user)
     return {
-        "items": [_doc_public(d, user) for d in docs],
+        "items": [_doc_public(d, user, managed) for d in docs],
         "stats": await library.library_stats(user),
         "can_publish_course": _is_staff(user),
     }
@@ -1690,7 +1697,29 @@ async def get_library_document(
     doc = await library.get_document(doc_id)
     if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    return _doc_public(doc, user)
+    return _doc_public(doc, user, await library.managed_room_ids(user))
+
+
+@router.get("/library/{doc_id}/download")
+async def download_library_document(doc_id: int, user: User = Depends(get_current_user)):
+    """
+    The uploaded file itself. Readable by whoever may read the document (so a
+    private room's files stay inside the room); PDFs, images and video open
+    inline, everything else downloads.
+    """
+    doc = await library.get_document(doc_id)
+    if not doc or not await library.can_read_document(user, doc):
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+    path = doc.get("file_path")
+    if doc.get("kind") != "file" or not path or not os.path.isfile(path):
+        raise HTTPException(status_code=404, detail="เอกสารนี้ไม่มีไฟล์ให้ดาวน์โหลด")
+    mime = doc.get("mime") or "application/octet-stream"
+    return FileResponse(
+        path,
+        media_type=mime,
+        filename=doc.get("filename") or os.path.basename(path),
+        content_disposition_type="inline" if mime in library.INLINE_MIMES else "attachment",
+    )
 
 
 @router.post("/library", status_code=201)
@@ -1759,27 +1788,22 @@ async def upload_library_document(
             library.validate_extension(filename)
         except library.LibraryError as exc:
             raise _library_error(exc)
+        ext = os.path.splitext(filename)[1].lower()
         file_path = library.storage_path(filename)
-        limit = library.MAX_UPLOAD_MB * 1024 * 1024
-        size = 0
-        digest = hashlib.md5()
-        with open(file_path, "wb") as fh:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > limit:
-                    fh.close()
-                    os.remove(file_path)
-                    raise HTTPException(
-                        status_code=413,
-                        detail=f"ไฟล์ใหญ่เกิน {library.MAX_UPLOAD_MB} MB",
-                    )
-                digest.update(chunk)
-                fh.write(chunk)
-        mime = file.content_type
-        content_hash = digest.hexdigest()
+        try:
+            size, content_hash = await library.save_upload(
+                file, file_path, library.upload_limit_bytes(ext)
+            )
+        except library.LibraryError as exc:
+            raise HTTPException(status_code=413, detail=str(exc))
+        # The extension is a claim; the first bytes are the evidence.
+        try:
+            detected = library.check_signature(file_path, ext)
+        except library.LibraryError as exc:
+            if os.path.isfile(file_path):
+                os.remove(file_path)
+            raise _library_error(exc)
+        mime = detected or file.content_type
     elif url and url.strip():
         kind = "url"
         cleaned = url.strip()
@@ -1829,6 +1853,13 @@ async def upload_library_document(
         post_type = "material" if scope == library.SCOPE_COURSE else "summary"
         if post_type == "material" and not _is_staff(user):
             post_type = "summary"
+        # The post owns a copy: deleting the library document later must not
+        # turn the feed's attachment into a 404.
+        attachment_path = None
+        if kind == "file" and file_path:
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            attachment_path = os.path.join(UPLOAD_DIR, f"{uuid.uuid4().hex}_{filename}")
+            await asyncio.to_thread(shutil.copyfile, file_path, attachment_path)
         post_id = await repo.create_post(
             author_id=uid,
             post_type=post_type,
@@ -1841,10 +1872,11 @@ async def upload_library_document(
             course_id=course_id,
             tags=[],
             attachment=(
-                {"name": filename, "path": file_path, "size": size, "mime": mime}
+                {"name": filename, "path": attachment_path, "size": size, "mime": mime}
                 if kind == "file"
                 else None
             ),
+            visibility=repo.VISIBILITY_PUBLIC,
         )
         await library.update_document(doc_id, post_id=post_id)
 
@@ -1852,7 +1884,7 @@ async def upload_library_document(
 
     doc = await library.get_document(doc_id)
     return {
-        "document": _doc_public(doc or {}, user),
+        "document": _doc_public(doc or {}, user, await library.managed_room_ids(user)),
         "post_id": post_id,
         "message": "กำลังประมวลผลเอกสาร ระบบจะพร้อมใช้ภายในไม่กี่วินาที",
     }
@@ -1865,7 +1897,7 @@ async def retry_library_document(
     doc = await library.get_document(doc_id)
     if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    if not library.can_manage_document(user, doc):
+    if not library.can_manage_document(user, doc, await library.managed_room_ids(user)):
         raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์จัดการเอกสารนี้")
     if doc["kind"] == "text":
         raise HTTPException(status_code=400, detail="เอกสารแบบข้อความต้องอัปโหลดใหม่")
@@ -1881,7 +1913,7 @@ async def delete_library_document(
     doc = await library.get_document(doc_id)
     if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    if not library.can_manage_document(user, doc):
+    if not library.can_manage_document(user, doc, await library.managed_room_ids(user)):
         raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์ลบเอกสารนี้")
     await library.delete_document(doc)
     return {"ok": True}

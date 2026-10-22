@@ -23,6 +23,10 @@ export interface LibraryDocument {
   filename?: string | null
   mime?: string | null
   size?: number | null
+  /** Images / video / zip: stored and downloadable, never read by the RAG. */
+  is_media: boolean
+  /** Relative API path of the file (kind === 'file'); pass it through `libraryDownloadUrl`. */
+  download_url?: string | null
   created_at: string
   course?: { id: number; code?: string | null; name?: string | null } | null
   owner: {
@@ -115,6 +119,17 @@ export interface ScopeSelection {
   scope: AskScope
   course_id?: number | null
   document_ids?: number[]
+}
+
+/**
+ * Absolute URL for a document's file. The API needs the bearer token, which a
+ * plain <a href> cannot send, so this appends it as `?token=` (the API accepts
+ * either) – fine for same-origin links opened by the signed-in user.
+ */
+export function libraryDownloadUrl(doc: Pick<LibraryDocument, 'download_url'>, token?: string | null): string | null {
+  if (!doc.download_url) return null
+  // Relative on purpose: Next.js proxies /api/* to the API in dev and in the image.
+  return token ? `${doc.download_url}?token=${encodeURIComponent(token)}` : doc.download_url
 }
 
 export const libraryApi = {

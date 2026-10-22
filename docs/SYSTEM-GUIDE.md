@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2)
+> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3)
 
 ## สารบัญ
 
@@ -635,6 +635,19 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 - หน้าโปรไฟล์ยังใช้กฎ "เห็นเฉพาะวิชาที่เรียนร่วมกัน" เดิมซ้อนทับกฎนี้อีกชั้น
 - ฝั่ง UI ของฟีด (CreatorBox / SharePostModal) ยังไม่มีตัวเลือก visibility — ดู `docs/handoff/for-poh.md`
 
+#### 6.2.3 สื่อการสอนและความทนทานของคลังเอกสาร (22 ต.ค. 2026)
+
+| เรื่อง | ทำงานอย่างไร |
+|---|---|
+| **ชนิดไฟล์** | เอกสาร (PDF, Word, PowerPoint, Excel, CSV, Markdown, text, EPUB, RTF, ODT) ถูกสกัดข้อความและ embed; **สื่อ** (PNG/JPG/GIF/WebP, MP4/WebM, ZIP) เก็บเป็นไฟล์และดาวน์โหลดได้ แต่ไม่ถูก AI อ่าน (`status=ready`, `chunks=0`, `is_media=true`) — `library.DOCUMENT_EXT` / `MEDIA_EXT` |
+| **ขนาด** | เอกสาร `LIBRARY_MAX_UPLOAD_MB` (100) · สื่อ `LIBRARY_MAX_MEDIA_MB` (200) · เขียนลงดิสก์แบบ async (`library.save_upload` ผ่าน anyio) ไม่บล็อก event loop |
+| **ตรวจชนิดจริง** | หลังอัปโหลด `library.check_signature` อ่าน magic bytes ด้วย `filetype`: PDF/รูป/วิดีโอ/zip-container (docx/pptx/xlsx/epub/odt) ต้องตรงนามสกุล, ไฟล์ข้อความต้องไม่มี NUL และถอดรหัส UTF-8/CP874 ได้ — ไม่ตรง → ลบไฟล์ ตอบ 400; MIME ที่บันทึกคือค่าที่ตรวจพบ ไม่ใช่ที่เบราว์เซอร์บอก |
+| **ดาวน์โหลด** | `GET /community/library/{id}/download` (ตรวจสิทธิ์อ่านเหมือน GET เอกสาร รวมห้องส่วนตัว) — PDF/รูป/วิดีโอ/ข้อความเปิด inline, อื่น ๆ เป็น attachment; รองรับ `?token=` สำหรับลิงก์ `<a>`; ทุกเอกสารมี `download_url` ใน response |
+| **ค้าง processing** | ตอน API เริ่ม `library.reap_stuck_documents()` เปลี่ยนเอกสารที่ค้าง `processing` เกิน `LIBRARY_PROCESSING_TIMEOUT_MINUTES` (30) เป็น `failed` พร้อมข้อความให้กดลองใหม่ (background task หายไปกับการรีสตาร์ต) |
+| **ลองใหม่** | `ingest_document` ลบ Source + embeddings เดิมก่อนสร้างใหม่ (`_discard_source`) — ไม่มี Source กำพร้าสะสม |
+| **แชร์ลงฟีด** | โพสต์ได้ **สำเนา** ไฟล์ใน `DATA_FOLDER/community` ลบเอกสารในคลังแล้วไฟล์แนบของโพสต์ไม่หาย; เอกสารเก่าที่ยังใช้ไฟล์ร่วมกับโพสต์จะไม่ถูกลบไฟล์ (`_file_still_referenced`) |
+| **สิทธิ์จัดการ** | ลบ/ลองใหม่ได้โดย: ผู้อัปโหลด, ผู้ดูแล, และ **ผู้สอน/ผู้ช่วยสอนของห้อง** สำหรับเอกสารของห้องนั้น (`can_manage_document(user, doc, managed_room_ids(user))`) |
+
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
 ### 6.3 โพสต์ — มี 5 ชนิด
@@ -1020,6 +1033,7 @@ POST   /community/courses/{id}/join   {code?}      (403 + X-Join-Code-Required �
 POST   /community/courses/{id}/archive · POST /community/courses/{id}/restore   (เจ้าของ/ผู้ดูแล)
 DELETE /community/courses/{id}                     (เจ้าของ = เก็บถาวร, ผู้ดูแล = ลบถาวร + cascade)
 GET    /community/courses/{id}/members             (ผู้สอน/TA/ผู้ดูแล)
+GET    /community/library/{id}/download            (ไฟล์ของเอกสาร; inline สำหรับ pdf/รูป/วิดีโอ; รับ ?token=)
 PATCH  /community/courses/{id}/members/{uid} {role: member|ta} · DELETE …/members/{uid}   (เจ้าของ/ผู้ดูแล)
 ```
 

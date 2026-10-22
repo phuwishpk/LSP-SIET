@@ -74,6 +74,7 @@ def _viewer_day(created, viewer_zone) -> 'YYYY-MM-DD' | None   # สำหรั
 | `DELETE /categories/{id}` | — | `{ok, deleted, rooms_uncategorised}`; `rooms.category_id` ของห้องในหมวดถูกตั้งเป็น NULL (`repo.delete_category`) |
 | `GET /courses` (เดิม) | — | แถวละห้องเพิ่ม `category_id/category_name/category_slug, term, status, archived, archived_at, requires_code, is_private` (`_ROOM_META_COLUMNS`) |
 | `GET /posts` (เดิม) | — | แถวละโพสต์เพิ่ม `visibility` (public/course/private); ผู้ดูแลเห็นทุกโพสต์ไม่ว่าระดับใด (22 ต.ค.) |
+| `GET /community/library/{id}/download` (ไม่ใช่ใต้ /admin) | `?token=` ได้ | ไฟล์ของเอกสาร; ผู้ดูแลอ่านได้ทุกฉบับ — `RagDocumentsPanel` ใช้ลิงก์นี้ (22 ต.ค.) |
 
 ### 3.4 AI Roadmap (เดิม, แก้เล็กน้อย)
 

@@ -21,6 +21,7 @@ import {
   Library,
   Archive,
   ArchiveRestore,
+  Download,
   KeyRound,
   Lock,
   MessagesSquare,
@@ -65,6 +66,8 @@ import {
 } from '@/lib/hooks/use-community'
 import { useArchiveCourse } from '@/lib/hooks/use-courses'
 import { useLibrary } from '@/lib/hooks/use-library'
+import { libraryDownloadUrl } from '@/lib/api/library'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import type { TeacherCourse } from '@/lib/api/community'
 import type { TeacherRoom } from '@/lib/api/courses'
 import { formatBytes, timeAgo } from '@/lib/utils/community-format'
@@ -453,6 +456,7 @@ function EditRoomDialog({ course, onClose }: { course: TeacherCourse | null; onC
 
 function DocumentsByCourse({ courses, loading }: { courses: TeacherCourse[]; loading: boolean }) {
   const { data, isLoading } = useLibrary({ scope: 'course' })
+  const token = useAuthStore((s) => s.token)
 
   const grouped = useMemo(() => {
     const byCourse = new Map<number, typeof docs>()
@@ -507,7 +511,7 @@ function DocumentsByCourse({ courses, loading }: { courses: TeacherCourse[]; loa
                       <Library className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span className="min-w-0 flex-1 truncate">{d.title}</span>
                       <span className="text-xs text-muted-foreground">
-                        {d.chunks > 0 ? `${d.chunks} ชิ้น` : ''} {formatBytes(d.size)}
+                        {d.is_media ? 'สื่อ' : d.chunks > 0 ? `${d.chunks} ชิ้น` : ''} {formatBytes(d.size)}
                       </span>
                       <Badge
                         variant={d.status === 'ready' ? 'secondary' : 'outline'}
@@ -516,8 +520,15 @@ function DocumentsByCourse({ courses, loading }: { courses: TeacherCourse[]; loa
                           d.status === 'failed' && 'border-destructive text-destructive'
                         )}
                       >
-                        {d.status === 'ready' ? 'พร้อมใช้' : d.status === 'processing' ? 'กำลังประมวลผล' : 'ล้มเหลว'}
+                        {d.status === 'ready' ? (d.is_media ? 'เก็บแล้ว' : 'พร้อมใช้') : d.status === 'processing' ? 'กำลังประมวลผล' : 'ล้มเหลว'}
                       </Badge>
+                      {d.download_url && (
+                        <Button asChild variant="ghost" size="sm" className="h-7 px-2" aria-label="ดาวน์โหลด">
+                          <a href={libraryDownloadUrl(d, token) ?? '#'} target="_blank" rel="noreferrer">
+                            <Download className="h-3.5 w-3.5" />
+                          </a>
+                        </Button>
+                      )}
                     </li>
                   ))}
                 </ul>

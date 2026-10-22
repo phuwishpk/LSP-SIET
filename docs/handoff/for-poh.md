@@ -25,6 +25,17 @@
 - `SharePostModal` ตัวเลือก audience `course`/`private` ปัจจุบัน toast ว่ายังไม่รองรับ — ไม่เกี่ยวกับ visibility โดยตรง
   (เป็นการแชร์ซ้ำ) ถ้าจะทำ "แชร์ลงวิชา" แนะนำให้สร้างโพสต์ใหม่ `type=summary` ใน `course_id` นั้นพร้อม `visibility=course`
 
+## 2b. คลังเอกสาร: ดาวน์โหลดและไฟล์สื่อ (4.3.2)
+
+- ทุกเอกสารจาก `GET /community/library` มี `download_url` (เฉพาะ `kind === 'file'`) และ `is_media`
+  (รูป/วิดีโอ/zip — เก็บไว้ให้ดาวน์โหลด ไม่ได้ให้ AI อ่าน `chunks` จะเป็น 0 ตลอด อย่าโชว์ว่า "ยังไม่พร้อมค้น")
+- helper: `libraryDownloadUrl(doc, token)` ใน `lib/api/library.ts` (ต่อ `?token=` เพราะ `<a href>` ส่ง header ไม่ได้;
+  token มาจาก `useAuthStore((s) => s.token)`) — PDF/รูป/วิดีโอเปิด inline ใน tab ใหม่, zip/docx ดาวน์โหลด
+- สิ่งที่ต้องทำใน `LibraryPanel.tsx`: ปุ่มดาวน์โหลดต่อแถว (ดูตัวอย่างใน `app/(dashboard)/teacher/page.tsx` → `DocumentsByCourse`)
+  และ `accept` ของ input ไฟล์ เพิ่ม `.png,.jpg,.jpeg,.gif,.webp,.mp4,.webm,.zip` (เพดานสื่อ 200 MB, เอกสาร 100 MB)
+- backend ตรวจ magic bytes แล้ว: ไฟล์ที่เนื้อหาไม่ตรงนามสกุลตอบ 400 "เนื้อหาไฟล์ไม่ตรงกับนามสกุล…" — แสดง detail ตรง ๆ ได้
+- `can_manage` ของเอกสารตอนนี้เป็น true สำหรับผู้สอน/TA ของห้องด้วย (ไม่ใช่แค่คนอัปโหลด) ปุ่มลบจึงควรอิง `can_manage` ไม่ใช่ `is_owner`
+
 ## 3. บั๊กที่เจอในไฟล์ของ Poh (ยังไม่ได้แก้ เพราะอยู่ในเขตของ Poh)
 
 - `open_notebook/community/repository.py::list_comments` (commit `8494961`) ไม่ SELECT `c.parent_id` แต่ return `r.get("parent_id")`

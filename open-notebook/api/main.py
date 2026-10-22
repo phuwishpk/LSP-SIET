@@ -197,6 +197,14 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.error(f"Community MariaDB schema setup failed: {exc}")
 
+    # Library documents whose background ingestion died with the last process.
+    try:
+        from open_notebook.community.library import reap_stuck_documents
+
+        await reap_stuck_documents()
+    except Exception as exc:
+        logger.warning(f"Library reaper skipped: {exc}")
+
     # Seed: 1 admin + 5 students on MariaDB startup.
     # Set WORKSPACE_SEED_ADMIN=false to disable.
     try:

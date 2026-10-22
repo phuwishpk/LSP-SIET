@@ -10,7 +10,8 @@
  */
 import { useState } from 'react'
 import { useDebounce } from 'use-debounce'
-import { AlertTriangle, CheckCircle2, Loader2, Lock, RotateCcw, Search, Trash2, Users } from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Download, Loader2, Lock, RotateCcw, Search, Trash2, Users } from 'lucide-react'
+import { useAuthStore } from '@/lib/stores/auth-store'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -55,6 +56,7 @@ function StatusMark({ status }: { status: DocumentStatus }) {
 }
 
 export function RagDocumentsPanel() {
+  const token = useAuthStore((s) => s.token)
   const [search, setSearch] = useState('')
   const [debounced] = useDebounce(search, 300)
   const [status, setStatus] = useState<DocumentStatus | ''>('')
@@ -171,6 +173,17 @@ export function RagDocumentsPanel() {
                     <td className="py-2 pr-3 text-xs text-muted-foreground">{timeAgo(doc.updated_at || doc.created_at)}</td>
                     <td className="py-2">
                       <div className="flex items-center justify-end gap-1">
+                        {doc.kind === 'file' && (
+                          <Button asChild variant="ghost" size="sm" className="h-7 px-2" aria-label={`ดาวน์โหลด ${doc.title}`}>
+                            <a
+                              href={`/api/community/library/${doc.id}/download${token ? `?token=${encodeURIComponent(token)}` : ''}`}
+                              target="_blank"
+                              rel="noreferrer"
+                            >
+                              <Download className="h-3.5 w-3.5" />
+                            </a>
+                          </Button>
+                        )}
                         {/* A pasted text has no file to read again: it must be uploaded anew. */}
                         {doc.status === 'failed' && doc.kind !== 'text' && (
                           <Button
