@@ -79,12 +79,12 @@ export function CommunityHeader({
           onClick={onHome}
           className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-accent"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground text-sm font-black text-background">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-rose-600 via-rose-500 to-pink-500 text-sm font-black text-white shadow-sm shadow-rose-500/20">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">
             <span className="text-sm font-bold tracking-tight">SIET Space</span>
-            <span className="text-[10px] text-muted-foreground">KMITL learning community</span>
+            <span className="text-[10px] font-medium text-rose-600/80 dark:text-rose-400">KMITL learning community</span>
           </span>
         </button>
 
@@ -99,6 +99,11 @@ export function CommunityHeader({
           <Input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
+            /* MERGE-OWNER (undecided, Poh #4 vs SpriteUm 254a779): kept staging's version (Poh's community redesign).
+            SpriteUm's version, to swap in if SpriteUm owns this:
+              placeholder="ค้นหาชีทสรุป, แนวข้อสอบ, รหัสวิชา (เช่น CS101)…"
+              className="h-9 rounded-xl border border-slate-200/90 bg-slate-50/80 pl-9 pr-16 text-xs transition-all focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-500/20 dark:border-zinc-800 dark:bg-zinc-800/60 dark:focus:bg-zinc-900"
+            */
             placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
             className="h-9 cursor-text rounded-lg border-border bg-muted/70 pl-9 pr-16 transition-all duration-200 hover:bg-slate-100/80 focus:bg-white focus:ring-2 focus:ring-pink-300/50 dark:bg-muted/70 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900 dark:focus:ring-pink-500/30"
           />

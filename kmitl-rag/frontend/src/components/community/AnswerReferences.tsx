@@ -54,7 +54,7 @@ export function AnswerReferences({ citations = [], webSources = [] }: AnswerRefe
               href={w.url}
               target="_blank"
               rel="noopener noreferrer nofollow"
-              className="flex items-center gap-1 text-sky-700 hover:underline dark:text-sky-300"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-sky-200/90 bg-sky-50/70 px-2 py-0.5 text-[11px] font-medium text-sky-800 transition-colors hover:bg-sky-100 hover:text-sky-900 dark:border-sky-800/60 dark:bg-sky-950/40 dark:text-sky-300"
             >
               <span className="shrink-0">[W{w.index}]</span>
               <span className="min-w-0 truncate">{w.title}</span>

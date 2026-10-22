@@ -71,6 +71,17 @@ export function SavedSummariesView({
   return (
     <>
       <div className="space-y-4">
+        {/* MERGE-OWNER (undecided, Poh #4 vs SpriteUm 254a779): kept staging's version (Poh's community redesign).
+        SpriteUm's version, to swap in if SpriteUm owns this:
+          <Card className="rounded-2xl border border-amber-100/90 bg-gradient-to-r from-amber-50/70 via-orange-50/40 to-amber-50/20 shadow-2xs dark:border-amber-950/40 dark:bg-amber-950/20">
+          <CardContent className="space-y-1 p-4">
+          <h1 className="text-lg font-semibold tracking-tight">สรุปที่บันทึกไว้</h1>
+          <p className="text-xs text-muted-foreground">
+          สรุปและโน้ตที่คุณบันทึกไว้ รวมไว้ในที่เดียว
+          </p>
+          </CardContent>
+          </Card>
+        */}
         <div className="space-y-1">
           <h1 className="text-lg font-semibold tracking-tight">สรุปที่บันทึกไว้</h1>
           <p className="text-xs text-muted-foreground">
@@ -82,7 +93,7 @@ export function SavedSummariesView({
           <Button
             size="sm"
             variant={collectionId === null ? 'default' : 'outline'}
-            className={`shrink-0 rounded-full ${collectionId === null ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+            className={`shrink-0 rounded-full ${collectionId === null ? 'bg-rose-600 text-white hover:bg-rose-700' : 'border-pink-100'}`}
             onClick={() => onSelectCollection(null)}
           >
             ทั้งหมดที่บันทึก
@@ -92,7 +103,7 @@ export function SavedSummariesView({
               key={collection.id}
               size="sm"
               variant={collection.id === collectionId ? 'default' : 'outline'}
-              className={`shrink-0 rounded-full ${collection.id === collectionId ? 'bg-pink-600 text-white hover:bg-pink-700' : 'border-pink-100'}`}
+              className={`shrink-0 rounded-full ${collection.id === collectionId ? 'bg-rose-600 text-white hover:bg-rose-700' : 'border-pink-100'}`}
               onClick={() => onSelectCollection(collection.id)}
             >
               {collection.name}
@@ -201,7 +212,7 @@ export function SavedSummariesView({
             <Button
               disabled={!collectionName.trim() || isCreatingCollection}
               onClick={submitCollection}
-              className="bg-pink-600 text-white hover:bg-pink-700"
+              className="bg-rose-600 text-white hover:bg-rose-700"
             >
               {isCreatingCollection ? 'กำลังสร้าง…' : 'สร้างคลัง'}
             </Button>

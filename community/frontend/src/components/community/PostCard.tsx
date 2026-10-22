@@ -4,6 +4,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import {
   Bookmark,
+  Map,
   Download,
   FileText,
   Hash,
@@ -14,6 +15,7 @@ import {
   MoreHorizontal,
   Pencil,
   Share2,
+  Sparkles,
   ThumbsUp,
   Trash2,
 } from 'lucide-react'
@@ -47,11 +49,11 @@ import { SharePostModal } from './SharePostModal'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
-  summary: { label: 'สรุปบทเรียน', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
-  quiz: { label: 'AI Quiz', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
-  roadmap: { label: 'AI Roadmap', icon: FileText, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
-  question: { label: 'คำถาม', icon: HelpCircle, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
-  material: { label: 'สื่อการสอน', icon: Library, className: 'bg-pink-100 text-pink-800 dark:bg-pink-950/50 dark:text-pink-200' },
+  summary: { label: 'สรุปบทเรียน', icon: FileText, className: 'bg-amber-50 text-amber-800 border border-amber-200/80 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-900/60' },
+  quiz: { label: 'AI Quiz', icon: Sparkles, className: 'bg-rose-50 text-rose-700 border border-rose-200/80 dark:bg-rose-950/40 dark:text-rose-300 dark:border-rose-900/60' },
+  roadmap: { label: 'AI Roadmap', icon: Map, className: 'bg-indigo-50 text-indigo-700 border border-indigo-200/80 dark:bg-indigo-950/40 dark:text-indigo-300 dark:border-indigo-900/60' },
+  question: { label: 'คำถาม', icon: HelpCircle, className: 'bg-sky-50 text-sky-700 border border-sky-200/80 dark:bg-sky-950/40 dark:text-sky-300 dark:border-sky-900/60' },
+  material: { label: 'สื่อการสอน', icon: Library, className: 'bg-emerald-50 text-emerald-700 border border-emerald-200/80 dark:bg-emerald-950/40 dark:text-emerald-300 dark:border-emerald-900/60' },
 }
 
 interface PostCardProps {
@@ -141,7 +143,7 @@ export function PostCard({
         }
       }}
       className={cn(
-        'cursor-pointer overflow-hidden rounded-xl shadow-sm transition-[border-color,box-shadow] hover:border-pink-200 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:translate-y-0 active:scale-[0.995] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
         savedView ? 'border-pink-100 bg-white dark:bg-card' : 'border-border'
       )}
     >
@@ -437,7 +439,7 @@ function ActionButton({
       aria-label={label}
       aria-pressed={active}
       className={cn(
-        'flex min-h-11 items-center justify-center gap-1.5 rounded-md px-1 py-1.5 text-xs font-medium transition hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'group/btn flex min-h-11 items-center justify-center gap-1.5 rounded-xl px-1.5 py-1.5 text-xs font-semibold transition-all duration-150 hover:bg-slate-100 active:scale-90 motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 dark:hover:bg-zinc-800',
         active ? activeClass : 'text-muted-foreground'
       )}
     >
