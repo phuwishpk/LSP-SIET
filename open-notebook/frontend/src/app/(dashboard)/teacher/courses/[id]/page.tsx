@@ -23,6 +23,7 @@ import {
   GraduationCap,
   Hash,
   KeyRound,
+  Lock,
   RefreshCw,
   Trash2,
   UserMinus,
@@ -153,6 +154,11 @@ function RoomHeader({ course }: { course: CourseDetail }) {
           {course.category_name && <Badge variant="secondary">{course.category_name}</Badge>}
           {course.term && <Badge variant="outline">เทอม {course.term}</Badge>}
           {course.archived && <Badge variant="destructive">เก็บถาวร</Badge>}
+          {course.is_private && (
+            <Badge variant="outline" className="gap-1">
+              <Lock className="h-3 w-3" /> ห้องส่วนตัว
+            </Badge>
+          )}
           {course.requires_code && (
             <Badge variant="outline" className="gap-1">
               <KeyRound className="h-3 w-3" /> ต้องใช้รหัสเข้าห้อง
@@ -380,6 +386,25 @@ function JoinCard({ course }: { course: CourseDetail }) {
             </Button>
           </div>
         )}
+        <label className="flex cursor-pointer items-start gap-2 rounded-md border p-2.5 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5 h-4 w-4 accent-primary"
+            checked={course.is_private}
+            disabled={!course.is_owner || update.isPending}
+            onChange={(e) => update.mutate({ is_private: e.target.checked })}
+          />
+          <span className="min-w-0">
+            <span className="flex items-center gap-1 font-medium">
+              <Lock className="h-3.5 w-3.5" /> ห้องส่วนตัว
+            </span>
+            <span className="block text-[11px] leading-relaxed text-muted-foreground">
+              {course.is_private
+                ? 'โพสต์และคลังของห้องนี้เห็นได้เฉพาะสมาชิก ผู้สอน และผู้ช่วยสอน — คนนอกยังเห็นชื่อห้องและขอเข้าร่วมได้'
+                : 'ตอนนี้ทุกคนที่ล็อกอินอ่านโพสต์และค้นเอกสารของห้องนี้ได้แม้ยังไม่เข้าร่วม'}
+            </span>
+          </span>
+        </label>
         <div className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
           ลิงก์ห้อง: <code className="break-all">/community?course={course.id}</code>
           <Button

@@ -29,6 +29,8 @@ export interface RoomMeta {
   term?: string | null
   status: RoomStatus
   archived: boolean
+  /** Posts and library visible to members only (plus the people who run the room). */
+  is_private: boolean
   /** Students must type a code to join. The code itself is only sent to managers. */
   requires_code: boolean
   join_code?: string | null
@@ -72,6 +74,15 @@ export interface CourseSettingsInput {
   /** "" clears the term / join code. */
   term?: string
   join_code?: string
+  is_private?: boolean
+}
+
+/** Who may read a post. Room privacy is applied on top by the server. */
+export type PostVisibility = 'public' | 'course' | 'private'
+export const POST_VISIBILITY_LABELS: Record<PostVisibility, string> = {
+  public: 'ทุกคน',
+  course: 'เฉพาะสมาชิกห้อง',
+  private: 'เฉพาะฉัน',
 }
 
 export interface PurgeResult {

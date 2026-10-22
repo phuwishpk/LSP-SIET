@@ -86,6 +86,7 @@ export interface AdminCourse {
   status: 'active' | 'archived'
   archived: boolean
   archived_at?: string | null
+  is_private: boolean
   requires_code: boolean
 }
 

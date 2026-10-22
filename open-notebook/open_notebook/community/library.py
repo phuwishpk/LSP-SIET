@@ -114,13 +114,57 @@ async def get_course(course_id: int) -> Optional[Dict[str, Any]]:
         row = (
             await session.execute(
                 text(
-                    "SELECT id, code, name, kind, library_notebook_id AS notebook_id "
+                    "SELECT id, code, name, kind, library_notebook_id AS notebook_id, "
+                    "created_by, is_private, status "
                     "FROM rooms WHERE id = :cid"
                 ),
                 {"cid": course_id},
             )
         ).first()
     return dict(row._mapping) if row else None
+
+
+async def room_ids_readable_by(user: User) -> Optional[set[int]]:
+    """
+    Course rooms whose posts and library this user may read: every public room
+    plus the private rooms they belong to or run. ``None`` means "all" (admin).
+    """
+    if is_admin(user):
+        return None
+    uid = int(user.id or 0)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    """
+                    SELECT c.id FROM rooms c
+                     WHERE c.is_private = 0
+                        OR c.created_by = :uid
+                        OR EXISTS(SELECT 1 FROM room_members m
+                                   WHERE m.room_id = c.id AND m.user_id = :uid)
+                    """
+                ),
+                {"uid": uid},
+            )
+        ).all()
+    return {int(r[0]) for r in rows}
+
+
+async def can_read_room(user: User, room: Dict[str, Any]) -> bool:
+    """Public room: anyone signed in. Private room: members, the owner, admins."""
+    if not room.get("is_private") or is_admin(user):
+        return True
+    uid = int(user.id or 0)
+    if int(room.get("created_by") or 0) == uid:
+        return True
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text("SELECT 1 FROM room_members WHERE room_id = :cid AND user_id = :uid"),
+                {"cid": room["id"], "uid": uid},
+            )
+        ).first()
+    return row is not None
 
 
 async def notebook_ids_for_scope(
@@ -134,7 +178,7 @@ async def notebook_ids_for_scope(
     Resolve a retrieval scope into the notebook ids the RAG should search.
 
     * ``document`` – the notebooks holding the given (readable) documents
-    * ``course``   – one course library (any authenticated user may read it)
+    * ``course``   – one course library (public room: anyone; private room: members)
     * ``personal`` – only the caller's own uploads
     * ``auto``     – personal library + every course the caller belongs to
                      (staff see every course library) + every shared staff
@@ -154,6 +198,8 @@ async def notebook_ids_for_scope(
         course = await get_course(course_id)
         if not course:
             raise LibraryError("ไม่พบรายวิชานี้")
+        if not await can_read_room(user, course):
+            raise LibraryError("ห้องนี้เป็นห้องส่วนตัว ต้องเป็นสมาชิกจึงจะถามจากคลังของห้องได้")
         if course.get("notebook_id"):
             ids.append(str(course["notebook_id"]))
         return ids
@@ -167,13 +213,29 @@ async def notebook_ids_for_scope(
     if user.library_notebook_id:
         ids.append(str(user.library_notebook_id))
     async with _mariadb_session() as session:
-        if user.is_points_exempt:  # admins + teachers see every course library
+        if is_admin(user):  # the operator sees every course library
             rows = (
                 await session.execute(
                     text(
                         "SELECT library_notebook_id FROM rooms "
                         "WHERE library_notebook_id IS NOT NULL"
                     )
+                )
+            ).all()
+        elif user.is_points_exempt:  # teachers: every public library + their own private rooms
+            rows = (
+                await session.execute(
+                    text(
+                        """
+                        SELECT c.library_notebook_id
+                          FROM rooms c
+                         WHERE c.library_notebook_id IS NOT NULL
+                           AND (c.is_private = 0 OR c.created_by = :uid
+                                OR EXISTS(SELECT 1 FROM room_members m
+                                           WHERE m.room_id = c.id AND m.user_id = :uid))
+                        """
+                    ),
+                    {"uid": uid},
                 )
             ).all()
         else:
@@ -279,7 +341,8 @@ async def _sharing_context() -> Dict[str, Any]:
         course_rows = (
             await session.execute(
                 text(
-                    "SELECT id, code, name, library_notebook_id AS notebook_id "
+                    "SELECT id, code, name, library_notebook_id AS notebook_id, "
+                    "created_by, is_private "
                     "FROM rooms WHERE kind = 'course'"
                 )
             )
@@ -299,6 +362,15 @@ async def _sharing_context() -> Dict[str, Any]:
             str(c["notebook_id"]) for c in courses.values() if c.get("notebook_id")
         },
     }
+
+
+async def _course_ids_for_viewer(ctx: Dict[str, Any], viewer: Optional[User]) -> set[int]:
+    """Course rooms whose library the viewer may read (private rooms need membership)."""
+    all_ids = set(ctx["courses"])
+    if viewer is None or is_admin(viewer):
+        return all_ids
+    readable = await room_ids_readable_by(viewer)
+    return all_ids if readable is None else all_ids & readable
 
 
 async def _owner_names(owner_ids: Sequence[str]) -> Dict[int, Dict[str, Any]]:
@@ -335,7 +407,8 @@ async def list_shared_notebooks(
     see_all = is_admin(viewer)
     ctx = await _sharing_context()
     staff_owner_ids = [str(uid) for uid in ctx["staff"]]
-    course_owner_ids = [f"course:{cid}" for cid in ctx["courses"]]
+    # A private room's library is not "shared": only its members see it here.
+    course_owner_ids = [f"course:{cid}" for cid in await _course_ids_for_viewer(ctx, viewer)]
     try:
         if see_all:
             rows = await repo_query(
@@ -506,7 +579,12 @@ async def resolve_knowledge_pick(
     shared = await list_shared_notebooks(with_sources=False, viewer=user)
     names = {nb["id"]: nb["name"] for nb in shared}
     ctx = await _sharing_context()
-    allowed = set(names) | ctx["course_notebooks"]
+    readable_courses = await _course_ids_for_viewer(ctx, user)
+    allowed = set(names) | {
+        str(c["notebook_id"])
+        for cid, c in ctx["courses"].items()
+        if c.get("notebook_id") and cid in readable_courses
+    }
     if user.library_notebook_id:
         allowed.add(str(user.library_notebook_id))
 
@@ -651,11 +729,33 @@ async def update_document(doc_id: int, **fields: Any) -> None:
         )
 
 
-def can_read_document(user: User, doc: Dict[str, Any]) -> bool:
-    """Course documents are readable by everyone; personal ones by their owner."""
-    if doc.get("scope") == SCOPE_COURSE:
+async def can_read_document(user: User, doc: Dict[str, Any]) -> bool:
+    """
+    Personal documents: their owner. Course documents: anyone for a public room,
+    members (and the people running it) for a private room, admins always.
+    """
+    if int(doc.get("owner_id") or 0) == int(user.id or 0) or is_admin(user):
         return True
-    return int(doc.get("owner_id") or 0) == int(user.id or 0)
+    if doc.get("scope") != SCOPE_COURSE:
+        return False
+    if not doc.get("room_id"):
+        return True
+    room = await get_course(int(doc["room_id"]))
+    return bool(room) and await can_read_room(user, room)
+
+
+# SQL twin of can_read_document for list queries (aliases: library_documents d,
+# LEFT JOIN rooms c). Parameters: :uid, :is_admin.
+_DOC_READABLE_SQL = """
+    (
+        :is_admin = 1
+        OR d.owner_id = :uid
+        OR (d.scope = 'course' AND (
+                d.room_id IS NULL OR COALESCE(c.is_private, 0) = 0 OR c.created_by = :uid
+                OR EXISTS(SELECT 1 FROM room_members vm
+                           WHERE vm.room_id = d.room_id AND vm.user_id = :uid)))
+    )
+"""
 
 
 def can_manage_document(user: User, doc: Dict[str, Any]) -> bool:
@@ -669,19 +769,23 @@ async def list_documents_by_ids(user: User, ids: Sequence[int]) -> List[Dict[str
     if not clean:
         return []
     placeholders = ", ".join(f":id{i}" for i in range(len(clean)))
-    params = {f"id{i}": v for i, v in enumerate(clean)}
+    params: Dict[str, Any] = {f"id{i}": v for i, v in enumerate(clean)}
+    params.update({"uid": int(user.id or 0), "is_admin": 1 if is_admin(user) else 0})
     async with _mariadb_session() as session:
         rows = (
             await session.execute(
                 text(
-                    f"SELECT {_DOC_COLUMNS} FROM library_documents d "
-                    f"WHERE d.id IN ({placeholders}) AND d.status = 'ready'"
+                    f"""
+                    SELECT {_DOC_COLUMNS} FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                     WHERE d.id IN ({placeholders}) AND d.status = 'ready'
+                       AND {_DOC_READABLE_SQL}
+                    """
                 ),
                 params,
             )
         ).all()
-    docs = [_row(r) for r in rows]
-    return [d for d in docs if can_read_document(user, d)]
+    return [_row(r) for r in rows]
 
 
 async def list_documents(
@@ -691,10 +795,10 @@ async def list_documents(
     course_id: Optional[int] = None,
     limit: int = 100,
 ) -> List[Dict[str, Any]]:
-    """List documents the caller may read, newest first."""
+    """List documents the caller may read, newest first (private rooms: members only)."""
     uid = int(user.id or 0)
-    where = ["(d.scope = 'course' OR d.owner_id = :uid)"]
-    params: Dict[str, Any] = {"uid": uid, "limit": int(limit)}
+    where = [_DOC_READABLE_SQL]
+    params: Dict[str, Any] = {"uid": uid, "is_admin": 1 if is_admin(user) else 0, "limit": int(limit)}
     if scope in (SCOPE_COURSE, SCOPE_PERSONAL):
         where.append("d.scope = :scope")
         params["scope"] = scope

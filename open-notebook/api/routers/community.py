@@ -124,6 +124,35 @@ async def _post_or_404(post_id: int) -> Dict[str, Any]:
     return post
 
 
+async def _visible_post_or_404(post_id: int, user: User) -> Dict[str, Any]:
+    """
+    The raw post, but only if this viewer may read it. A hidden post answers
+    404 exactly like a missing one, so nobody can probe for private ids.
+    """
+    post = await _post_or_404(post_id)
+    uid = _uid(user)
+    room, is_member = None, False
+    room_id = post.get("course_id") or post.get("room_id")
+    if room_id:
+        room = await repo.get_course(int(room_id))
+        is_member = await repo.member_role(int(room_id), uid) is not None
+    if not repo.post_visible_to(
+        post, uid, is_admin=user.role == USER_ROLE_ADMIN, room=room, is_member=is_member
+    ):
+        raise HTTPException(status_code=404, detail="Post not found")
+    return post
+
+
+def _clean_visibility(value: Optional[str], *, has_room: bool) -> str:
+    """``course`` only means something inside a room; elsewhere it is public."""
+    v = (value or repo.VISIBILITY_PUBLIC).strip().lower()
+    if v not in repo.VISIBILITIES:
+        raise HTTPException(status_code=400, detail="visibility ต้องเป็น public, course หรือ private")
+    if v == repo.VISIBILITY_COURSE and not has_room:
+        return repo.VISIBILITY_PUBLIC
+    return v
+
+
 # ---------------------------------------------------------------------------
 # Schemas
 # ---------------------------------------------------------------------------
@@ -143,6 +172,7 @@ class CourseCreate(BaseModel):
     category_id: Optional[int] = Field(default=None, ge=1)
     term: Optional[str] = Field(default=None, max_length=16)
     join_code: Optional[str] = Field(default=None, max_length=32)
+    is_private: bool = False
 
 
 class CourseUpdate(BaseModel):
@@ -153,6 +183,7 @@ class CourseUpdate(BaseModel):
     category_id: Optional[int] = Field(default=None, ge=0)
     term: Optional[str] = Field(default=None, max_length=16)
     join_code: Optional[str] = Field(default=None, max_length=32)
+    is_private: Optional[bool] = None
 
 
 class CourseJoin(BaseModel):
@@ -177,6 +208,8 @@ class PostEditBody(BaseModel):
     tags: Optional[str] = Field(default=None, max_length=255)
     # 0 or negative clears the course link
     course_id: Optional[int] = None
+    # who may read it; "private" is how an author hides a post without deleting it
+    visibility: Optional[Literal["public", "course", "private"]] = None
 
 
 class CommentBody(BaseModel):
@@ -311,6 +344,7 @@ def _public_room(room: Dict[str, Any], *, manager: bool) -> Dict[str, Any]:
         out["join_code"] = code
     out["status"] = out.get("status") or repo.STATUS_ACTIVE
     out["archived"] = out["status"] == repo.STATUS_ARCHIVED
+    out["is_private"] = bool(out.get("is_private"))
     out["can_manage"] = manager
     return out
 
@@ -453,6 +487,7 @@ async def create_course(body: CourseCreate, user: User = Depends(get_current_use
             category_id=category_id,
             term=body.term,
             join_code=body.join_code,
+            is_private=bool(body.is_private) and body.kind != repo.KIND_CLUB,
         )
     except IntegrityError:
         # Two teachers raced for the same code; the pre-check above is advisory.
@@ -495,6 +530,7 @@ async def update_course(
             category_id=category_id,
             term=body.term,
             join_code=body.join_code,
+            is_private=body.is_private,
         )
     except IntegrityError:
         raise HTTPException(status_code=409, detail="รหัสนี้ถูกใช้ไปแล้ว")
@@ -647,6 +683,7 @@ async def list_posts(
 ) -> Dict[str, Any]:
     items = await repo.list_posts(
         _uid(user),
+        viewer_is_admin=user.role == USER_ROLE_ADMIN,
         course_id=course_id,
         post_type=type,
         author_id=author_id,
@@ -701,6 +738,7 @@ async def create_post(
     content: Optional[str] = Form(default=None),
     course_id: Optional[int] = Form(default=None),
     tags: Optional[str] = Form(default=None),
+    visibility: Optional[str] = Form(default=None),
     embed_type: Optional[str] = Form(default=None),
     embed_id: Optional[str] = Form(default=None),
     file: Optional[UploadFile] = File(default=None),
@@ -720,6 +758,7 @@ async def create_post(
         raise HTTPException(status_code=404, detail="Course not found")
     if course_id is not None and course_id <= 0:
         course_id = None
+    post_visibility = _clean_visibility(visibility, has_room=course_id is not None)
 
     snapshot: Optional[Dict[str, Any]] = None
     embed_type = (embed_type or "").strip().lower() or None
@@ -797,6 +836,7 @@ async def create_post(
         embed_snapshot=snapshot,
         attachment=attachment,
         content_hash=content_hash,
+        visibility=post_visibility,
     )
 
     # --- earn points for contributing ------------------------------------
@@ -821,7 +861,7 @@ async def create_post(
 
 @router.get("/posts/{post_id}")
 async def get_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    post = await repo.get_post(post_id, _uid(user))
+    post = await repo.get_post(post_id, _uid(user), viewer_is_admin=user.role == USER_ROLE_ADMIN)
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     post["comments"] = await repo.list_comments(post_id)
@@ -837,12 +877,17 @@ async def edit_post(
     quizzes/roadmaps are left untouched; only the text, tags and course move.
     """
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if int(post["author_id"]) != uid and user.role != USER_ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="แก้ไขได้เฉพาะโพสต์ของตัวเอง")
     if body.course_id is not None and body.course_id > 0 and not await repo.get_course(body.course_id):
         raise HTTPException(status_code=404, detail="ไม่พบรายวิชานี้")
 
+    will_have_room = (
+        (body.course_id or 0) > 0
+        if body.course_id is not None
+        else bool(post.get("course_id") or post.get("room_id"))
+    )
     await repo.update_post(
         post_id,
         title=body.title,
@@ -850,6 +895,7 @@ async def edit_post(
         tags=[t for t in re.split(r"[,#\s]+", body.tags) if t] if body.tags is not None else None,
         course_id=body.course_id if (body.course_id or 0) > 0 else None,
         clear_course=body.course_id is not None and body.course_id <= 0,
+        visibility=_clean_visibility(body.visibility, has_room=will_have_room) if body.visibility else None,
     )
 
     # Improving an existing post is worth a small, tightly capped reward.
@@ -871,7 +917,7 @@ async def edit_post(
 
 @router.delete("/posts/{post_id}")
 async def delete_post(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if int(post["author_id"]) != _uid(user) and user.role != USER_ROLE_ADMIN:
         raise HTTPException(status_code=403, detail="You can only delete your own posts")
     await repo.soft_delete_post(post_id)
@@ -880,7 +926,7 @@ async def delete_post(post_id: int, user: User = Depends(get_current_user)) -> D
 
 @router.get("/posts/{post_id}/attachment")
 async def download_attachment(post_id: int, user: User = Depends(get_current_user)):
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     path = post.get("attachment_path")
     if not path or not os.path.isfile(path):
         raise HTTPException(status_code=404, detail="Attachment not found")
@@ -894,7 +940,7 @@ async def download_attachment(post_id: int, user: User = Depends(get_current_use
 @router.post("/posts/{post_id}/reactions")
 async def react(post_id: int, body: ReactionBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     active = await repo.toggle_reaction(post_id, uid, body.kind)
     author_id = int(post["author_id"])
     if active and author_id != uid:
@@ -934,14 +980,14 @@ def _mark_deletable(
 
 @router.get("/posts/{post_id}/comments")
 async def list_comments(post_id: int, user: User = Depends(get_current_user)) -> List[Dict[str, Any]]:
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     return _mark_deletable(await repo.list_comments(post_id), user, post)
 
 
 @router.post("/posts/{post_id}/comments", status_code=201)
 async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     parent = None
     if body.parent_id is not None:
         parent = await repo.get_comment(body.parent_id)
@@ -965,7 +1011,7 @@ async def delete_comment(
     post_id: int, comment_id: int, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Remove a comment. Unlike a post, this really deletes the row."""
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     comment = await repo.get_comment(comment_id)
     if not comment or int(comment["post_id"]) != post_id:
         raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นนี้")
@@ -1032,7 +1078,7 @@ async def remove_post_from_saved_collection(
 
 @router.post("/posts/{post_id}/save")
 async def toggle_save(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    await _post_or_404(post_id)
+    await _visible_post_or_404(post_id, user)
     saved = await repo.toggle_saved(post_id, _uid(user))
     return {"saved": saved}
 
@@ -1040,7 +1086,7 @@ async def toggle_save(post_id: int, user: User = Depends(get_current_user)) -> D
 @router.post("/posts/{post_id}/share")
 async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     author_id = int(post["author_id"])
 
     # One share per person per post. The insert itself decides: a second call
@@ -1090,7 +1136,7 @@ def _quiz_questions(post: Dict[str, Any]) -> List[Dict[str, Any]]:
 @router.post("/posts/{post_id}/quiz/start")
 async def quiz_start(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     questions = _quiz_questions(post)
     is_author = int(post["author_id"]) == uid
     plays = await repo.count_plays(post_id, uid)
@@ -1120,7 +1166,7 @@ async def quiz_start(post_id: int, user: User = Depends(get_current_user)) -> Di
 @router.post("/posts/{post_id}/quiz/submit")
 async def quiz_submit(post_id: int, body: QuizSubmitBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     questions = _quiz_questions(post)
     play = await repo.get_play(body.play_id)
     if not play or int(play["user_id"]) != uid or int(play["post_id"]) != post_id:
@@ -1174,7 +1220,7 @@ async def quiz_submit(post_id: int, body: QuizSubmitBody, user: User = Depends(g
 @router.post("/posts/{post_id}/quiz/import")
 async def quiz_import(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     questions = _quiz_questions(post)
     if int(post["author_id"]) == uid:
         raise HTTPException(status_code=400, detail="This quiz is already in your library")
@@ -1216,7 +1262,7 @@ async def quiz_import(post_id: int, user: User = Depends(get_current_user)) -> D
 @router.post("/posts/{post_id}/roadmap/follow")
 async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if post.get("embed_type") != "roadmap" or not post.get("embed_snapshot"):
         raise HTTPException(status_code=400, detail="This post has no roadmap")
     snapshot = post["embed_snapshot"]
@@ -1447,7 +1493,7 @@ async def sync_roadmap_post(post_id: int, user: User = Depends(get_current_user)
     (after expanding it). Never automatic: the author decides what readers see.
     """
     uid = _uid(user)
-    post = await _post_or_404(post_id)
+    post = await _visible_post_or_404(post_id, user)
     if int(post["author_id"]) != uid:
         raise HTTPException(status_code=403, detail="อัปเดตได้เฉพาะโพสต์ของตัวเอง")
     if post.get("embed_type") != "roadmap" or not post.get("embed_id"):
@@ -1642,7 +1688,7 @@ async def get_library_document(
     doc_id: int, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     doc = await library.get_document(doc_id)
-    if not doc or not library.can_read_document(user, doc):
+    if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
     return _doc_public(doc, user)
 
@@ -1817,7 +1863,7 @@ async def retry_library_document(
     doc_id: int, background: BackgroundTasks, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     doc = await library.get_document(doc_id)
-    if not doc or not library.can_read_document(user, doc):
+    if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
     if not library.can_manage_document(user, doc):
         raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์จัดการเอกสารนี้")
@@ -1833,7 +1879,7 @@ async def delete_library_document(
     doc_id: int, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     doc = await library.get_document(doc_id)
-    if not doc or not library.can_read_document(user, doc):
+    if not doc or not await library.can_read_document(user, doc):
         raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
     if not library.can_manage_document(user, doc):
         raise HTTPException(status_code=403, detail="คุณไม่มีสิทธิ์ลบเอกสารนี้")

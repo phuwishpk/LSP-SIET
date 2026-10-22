@@ -34,6 +34,12 @@ MEMBER_ROLE_MEMBER = "member"
 MEMBER_ROLE_TA = "ta"
 MEMBER_ROLES = (MEMBER_ROLE_MEMBER, MEMBER_ROLE_TA)
 
+# Who may read a post. A private *room* narrows all of these to its members.
+VISIBILITY_PUBLIC = "public"
+VISIBILITY_COURSE = "course"
+VISIBILITY_PRIVATE = "private"
+VISIBILITIES = (VISIBILITY_PUBLIC, VISIBILITY_COURSE, VISIBILITY_PRIVATE)
+
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -69,25 +75,74 @@ _POST_COLUMNS = """
     p.quiz_play_count AS play_count,
     p.roadmap_follow_count AS follow_count,
     p.cashback_earned, p.is_deleted, p.content_hash,
+    p.visibility,
     p.created_at, p.updated_at
 """
+
+# One rule for "may this viewer read this post", used by every feed query and
+# mirrored in Python by ``post_visible_to`` for the single-post routes.
+# Expects the feed aliases: posts p, LEFT JOIN rooms c. Parameters: :viewer,
+# :viewer_is_admin (1/0).
+_VISIBLE_SQL = """
+    (
+        :viewer_is_admin = 1
+        OR p.author_id = :viewer
+        OR (p.visibility = 'public' AND (ISNULL(p.room_id) OR COALESCE(c.is_private, 0) = 0))
+        OR (
+            p.room_id IS NOT NULL AND p.visibility IN ('public', 'course')
+            AND (
+                c.created_by = :viewer
+                OR EXISTS(SELECT 1 FROM room_members vm
+                           WHERE vm.room_id = p.room_id AND vm.user_id = :viewer)
+            )
+        )
+    )
+"""
+
+
+def post_visible_to(
+    post: Dict[str, Any],
+    viewer_id: int,
+    *,
+    is_admin: bool = False,
+    room: Optional[Dict[str, Any]] = None,
+    is_member: bool = False,
+) -> bool:
+    """
+    Python twin of ``_VISIBLE_SQL`` for routes that start from a raw post.
+    ``room`` is the post's room (or None) and ``is_member`` whether the viewer
+    belongs to it; the caller looks both up.
+    """
+    if is_admin or int(post.get("author_id") or 0) == int(viewer_id):
+        return True
+    visibility = post.get("visibility") or VISIBILITY_PUBLIC
+    if visibility == VISIBILITY_PRIVATE:
+        return False
+    room_id = post.get("course_id") or post.get("room_id")
+    if not room_id or room is None:
+        return visibility == VISIBILITY_PUBLIC
+    manages = int(room.get("created_by") or 0) == int(viewer_id)
+    if is_member or manages:
+        return True
+    return visibility == VISIBILITY_PUBLIC and not bool(room.get("is_private"))
 
 _ROOM_COLUMNS = """
     id, code, name, description, kind, created_by, created_at,
     library_notebook_id AS notebook_id,
-    category_id, term, join_code, status, archived_at
+    category_id, term, join_code, status, archived_at, is_private
 """
 
 # The public shape of a room's category + lifecycle, joined in list queries.
 _ROOM_META_COLUMNS = """
     c.category_id, cat.name AS category_name, cat.slug AS category_slug,
-    c.term, c.status, c.archived_at,
+    c.term, c.status, c.archived_at, c.is_private,
     (c.join_code IS NOT NULL AND c.join_code <> '') AS requires_code
 """
 
 
 def _room_meta(r: Dict[str, Any]) -> Dict[str, Any]:
     r["requires_code"] = bool(r.get("requires_code"))
+    r["is_private"] = bool(r.get("is_private"))
     r["status"] = r.get("status") or STATUS_ACTIVE
     r["archived"] = r["status"] == STATUS_ARCHIVED
     return r
@@ -149,12 +204,14 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
     course_code = row.pop("course_code", None)
     course_name = row.pop("course_name", None)
     course_kind = row.pop("course_kind", None)
+    room_is_private = bool(row.pop("room_is_private", 0))
     if row.get("course_id"):
         course = {
             "id": row["course_id"],
             "code": course_code,
             "name": course_name,
             "kind": course_kind or KIND_COURSE,
+            "is_private": room_is_private,
         }
 
     tags_raw = row.get("tags") or ""
@@ -167,6 +224,7 @@ def _post_public(row: Dict[str, Any], viewer_id: int) -> Dict[str, Any]:
         "content": row.get("content"),
         "tags": tags,
         "course": course,
+        "visibility": row.get("visibility") or VISIBILITY_PUBLIC,
         "author": author,
         "is_author": is_author,
         "attachment": (
@@ -211,6 +269,7 @@ _POST_SELECT = f"""
            c.code         AS course_code,
            c.name         AS course_name,
            c.kind         AS course_kind,
+           c.is_private   AS room_is_private,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'like')    AS liked,
            EXISTS(SELECT 1 FROM post_reactions r WHERE r.post_id = p.id AND r.user_id = :viewer AND r.kind = 'helpful') AS marked_helpful,
            EXISTS(SELECT 1 FROM saved_posts s WHERE s.post_id = p.id AND s.user_id = :viewer) AS saved,
@@ -297,15 +356,16 @@ async def create_course(
     category_id: Optional[int] = None,
     term: Optional[str] = None,
     join_code: Optional[str] = None,
+    is_private: bool = False,
 ) -> Dict[str, Any]:
     async with _mariadb_session() as session:
         result = await session.execute(
             text(
                 """
                 INSERT INTO rooms (code, name, description, created_by, kind,
-                                   category_id, term, join_code)
+                                   category_id, term, join_code, is_private)
                 VALUES (:code, :name, :description, :created_by, :kind,
-                        :category_id, :term, :join_code)
+                        :category_id, :term, :join_code, :is_private)
                 """
             ),
             {
@@ -317,6 +377,7 @@ async def create_course(
                 "category_id": int(category_id) if category_id else None,
                 "term": _clean_term(term),
                 "join_code": _clean_join_code(join_code),
+                "is_private": 1 if is_private else 0,
             },
         )
         course_id = int(result.lastrowid)
@@ -383,6 +444,7 @@ async def update_course(
     category_id: Optional[int] = None,
     term: Optional[str] = None,
     join_code: Optional[str] = None,
+    is_private: Optional[bool] = None,
 ) -> Optional[Dict[str, Any]]:
     """
     Rename / re-code a room. Only the fields that are passed are touched;
@@ -408,6 +470,9 @@ async def update_course(
     if join_code is not None:
         sets.append("join_code = :join_code")
         values["join_code"] = _clean_join_code(join_code)
+    if is_private is not None:
+        sets.append("is_private = :is_private")
+        values["is_private"] = 1 if is_private else 0
     if not sets:
         return await get_course(course_id)
     async with _mariadb_session() as session:
@@ -799,9 +864,12 @@ async def create_post(
     embed_snapshot: Optional[Dict[str, Any]] = None,
     attachment: Optional[Dict[str, Any]] = None,
     content_hash: Optional[str] = None,
+    visibility: str = VISIBILITY_PUBLIC,
 ) -> int:
     if post_type not in POST_TYPES:
         raise ValueError(f"invalid post type {post_type}")
+    if visibility not in VISIBILITIES:
+        raise ValueError(f"invalid visibility {visibility}")
     attachment = attachment or {}
     async with _mariadb_session() as session:
         result = await session.execute(
@@ -810,11 +878,11 @@ async def create_post(
                 INSERT INTO posts
                     (author_id, room_id, type, title, content, tags,
                      attachment_name, attachment_path, attachment_size, attachment_mime,
-                     linked_type, linked_id, linked_snapshot, content_hash)
+                     linked_type, linked_id, linked_snapshot, content_hash, visibility)
                 VALUES
                     (:author_id, :course_id, :type, :title, :content, :tags,
                      :att_name, :att_path, :att_size, :att_mime,
-                     :embed_type, :embed_id, :embed_snapshot, :content_hash)
+                     :embed_type, :embed_id, :embed_snapshot, :content_hash, :visibility)
                 """
             ),
             {
@@ -832,6 +900,7 @@ async def create_post(
                 "embed_id": embed_id,
                 "embed_snapshot": json.dumps(embed_snapshot, ensure_ascii=False) if embed_snapshot else None,
                 "content_hash": content_hash,
+                "visibility": visibility,
             },
         )
         return int(result.lastrowid)
@@ -852,9 +921,15 @@ async def list_posts(
     before_id: Optional[int] = None,
     limit: int = 20,
     order: str = "newest",
+    viewer_is_admin: bool = False,
 ) -> List[Dict[str, Any]]:
-    where = ["p.is_deleted = 0"]
-    params: Dict[str, Any] = {"viewer": viewer_id, "limit": max(1, min(int(limit), 100))}
+    # Visibility first: nothing below widens what the viewer may read.
+    where = ["p.is_deleted = 0", _VISIBLE_SQL]
+    params: Dict[str, Any] = {
+        "viewer": viewer_id,
+        "viewer_is_admin": 1 if viewer_is_admin else 0,
+        "limit": max(1, min(int(limit), 100)),
+    }
     if course_id:
         where.append("p.room_id = :course_id")
         params["course_id"] = course_id
@@ -929,12 +1004,15 @@ async def list_posts(
     return [_post_public(r, viewer_id) for r in rows]
 
 
-async def get_post(post_id: int, viewer_id: int) -> Optional[Dict[str, Any]]:
+async def get_post(
+    post_id: int, viewer_id: int, *, viewer_is_admin: bool = False
+) -> Optional[Dict[str, Any]]:
+    """One post as the viewer may see it - ``None`` when hidden from them too."""
     async with _mariadb_session() as session:
         row = (
             await session.execute(
-                text(_POST_SELECT + " WHERE p.id = :pid AND p.is_deleted = 0"),
-                {"pid": post_id, "viewer": viewer_id},
+                text(_POST_SELECT + " WHERE p.id = :pid AND p.is_deleted = 0 AND " + _VISIBLE_SQL),
+                {"pid": post_id, "viewer": viewer_id, "viewer_is_admin": 1 if viewer_is_admin else 0},
             )
         ).first()
     return _post_public(_row(row), viewer_id) if row else None
@@ -969,10 +1047,16 @@ async def update_post(
     tags: Optional[Sequence[str]] = None,
     course_id: Optional[int] = None,
     clear_course: bool = False,
+    visibility: Optional[str] = None,
 ) -> None:
     """Edit the text fields of a post. Embeds and attachments are untouched."""
     values: Dict[str, Any] = {"pid": post_id}
     sets: List[str] = []
+    if visibility is not None:
+        if visibility not in VISIBILITIES:
+            raise ValueError(f"invalid visibility {visibility}")
+        sets.append("visibility = :visibility")
+        values["visibility"] = visibility
     if title is not None:
         sets.append("title = :title")
         values["title"] = title.strip()[:200] or None
@@ -1447,7 +1531,7 @@ async def admin_list_posts(
                     f"""
                     SELECT p.id, p.type, p.title, p.content, p.is_deleted, p.created_at,
                            p.like_count, p.helpful_count, p.comment_count, p.share_count,
-                           p.attachment_name,
+                           p.attachment_name, p.visibility,
                            u.id AS author_id, u.username AS author_username,
                            u.display_name AS author_display_name, u.role AS author_role,
                            c.id AS course_id, c.code AS course_code, c.name AS course_name,
@@ -1473,6 +1557,7 @@ async def admin_list_posts(
                 "title": r.get("title"),
                 "excerpt": body[:180] + ("…" if len(body) > 180 else ""),
                 "is_deleted": bool(r.get("is_deleted")),
+                "visibility": r.get("visibility") or VISIBILITY_PUBLIC,
                 "created_at": r.get("created_at"),
                 "has_attachment": bool(r.get("attachment_name")),
                 "counts": {

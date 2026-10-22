@@ -2,7 +2,7 @@
 
 /** Every room in one table — including the ones nobody owns or has posted in. */
 import Link from 'next/link'
-import { AlertTriangle, ExternalLink, Hash, KeyRound, MessagesSquare, Trash2 } from 'lucide-react'
+import { AlertTriangle, ExternalLink, Hash, KeyRound, Lock, MessagesSquare, Trash2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -65,6 +65,9 @@ export function RoomsPanel() {
                           <Badge variant="outline" className="h-5 text-[10px]">
                             เก็บถาวร
                           </Badge>
+                        )}
+                        {room.is_private && (
+                          <Lock className="h-3 w-3 text-subtle-foreground" aria-label="ห้องส่วนตัว" />
                         )}
                         {room.requires_code && (
                           <KeyRound className="h-3 w-3 text-subtle-foreground" aria-label="ต้องใช้รหัสเข้าห้อง" />

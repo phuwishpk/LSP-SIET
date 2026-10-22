@@ -138,6 +138,9 @@ STATEMENTS: list[str] = RENAMES + [
     "ENUM('active','archived') NOT NULL DEFAULT 'active'",
     "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS archived_at DATETIME NULL",
     "ALTER TABLE rooms ADD INDEX IF NOT EXISTS idx_rooms_category (category_id, status)",
+    # A private room shows its posts and library only to its members (and the
+    # people who run it); a public room is readable by every signed-in user.
+    "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private TINYINT(1) NOT NULL DEFAULT 0",
     # Personal knowledge library (one Open Notebook notebook per user).
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     f"""
@@ -193,6 +196,11 @@ STATEMENTS: list[str] = RENAMES + [
     # MD5(title + content + linked_id) fingerprint ใช้กรอง duplicate/spam posts
     "ALTER TABLE posts ADD COLUMN IF NOT EXISTS content_hash CHAR(32) NULL",
     "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_dupe (author_id, content_hash, created_at)",
+    # Who may read a post: everyone / members of its room / only its author.
+    # Room privacy (rooms.is_private) is applied on top of this in every query.
+    "ALTER TABLE posts ADD COLUMN IF NOT EXISTS visibility "
+    "ENUM('public','course','private') NOT NULL DEFAULT 'public'",
+    "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_visibility (visibility, id)",
     "ALTER TABLE posts ADD INDEX IF NOT EXISTS idx_posts_author_time (author_id, created_at)",
     f"""
     CREATE TABLE IF NOT EXISTS post_reactions (

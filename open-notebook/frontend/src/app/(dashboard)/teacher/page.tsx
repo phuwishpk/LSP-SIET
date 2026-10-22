@@ -22,6 +22,7 @@ import {
   Archive,
   ArchiveRestore,
   KeyRound,
+  Lock,
   MessagesSquare,
   Pencil,
   Plus,
@@ -319,6 +320,7 @@ function RoomRow({
               {course.term}
             </Badge>
           )}
+          {course.is_private && <Lock className="h-3.5 w-3.5 text-muted-foreground" aria-label="ห้องส่วนตัว" />}
           {course.requires_code && <KeyRound className="h-3.5 w-3.5 text-muted-foreground" aria-label="ต้องใช้รหัสเข้าห้อง" />}
         </p>
         <p className="truncate text-xs text-muted-foreground">

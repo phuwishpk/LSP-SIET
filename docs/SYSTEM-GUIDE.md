@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2)
+> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2)
 
 ## สารบัญ
 
@@ -613,7 +613,27 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | **สิทธิ์อัปโหลดเข้าคลังวิชา** | เฉพาะผู้สอน (ผู้สร้างห้อง) ผู้ช่วยสอน และผู้ดูแล — อาจารย์คนอื่นอัปโหลดเข้าห้องที่ตัวเองไม่ได้สอนไม่ได้แล้ว | ตรวจใน `POST /community/library` |
 
 หน้าจัดการของอาจารย์อยู่ที่ **`/teacher/courses/{id}`** (ปุ่ม "ตั้งค่า" ในหน้า `/teacher`): ข้อมูลห้อง หมวด/เทอม
-รหัสเข้าห้อง (สุ่ม/คัดลอก/ยกเลิก) รายชื่อสมาชิกพร้อมตั้ง TA และนำออก เก็บถาวร/กู้คืน และปุ่มลบถาวรเฉพาะผู้ดูแล
+รหัสเข้าห้อง (สุ่ม/คัดลอก/ยกเลิก) สวิตช์ห้องส่วนตัว รายชื่อสมาชิกพร้อมตั้ง TA และนำออก เก็บถาวร/กู้คืน และปุ่มลบถาวรเฉพาะผู้ดูแล
+
+#### 6.2.2 ระดับการมองเห็น (visibility) และห้องส่วนตัว (22 ต.ค. 2026)
+
+กฎเดียวใช้กับทุกจุดที่อ่านโพสต์ — ฟีด, โพสต์เดี่ยว, คอมเมนต์, ไฟล์แนบ, ไลก์/บันทึก/แชร์, เล่นควิซ, ติดตาม roadmap, ค้นหา
+(`repository._VISIBLE_SQL` สำหรับ query และ `repository.post_visible_to` สำหรับ route โพสต์เดี่ยว ผ่าน `_visible_post_or_404`):
+
+| `posts.visibility` | ใครอ่านได้ | ตั้งได้จาก |
+|---|---|---|
+| `public` (ค่าเริ่มต้น — ฟีดเดิมไม่เปลี่ยน) | ทุกคนที่ล็อกอิน **ยกเว้น** โพสต์อยู่ในห้องส่วนตัว → เฉพาะสมาชิก | ฟอร์มโพสต์ (`visibility`) |
+| `course` | สมาชิกของห้อง + ผู้สร้างห้อง (ถ้าโพสต์ไม่อยู่ในห้อง ระบบลดเป็น `public`) | ฟอร์มโพสต์ / `PUT /posts/{id}` |
+| `private` | ผู้เขียนคนเดียว — วิธี "ซ่อนโพสต์" โดยไม่ลบ | `PUT /posts/{id} {visibility: "private"}` |
+
+- ผู้เขียนและผู้ดูแลระบบอ่านได้เสมอ โพสต์ที่มองไม่เห็นตอบ **404** เหมือนไม่มีอยู่ (ไม่เดา id ได้)
+- **ห้องส่วนตัว** (`rooms.is_private`, สวิตช์ในหน้าตั้งค่าห้อง): โพสต์ทุกระดับและเอกสารในคลังของห้องเห็นได้เฉพาะสมาชิก/ผู้สอน/TA;
+  คนนอกยังเห็นชื่อห้องในรายการและขอเข้าร่วมได้ (ใช้ร่วมกับรหัสเข้าห้องได้) ห้อง public ใครล็อกอินก็อ่านโพสต์สาธารณะและค้นเอกสารได้แม้ยังไม่เข้าร่วม
+- คลังเอกสารตามกฎเดียวกัน: `GET /community/library`, `GET /library/{id}`, ดาวน์โหลด, การเลือกเอกสาร/notebook ใน "เจาะจงเอกสาร",
+  scope `course` ของ RAG (`/community/ask`) และ notebook ของห้องใน `GET /community/knowledge` ล้วนกรองห้องส่วนตัวที่ผู้ใช้ไม่ได้เป็นสมาชิกออก
+  (`library._DOC_READABLE_SQL`, `can_read_document`, `can_read_room`, `room_ids_readable_by`)
+- หน้าโปรไฟล์ยังใช้กฎ "เห็นเฉพาะวิชาที่เรียนร่วมกัน" เดิมซ้อนทับกฎนี้อีกชั้น
+- ฝั่ง UI ของฟีด (CreatorBox / SharePostModal) ยังไม่มีตัวเลือก visibility — ดู `docs/handoff/for-poh.md`
 
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
@@ -995,6 +1015,7 @@ GET    /community/courses?include_archived=&category_id=
 GET    /community/courses/{id}                     (รายละเอียด; รหัสเข้าห้องเฉพาะผู้จัดการห้อง)
 POST   /community/courses                          (+ category_id, term, join_code)
 PATCH  /community/courses/{id}                     (category_id=0 / term="" / join_code="" = ล้างค่า)
+PATCH  /community/courses/{id}        {is_private}   (ห้องส่วนตัว: โพสต์+คลังเห็นเฉพาะสมาชิก)
 POST   /community/courses/{id}/join   {code?}      (403 + X-Join-Code-Required ถ้าต้องใช้รหัส)
 POST   /community/courses/{id}/archive · POST /community/courses/{id}/restore   (เจ้าของ/ผู้ดูแล)
 DELETE /community/courses/{id}                     (เจ้าของ = เก็บถาวร, ผู้ดูแล = ลบถาวร + cascade)
@@ -1036,10 +1057,10 @@ PATCH  /admin/categories/{id}      · DELETE /admin/categories/{id}  (ห้อ�
 |---|---|
 | `users` | บัญชี, บทบาท, อีเมล, `google_sub`, รหัสนักศึกษา, ยอดแต้ม, `disabled`, `library_notebook_id` |
 | `point_transactions` | ทุกการเคลื่อนไหวของแต้ม + `balance_after` |
-| `rooms` (เดิม `courses`) | ห้องวิชา/ห้องพูดคุย (`kind`) + `library_notebook_id`, `category_id`, `term`, `join_code`, `status`/`archived_at` |
+| `rooms` (เดิม `courses`) | ห้องวิชา/ห้องพูดคุย (`kind`) + `library_notebook_id`, `category_id`, `term`, `join_code`, `status`/`archived_at`, `is_private` |
 | `room_members` (เดิม `course_members`) | ใครอยู่ห้องไหน + `role` (`member`/`ta`) |
 | `categories` | หมวดหมู่รายวิชา (`slug`, ชื่อไทย/อังกฤษ, `sort_order`) |
-| `posts` | โพสต์ทั้งหมด + ตัวนับ + `content_hash` + ข้อมูลไฟล์แนบ |
+| `posts` | โพสต์ทั้งหมด + ตัวนับ + `content_hash` + ข้อมูลไฟล์แนบ + `visibility` (public/course/private) |
 | `post_reactions` | like / helpful (PK: post + user + kind) |
 | `post_shares` | การแชร์ (PK: post + user) |
 | `post_comments` | คอมเมนต์ |
