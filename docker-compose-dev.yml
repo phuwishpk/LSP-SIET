@@ -132,6 +132,7 @@ services:
       - GOOGLE_OAUTH_MOCK=${GOOGLE_OAUTH_MOCK:-0}
       - WORKSPACE_ADMIN_EMAILS=${WORKSPACE_ADMIN_EMAILS:-}
       - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - TEACHER_EMAILS=${TEACHER_EMAILS:-}
       - KMITL_FACULTY_CODE=${KMITL_FACULTY_CODE:-03}
       - NO_PROXY=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
       - no_proxy=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1

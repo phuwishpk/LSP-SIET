@@ -123,6 +123,11 @@ def admin_emails() -> set[str]:
     return {e.strip().lower() for e in combined.split(",") if e.strip()}
 
 
+def teacher_emails() -> set[str]:
+    raw = os.getenv("TEACHER_EMAILS") or ""
+    return {e.strip().lower() for e in raw.split(",") if e.strip()}
+
+
 def siet_faculty_codes() -> set[str]:
     # Faculty code for SIET is 030 (e.g. 65030xxx). Allow comma-separated in env.
     raw = os.getenv("KMITL_FACULTY_CODES") or os.getenv("KMITL_FACULTY_CODE") or "030,03"
@@ -133,7 +138,7 @@ async def derive_role(email: str) -> Tuple[str, Optional[str]]:
     """Return ``(role, student_id)`` for a user email based on priority:
     1. ADMIN: in ADMIN_EMAILS / WORKSPACE_ADMIN_EMAILS (.env), allows personal Gmail
     2. STUDENT: @kmitl.ac.th + 8-digit prefix starting with faculty code 030 (SIET) -> STUDENT + student_id
-    3. TEACHER: in allowed_teachers whitelist table in Database -> TEACHER
+    3. TEACHER: in TEACHER_EMAILS (.env) or allowed_teachers whitelist table in Database -> TEACHER
     4. PENDING: other emails (general Gmail, other KMITL faculties) -> PENDING (awaiting admin approval)
     """
     email = (email or "").strip().lower()
@@ -152,8 +157,8 @@ async def derive_role(email: str) -> Tuple[str, Optional[str]]:
         if any(local[2:].startswith(code) for code in siet_faculty_codes()):
             return USER_ROLE_STUDENT, local
 
-    # Priority 3: TEACHER (whitelist table in Database)
-    if await is_allowed_teacher(email):
+    # Priority 3: TEACHER (whitelist table in Database or TEACHER_EMAILS in .env)
+    if email in teacher_emails() or await is_allowed_teacher(email):
         return USER_ROLE_TEACHER, None
 
     # Priority 4: PENDING (Alumni / personal Gmail / waiting admin approval)
@@ -163,7 +168,7 @@ async def derive_role(email: str) -> Tuple[str, Optional[str]]:
 async def _domain_allowed(email: str, hd: Optional[str]) -> bool:
     email = (email or "").strip().lower()
     # Always allow admin emails and whitelisted teachers even if outside allowed domains
-    if email in admin_emails() or await is_allowed_teacher(email):
+    if email in admin_emails() or email in teacher_emails() or await is_allowed_teacher(email):
         return True
     domain = (email or "").rsplit("@", 1)[-1].lower()
     allowed = allowed_domains()
