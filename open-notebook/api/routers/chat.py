@@ -1,6 +1,7 @@
 import asyncio
 import traceback
 from typing import Any, Dict, List, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from langchain_core.runnables import RunnableConfig
@@ -8,14 +9,26 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import _resolve_owner_id, owner_can_access
+from api.routers._chat_shared import (
+    ChatMessage,
+    SuccessResponse,
+    extract_chat_messages,
+    get_session_or_404,
+)
 from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
-from open_notebook.domain.notebook import ChatSession, Note, Notebook, Source
+from open_notebook.domain.notebook import ChatSession, Notebook
 from open_notebook.exceptions import (
     NotFoundError,
+    OpenNotebookError,
 )
 from open_notebook.graphs.chat import graph as chat_graph
-from open_notebook.utils.graph_utils import get_session_message_count
+from open_notebook.utils import token_count
+from open_notebook.utils.context_builder import build_notebook_context
+from open_notebook.utils.graph_utils import (
+    get_session_message_count,
+    invoke_chat_turn,
+)
 
 router = APIRouter()
 
@@ -34,13 +47,6 @@ class UpdateSessionRequest(BaseModel):
     model_override: Optional[str] = Field(
         None, description="Model override for this session"
     )
-
-
-class ChatMessage(BaseModel):
-    id: str = Field(..., description="Message ID")
-    type: str = Field(..., description="Message type (human|ai)")
-    content: str = Field(..., description="Message content")
-    timestamp: Optional[str] = Field(None, description="Message timestamp")
 
 
 class ChatSessionResponse(BaseModel):
@@ -90,11 +96,6 @@ class BuildContextResponse(BaseModel):
     char_count: int = Field(..., description="Character count")
 
 
-class SuccessResponse(BaseModel):
-    success: bool = Field(True, description="Operation success status")
-    message: str = Field(..., description="Success message")
-
-
 @router.get("/chat/sessions", response_model=List[ChatSessionResponse])
 async def get_sessions(
     notebook_id: str = Query(..., description="Notebook ID"),
@@ -141,6 +142,10 @@ async def get_sessions(
         return results
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching chat sessions: {str(e)}")
         raise HTTPException(
@@ -187,6 +192,10 @@ async def create_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error creating chat session: {str(e)}")
         raise HTTPException(
@@ -203,16 +212,8 @@ async def get_session(
 ):
     """Get a specific session with its messages (scoped to the authenticated user)."""
     try:
-        # Get session
-        # Ensure session_id has proper table prefix
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+        # Get session (normalizes the ID and 404s if missing)
+        full_session_id, session = await get_session_or_404(session_id)
 
         # Verify session belongs to this owner (backward compat: no owner_id = visible)
         session_owner = getattr(session, "owner_id", None)
@@ -229,30 +230,14 @@ async def get_session(
         # Extract messages from state
         messages: list[ChatMessage] = []
         if thread_state and thread_state.values and "messages" in thread_state.values:
-            for msg in thread_state.values["messages"]:
-                messages.append(
-                    ChatMessage(
-                        id=getattr(msg, "id", f"msg_{len(messages)}"),
-                        type=msg.type if hasattr(msg, "type") else "unknown",
-                        # KMITL hook: extensions may filter what the model said
-                        content=await extensions.apply_filters(
-                            "chat.message",
-                            msg.content if hasattr(msg, "content") else str(msg),
-                            message=msg,
-                            context=thread_state.values.get("context"),
-                        ),
-                        timestamp=None,  # LangChain messages don't have timestamps by default
-                    )
-                )
+            # KMITL hook: extensions may filter what the model said
+            messages = await extensions.apply_filters(
+                "chat.messages",
+                extract_chat_messages(thread_state.values["messages"]),
+                context=thread_state.values.get("context"),
+            )
 
         # Find notebook_id (we need to query the relationship)
-        # Ensure session_id has proper table prefix
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-
         notebook_query = await repo_query(
             "SELECT out FROM refers_to WHERE in = $session_id",
             {"session_id": ensure_record_id(full_session_id)},
@@ -278,6 +263,10 @@ async def get_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching session: {str(e)}")
@@ -291,15 +280,8 @@ async def update_session(
 ):
     """Update session title (scoped to the authenticated user)."""
     try:
-        # Ensure session_id has proper table prefix
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+        # Get session (normalizes the ID and 404s if missing)
+        full_session_id, session = await get_session_or_404(session_id)
 
         # Verify session belongs to this owner
         session_owner = getattr(session, "owner_id", None)
@@ -317,12 +299,6 @@ async def update_session(
         await session.save()
 
         # Find notebook_id
-        # Ensure session_id has proper table prefix
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
         notebook_query = await repo_query(
             "SELECT out FROM refers_to WHERE in = $session_id",
             {"session_id": ensure_record_id(full_session_id)},
@@ -343,6 +319,10 @@ async def update_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error updating session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating session: {str(e)}")
@@ -355,15 +335,8 @@ async def delete_session(
 ):
     """Delete a chat session (scoped to the authenticated user)."""
     try:
-        # Ensure session_id has proper table prefix
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+        # Get session (normalizes the ID and 404s if missing)
+        _full_session_id, session = await get_session_or_404(session_id)
 
         # Verify session belongs to this owner
         session_owner = getattr(session, "owner_id", None)
@@ -375,6 +348,10 @@ async def delete_session(
         return SuccessResponse(success=True, message="Session deleted successfully")
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error deleting session: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error deleting session: {str(e)}")
@@ -387,16 +364,8 @@ async def execute_chat(
 ):
     """Execute a chat request and get AI response (scoped to the authenticated user)."""
     try:
-        # Verify session exists
-        # Ensure session_id has proper table prefix
-        full_session_id = (
-            request.session_id
-            if request.session_id.startswith("chat_session:")
-            else f"chat_session:{request.session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
+        # Verify session exists (normalizes the ID and 404s if missing)
+        full_session_id, session = await get_session_or_404(request.session_id)
 
         # Verify session belongs to this owner
         session_owner = getattr(session, "owner_id", None)
@@ -439,47 +408,46 @@ async def execute_chat(
         # Add user message to state
         from langchain_core.messages import HumanMessage
 
-        user_message = HumanMessage(content=request.message)
+        # Explicit id so a failed turn can remove it from the checkpoint.
+        user_message = HumanMessage(content=request.message, id=str(uuid4()))
         state_values["messages"].append(user_message)
 
         # Execute chat graph in a thread so the synchronous LangGraph invoke
         # (SqliteSaver checkpoints are sync) doesn't block the event loop and
         # freeze the rest of the API while the LLM responds. Mirrors the
         # get_state() calls above.
+        # invoke_chat_turn also drops the question from the checkpoint when the
+        # turn fails, so a retry doesn't add it twice.
         result = await asyncio.to_thread(
-            chat_graph.invoke,
-            input=state_values,  # type: ignore[arg-type]
-            config=RunnableConfig(
+            invoke_chat_turn,
+            chat_graph,
+            state_values,
+            RunnableConfig(
                 configurable={
                     "thread_id": full_session_id,
                     "model_id": model_override,
                 }
             ),
+            user_message,
         )
 
         # Update session timestamp
         await session.save()
 
         # Convert messages to response format
-        messages: list[ChatMessage] = []
-        for msg in result.get("messages", []):
-            messages.append(
-                ChatMessage(
-                    id=getattr(msg, "id", f"msg_{len(messages)}"),
-                    type=msg.type if hasattr(msg, "type") else "unknown",
-                    content=await extensions.apply_filters(  # KMITL hook
-                        "chat.message",
-                        msg.content if hasattr(msg, "content") else str(msg),
-                        message=msg,
-                        context=state_values["context"],
-                    ),
-                    timestamp=None,
-                )
-            )
+        messages = await extensions.apply_filters(  # KMITL hook
+            "chat.messages",
+            extract_chat_messages(result.get("messages", [])),
+            context=state_values["context"],
+        )
 
         return ExecuteChatResponse(session_id=request.session_id, messages=messages)
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         # Log detailed error with context for debugging
         logger.error(
@@ -500,99 +468,19 @@ async def build_context(request: BuildContextRequest):
         if not notebook:
             raise HTTPException(status_code=404, detail="Notebook not found")
 
-        context_data: dict[str, list[dict[str, str]]] = {"sources": [], "notes": []}
-        total_content = ""
+        context_data, total_content = await build_notebook_context(
+            notebook, request.context_config
+        )
 
-        # Process context configuration if provided
-        if request.context_config:
-            # Process sources
-            for source_id, status in request.context_config.get("sources", {}).items():
-                if "not in" in status:
-                    continue
-
-                try:
-                    # Add table prefix if not present
-                    full_source_id = (
-                        source_id
-                        if source_id.startswith("source:")
-                        else f"source:{source_id}"
-                    )
-
-                    try:
-                        source = await Source.get(full_source_id)
-                    except Exception:
-                        continue
-
-                    if "insights" in status:
-                        source_context = await source.get_context(context_size="short")
-                        context_data["sources"].append(source_context)
-                        total_content += str(source_context)
-                    elif "full content" in status:
-                        source_context = await source.get_context(context_size="long")
-                        context_data["sources"].append(source_context)
-                        total_content += str(source_context)
-                except Exception as e:
-                    logger.warning(f"Error processing source {source_id}: {str(e)}")
-                    continue
-
-            # Process notes
-            for note_id, status in request.context_config.get("notes", {}).items():
-                if "not in" in status:
-                    continue
-
-                try:
-                    # Add table prefix if not present
-                    full_note_id = (
-                        note_id if note_id.startswith("note:") else f"note:{note_id}"
-                    )
-                    note = await Note.get(full_note_id)
-                    if not note:
-                        continue
-
-                    if "full content" in status:
-                        note_context = note.get_context(context_size="long")
-                        context_data["notes"].append(note_context)
-                        total_content += str(note_context)
-                except Exception as e:
-                    logger.warning(f"Error processing note {note_id}: {str(e)}")
-                    continue
-        else:
-            # Default behavior - include all sources and notes with short context
-            sources = await notebook.get_sources()
-            for source in sources:
-                try:
-                    source_context = await source.get_context(context_size="short")
-                    context_data["sources"].append(source_context)
-                    total_content += str(source_context)
-                except Exception as e:
-                    logger.warning(f"Error processing source {source.id}: {str(e)}")
-                    continue
-
-            notes = await notebook.get_notes()
-            for note in notes:
-                try:
-                    note_context = note.get_context(context_size="short")
-                    context_data["notes"].append(note_context)
-                    total_content += str(note_context)
-                except Exception as e:
-                    logger.warning(f"Error processing note {note.id}: {str(e)}")
-                    continue
-
-        # Calculate character and token counts
         char_count = len(total_content)
-        # Use token count utility if available
-        try:
-            from open_notebook.utils import token_count
-
-            estimated_tokens = token_count(total_content) if total_content else 0
-        except ImportError:
-            # Fallback to simple estimation
-            estimated_tokens = char_count // 4
+        estimated_tokens = token_count(total_content) if total_content else 0
 
         return BuildContextResponse(
             context=context_data, token_count=estimated_tokens, char_count=char_count
         )
     except HTTPException:
+        raise
+    except OpenNotebookError:
         raise
     except Exception as e:
         logger.error(f"Error building context: {str(e)}")

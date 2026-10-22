@@ -27,6 +27,7 @@ from pydantic import SecretStr
 from api.credentials_service import (
     credential_to_response,
     discover_with_config,
+    ensure_provider_required_fields,
     get_provider_status,
     register_models,
     require_encryption_key,
@@ -34,6 +35,9 @@ from api.credentials_service import (
 )
 from api.credentials_service import (
     get_env_status as svc_get_env_status,
+)
+from api.credentials_service import (
+    migrate_encryption_scheme as svc_migrate_encryption_scheme,
 )
 from api.credentials_service import (
     migrate_from_env as svc_migrate_from_env,
@@ -56,14 +60,18 @@ from api.models import (
 )
 from open_notebook.database.repository import ensure_record_id, repo_delete, repo_query
 from open_notebook.domain.credential import Credential
-from open_notebook.exceptions import NotFoundError
+from open_notebook.exceptions import (
+    NotFoundError,
+    OpenNotebookError,
+)
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
 
 
 def _handle_value_error(e: ValueError, status_code: int = 400) -> HTTPException:
     """Convert a ValueError from the service layer to an HTTPException."""
-    return HTTPException(status_code=status_code, detail=str(e))
+    # Truncate so upstream validation messages can't leak unbounded internals.
+    return HTTPException(status_code=status_code, detail=str(e)[:200])
 
 
 # =============================================================================
@@ -79,6 +87,10 @@ async def get_status():
     """
     try:
         return await get_provider_status()
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching status: {e}")
         raise HTTPException(status_code=500, detail="Failed to fetch credential status")
@@ -89,9 +101,15 @@ async def get_env_status():
     """Check what's configured via environment variables."""
     try:
         return await svc_get_env_status()
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error checking env status: {e}")
-        raise HTTPException(status_code=500, detail="Failed to check environment status")
+        raise HTTPException(
+            status_code=500, detail="Failed to check environment status"
+        )
 
 
 # =============================================================================
@@ -117,6 +135,10 @@ async def list_credentials(
 
         return result
 
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error listing credentials: {e}")
         raise HTTPException(status_code=500, detail="Failed to list credentials")
@@ -132,9 +154,15 @@ async def list_credentials_by_provider(provider: str):
             models = await cred.get_linked_models()
             result.append(credential_to_response(cred, len(models)))
         return result
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error listing credentials for {provider}: {e}")
-        raise HTTPException(status_code=500, detail="Failed to list credentials for provider")
+        raise HTTPException(
+            status_code=500, detail="Failed to list credentials for provider"
+        )
 
 
 @router.post("", response_model=CredentialResponse, status_code=201)
@@ -147,12 +175,16 @@ async def create_credential(request: CreateCredentialRequest):
 
     # Validate all URL fields
     for url_field in [
-        request.base_url, request.endpoint, request.endpoint_llm,
-        request.endpoint_embedding, request.endpoint_stt, request.endpoint_tts,
+        request.base_url,
+        request.endpoint,
+        request.endpoint_llm,
+        request.endpoint_embedding,
+        request.endpoint_stt,
+        request.endpoint_tts,
     ]:
         if url_field:
             try:
-                validate_url(url_field, request.provider)
+                await validate_url(url_field, request.provider)
             except ValueError as e:
                 raise _handle_value_error(e)
 
@@ -177,6 +209,10 @@ async def create_credential(request: CreateCredentialRequest):
         await cred.save()
         return credential_to_response(cred, 0)
 
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error creating credential: {e}")
         raise HTTPException(status_code=500, detail="Failed to create credential")
@@ -189,6 +225,10 @@ async def get_credential(credential_id: str):
         cred = await Credential.get(credential_id)
         models = await cred.get_linked_models()
         return credential_to_response(cred, len(models))
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching credential {credential_id}: {e}")
         raise HTTPException(status_code=404, detail="Credential not found")
@@ -204,17 +244,28 @@ async def update_credential(credential_id: str, request: UpdateCredentialRequest
 
     # Validate all URL fields being updated
     for url_field in [
-        request.base_url, request.endpoint, request.endpoint_llm,
-        request.endpoint_embedding, request.endpoint_stt, request.endpoint_tts,
+        request.base_url,
+        request.endpoint,
+        request.endpoint_llm,
+        request.endpoint_embedding,
+        request.endpoint_stt,
+        request.endpoint_tts,
     ]:
         if url_field:
             try:
-                validate_url(url_field, "update")
+                await validate_url(url_field, "update")
             except ValueError as e:
                 raise _handle_value_error(e)
 
     try:
         cred = await Credential.get(credential_id)
+
+        # Partial-update semantics keyed on field PRESENCE, not value:
+        # a field absent from the payload is left untouched, while an explicit
+        # null (or "") clears it. `is not None` checks would silently ignore
+        # a null sent to clear a field — the old value survived while the
+        # client saw success.
+        sent = request.model_fields_set
 
         if request.name is not None:
             cred.name = request.name
@@ -222,29 +273,34 @@ async def update_credential(credential_id: str, request: UpdateCredentialRequest
             cred.modalities = request.modalities
         if request.api_key is not None:
             cred.api_key = SecretStr(request.api_key)
-        if request.base_url is not None:
+        if "base_url" in sent:
             cred.base_url = request.base_url or None
-        if request.endpoint is not None:
+        if "endpoint" in sent:
             cred.endpoint = request.endpoint or None
-        if request.api_version is not None:
+        if "api_version" in sent:
             cred.api_version = request.api_version or None
-        if request.endpoint_llm is not None:
+        if "endpoint_llm" in sent:
             cred.endpoint_llm = request.endpoint_llm or None
-        if request.endpoint_embedding is not None:
+        if "endpoint_embedding" in sent:
             cred.endpoint_embedding = request.endpoint_embedding or None
-        if request.endpoint_stt is not None:
+        if "endpoint_stt" in sent:
             cred.endpoint_stt = request.endpoint_stt or None
-        if request.endpoint_tts is not None:
+        if "endpoint_tts" in sent:
             cred.endpoint_tts = request.endpoint_tts or None
-        if request.project is not None:
+        if "project" in sent:
             cred.project = request.project or None
-        if request.location is not None:
+        if "location" in sent:
             cred.location = request.location or None
-        if request.credentials_path is not None:
+        if "credentials_path" in sent:
             cred.credentials_path = request.credentials_path or None
-        if request.num_ctx is not None:
-            # 0/falsy clears the override and falls back to esperanto's default
+        if "num_ctx" in sent:
+            # 0/null/falsy clears the override and falls back to esperanto's default
             cred.num_ctx = request.num_ctx or None
+
+        try:
+            ensure_provider_required_fields(cred)
+        except ValueError as e:
+            raise _handle_value_error(e)
 
         await cred.save()
         models = await cred.get_linked_models()
@@ -254,6 +310,8 @@ async def update_credential(credential_id: str, request: UpdateCredentialRequest
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Credential not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error updating credential {credential_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to update credential")
@@ -301,7 +359,11 @@ async def delete_credential(
                             "UPDATE $model_id SET credential = $target_id",
                             {
                                 "model_id": ensure_record_id(model_id),
-                                "target_id": ensure_record_id(target_cred.id),
+                                # A fetched credential always has an id; fall
+                                # back to the requested id for the type checker.
+                                "target_id": ensure_record_id(
+                                    target_cred.id or migrate_to
+                                ),
                             },
                         )
             elif linked:
@@ -349,6 +411,8 @@ async def delete_credential(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Credential not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error deleting credential {credential_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to delete credential")
@@ -388,6 +452,10 @@ async def discover_models_for_credential(credential_id: str):
             ],
         )
 
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error discovering models for credential {credential_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to discover models")
@@ -401,6 +469,10 @@ async def register_models_for_credential(
     try:
         result = await register_models(credential_id, request.models)
         return RegisterModelsResponse(**result)
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error registering models for credential {credential_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to register models")
@@ -418,9 +490,42 @@ async def migrate_from_provider_config():
         return await svc_migrate_from_provider_config()
     except ValueError as e:
         raise _handle_value_error(e)
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
-        logger.error(f"ProviderConfig migration FAILED: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Migration from provider config failed")
+        logger.error(
+            f"ProviderConfig migration FAILED: {type(e).__name__}: {e}", exc_info=True
+        )
+        raise HTTPException(
+            status_code=500, detail="Migration from provider config failed"
+        )
+
+
+@router.post("/migrate-encryption")
+async def migrate_encryption():
+    """Re-encrypt stored API keys into the versioned PBKDF2 format.
+
+    Inherits the global password auth with no exemption: when
+    OPEN_NOTEBOOK_PASSWORD is unset, auth is disabled instance-wide and
+    this endpoint is reachable by anyone with network access, exactly like
+    the other migration endpoints. Set a password before running the pass
+    on a shared network.
+    """
+    try:
+        return await svc_migrate_encryption_scheme()
+    except ValueError as e:
+        raise _handle_value_error(e)
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Encryption migration FAILED: {type(e).__name__}: {e}", exc_info=True
+        )
+        raise HTTPException(status_code=500, detail="Encryption migration failed")
 
 
 @router.post("/migrate-from-env")
@@ -430,6 +535,12 @@ async def migrate_from_env():
         return await svc_migrate_from_env()
     except ValueError as e:
         raise _handle_value_error(e)
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Env migration FAILED: {type(e).__name__}: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail="Migration from environment variables failed")
+        raise HTTPException(
+            status_code=500, detail="Migration from environment variables failed"
+        )

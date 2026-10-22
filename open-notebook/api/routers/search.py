@@ -1,5 +1,5 @@
 import json
-from typing import AsyncGenerator
+from typing import AsyncGenerator, List
 
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
@@ -7,8 +7,16 @@ from loguru import logger
 
 from api.models import AskRequest, AskResponse, SearchRequest, SearchResponse
 from open_notebook.ai.models import Model, model_manager
-from open_notebook.domain.notebook import text_search, vector_search
-from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
+from open_notebook.domain.notebook import (
+    resolve_notebook_scope,
+    text_search,
+    vector_search,
+)
+from open_notebook.exceptions import (
+    DatabaseOperationError,
+    InvalidInputError,
+    OpenNotebookError,
+)
 from open_notebook.graphs.ask import graph as ask_graph
 
 router = APIRouter()
@@ -18,6 +26,8 @@ router = APIRouter()
 async def search_knowledge_base(search_request: SearchRequest):
     """Search the knowledge base using text or vector search."""
     try:
+        notebook_ids = await resolve_notebook_scope(search_request.scope_notebook_ids)
+
         if search_request.type == "vector":
             # Check if embedding model is available for vector search
             if not await model_manager.get_embedding_model():
@@ -32,6 +42,7 @@ async def search_knowledge_base(search_request: SearchRequest):
                 source=search_request.search_sources,
                 note=search_request.search_notes,
                 minimum_score=search_request.minimum_score,
+                notebook_ids=notebook_ids,
             )
         else:
             # Text search
@@ -40,6 +51,7 @@ async def search_knowledge_base(search_request: SearchRequest):
                 results=search_request.limit,
                 source=search_request.search_sources,
                 note=search_request.search_notes,
+                notebook_ids=notebook_ids,
             )
 
         return SearchResponse(
@@ -53,20 +65,30 @@ async def search_knowledge_base(search_request: SearchRequest):
     except DatabaseOperationError as e:
         logger.error(f"Database error during search: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Unexpected error during search: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
 
 
 async def stream_ask_response(
-    question: str, strategy_model: Model, answer_model: Model, final_answer_model: Model
+    question: str,
+    strategy_model: Model,
+    answer_model: Model,
+    final_answer_model: Model,
+    notebook_ids: List[str],
 ) -> AsyncGenerator[str, None]:
     """Stream the ask response as Server-Sent Events."""
     try:
         final_answer = None
 
-        async for chunk in ask_graph.astream(
-            input=dict(question=question),  # type: ignore[arg-type]
+        # LangGraph accepts a partial state dict at runtime, but its typed
+        # overloads require the full state type (langgraph typing limitation).
+        async for chunk in ask_graph.astream(  # type: ignore[call-overload]
+            input=dict(question=question, notebook_ids=notebook_ids),
             config=dict(
                 configurable=dict(
                     strategy_model=strategy_model.id,
@@ -104,7 +126,12 @@ async def stream_ask_response(
     except Exception as e:
         from open_notebook.utils.error_classifier import classify_error
 
-        _, user_message = classify_error(e)
+        # Typed errors already carry a user-facing message; only raw provider
+        # exceptions need classifying.
+        if isinstance(e, OpenNotebookError):
+            user_message = str(e)
+        else:
+            _, user_message = classify_error(e)
         logger.error(f"Error in ask streaming: {str(e)}")
         error_data = {"type": "error", "message": user_message}
         yield f"data: {json.dumps(error_data)}\n\n"
@@ -114,6 +141,10 @@ async def stream_ask_response(
 async def ask_knowledge_base(ask_request: AskRequest):
     """Ask the knowledge base a question using AI models."""
     try:
+        # Cheapest check first: a malformed or unknown scope fails before any
+        # model lookup or embedding check can mask it.
+        notebook_ids = await resolve_notebook_scope(ask_request.scope_notebook_ids)
+
         # Validate models exist
         strategy_model = await Model.get(ask_request.strategy_model)
         answer_model = await Model.get(ask_request.answer_model)
@@ -145,7 +176,11 @@ async def ask_knowledge_base(ask_request: AskRequest):
         # For streaming response
         return StreamingResponse(
             stream_ask_response(
-                ask_request.question, strategy_model, answer_model, final_answer_model
+                ask_request.question,
+                strategy_model,
+                answer_model,
+                final_answer_model,
+                notebook_ids,
             ),
             media_type="text/event-stream",
             headers={
@@ -157,6 +192,8 @@ async def ask_knowledge_base(ask_request: AskRequest):
 
     except HTTPException:
         raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error in ask endpoint: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Ask operation failed: {str(e)}")
@@ -166,6 +203,10 @@ async def ask_knowledge_base(ask_request: AskRequest):
 async def ask_knowledge_base_simple(ask_request: AskRequest):
     """Ask the knowledge base a question and return a simple response (non-streaming)."""
     try:
+        # Cheapest check first: a malformed or unknown scope fails before any
+        # model lookup or embedding check can mask it.
+        notebook_ids = await resolve_notebook_scope(ask_request.scope_notebook_ids)
+
         # Validate models exist
         strategy_model = await Model.get(ask_request.strategy_model)
         answer_model = await Model.get(ask_request.answer_model)
@@ -196,8 +237,10 @@ async def ask_knowledge_base_simple(ask_request: AskRequest):
 
         # Run the ask graph and get final result
         final_answer = None
-        async for chunk in ask_graph.astream(
-            input=dict(question=ask_request.question),  # type: ignore[arg-type]
+        # LangGraph accepts a partial state dict at runtime, but its typed
+        # overloads require the full state type (langgraph typing limitation).
+        async for chunk in ask_graph.astream(  # type: ignore[call-overload]
+            input=dict(question=ask_request.question, notebook_ids=notebook_ids),
             config=dict(
                 configurable=dict(
                     strategy_model=strategy_model.id,
@@ -216,6 +259,8 @@ async def ask_knowledge_base_simple(ask_request: AskRequest):
         return AskResponse(answer=final_answer, question=ask_request.question)
 
     except HTTPException:
+        raise
+    except OpenNotebookError:
         raise
     except Exception as e:
         logger.error(f"Error in ask simple endpoint: {str(e)}")

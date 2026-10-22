@@ -6,7 +6,7 @@ What siet-platform plugs into open-notebook's extension points
 * provider   every embedding call through the throttle gate, with usage records
 * events     knowledge_version bumps + answer-cache invalidation on notebook /
              source changes; provider-availability cache drop on model changes
-* caches     vector search, notebook context builds, provider availability
+* caches     vector search, provider availability
 * filters    ``asset_url`` in source context (URL citations), today's date in
              the chat prompt (Thai Buddhist year included)
 * prompts    the Thai tutoring prompts in siet_platform/prompts take precedence
@@ -44,7 +44,6 @@ def register() -> None:
     extensions.on("models.changed", _models_changed)
 
     extensions.add_cache("vector_search", _vector_search_get, _vector_search_set)
-    extensions.add_cache("context", _context_get, _context_set)
     extensions.add_cache("provider_availability", _providers_get, _providers_set)
 
     extensions.add_filter("source.context", _source_context)
@@ -139,26 +138,6 @@ async def _vector_search_set(key: Dict[str, Any], results: Any) -> None:
     await cache_service.set_vector_search_results(
         notebook_id="global", query=str(key), results=results
     )
-
-
-async def _context_get(key) -> Any:
-    from siet_platform.cache.context import context_cache_key, items_from_dicts
-    from siet_platform.cache.service import cache_service
-
-    notebook_id, config = key
-    cached = await cache_service.get_context(notebook_id, context_cache_key(config))
-    if cached is None:
-        return None
-    logger.debug(f"Context cache hit for notebook {notebook_id}")
-    return items_from_dicts(cached)
-
-
-async def _context_set(key, items) -> None:
-    from siet_platform.cache.context import context_cache_key
-    from siet_platform.cache.service import cache_service
-
-    notebook_id, config = key
-    await cache_service.set_context(notebook_id, context_cache_key(config), items)
 
 
 async def _providers_get(_key: Any) -> Any:

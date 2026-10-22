@@ -1,6 +1,7 @@
 import asyncio
 import json
 from typing import AsyncGenerator, List, Optional
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Path
 from fastapi.responses import StreamingResponse
@@ -10,14 +11,25 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_owner_id, owner_can_access
+from api.routers._chat_shared import (
+    ChatMessage,
+    SuccessResponse,
+    extract_chat_messages,
+    get_source_or_404,
+    get_verified_source_session,
+)
 from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
-from open_notebook.domain.notebook import ChatSession, Source
+from open_notebook.domain.notebook import ChatSession
 from open_notebook.exceptions import (
     NotFoundError,
+    OpenNotebookError,
 )
 from open_notebook.graphs.source_chat import source_chat_graph as source_chat_graph
-from open_notebook.utils.graph_utils import get_session_message_count
+from open_notebook.utils.graph_utils import (
+    get_session_message_count,
+    invoke_chat_turn,
+)
 
 router = APIRouter()
 
@@ -30,17 +42,12 @@ class CreateSourceChatSessionRequest(BaseModel):
         None, description="Optional model override for this session"
     )
 
+
 class UpdateSourceChatSessionRequest(BaseModel):
     title: Optional[str] = Field(None, description="New session title")
     model_override: Optional[str] = Field(
         None, description="Model override for this session"
     )
-
-class ChatMessage(BaseModel):
-    id: str = Field(..., description="Message ID")
-    type: str = Field(..., description="Message type (human|ai)")
-    content: str = Field(..., description="Message content")
-    timestamp: Optional[str] = Field(None, description="Message timestamp")
 
 
 class ContextIndicator(BaseModel):
@@ -53,6 +60,7 @@ class ContextIndicator(BaseModel):
     notes: List[str] = Field(
         default_factory=list, description="Note IDs used in context"
     )
+
 
 class SourceChatSessionResponse(BaseModel):
     id: str = Field(..., description="Session ID")
@@ -67,6 +75,7 @@ class SourceChatSessionResponse(BaseModel):
         None, description="Number of messages in session"
     )
 
+
 class SourceChatSessionWithMessagesResponse(SourceChatSessionResponse):
     messages: List[ChatMessage] = Field(
         default_factory=list, description="Session messages"
@@ -75,15 +84,12 @@ class SourceChatSessionWithMessagesResponse(SourceChatSessionResponse):
         None, description="Context indicators from last response"
     )
 
+
 class SendMessageRequest(BaseModel):
     message: str = Field(..., description="User message content")
     model_override: Optional[str] = Field(
         None, description="Optional model override for this message"
     )
-
-class SuccessResponse(BaseModel):
-    success: bool = Field(True, description="Operation success status")
-    message: str = Field(..., description="Success message")
 
 
 @router.post(
@@ -96,13 +102,8 @@ async def create_source_chat_session(
 ):
     """Create a new chat session for a source."""
     try:
-        # Verify source exists
-        full_source_id = (
-            source_id if source_id.startswith("source:") else f"source:{source_id}"
-        )
-        source = await Source.get(full_source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
+        # Verify source exists (normalizes the ID and 404s if missing)
+        full_source_id, source = await get_source_or_404(source_id)
 
         # Verify source belongs to this owner
         if not owner_can_access(source, owner_id):
@@ -130,6 +131,10 @@ async def create_source_chat_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Source not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error creating source chat session: {str(e)}")
         raise HTTPException(
@@ -146,13 +151,8 @@ async def get_source_chat_sessions(
 ):
     """Get all chat sessions for a source (scoped to the authenticated user)."""
     try:
-        # Verify source exists
-        full_source_id = (
-            source_id if source_id.startswith("source:") else f"source:{source_id}"
-        )
-        source = await Source.get(full_source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
+        # Verify source exists (normalizes the ID and 404s if missing)
+        full_source_id, source = await get_source_or_404(source_id)
 
         # Verify source belongs to this owner
         if not owner_can_access(source, owner_id):
@@ -203,6 +203,10 @@ async def get_source_chat_sessions(
         return sessions
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Source not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching source chat sessions: {str(e)}")
         raise HTTPException(
@@ -221,46 +225,19 @@ async def get_source_chat_session(
 ):
     """Get a specific source chat session with its messages."""
     try:
-        # Verify source exists
-        full_source_id = (
-            source_id if source_id.startswith("source:") else f"source:{source_id}"
-        )
-        source = await Source.get(full_source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
-
-        # Verify source belongs to this owner
+        # Verify source + session exist and are related (404s otherwise)
+        (
+            _full_source_id,
+            source,
+            full_session_id,
+            session,
+        ) = await get_verified_source_session(source_id, session_id)
+        # KMITL owner scoping: the source and the session must be the caller's
         if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
-
-        # Get session
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session belongs to this owner (backward compat: no owner_id = visible)
         session_owner = getattr(session, "owner_id", None)
         if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session is related to this source
-        relation_query = await repo_query(
-            "SELECT * FROM refers_to WHERE in = $session_id AND out = $source_id",
-            {
-                "session_id": ensure_record_id(full_session_id),
-                "source_id": ensure_record_id(full_source_id),
-            },
-        )
-
-        if not relation_query:
-            raise HTTPException(
-                status_code=404, detail="Session not found for this source"
-            )
 
         # Get session state from LangGraph to retrieve messages
         # Use sync get_state() in a thread since SqliteSaver doesn't support async
@@ -276,21 +253,12 @@ async def get_source_chat_session(
         if thread_state and thread_state.values:
             # Extract messages
             if "messages" in thread_state.values:
-                for msg in thread_state.values["messages"]:
-                    messages.append(
-                        ChatMessage(
-                            id=getattr(msg, "id", f"msg_{len(messages)}"),
-                            type=msg.type if hasattr(msg, "type") else "unknown",
-                            # KMITL hook: extensions may filter what the model said
-                            content=await extensions.apply_filters(
-                                "chat.message",
-                                msg.content if hasattr(msg, "content") else str(msg),
-                                message=msg,
-                                context=thread_state.values.get("context") or "",
-                            ),
-                            timestamp=None,  # LangChain messages don't have timestamps by default
-                        )
-                    )
+                # KMITL hook: extensions may filter what the model said
+                messages = await extensions.apply_filters(
+                    "chat.messages",
+                    extract_chat_messages(thread_state.values["messages"]),
+                    context=thread_state.values.get("context") or "",
+                )
 
             # Extract context indicators from the last state
             if "context_indicators" in thread_state.values:
@@ -314,6 +282,10 @@ async def get_source_chat_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Source or session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching source chat session: {str(e)}")
         raise HTTPException(
@@ -333,46 +305,19 @@ async def update_source_chat_session(
 ):
     """Update source chat session title and/or model override."""
     try:
-        # Verify source exists
-        full_source_id = (
-            source_id if source_id.startswith("source:") else f"source:{source_id}"
-        )
-        source = await Source.get(full_source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
-
-        # Verify source belongs to this owner
+        # Verify source + session exist and are related (404s otherwise)
+        (
+            _full_source_id,
+            source,
+            full_session_id,
+            session,
+        ) = await get_verified_source_session(source_id, session_id)
+        # KMITL owner scoping: the source and the session must be the caller's
         if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
-
-        # Get session
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session belongs to this owner (backward compat: no owner_id = visible)
         session_owner = getattr(session, "owner_id", None)
         if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session is related to this source
-        relation_query = await repo_query(
-            "SELECT * FROM refers_to WHERE in = $session_id AND out = $source_id",
-            {
-                "session_id": ensure_record_id(full_session_id),
-                "source_id": ensure_record_id(full_source_id),
-            },
-        )
-
-        if not relation_query:
-            raise HTTPException(
-                status_code=404, detail="Session not found for this source"
-            )
 
         # Update session fields
         if request.title is not None:
@@ -396,6 +341,10 @@ async def update_source_chat_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Source or session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error updating source chat session: {str(e)}")
         raise HTTPException(
@@ -413,46 +362,19 @@ async def delete_source_chat_session(
 ):
     """Delete a source chat session."""
     try:
-        # Verify source exists
-        full_source_id = (
-            source_id if source_id.startswith("source:") else f"source:{source_id}"
-        )
-        source = await Source.get(full_source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
-
-        # Verify source belongs to this owner
+        # Verify source + session exist and are related (404s otherwise)
+        (
+            _full_source_id,
+            source,
+            full_session_id,
+            session,
+        ) = await get_verified_source_session(source_id, session_id)
+        # KMITL owner scoping: the source and the session must be the caller's
         if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
-
-        # Get session
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session belongs to this owner (backward compat: no owner_id = visible)
         session_owner = getattr(session, "owner_id", None)
         if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session is related to this source
-        relation_query = await repo_query(
-            "SELECT * FROM refers_to WHERE in = $session_id AND out = $source_id",
-            {
-                "session_id": ensure_record_id(full_session_id),
-                "source_id": ensure_record_id(full_source_id),
-            },
-        )
-
-        if not relation_query:
-            raise HTTPException(
-                status_code=404, detail="Session not found for this source"
-            )
 
         await session.delete()
 
@@ -461,6 +383,10 @@ async def delete_source_chat_session(
         )
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Source or session not found")
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error deleting source chat session: {str(e)}")
         raise HTTPException(
@@ -487,7 +413,8 @@ async def stream_source_chat_response(
         state_values["model_override"] = model_override
 
         # Add user message to state
-        user_message = HumanMessage(content=message)
+        # Explicit id so a failed turn can remove it from the checkpoint.
+        user_message = HumanMessage(content=message, id=str(uuid4()))
         state_values["messages"].append(user_message)
 
         # Send user message event
@@ -498,29 +425,34 @@ async def stream_source_chat_response(
         # event loop. While blocked, even the already-yielded SSE events can't
         # flush and every other request stalls until the LLM finishes. Mirrors the
         # get_state() calls above.
+        # invoke_chat_turn also drops the question from the checkpoint when the
+        # turn fails, so a retry doesn't add it twice.
         result = await asyncio.to_thread(
-            source_chat_graph.invoke,
-            input=state_values,  # type: ignore[arg-type]
-            config=RunnableConfig(
+            invoke_chat_turn,
+            source_chat_graph,
+            state_values,
+            RunnableConfig(
                 configurable={"thread_id": session_id, "model_id": model_override}
             ),
+            user_message,
         )
 
-        # Stream the complete AI response
-        if "messages" in result:
-            for msg in result["messages"]:
-                if hasattr(msg, "type") and msg.type == "ai":
-                    ai_event = {
-                        "type": "ai_message",
-                        "content": await extensions.apply_filters(  # KMITL hook
-                            "chat.message",
-                            msg.content if hasattr(msg, "content") else str(msg),
-                            message=msg,
-                            context=result.get("context") or "",
-                        ),
-                        "timestamp": None,
-                    }
-                    yield f"data: {json.dumps(ai_event)}\n\n"
+        # Stream this turn's AI response. result["messages"] is the full
+        # checkpointed history, so only the last message is new.
+        if result.get("messages"):
+            msg = result["messages"][-1]
+            if getattr(msg, "type", None) == "ai":
+                ai_event = {
+                    "type": "ai_message",
+                    "content": await extensions.apply_filters(  # KMITL hook
+                        "chat.message",
+                        msg.content if hasattr(msg, "content") else str(msg),
+                        message=msg,
+                        context=result.get("context") or "",
+                    ),
+                    "timestamp": None,
+                }
+                yield f"data: {json.dumps(ai_event)}\n\n"
 
         # Stream context indicators
         if "context_indicators" in result:
@@ -537,9 +469,14 @@ async def stream_source_chat_response(
     except Exception as e:
         from open_notebook.utils.error_classifier import classify_error
 
-        _, user_message = classify_error(e)
+        # Typed errors already carry a user-facing message; only raw provider
+        # exceptions need classifying.
+        if isinstance(e, OpenNotebookError):
+            error_message = str(e)
+        else:
+            _, error_message = classify_error(e)
         logger.error(f"Error in source chat streaming: {str(e)}")
-        error_event = {"type": "error", "message": user_message}
+        error_event = {"type": "error", "message": error_message}
         yield f"data: {json.dumps(error_event)}\n\n"
 
 
@@ -552,46 +489,19 @@ async def send_message_to_source_chat(
 ):
     """Send a message to source chat session with SSE streaming response."""
     try:
-        # Verify source exists
-        full_source_id = (
-            source_id if source_id.startswith("source:") else f"source:{source_id}"
-        )
-        source = await Source.get(full_source_id)
-        if not source:
-            raise HTTPException(status_code=404, detail="Source not found")
-
-        # Verify source belongs to this owner
+        # Verify source + session exist and are related (404s otherwise)
+        (
+            full_source_id,
+            source,
+            full_session_id,
+            session,
+        ) = await get_verified_source_session(source_id, session_id)
+        # KMITL owner scoping: the source and the session must be the caller's
         if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
-
-        # Verify session exists and is related to source
-        full_session_id = (
-            session_id
-            if session_id.startswith("chat_session:")
-            else f"chat_session:{session_id}"
-        )
-        session = await ChatSession.get(full_session_id)
-        if not session:
-            raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session belongs to this owner (backward compat: no owner_id = visible)
         session_owner = getattr(session, "owner_id", None)
         if session_owner is not None and session_owner != owner_id:
             raise HTTPException(status_code=404, detail="Session not found")
-
-        # Verify session is related to this source
-        relation_query = await repo_query(
-            "SELECT * FROM refers_to WHERE in = $session_id AND out = $source_id",
-            {
-                "session_id": ensure_record_id(full_session_id),
-                "source_id": ensure_record_id(full_source_id),
-            },
-        )
-
-        if not relation_query:
-            raise HTTPException(
-                status_code=404, detail="Session not found for this source"
-            )
 
         if not request.message:
             raise HTTPException(status_code=400, detail="Message content is required")
@@ -621,6 +531,8 @@ async def send_message_to_source_chat(
         )
 
     except HTTPException:
+        raise
+    except OpenNotebookError:
         raise
     except Exception as e:
         logger.error(f"Error sending message to source chat: {str(e)}")

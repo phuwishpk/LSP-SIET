@@ -15,7 +15,6 @@ Usage:
     await cred.save()
 """
 
-from datetime import datetime
 from typing import Any, ClassVar, Dict, List, Optional
 
 from loguru import logger
@@ -126,10 +125,15 @@ class Credential(ObjectModel):
             config["endpoint_stt"] = self.endpoint_stt
         if self.endpoint_tts:
             config["endpoint_tts"] = self.endpoint_tts
+        # Vertex esperanto providers accept `vertex_project`/`vertex_location`,
+        # not the generic `project`/`location` keys (#1151). Emit the Vertex-
+        # specific names so credential-linked (non-env) config actually
+        # configures the provider instead of crashing on unexpected kwargs.
+        is_vertex = bool(self.provider) and self.provider.lower() == "vertex"
         if self.project:
-            config["project"] = self.project
+            config["vertex_project" if is_vertex else "project"] = self.project
         if self.location:
-            config["location"] = self.location
+            config["vertex_location" if is_vertex else "location"] = self.location
         if self.credentials_path:
             config["credentials_path"] = self.credentials_path
         if self.num_ctx is not None:
@@ -171,11 +175,12 @@ class Credential(ObjectModel):
     @classmethod
     async def get_all(cls, order_by=None) -> List["Credential"]:
         """Override get_all() to handle api_key decryption with per-row error handling."""
-        order_clause = f" ORDER BY {order_by}" if order_by else ""
-        results = await repo_query(
-            f"SELECT * FROM {cls.table_name}{order_clause}",
-            {},
-        )
+        if order_by:
+            validated_order_by = cls._validate_order_by(order_by)
+            query = f"SELECT * FROM {cls.table_name} ORDER BY {validated_order_by}"
+        else:
+            query = f"SELECT * FROM {cls.table_name}"
+        results = await repo_query(query, {})
         credentials = []
         for row in results:
             try:
@@ -226,7 +231,7 @@ class Credential(ObjectModel):
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         """Override to encrypt api_key and sync provider extras into `config`."""
-        data = {}
+        data: Dict[str, Any] = {}
         for key, value in self.model_dump().items():
             if key in ("decryption_error", "config"):
                 # `config` is rebuilt below from the existing bag + convenience fields.

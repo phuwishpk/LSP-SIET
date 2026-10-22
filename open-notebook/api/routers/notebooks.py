@@ -15,7 +15,11 @@ from api.models import (
 from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import Notebook, Source
-from open_notebook.exceptions import InvalidInputError, NotFoundError
+from open_notebook.exceptions import (
+    InvalidInputError,
+    NotFoundError,
+    OpenNotebookError,
+)
 
 router = APIRouter()
 
@@ -64,30 +68,26 @@ async def get_notebooks(
 ):
     """Get all notebooks with optional filtering and ordering."""
     try:
-        # Validate order_by against allowlist to prevent SurrealQL injection
+        # Normalize through the central validator (SurrealQL injection guard),
+        # then apply this endpoint's stricter allowlist: a single clause on one
+        # of the sortable notebook fields.
         allowed_fields = {"name", "created", "updated"}
-        allowed_directions = {"asc", "desc"}
-
-        parts = order_by.strip().lower().split()
-        if len(parts) == 1:
-            if parts[0] not in allowed_fields:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid order_by field: '{order_by}'. Allowed fields: {', '.join(sorted(allowed_fields))}",
-                )
-            validated_order_by = parts[0]
-        elif len(parts) == 2:
-            if parts[0] not in allowed_fields or parts[1] not in allowed_directions:
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"Invalid order_by: '{order_by}'. Allowed fields: {', '.join(sorted(allowed_fields))}. Allowed directions: asc, desc",
-                )
-            validated_order_by = f"{parts[0]} {parts[1]}"
-        else:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid order_by format: '{order_by}'. Expected 'field' or 'field direction'",
-            )
+        allowed_message = (
+            f"Allowed fields: {', '.join(sorted(allowed_fields))}. "
+            "Allowed directions: asc, desc"
+        )
+        invalid = InvalidInputError(
+            f"Invalid order_by: '{order_by}'. {allowed_message}"
+        )
+        try:
+            validated_order_by = Notebook._validate_order_by(order_by)
+        except InvalidInputError:
+            raise invalid from None
+        if (
+            "," in validated_order_by
+            or validated_order_by.split()[0] not in allowed_fields
+        ):
+            raise invalid
 
         # Build the query with counts
         query = f"""
@@ -119,6 +119,8 @@ async def get_notebooks(
             for nb in result
         ]
     except HTTPException:
+        raise
+    except OpenNotebookError:
         raise
     except Exception as e:
         logger.error(f"Error fetching notebooks: {str(e)}")
@@ -153,6 +155,10 @@ async def create_notebook(
         )
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error creating notebook: {str(e)}")
         raise HTTPException(
@@ -196,6 +202,10 @@ async def get_recently_viewed(
         ]
         items.sort(key=_last_viewed_sort_key, reverse=True)
         return items[:limit]
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         # Log full context server-side; return a generic message so internal
         # details are not leaked to clients.
@@ -235,6 +245,8 @@ async def get_notebook_delete_preview(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error getting delete preview for notebook {notebook_id}: {e}")
         raise HTTPException(
@@ -285,6 +297,8 @@ async def get_notebook(
         )
     except HTTPException:
         raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching notebook {notebook_id}: {str(e)}")
         raise HTTPException(
@@ -311,8 +325,10 @@ async def update_notebook(
         # Update only provided fields
         if notebook_update.name is not None:
             notebook.name = notebook_update.name
-        if notebook_update.description is not None:
-            notebook.description = notebook_update.description
+        # An explicit "" (or null) clears the description; only an absent
+        # field leaves it untouched.
+        if "description" in notebook_update.model_fields_set:
+            notebook.description = notebook_update.description or ""
         if notebook_update.archived is not None:
             notebook.archived = notebook_update.archived
 
@@ -360,6 +376,8 @@ async def update_notebook(
         raise HTTPException(status_code=404, detail="Notebook not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error updating notebook {notebook_id}: {str(e)}")
         raise HTTPException(
@@ -420,6 +438,8 @@ async def add_source_to_notebook(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook or source not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(
             f"Error linking source {source_id} to notebook {notebook_id}: {str(e)}"
@@ -461,6 +481,8 @@ async def remove_source_from_notebook(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(
             f"Error removing source {source_id} from notebook {notebook_id}: {str(e)}"
@@ -507,11 +529,14 @@ async def delete_notebook(
             deleted_notes=result["deleted_notes"],
             deleted_sources=result["deleted_sources"],
             unlinked_sources=result["unlinked_sources"],
+            deleted_chat_sessions=result["deleted_chat_sessions"],
         )
     except HTTPException:
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error deleting notebook {notebook_id}: {str(e)}")
         raise HTTPException(

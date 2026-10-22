@@ -21,6 +21,7 @@ export interface ExtensionNavItem {
   name: string
   href: string
   icon: ComponentType<{ className?: string }>
+  iconClass?: string
 }
 
 export interface ExtensionNavSection {
@@ -40,11 +41,13 @@ export interface FrontendExtension {
   useNavigation?: (sections: readonly ExtensionNavSection[]) => readonly ExtensionNavSection[]
   /** Hooks returning false to hide a built-in feature. */
   gates?: Record<string, () => boolean>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each slot has its own props
   slots?: Record<string, ComponentType<any>>
   /** A hook deciding whether the current user may see `pathname`. */
   useRouteGate?: (pathname: string) => RouteDecision
   /** language code -> translation resources, deep-merged over the built-in ones */
   translations?: Record<string, Record<string, unknown>>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- each event has its own payload
   events?: Record<string, (payload: any) => void>
 }
 

@@ -94,7 +94,7 @@ describe('AppSidebar with the SIET workspace navigation', () => {
     render(<AppSidebar />)
 
     const isCurrent = (key: string) =>
-      /(^|\s)bg-sidebar-accent(\s|$)/.test(screen.getByText(key).closest('button')?.className ?? '')
+      /(^|\s)bg-popover(\s|$)/.test(screen.getByText(key).closest('button')?.className ?? '')
     // /admin is a prefix of /admin/quiz, but it is not the page being shown
     expect(isCurrent('navigation.adminQuiz')).toBe(true)
     expect(isCurrent('navigation.adminConsole')).toBe(false)

@@ -64,4 +64,3 @@ def test_source_chat_without_matches_keeps_the_context(monkeypatch):
     monkeypatch.setattr(source_chat, "_fetch_relevant_chunks", lambda sid, q: [])
     out = source_chat.pin_relevant_chunks({"context": "ctx"}, source_id="source:1", messages=[])
     assert out == {"context": "ctx", "relevant_chunks": []}
-    assert source_chat.full_text_limit(5000) == 200000

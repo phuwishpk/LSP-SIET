@@ -170,7 +170,7 @@ export function SpeakerProfileFormDialog({
               <Label htmlFor="name">{t('podcasts.profileName')} *</Label>
               <Input id="name" placeholder={t('podcasts.profileNamePlaceholder')} {...register('name')} />
               {errors.name ? (
-                <p className="text-xs text-red-600">{errors.name.message}</p>
+                <p className="text-xs text-destructive">{errors.name.message}</p>
               ) : null}
             </div>
 
@@ -205,7 +205,7 @@ export function SpeakerProfileFormDialog({
                     placeholder={t('podcasts.selectVoiceModel')}
                   />
                   {errors.voice_model ? (
-                    <p className="text-xs text-red-600 mt-1">
+                    <p className="text-xs text-destructive mt-1">
                       {errors.voice_model.message}
                     </p>
                   ) : null}
@@ -240,7 +240,7 @@ export function SpeakerProfileFormDialog({
               <div key={field.id} className="rounded-lg border p-4 space-y-4">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold">
-                    {t('podcasts.speakerNumber').replace('{number}', (index + 1).toString())}
+                    {t('podcasts.speakerNumber', { number: (index + 1).toString() })}
                   </p>
                   <Button
                     type="button"
@@ -259,11 +259,11 @@ export function SpeakerProfileFormDialog({
                     <Input
                       id={`speaker-name-${index}`}
                       {...register(`speakers.${index}.name` as const)}
-                      placeholder={t('podcasts.hostPlaceholder').replace('{number}', (index + 1).toString())}
+                      placeholder={t('podcasts.hostPlaceholder', { number: (index + 1).toString() })}
                       autoComplete="off"
                     />
                     {errors.speakers?.[index]?.name ? (
-                      <p className="text-xs text-red-600">
+                      <p className="text-xs text-destructive">
                         {errors.speakers[index]?.name?.message}
                       </p>
                     ) : null}
@@ -277,7 +277,7 @@ export function SpeakerProfileFormDialog({
                       autoComplete="off"
                     />
                     {errors.speakers?.[index]?.voice_id ? (
-                      <p className="text-xs text-red-600">
+                      <p className="text-xs text-destructive">
                         {errors.speakers[index]?.voice_id?.message}
                       </p>
                     ) : null}
@@ -293,7 +293,7 @@ export function SpeakerProfileFormDialog({
                     autoComplete="off"
                   />
                   {errors.speakers?.[index]?.backstory ? (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-destructive">
                       {errors.speakers[index]?.backstory?.message}
                     </p>
                   ) : null}
@@ -308,7 +308,7 @@ export function SpeakerProfileFormDialog({
                     autoComplete="off"
                   />
                   {errors.speakers?.[index]?.personality ? (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-destructive">
                       {errors.speakers[index]?.personality?.message}
                     </p>
                   ) : null}
@@ -332,7 +332,7 @@ export function SpeakerProfileFormDialog({
             ))}
 
             {speakersArrayError ? (
-              <p className="text-xs text-red-600">{speakersArrayError}</p>
+              <p className="text-xs text-destructive">{speakersArrayError}</p>
             ) : null}
           </div>
 

@@ -1,4 +1,5 @@
-from typing import Any, ClassVar, Dict, Optional, Union
+import os
+from typing import Any, ClassVar, Dict, Optional, Sequence, Union
 
 from esperanto import (
     AIFactory,
@@ -8,12 +9,73 @@ from esperanto import (
     TextToSpeechModel,
 )
 from loguru import logger
+from surrealdb import RecordID
 
+from open_notebook.ai.connection_tester import normalize_anthropic_compatible_base_url
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel, RecordModel
 from open_notebook.exceptions import ConfigurationError
+from open_notebook.utils.url_validation import validate_url
 
 ModelType = Union[LanguageModel, EmbeddingModel, SpeechToTextModel, TextToSpeechModel]
+
+# Config keys from Credential.to_esperanto_config() that may carry a
+# user-configured URL (ollama/azure/openai_compatible/vertex).
+_URL_CONFIG_KEYS = (
+    "base_url",
+    "endpoint",
+    "endpoint_llm",
+    "endpoint_embedding",
+    "endpoint_stt",
+    "endpoint_tts",
+)
+
+
+async def _revalidate_config_urls(config: dict, provider: str) -> None:
+    """
+    Re-validate a credential's URL fields immediately before they're used for
+    a real request.
+
+    validate_url() is also enforced when a credential is created/updated, but
+    that alone leaves a DNS-rebinding TOCTOU window: a hostname that resolved
+    to a public IP at save time can later be repointed to an internal/
+    metadata address, and Esperanto/httpx re-resolve DNS fresh on every
+    connection. Re-checking here narrows that window to "this call", instead
+    of "any time after the credential was saved".
+    """
+    for key in _URL_CONFIG_KEYS:
+        value = config.get(key)
+        if value:
+            try:
+                await validate_url(value, provider)
+            except ValueError as e:
+                raise ConfigurationError(str(e)) from e
+
+
+async def resolve_anthropic_compatible_config(
+    config: dict, **overrides
+) -> tuple[str, dict]:
+    """Resolve the shared chat/podcast provider contract without official fallback."""
+    if not config:
+        config = {
+            "api_key": os.environ.get("ANTHROPIC_COMPATIBLE_API_KEY", ""),
+            "base_url": os.environ.get("ANTHROPIC_COMPATIBLE_BASE_URL", ""),
+        }
+    # Resolve the environment before kwargs: max_tokens/temperature alone must
+    # not suppress fallback for an unlinked model.
+    config = {**config, **overrides}
+    if (
+        not str(config.get("api_key") or "").strip()
+        or not str(config.get("base_url") or "").strip()
+    ):
+        raise ConfigurationError(
+            "Anthropic-compatible models require a base URL and API key"
+        )
+    await _revalidate_config_urls(config, "anthropic_compatible")
+    config["base_url"] = normalize_anthropic_compatible_base_url(
+        str(config["base_url"])
+    )
+    return "anthropic", config
 
 
 class Model(ObjectModel):
@@ -30,6 +92,45 @@ class Model(ObjectModel):
             "SELECT * FROM model WHERE type=$model_type;", {"model_type": model_type}
         )
         return [Model(**model) for model in models]
+
+    @classmethod
+    async def get_display_info_for_ids(
+        cls, model_ids: Sequence[Union[str, RecordID]]
+    ) -> Dict[str, Dict[str, str]]:
+        """
+        Batch-fetch {provider, name} display info for many model IDs in one
+        query.
+
+        Episode listing resolves the model references stored in the
+        denormalized episode/speaker profile snapshots (outline_llm,
+        transcript_llm, voice_model) into human-readable display fields.
+        Doing that with Model.get() would cost one round trip per reference
+        per episode (no connection pooling in the repository layer) - this
+        collects the distinct IDs and resolves them in a single query,
+        mirroring PodcastEpisode.get_job_details_for_commands().
+
+        Unresolvable IDs (deleted models) are simply absent from the result;
+        a total query failure returns an empty dict so display resolution
+        degrades gracefully instead of breaking the caller.
+        """
+        ids = sorted({str(mid) for mid in model_ids if mid})
+        grouped: Dict[str, Dict[str, str]] = {}
+        if not ids:
+            return grouped
+        try:
+            result = await repo_query(
+                "SELECT id, name, provider FROM model WHERE id IN $model_ids",
+                {"model_ids": [ensure_record_id(mid) for mid in ids]},
+            )
+        except Exception as e:
+            logger.error(f"Error batch-fetching model display info: {e}")
+            return grouped
+        for row in result:
+            grouped[str(row.get("id"))] = {
+                "provider": row.get("provider", ""),
+                "name": row.get("name", ""),
+            }
+        return grouped
 
     @classmethod
     async def get_by_credential(cls, credential_id: str):
@@ -55,7 +156,9 @@ class Model(ObjectModel):
         try:
             return await Credential.get(self.credential)
         except Exception:
-            logger.warning(f"Could not load credential {self.credential} for model {self.id}")
+            logger.warning(
+                f"Could not load credential {self.credential} for model {self.id}"
+            )
             return None
 
 
@@ -123,6 +226,8 @@ class ModelManager:
             credential = await model.get_credential_obj()
             if credential:
                 config = credential.to_esperanto_config()
+                if model.provider != "anthropic_compatible":
+                    await _revalidate_config_urls(config, model.provider)
                 logger.debug(
                     f"Using credential '{credential.name}' for model {model.name}"
                 )
@@ -141,11 +246,14 @@ class ModelManager:
 
             await provision_provider_keys(model.provider)
 
-        # Merge any additional kwargs (e.g. temperature)
-        config.update(kwargs)
-
-        # Normalize provider name: DB stores underscores but Esperanto expects hyphens
-        provider = model.provider.replace("_", "-")
+        if model.provider == "anthropic_compatible":
+            provider, config = await resolve_anthropic_compatible_config(
+                config, **kwargs
+            )
+        else:
+            config.update(kwargs)
+            # DB stores underscores but Esperanto expects hyphens.
+            provider = model.provider.replace("_", "-")
 
         # Create model based on type (Esperanto will cache the instance)
         if model.type == "language":
@@ -244,12 +352,12 @@ class ModelManager:
         elif model_type == "speech_to_text":
             model_id = defaults.default_speech_to_text_model
         elif model_type == "large_context":
-            model_id = defaults.large_context_model
+            model_id = defaults.large_context_model or defaults.default_chat_model
 
         if not model_id:
             logger.warning(
                 f"No default model configured for type '{model_type}'. "
-                f"Please go to Settings → Models and set a default model."
+                f"Please go to Manage → Models and set a default model."
             )
             return None
 
@@ -259,7 +367,7 @@ class ModelManager:
             logger.error(
                 f"Failed to load default model for type '{model_type}': {e}. "
                 f"The configured model_id '{model_id}' may have been deleted or misconfigured. "
-                f"Please go to Settings → Models and reconfigure the default model."
+                f"Please go to Manage → Models and reconfigure the default model."
             )
             return None
 

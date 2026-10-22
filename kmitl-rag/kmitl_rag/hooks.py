@@ -4,10 +4,10 @@ What kmitl-rag plugs into open-notebook's extension points
 
 * chat.context            notebook chat: pin the notebook passages that match
                           the question ahead of the user-selected context
-* chat.message            every chat (notebook, source, global): drop URLs the
+* chat.message(s)         every chat (notebook, source, global): drop URLs the
                           model invented, flag course codes not in the context
 * chat.model              notebook chat on Gemini: Google Search grounding
-* source_chat.*           source chat: pinned passages, 200k-char full text
+* source_chat.prompt_data source chat: pinned passages ahead of the source text
 """
 
 from typing import Any, Dict, Optional, Union
@@ -20,9 +20,9 @@ def register() -> None:
 
     extensions.add_filter("chat.context", _pin_excerpts)
     extensions.add_filter("chat.message", _filter_message)
+    extensions.add_filter("chat.messages", _filter_messages)
     extensions.add_filter("chat.model", chat_filters.enable_google_search)
     extensions.add_filter("source_chat.prompt_data", source_chat.pin_relevant_chunks)
-    extensions.add_filter("source_chat.full_text_limit", source_chat.full_text_limit)
 
 
 async def _pin_excerpts(
@@ -54,3 +54,10 @@ async def _filter_message(
     context = context or {}
     content = _filter_url_citations(content, context)
     return await _verify_course_codes(content, context)
+
+
+async def _filter_messages(messages, *, context=None):
+    """The list form (api.routers._chat_shared.ChatMessage items) of _filter_message."""
+    for message in messages:
+        message.content = await _filter_message(message.content, message=message, context=context)
+    return messages
