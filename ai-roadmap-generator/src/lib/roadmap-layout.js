@@ -6,12 +6,12 @@
  * column, their details in a third. Pure function - no DOM.
  */
 
-const MAIN = { x: 176, w: 232, h: 48 }
-const SUB = { x: 488, w: 208, h: 40 }
-const DETAIL = { x: 760, w: 208, h: 40 }
-const GAP_MAIN = 28
-const GAP_BRANCH = 10
-const LANE_PAD = 22
+const MAIN = { x: 184, w: 272, h: 56 }
+const SUB = { x: 536, w: 240, h: 46 }
+const DETAIL = { x: 840, w: 240, h: 46 }
+const GAP_MAIN = 30
+const GAP_BRANCH = 12
+const LANE_PAD = 24
 const EDGE_PAD = 16
 
 /**

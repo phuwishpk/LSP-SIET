@@ -1,4 +1,4 @@
-import { forwardRef, useMemo } from 'react'
+import { forwardRef, useEffect, useMemo, useRef, useState } from 'react'
 import { layoutRoadmap } from '@/lib/roadmap-layout'
 
 const pathOf = (points) => points.map(([x, y], i) => `${i ? 'L' : 'M'} ${x} ${y}`).join(' ')
@@ -14,12 +14,32 @@ function shorten(points) {
  * The roadmap drawn as lanes (one per learning stage) with main nodes down
  * the spine and sub-nodes branching right on dashed lines.
  */
+const MAX_SCALE = 1.6
+
 const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSelect }, ref) {
   const layout = useMemo(() => layoutRoadmap(nodes), [nodes])
 
+  // Grow the map to fill the space it has (never shrink below 1:1). The scale
+  // sits on a wrapper, so the exported PNG (taken from `.graph`) stays 1:1.
+  const scrollRef = useRef(null)
+  const [scale, setScale] = useState(1)
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el || typeof ResizeObserver === 'undefined') return undefined
+    const fit = () => {
+      const available = el.clientWidth - 24
+      setScale(Math.min(MAX_SCALE, Math.max(1, available / layout.width)))
+    }
+    fit()
+    const observer = new ResizeObserver(fit)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [layout.width])
+
   return (
-    <div className="graph-scroll">
-      <div ref={ref} className="graph" style={{ width: layout.width, height: layout.height }}>
+    <div ref={scrollRef} className="graph-scroll">
+      <div className="graph-fit" style={{ width: layout.width * scale, height: layout.height * scale }}>
+      <div ref={ref} className="graph" style={{ width: layout.width, height: layout.height, transform: `scale(${scale})` }}>
         {layout.lanes.map((lane, index) => (
           <div
             key={`${lane.category}-${index}`}
@@ -64,6 +84,7 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
             <span className="node-label">{box.node.label}</span>
           </button>
         ))}
+      </div>
       </div>
     </div>
   )

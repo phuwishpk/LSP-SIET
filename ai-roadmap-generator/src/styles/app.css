@@ -649,9 +649,13 @@ textarea {
   overflow: auto;
 }
 
+.graph-fit {
+  margin: 0 auto;
+}
+
 .graph {
   position: relative;
-  margin: 0 auto;
+  transform-origin: 0 0;
 }
 
 .lane {
@@ -675,9 +679,9 @@ textarea {
   left: 16px;
   top: 12px;
   max-width: 144px;
-  padding: 2px 10px;
-  font-size: 12px;
-  line-height: 16px;
+  padding: 3px 11px;
+  font-size: 13px;
+  line-height: 17px;
   font-weight: 800;
   background: #ffffff;
   border: 1px solid #e5e5e5;
@@ -717,6 +721,8 @@ textarea {
   border-radius: 10px;
   color: #202124;
   cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .node:hover {
@@ -737,7 +743,8 @@ textarea {
   border-color: #e5e5e5;
   border-radius: 8px;
   color: #3c3c3c;
-  font-size: 13px;
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .node-detail {
