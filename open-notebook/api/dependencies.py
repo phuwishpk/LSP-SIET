@@ -2,7 +2,7 @@
 
 from typing import Optional
 
-from fastapi import Depends, Header, HTTPException, Request
+from fastapi import Header, HTTPException, Request
 
 
 # ---------------------------------------------------------------------------

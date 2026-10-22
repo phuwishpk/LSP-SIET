@@ -6,7 +6,11 @@ from loguru import logger
 from api.dependencies import get_owner_id, owner_can_access
 from api.models import NoteCreate, NoteResponse, NoteUpdate
 from open_notebook.domain.notebook import Note
-from open_notebook.exceptions import InvalidInputError, NotFoundError
+from open_notebook.exceptions import (
+    InvalidInputError,
+    NotFoundError,
+    OpenNotebookError,
+)
 
 router = APIRouter()
 
@@ -53,6 +57,8 @@ async def get_notes(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching notes: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching notes: {str(e)}")
@@ -71,8 +77,10 @@ async def create_note(
             from open_notebook.graphs.prompt import graph as prompt_graph
 
             prompt = "Based on the Note below, please provide a Title for this content, with max 15 words"
-            result = await prompt_graph.ainvoke(
-                {  # type: ignore[arg-type]
+            # LangGraph accepts a partial state dict at runtime, but its typed
+            # overloads require the full state type (langgraph typing limitation).
+            result = await prompt_graph.ainvoke(  # type: ignore[call-overload]
+                {
                     "input_text": note_data.content,
                     "prompt": prompt,
                 }
@@ -123,6 +131,8 @@ async def create_note(
         raise HTTPException(status_code=404, detail="Notebook not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error creating note: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error creating note: {str(e)}")
@@ -155,6 +165,8 @@ async def get_note(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Note not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error fetching note {note_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error fetching note: {str(e)}")
@@ -206,6 +218,8 @@ async def update_note(
         raise HTTPException(status_code=404, detail="Note not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error updating note {note_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error updating note: {str(e)}")
@@ -233,6 +247,8 @@ async def delete_note(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Note not found")
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Error deleting note {note_id}: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Error deleting note: {str(e)}")

@@ -8,7 +8,7 @@
 #   2. Change OPEN_NOTEBOOK_ENCRYPTION_KEY below
 #   3. Run: docker compose up -d
 #   4. Pull a model: docker exec open_notebook-ollama-1 ollama pull mistral
-#   5. Configure Ollama in UI: Settings → API Keys → Add Ollama (URL: http://ollama:11434)
+#   5. Configure Ollama in UI: Manage → Models → Add Ollama (URL: http://ollama:11434)
 
 services:
   surrealdb:
@@ -16,7 +16,9 @@ services:
     command: start --log info --user root --pass root rocksdb:/mydata/mydatabase.db
     user: root
     ports:
-      - "8000:8000"
+      # Localhost only — the database uses default credentials, so never
+      # publish this port on 0.0.0.0
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./surreal_data:/mydata
     environment:
@@ -50,7 +52,7 @@ services:
       - SURREAL_DATABASE=open_notebook
 
       # Ollama connection
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_API_BASE=http://ollama:11434
     volumes:
       - ./notebook_data:/app/data
     depends_on:

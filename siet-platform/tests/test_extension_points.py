@@ -102,9 +102,9 @@ def test_siet_packages_register_their_hooks():
     assert names == ["siet_platform.extension", "kmitl_rag.extension", "siet_community.extension"]
     assert isinstance(extensions.auth_backend(), WorkspaceAuthBackend)
     for name in ("source.context", "chat.prompt_data", "chat.context", "chat.message", "chat.model",
-                 "source_chat.prompt_data", "source_chat.full_text_limit"):
+                 "source_chat.prompt_data", "chat.messages"):
         assert extensions._filters.get(name), name
-    for name in ("vector_search", "context", "provider_availability"):
+    for name in ("vector_search", "provider_availability"):
         assert name in extensions._caches, name
     for name in ("notebook.changed", "source.changed", "models.changed", "app.startup",
                  "app.shutdown", "siet.seed_demo_data"):

@@ -1,8 +1,7 @@
 """
-Source chat additions (hooks into open_notebook.graphs.source_chat): the
+Source chat addition (hook into open_notebook.graphs.source_chat): the
 passages of the source that best match the latest question are pinned at the
-top of the context, and the full text is kept up to 200k characters instead of
-5k so an answer deep in a long document is not cut off.
+top of the context, so an answer deep in a long document is not missed.
 """
 
 import asyncio
@@ -12,16 +11,6 @@ from loguru import logger
 
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.utils.embedding import generate_embedding
-
-# Gemini/Claude/GPT models used here all have >=200k token windows, so a 200k
-# character cap trades a little safety margin for full coverage. The upstream
-# 5k cap chopped 97% of a curriculum PDF and caused "section not found" answers.
-FULL_TEXT_LIMIT = 200000
-
-
-def full_text_limit(_upstream_limit: int) -> int:
-    return FULL_TEXT_LIMIT
-
 
 def pin_relevant_chunks(
     prompt_data: Dict[str, Any], *, source_id: str, messages: List[Any]

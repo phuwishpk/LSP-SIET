@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import { Bot } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { ChatPanel } from '@/components/source/ChatPanel'
+import { ChatPanel } from '@/components/sources/ChatPanel'
 import { SettingsDialog } from './SettingsDialog'
 import { Button } from '@/components/ui/button'
 import { Settings } from 'lucide-react'

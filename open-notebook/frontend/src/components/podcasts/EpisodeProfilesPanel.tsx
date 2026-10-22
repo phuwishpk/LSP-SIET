@@ -46,9 +46,13 @@ interface EpisodeProfilesPanelProps {
 
 function findSpeakerSummary(
   speakerProfiles: SpeakerProfile[],
-  speakerName: string
+  speakerId: string | null
 ) {
-  return speakerProfiles.find((profile) => profile.name === speakerName)
+  if (!speakerId) {
+    return undefined
+  }
+  // speaker_config references the speaker profile by record ID
+  return speakerProfiles.find((profile) => profile.id === speakerId)
 }
 
 export function EpisodeProfilesPanel({
@@ -83,7 +87,7 @@ export function EpisodeProfilesPanel({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold">{t('podcasts.episodeProfilesTitle')}</h2>
+          <h2 className="font-display text-lg font-semibold tracking-tight">{t('podcasts.episodeProfilesTitle')}</h2>
           <p className="text-sm text-muted-foreground">
             {t('podcasts.episodeProfilesDesc')}
           </p>
@@ -94,13 +98,13 @@ export function EpisodeProfilesPanel({
       </div>
 
       {disableCreate ? (
-        <p className="rounded-lg border border-dashed bg-amber-50 p-4 text-sm text-amber-900">
+        <p className="rounded-lg border border-dashed bg-warn-tint p-4 text-sm text-warn">
           {t('podcasts.createSpeakerFirst')}
         </p>
       ) : null}
 
       {sortedProfiles.length === 0 ? (
-        <div className="rounded-lg border border-dashed bg-muted/30 p-10 text-center text-sm text-muted-foreground">
+        <div className="rounded-md border border-dashed p-10 text-center text-sm text-muted-foreground">
           {t('podcasts.noEpisodeProfiles')}
         </div>
       ) : (
@@ -111,9 +115,12 @@ export function EpisodeProfilesPanel({
               profile.speaker_config
             )
             const unconfigured = needsModelSetup(profile)
+            const voiceModelLabel = speakerSummary?.voice_model
+              ? (modelNameMap[speakerSummary.voice_model] ?? speakerSummary.voice_model)
+              : null
 
             return (
-              <Card key={profile.id} className="shadow-sm">
+              <Card key={profile.id}>
                 <CardHeader className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between">
                   <div>
                     <div className="flex items-center gap-2">
@@ -121,7 +128,7 @@ export function EpisodeProfilesPanel({
                         {profile.name}
                       </CardTitle>
                       {unconfigured ? (
-                        <Badge variant="outline" className="text-amber-600 border-amber-300 text-xs">
+                        <Badge variant="outline" className="text-warn border-warn/30 text-xs">
                           <AlertTriangle className="h-3 w-3 mr-1" />
                           {t('podcasts.setupRequired')}
                         </Badge>
@@ -176,13 +183,13 @@ export function EpisodeProfilesPanel({
                         <AlertDialogHeader>
                           <AlertDialogTitle>{t('podcasts.deleteProfileTitle')}</AlertDialogTitle>
                           <AlertDialogDescription>
-                            {t('podcasts.deleteProfileDesc').replace('{name}', profile.name)}
+                            {t('podcasts.deleteProfileDesc', { name: profile.name })}
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>{t('common.cancel')}</AlertDialogCancel>
                           <AlertDialogAction
-                            onClick={() => deleteProfile.mutate(profile.id)}
+                            onClick={() => deleteProfile.mutate({ profileId: profile.id, name: profile.name })}
                             disabled={deleteProfile.isPending}
                           >
                             {deleteProfile.isPending ? t('podcasts.deleting') : t('podcasts.delete')}
@@ -202,9 +209,7 @@ export function EpisodeProfilesPanel({
                       <p className="text-foreground">
                         {profile.outline_llm
                           ? (modelNameMap[profile.outline_llm] ?? profile.outline_llm)
-                          : (profile.outline_provider && profile.outline_model
-                            ? `${profile.outline_provider} / ${profile.outline_model}`
-                            : t('podcasts.notConfigured'))}
+                          : t('podcasts.notConfigured')}
                       </p>
                     </div>
                     <div>
@@ -214,9 +219,7 @@ export function EpisodeProfilesPanel({
                       <p className="text-foreground">
                         {profile.transcript_llm
                           ? (modelNameMap[profile.transcript_llm] ?? profile.transcript_llm)
-                          : (profile.transcript_provider && profile.transcript_model
-                            ? `${profile.transcript_provider} / ${profile.transcript_model}`
-                            : t('podcasts.notConfigured'))}
+                          : t('podcasts.notConfigured')}
                       </p>
                     </div>
                     <div>
@@ -237,16 +240,20 @@ export function EpisodeProfilesPanel({
                       <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                         {t('podcasts.speakerProfile')}
                       </p>
-                      <div className="flex items-center gap-2 text-foreground">
-                        <Users className="h-4 w-4" />
-                        <span>{profile.speaker_config}</span>
-                        {speakerSummary?.voice_model ? (
-                          <Badge variant="outline" className="text-xs">
-                            {modelNameMap[speakerSummary.voice_model] ?? speakerSummary.voice_model}
-                          </Badge>
-                        ) : speakerSummary?.tts_provider ? (
-                          <Badge variant="outline" className="text-xs">
-                            {speakerSummary.tts_provider} / {speakerSummary.tts_model}
+                      <div className="flex flex-wrap items-center gap-2 text-foreground">
+                        <Users className="h-4 w-4 shrink-0" />
+                        <span>
+                          {profile.speaker_config_name ??
+                            speakerSummary?.name ??
+                            t('podcasts.notConfigured')}
+                        </span>
+                        {voiceModelLabel ? (
+                          <Badge
+                            variant="outline"
+                            className="min-w-0 max-w-full shrink text-xs"
+                            title={voiceModelLabel}
+                          >
+                            <span className="truncate">{voiceModelLabel}</span>
                           </Badge>
                         ) : null}
                       </div>

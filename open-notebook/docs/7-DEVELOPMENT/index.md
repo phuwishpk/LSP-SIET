@@ -12,7 +12,7 @@ Start with **[Contributing Guide](contributing.md)** for the workflow, then chec
 - **[Code Standards](code-standards.md)** - How to write code that fits our style
 - **[Testing](testing.md)** - How to write and run tests
 
-**First time?** Check out our [Contributing Guide](contributing.md) for the issue-first workflow.
+**First time?** Check out our [Contributing Guide](contributing.md) for the Discussions → Issues → PRs workflow.
 
 ### 🔒 I Want to Understand Security Practices
 
@@ -33,7 +33,20 @@ Start with **[Contributing Guide](contributing.md)** for the workflow, then chec
 - Key components and workflows
 - Design patterns we use
 
-For deeper dives, check `/open_notebook/` CLAUDE.md for component-specific guidance.
+For deeper dives into specific subsystems:
+- **[Credentials](credentials.md)** - Provider credential storage, encryption, provisioning
+- **[Content Processing](content-processing.md)** - Chunking, embedding, context building, encryption
+- **[Podcasts](podcasts.md)** - Profile system, model registry, job lifecycle
+- **[Prompts](prompts.md)** - Prompt engineering patterns
+- **[Frontend](frontend.md)** - Next.js layers and data flows
+
+Normative rules for coding agents (and humans in a hurry) live in the `AGENTS.md` files at the
+repo root, `open_notebook/`, and `frontend/`.
+
+### 🧭 Why Is It Like This?
+
+- **[VISION.md](../../VISION.md)** - Product identity and current posture
+- **[Decision Records](decisions/README.md)** - ADRs and PDRs: the durable "why" behind structural choices
 
 ---
 
@@ -53,14 +66,22 @@ For deeper dives, check `/open_notebook/` CLAUDE.md for component-specific guida
 |---|---|---|
 | [Quick Start](quick-start.md) | New developers | Clone, install, and verify setup (5 min) |
 | [Development Setup](development-setup.md) | Local development | Complete environment setup guide |
-| [Contributing](contributing.md) | Code contributors | Workflow: issue → code → PR |
+| [Contributing](contributing.md) | Community & code contributors | Workflow: Discussion → Issue → PR |
 | [Code Standards](code-standards.md) | Writing code | Style guides for Python, FastAPI, DB |
 | [Testing](testing.md) | Testing code | How to write and run tests |
 | [Architecture](architecture.md) | Understanding system | System design, tech stack, workflows |
-| [Design Principles](design-principles.md) | All developers | What guides our decisions |
+| [Credentials](credentials.md) | Understanding system | Provider credential subsystem |
+| [Content Processing](content-processing.md) | Understanding system | Chunking, embedding, context building |
+| [Podcasts](podcasts.md) | Understanding system | Podcast profiles and job lifecycle |
+| [Prompts](prompts.md) | Understanding system | Prompt engineering patterns |
+| [Frontend](frontend.md) | Understanding system | Next.js architecture and data flows |
+| [Design Principles](design-principles.md) | All developers | Engineering practices and anti-patterns |
+| [VISION.md](../../VISION.md) | All developers | Product identity and current posture |
+| [Decision Records](decisions/README.md) | All developers | ADRs/PDRs — why things are the way they are |
+| [Change Playbooks](change-playbooks.md) | Contributors & agents | Step-by-step recipes for common changes |
 | [API Reference](api-reference.md) | Building integrations | Complete REST API documentation |
 | [Security](security.md) | All developers | Security practices and vulnerability prevention |
-| [Maintainer Guide](maintainer-guide.md) | Maintainers | Managing issues, PRs, releases |
+| [Maintainer Guide](maintainer-guide.md) | Maintainers | Managing issues, PRs, labels |
 
 ---
 
@@ -81,8 +102,8 @@ See GitHub Issues labeled `good first issue` or `help wanted`.
 ## 💬 Getting Help
 
 - **Discord**: [Join our server](https://discord.gg/37XJPXfz2w) for real-time discussions
-- **GitHub Discussions**: For architecture questions
-- **GitHub Issues**: For bugs and features
+- **GitHub Discussions**: For questions, ideas, features, product direction, design, and architecture
+- **GitHub Issues**: For reproducible bugs and approved work items
 
 Don't be shy! We're here to help new contributors succeed.
 

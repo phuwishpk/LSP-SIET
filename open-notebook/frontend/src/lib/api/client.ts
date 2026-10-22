@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios'
 import { getApiUrl } from '@/lib/config'
+import { getAuthToken } from '@/lib/auth-token'
 
 // API client with runtime-configurable base URL
 // The base URL is fetched from the API config endpoint on first request
@@ -18,6 +19,10 @@ const apiTimeout = Number.isFinite(parsedTimeout) && parsedTimeout >= 0
   ? parsedTimeout
   : DEFAULT_API_TIMEOUT_MS
 
+// Resolved request budget in milliseconds (0 = disabled). Exported so streaming
+// consumers can align their own idle watchdogs to the same configurable budget.
+export const API_TIMEOUT_MS = apiTimeout
+
 export const apiClient = axios.create({
   timeout: apiTimeout,
   headers: {
@@ -35,25 +40,16 @@ apiClient.interceptors.request.use(async (config) => {
     config.baseURL = `${trimmed}/api`
   }
 
-  if (typeof window !== 'undefined') {
-    const authStorage = localStorage.getItem('auth-storage')
-    if (authStorage) {
-      try {
-        const { state } = JSON.parse(authStorage)
-        if (state?.token) {
-          config.headers.Authorization = `Bearer ${state.token}`
-        }
-        // Tell the backend which owner this request belongs to. The
-        // middleware will derive it from the JWT subject anyway, but
-        // sending it explicitly avoids relying on that detail and keeps
-        // direct callers honest.
-        if (state?.user?.id) {
-          config.headers['X-Owner-Id'] = state.user.id
-        }
-      } catch (error) {
-        console.error('Error parsing auth storage:', error)
-      }
-    }
+  const token = getAuthToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+
+  // KMITL: tell the backend which owner this request belongs to (the JWT
+  // subject says the same; sending it keeps direct callers honest)
+  const ownerId = getAuthUserId()
+  if (ownerId) {
+    config.headers['X-Owner-Id'] = ownerId
   }
 
   // Handle FormData vs JSON content types
@@ -83,3 +79,16 @@ apiClient.interceptors.response.use(
 )
 
 export default apiClient
+
+// KMITL: the signed-in workspace user's id, from the same persisted store
+function getAuthUserId(): string | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+  try {
+    const { state } = JSON.parse(window.localStorage.getItem('auth-storage') || '{}')
+    return state?.user?.id ? String(state.user.id) : null
+  } catch {
+    return null
+  }
+}

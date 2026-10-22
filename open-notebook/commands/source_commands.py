@@ -1,15 +1,21 @@
 import time
 from typing import Any, Dict, List, Optional
 
+from langchain_core.runnables import RunnableConfig
 from loguru import logger
-from pydantic import BaseModel
 from surreal_commands import CommandInput, CommandOutput, command
 
 from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id
 from open_notebook.domain.notebook import Source
 from open_notebook.domain.transformation import Transformation
-from open_notebook.exceptions import ConfigurationError
+from open_notebook.exceptions import (
+    ConfigurationError,
+    ContextLengthExceededError,
+    IncompleteGenerationError,
+    InvalidInputError,
+    NotFoundError,
+)
 
 try:
     from open_notebook.graphs.source import source_graph
@@ -17,17 +23,6 @@ try:
 except ImportError as e:
     logger.error(f"Failed to import graphs: {e}")
     raise ValueError("graphs not available")
-
-
-def full_model_dump(model):
-    if isinstance(model, BaseModel):
-        return model.model_dump()
-    elif isinstance(model, dict):
-        return {k: full_model_dump(v) for k, v in model.items()}
-    elif isinstance(model, list):
-        return [full_model_dump(item) for item in model]
-    else:
-        return model
 
 
 class SourceProcessingInput(CommandInput):
@@ -55,7 +50,15 @@ class SourceProcessingOutput(CommandOutput):
         "wait_strategy": "exponential_jitter",
         "wait_min": 1,
         "wait_max": 120,  # Allow queue to drain
-        "stop_on": [ValueError, ConfigurationError],  # Don't retry validation/config errors
+        "stop_on": [
+            ValueError,
+            ConfigurationError,
+            ContextLengthExceededError,
+            IncompleteGenerationError,
+            NotFoundError,
+        ],  # Don't retry validation/config errors, incomplete generations, or a
+        # record deleted mid-processing (NotFoundError means "missing", never a
+        # DB failure: ObjectModel.get raises DatabaseOperationError for those)
         "retry_log_level": "debug",  # Avoid log noise during transaction conflicts
     },
 )
@@ -77,7 +80,11 @@ async def process_source_command(
         transformations = []
         for trans_id in input_data.transformations:
             logger.info(f"Loading transformation: {trans_id}")
-            transformation = await Transformation.get(trans_id)
+            try:
+                transformation = await Transformation.get(trans_id)
+            except NotFoundError as e:
+                # Same as a deleted source below: permanent, not transient.
+                raise ValueError(f"Transformation '{trans_id}' no longer exists") from e
             if not transformation:
                 raise ValueError(f"Transformation '{trans_id}' not found")
             transformations.append(transformation)
@@ -85,7 +92,18 @@ async def process_source_command(
         logger.info(f"Loaded {len(transformations)} transformations")
 
         # 2. Get existing source record to update its command field
-        source = await Source.get(input_data.source_id)
+        try:
+            source = await Source.get(input_data.source_id)
+        except NotFoundError as e:
+            # The source was removed after this job was queued (e.g. a sync tool
+            # deleted it, or the record was cleaned up). The job can never
+            # succeed: raise a permanent error (ValueError is in `stop_on`) so
+            # surreal-commands marks it failed instead of spending 15 retries
+            # with exponential backoff, which starves every job behind it.
+            raise ValueError(
+                f"Source '{input_data.source_id}' no longer exists "
+                "(deleted before processing?)"
+            ) from e
         if not source:
             raise ValueError(f"Source '{input_data.source_id}' not found")
 
@@ -109,9 +127,11 @@ async def process_source_command(
             clear_cache=True,
         )
 
-        # Execute source_graph with all notebooks
-        result = await source_graph.ainvoke(
-            {  # type: ignore[arg-type]
+        # Execute source_graph with all notebooks.
+        # LangGraph accepts a partial state dict at runtime, but its typed
+        # overloads require the full state type (langgraph typing limitation).
+        result = await source_graph.ainvoke(  # type: ignore[call-overload]
+            {
                 "content_state": input_data.content_state,
                 "notebook_ids": input_data.notebook_ids,  # Use notebook_ids (plural) as expected by SourceState
                 "apply_transformations": transformations,
@@ -134,9 +154,7 @@ async def process_source_command(
         logger.info(
             f"Successfully processed source: {processed_source.id} in {processing_time:.2f}s"
         )
-        logger.info(
-            f"Created {insights_created} insights, embedding {embed_status}"
-        )
+        logger.info(f"Created {insights_created} insights, embedding {embed_status}")
 
         return SourceProcessingOutput(
             success=True,
@@ -146,6 +164,18 @@ async def process_source_command(
             processing_time=processing_time,
         )
 
+    except IncompleteGenerationError as e:
+        logger.error(
+            f"Generation failed (permanent) for source {input_data.source_id}: {e}"
+        )
+        raise  # Preserve failed job status; stop_on prevents automatic retries.
+    except NotFoundError as e:
+        # E.g. the source was deleted while extraction ran (save_source re-reads
+        # it). Permanent: stop_on prevents retries that would starve the queue.
+        logger.error(
+            f"Source processing failed (permanent), record no longer exists: {e}"
+        )
+        raise
     except ValueError as e:
         # Validation errors are permanent failures. Re-raise so surreal-commands
         # marks the job as `failed` (stop_on=[ValueError] already prevents
@@ -157,9 +187,7 @@ async def process_source_command(
         raise
     except Exception as e:
         # Transient failure - will be retried (surreal-commands logs final failure)
-        logger.debug(
-            f"Transient error processing source {input_data.source_id}: {e}"
-        )
+        logger.debug(f"Transient error processing source {input_data.source_id}: {e}")
         raise
 
 
@@ -193,8 +221,16 @@ class RunTransformationOutput(CommandOutput):
         "wait_strategy": "exponential_jitter",
         "wait_min": 1,
         "wait_max": 60,
-        "stop_on": [ValueError, ConfigurationError],  # Don't retry validation/config errors
-        "retry_log_level": "debug",
+        "stop_on": [
+            ValueError,
+            ConfigurationError,
+            ContextLengthExceededError,
+            IncompleteGenerationError,
+            InvalidInputError,
+            NotFoundError,
+        ],  # Don't retry validation/config errors, incomplete generations, or
+        # a source/transformation deleted before the job ran
+        "retry_log_level": "warning",
     },
 )
 async def run_transformation_command(
@@ -236,9 +272,12 @@ async def run_transformation_command(
                 f"Transformation '{input_data.transformation_id}' not found"
             )
 
-        # Run transformation graph (includes LLM call + insight creation)
-        await transform_graph.ainvoke(
-            input=dict(source=source, transformation=transformation)
+        # Run transformation graph (includes LLM call + insight creation).
+        # LangGraph accepts a partial state dict at runtime, but its typed
+        # overloads require the full state type (langgraph typing limitation).
+        await transform_graph.ainvoke(  # type: ignore[call-overload]
+            input=dict(source=source, transformation=transformation),
+            config=RunnableConfig(configurable={"model_id": transformation.model_id}),
         )
 
         processing_time = time.time() - start_time
@@ -254,6 +293,13 @@ async def run_transformation_command(
             processing_time=processing_time,
         )
 
+    except (IncompleteGenerationError, InvalidInputError, NotFoundError) as e:
+        # e.g. the source has no text to transform
+        logger.error(
+            f"Generation failed (permanent) for transformation "
+            f"{input_data.transformation_id} on source {input_data.source_id}: {e}"
+        )
+        raise  # Preserve failed job status; stop_on prevents automatic retries.
     except ValueError as e:
         # Validation errors are permanent failures - don't retry
         processing_time = time.time() - start_time

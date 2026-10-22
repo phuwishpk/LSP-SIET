@@ -4,9 +4,12 @@
 
 ## Related Issue
 
-<!-- This PR should be linked to an approved issue. If not, please create an issue first. -->
+<!-- Non-trivial PRs (features, architecture changes) must link an approved Issue.
+     Small obvious fixes (typo, docs, tiny bug) don't need one — write "N/A (small fix)" below.
+     Sizeable change without an approved Issue? Mark this PR as draft. Start a Discussion for an
+     idea/feature or open an Issue for a reproducible bug, then wait for the work to be approved. -->
 
-Fixes #<!-- issue number -->
+Fixes #<!-- issue number, or "N/A (small fix)" -->
 
 ## Type of Change
 
@@ -37,7 +40,7 @@ Fixes #<!-- issue number -->
 
 <!-- This section helps ensure your PR aligns with our project vision -->
 
-**Which design principles does this PR support?** (See [DESIGN_PRINCIPLES.md](../DESIGN_PRINCIPLES.md))
+**Which design principles does this PR support?** (See [VISION.md](https://github.com/lfnovo/open-notebook/blob/main/VISION.md))
 
 - [ ] Privacy First
 - [ ] Simplicity Over Features
@@ -96,9 +99,9 @@ Fixes #<!-- issue number -->
 
 Before submitting, please verify:
 
-- [ ] I have read [CONTRIBUTING.md](../CONTRIBUTING.md)
-- [ ] I have read [DESIGN_PRINCIPLES.md](../DESIGN_PRINCIPLES.md)
-- [ ] This PR addresses an approved issue that was assigned to me
+- [ ] I have read [CONTRIBUTING.md](https://github.com/lfnovo/open-notebook/blob/main/docs/7-DEVELOPMENT/contributing.md)
+- [ ] I have read [VISION.md](https://github.com/lfnovo/open-notebook/blob/main/VISION.md)
+- [ ] This PR addresses an approved Issue assigned to me, **or** it's a small obvious fix (typo, docs, tiny bug) that doesn't need one — ideas and features begin in Discussions; reproducible bugs begin in Issues
 - [ ] I have not included unrelated changes in this PR
 - [ ] My PR title follows conventional commits format (e.g., "feat: add user authentication")
 
