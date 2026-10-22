@@ -67,6 +67,7 @@ STATEMENTS: list[str] = RENAMES + [
     "ALTER TABLE users MODIFY COLUMN password_hash VARCHAR(255) NULL",
     "ALTER TABLE users MODIFY COLUMN role ENUM('admin','student','teacher','pending') NOT NULL DEFAULT 'student'",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS email VARCHAR(191) NULL",
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS google_sub VARCHAR(64) NULL",
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar_url TEXT NULL",
     "ALTER TABLE users MODIFY COLUMN avatar_url TEXT NULL",
     # The 8-digit student number from the KMITL e-mail - not a foreign key.
