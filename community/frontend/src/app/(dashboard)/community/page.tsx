@@ -455,18 +455,11 @@ function CommunityContent() {
                     </div>
                     <div className="space-y-1">
                       <p className="font-bold text-foreground text-base">
-                        {view === 'saved'
-                          ? 'ยังไม่มีโพสต์ที่บันทึกไว้'
-                          : view === 'materials'
-                          ? 'ยังไม่มีสื่อการสอนจากอาจารย์'
-                          : 'ยังไม่มีโพสต์ในฟีดนี้'}
+                        {/* only the 'mine' view reaches here */}
+                        ยังไม่มีโพสต์ในฟีดนี้
                       </p>
                       <p className="text-xs text-muted-foreground max-w-sm">
-                        {view === 'saved'
-                          ? 'กดปุ่ม “บันทึก” ใต้โพสต์ที่ต้องการทบทวน เพื่อเก็บไว้อ่านย้อนหลัง'
-                          : view === 'materials'
-                          ? 'อาจารย์ประจำวิชายังไม่ได้อัปโหลดเอกสารหรือสไลด์ประกอบการสอน'
-                          : 'เริ่มแชร์ชีทสรุปหรือส่งควิซชุดแรก รับทันที +2 แต้ม! 🎁'}
+                        เริ่มแชร์ชีทสรุปหรือส่งควิซชุดแรก รับทันที +2 แต้ม! 🎁
                       </p>
                     </div>
                   </CardContent>
