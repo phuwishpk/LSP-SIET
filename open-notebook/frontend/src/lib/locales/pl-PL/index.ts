@@ -36,7 +36,7 @@ export const plPL = {
     podcast: "Podcast",
     quickActions: "Szybkie akcje",
     quickActionsDesc: "Nawigacja, wyszukiwanie, pytania, motyw",
-    appName: "LSP-SIET",
+    appName: "Open Notebook",
     add: "Dodaj",
     remove: "Usuń",
     confirm: "Potwierdź",

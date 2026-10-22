@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useSidebarStore } from '@/lib/stores/sidebar-store'
 import { useCreateDialogs } from '@/lib/hooks/use-create-dialogs'
+import { getSlot, useGate, useNavigationExtensions } from '@/lib/extensions'
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +30,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Book,
   Search,
+  Mic,
   Bot,
   Shuffle,
   Settings,
@@ -39,102 +41,51 @@ import {
   Plus,
   Wrench,
   Command,
-  GraduationCap,
-  ShieldCheck,
-  Sparkles,
-  Users,
-  Coins,
-  MessageSquare,
-  BrainCircuit,
-  Map,
-  Database,
 } from 'lucide-react'
-import { useAuthStore } from '@/lib/stores/auth-store'
-import { isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
 
-const getNavigation = (t: TFunction, role: Role) => [
+const getNavigation = (t: TFunction) => [
   {
-    title: t('navigation.community', 'SIET Space'),
+    title: t('navigation.collect'),
     items: [
-      { name: t('navigation.communityFeed', 'ชุมชน (Community)'), href: '/community', icon: Users },
+      { name: t('navigation.sources'), href: '/sources', icon: FileText },
     ],
   },
-  ...(isStaff(role)
-    ? [
-        {
-          title: t('navigation.collect'),
-          items: [{ name: t('navigation.sources'), href: '/sources', icon: FileText }],
-        },
-      ]
-    : []),
-  ...(isStaff(role)
-    ? [
-        {
-          title: t('navigation.process'),
-          items: [
-            { name: t('navigation.notebooks'), href: '/notebooks', icon: Book },
-            { name: t('navigation.askAndSearch'), href: '/search', icon: Search },
-          ],
-        },
-      ]
-    : []),
+  {
+    title: t('navigation.process'),
+    items: [
+      { name: t('navigation.notebooks'), href: '/notebooks', icon: Book },
+      { name: t('navigation.askAndSearch'), href: '/search', icon: Search },
+    ],
+  },
   {
     title: t('navigation.create'),
     items: [
-      { name: t('navigation.features', 'AI Features'), href: '/features', icon: Sparkles },
+      { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic },
     ],
   },
-  // The admin consoles, one group per area. What belongs to no single area
-  // (accounts, points, AI cost, health) stays under "จัดการระบบ" in Manage.
-  ...(isAdmin(role)
-    ? [
-        {
-          title: t('navigation.manageCommunity', 'จัดการ Community'),
-          items: [
-            { name: t('navigation.adminCommunity', 'Community'), href: '/admin/community', icon: MessageSquare },
-          ],
-        },
-        {
-          title: t('navigation.manageAi', 'จัดการ AI'),
-          items: [
-            { name: t('navigation.adminRag', 'RAG AI'), href: '/admin/rag', icon: Database },
-            { name: t('navigation.adminRoadmap', 'AI Roadmap'), href: '/admin/roadmap', icon: Map },
-          ],
-        },
-        {
-          title: t('navigation.manageQuiz', 'จัดการ Quiz'),
-          items: [{ name: t('navigation.adminQuiz', 'Quiz'), href: '/admin/quiz', icon: BrainCircuit }],
-        },
-      ]
-    : []),
-  ...(isStaff(role) ? [{
+  {
     title: t('navigation.manage'),
     items: [
-      { name: t('navigation.teacherConsole', 'จัดการการสอน'), href: '/teacher', icon: GraduationCap },
-      ...(isAdmin(role) ? [{ name: t('navigation.models'), href: '/settings/api-keys', icon: Bot }] : []),
+      { name: t('navigation.models'), href: '/settings/api-keys', icon: Bot },
       { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
-      ...(isAdmin(role)
-        ? [
-            { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },
-            { name: t('navigation.settings'), href: '/settings', icon: Settings },
-            { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
-          ]
-        : []),
+      { name: t('navigation.settings'), href: '/settings', icon: Settings },
+      { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
     ],
-  }]
-    : []),
-]
+  },
+] as const
 
-type CreateTarget = 'source' | 'notebook'
+type CreateTarget = 'source' | 'notebook' | 'podcast'
 
 export function AppSidebar() {
   const { t } = useTranslation()
-  const authUser = useAuthStore((s) => s.user)
-  const navigation = getNavigation(t, authUser?.role as Role)
+  // KMITL hooks: extensions reshape the navigation, gate podcasts, fill the footer
+  const navigation = useNavigationExtensions(getNavigation(t))
+  const showPodcasts = useGate('podcasts')
+  const SidebarFooter = getSlot<{ collapsed: boolean }>('sidebar.footer')
   const pathname = usePathname()
   const { logout } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()
-  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
+  const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [isMac, setIsMac] = useState(true) // Default to Mac for SSR
@@ -144,8 +95,8 @@ export function AppSidebar() {
     setIsMac(navigator.platform.toLowerCase().includes('mac'))
   }, [])
 
-  // Entries can share a prefix (/admin and /admin/quiz, /settings and
-  // /settings/api-keys): only the longest match is the page being shown.
+  // Entries can share a prefix (/settings and /settings/api-keys): only the
+  // longest match is the page being shown.
   const activeHref = navigation
     .flatMap((section) => section.items.map((item) => item.href))
     .filter((href) => pathname === href || pathname?.startsWith(`${href}/`))
@@ -158,6 +109,8 @@ export function AppSidebar() {
       openSourceDialog()
     } else if (target === 'notebook') {
       openNotebookDialog()
+    } else if (target === 'podcast') {
+      openPodcastDialog()
     }
   }
 
@@ -271,6 +224,18 @@ export function AppSidebar() {
                    <Book className="h-4 w-4" />
                   {t('common.notebook')}
                 </DropdownMenuItem>
+                {showPodcasts && (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      handleCreateSelection('podcast')
+                    }}
+                    className="gap-2"
+                  >
+                     <Mic className="h-4 w-4" />
+                    {t('common.podcast')}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -333,20 +298,7 @@ export function AppSidebar() {
             isCollapsed && 'px-2'
           )}
         >
-          {/* Points wallet (students only) */}
-          {authUser && !authUser.points_exempt && (
-            <Link
-              href="/community"
-              className={cn(
-                'flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
-                isCollapsed && 'justify-center px-0'
-              )}
-              title="กระเป๋าแต้ม"
-            >
-              <Coins className="h-3.5 w-3.5" />
-              {!isCollapsed && <span>{authUser.points_balance ?? 0} PT</span>}
-            </Link>
-          )}
+          {SidebarFooter && <SidebarFooter collapsed={isCollapsed} />}
 
           {/* Command Palette hint */}
           {!isCollapsed && (

@@ -10,7 +10,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { getDateLocale } from '@/lib/utils/date-locale'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog'
-import { GlobalChatSession } from '@/lib/types/api'
+import type { GlobalChatSession } from '@siet/kmitl-rag/lib/types/global-chat'
 import { useModels } from '@/lib/hooks/use-models'
 
 interface SessionSidebarProps {

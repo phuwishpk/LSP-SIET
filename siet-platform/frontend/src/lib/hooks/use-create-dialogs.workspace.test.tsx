@@ -22,8 +22,8 @@ vi.unmock('@/lib/hooks/use-create-dialogs')
 vi.unmock('../lib/hooks/use-create-dialogs')
 
 const { CreateDialogsProvider, useCreateDialogs } = await vi.importActual<
-  typeof import('./use-create-dialogs')
->('./use-create-dialogs')
+  typeof import('@/lib/hooks/use-create-dialogs')
+>('@/lib/hooks/use-create-dialogs')
 
 function Consumer() {
   const { openSourceDialog, openNotebookDialog } = useCreateDialogs()

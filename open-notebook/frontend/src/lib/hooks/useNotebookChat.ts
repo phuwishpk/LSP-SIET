@@ -15,6 +15,7 @@ import {
   NoteResponse
 } from '@/lib/types/api'
 import { ContextSelections } from '@/app/(dashboard)/notebooks/[id]/page'
+import { emitExtensionEvent } from '@/lib/extensions'
 
 interface UseNotebookChatParams {
   notebookId: string
@@ -175,9 +176,7 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
   // Send message (synchronous, no streaming)
   const sendMessage = useCallback(async (message: string, modelOverride?: string) => {
     let sessionId = currentSessionId
-    // Track whether we just created this session so we can auto-title it once
-    // the LLM has replied. Setting the title before the reply would race the
-    // stream and show a truncated placeholder to the user.
+    // Whether this send created the session (see the first-reply event below)
     let isNewSession = false
 
     // Auto-create session if none exists
@@ -233,18 +232,18 @@ export function useNotebookChat({ notebookId, sources, notes, contextSelections 
       // Refetch current session to get updated data
       await refetchCurrentSession()
 
-      // Fire-and-forget: generate a proper chat title for brand-new sessions
-      // now that the LLM has replied. Any failure is silent — the truncated
-      // placeholder title stays as a fallback.
+      // KMITL hook: a brand-new session got its first reply (extensions may
+      // retitle it, then call refresh)
       if (isNewSession && sessionId) {
-        chatApi.autoTitleSession(sessionId)
-          .then(() => {
+        emitExtensionEvent('notebook-chat.first-reply', {
+          sessionId,
+          refresh: () => {
             queryClient.invalidateQueries({
               queryKey: QUERY_KEYS.notebookChatSessions(notebookId)
             })
             refetchCurrentSession()
-          })
-          .catch(() => {})
+          },
+        })
       }
     } catch (err: unknown) {
       const error = err as { response?: { data?: { detail?: string } }, message?: string };

@@ -5,15 +5,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/utils/error-handler'
 import { useTranslation } from '@/lib/hooks/use-translation'
-import { globalChatApi } from '@/lib/api/chat'
-import { QUERY_KEYS } from '@/lib/api/query-client'
+import { globalChatApi } from '@siet/kmitl-rag/lib/api/global-chat'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import {
+import type {
   GlobalChatSession,
   GlobalChatMessage,
   CreateGlobalChatSessionRequest,
   UpdateGlobalChatSessionRequest,
-} from '@/lib/types/api'
+} from '@siet/kmitl-rag/lib/types/global-chat'
+
+const GLOBAL_CHAT_KEYS = {
+  sessions: ['global-chat', 'sessions'] as const,
+  session: (sessionId: string) => ['global-chat', 'sessions', sessionId] as const,
+}
 
 interface UseGlobalChatParams {
   // Optional: if provided, context will be built from selected notebooks/sources/notes.
@@ -61,7 +65,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     isLoading: loadingSessions,
     refetch: refetchSessions
   } = useQuery({
-    queryKey: QUERY_KEYS.globalChatSessions,
+    queryKey: GLOBAL_CHAT_KEYS.sessions,
     queryFn: () => globalChatApi.listSessions(),
     enabled: hasHydrated,
     retry: (failureCount, error) => {
@@ -76,7 +80,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     data: currentSession,
     refetch: refetchCurrentSession
   } = useQuery({
-    queryKey: QUERY_KEYS.globalChatSession(currentSessionId!),
+    queryKey: GLOBAL_CHAT_KEYS.session(currentSessionId!),
     queryFn: () => globalChatApi.getSession(currentSessionId!),
     enabled: !!currentSessionId && hasHydrated,
     retry: (failureCount, error) => {
@@ -111,7 +115,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       globalChatApi.createSession(data),
     onSuccess: (newSession) => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalChatSessions
+        queryKey: GLOBAL_CHAT_KEYS.sessions
       })
       setCurrentSessionId(newSession.id)
       toast.success(t('chat.sessionCreated'))
@@ -134,10 +138,10 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
     }) => globalChatApi.updateSession(sessionId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalChatSessions
+        queryKey: GLOBAL_CHAT_KEYS.sessions
       })
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalChatSession(currentSessionId!)
+        queryKey: GLOBAL_CHAT_KEYS.session(currentSessionId!)
       })
       toast.success(t('chat.sessionUpdated'))
     },
@@ -157,7 +161,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       globalChatApi.deleteSession(sessionId),
     onSuccess: (_, deletedId) => {
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalChatSessions
+        queryKey: GLOBAL_CHAT_KEYS.sessions
       })
       if (currentSessionId === deletedId) {
         setCurrentSessionId(null)
@@ -352,7 +356,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
         setCurrentSessionId(sessionId)
         setPendingModelOverride(null)
         queryClient.invalidateQueries({
-          queryKey: QUERY_KEYS.globalChatSessions
+          queryKey: GLOBAL_CHAT_KEYS.sessions
         })
       } catch (err: unknown) {
         const error = err as { response?: { data?: { detail?: string } }, message?: string };
@@ -474,13 +478,13 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
             streamingContentRef.current = ''
             // Refetch session to update metadata
             await refetchCurrentSession()
-            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.globalChatSessions })
+            queryClient.invalidateQueries({ queryKey: GLOBAL_CHAT_KEYS.sessions })
             // Fire-and-forget: rename the session using the LLM once the reply
             // is done. Placeholder title (truncated message) stays as fallback.
             if (isNewSession && sessionId) {
               globalChatApi.autoTitleSession(sessionId)
                 .then(() => {
-                  queryClient.invalidateQueries({ queryKey: QUERY_KEYS.globalChatSessions })
+                  queryClient.invalidateQueries({ queryKey: GLOBAL_CHAT_KEYS.sessions })
                   refetchCurrentSession()
                 })
                 .catch(() => {})
@@ -536,7 +540,7 @@ export function useGlobalChat(params: UseGlobalChatParams = {}) {
       setCurrentSessionId(newSession.id)
       setMessages([]) // Clear messages for new session
       queryClient.invalidateQueries({
-        queryKey: QUERY_KEYS.globalChatSessions
+        queryKey: GLOBAL_CHAT_KEYS.sessions
       })
       return newSession
     } catch (err: unknown) {

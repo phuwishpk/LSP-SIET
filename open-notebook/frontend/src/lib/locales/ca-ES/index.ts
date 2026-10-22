@@ -36,7 +36,7 @@ export const caES = {
     podcast: "Podcast",
     quickActions: "Accions ràpides",
     quickActionsDesc: "Navegació, cerca, preguntes, tema",
-    appName: "LSP-SIET",
+    appName: "Open Notebook",
     add: "Afegeix",
     remove: "Elimina",
     confirm: "Confirma",

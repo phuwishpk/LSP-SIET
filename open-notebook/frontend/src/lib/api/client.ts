@@ -28,9 +28,7 @@ export const apiClient = axios.create({
 
 // Request interceptor to add base URL and auth header
 apiClient.interceptors.request.use(async (config) => {
-  // Set the base URL dynamically from runtime config.
-  // If apiUrl already ends with "/api", don't append it again (otherwise we
-  // get paths like "/api/api/...").
+  // Set the base URL dynamically from runtime config
   if (!config.baseURL) {
     const apiUrl = await getApiUrl()
     const trimmed = apiUrl.replace(/\/api\/?$/, '')

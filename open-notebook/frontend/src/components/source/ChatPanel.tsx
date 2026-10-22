@@ -18,8 +18,8 @@ import { ModelSelector } from './ModelSelector'
 import { ContextIndicator } from '@/components/common/ContextIndicator'
 import { SessionManager } from '@/components/source/SessionManager'
 import { MessageActions } from '@/components/source/MessageActions'
-import { ReferencesList } from '@siet/kmitl-rag/components/common/ReferencesList'
-import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent, extractCitedReferences } from '@/lib/utils/source-references'
+import { convertReferencesToCompactMarkdown, createCompactReferenceLinkComponent } from '@/lib/utils/source-references'
+import { getSlot } from '@/lib/extensions'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
 import { toast } from 'sonner'
 import { useTranslation } from '@/lib/hooks/use-translation'
@@ -84,6 +84,10 @@ export function ChatPanel({
   hasRagContext,
   references,
 }: ChatPanelProps) {
+  // KMITL hook: an extension may render something under each AI message
+  const MessageFooter = getSlot<{ content: string; references?: ChatPanelProps['references'] }>(
+    'chat.message-footer'
+  )
   const { t } = useTranslation()
   const chatInputId = useId()
   const [input, setInput] = useState('')
@@ -103,6 +107,9 @@ export function ChatPanel({
 
     try {
       openModal(modalType, id)
+      // Note: The modal system uses URL parameters and doesn't throw errors for missing items.
+      // The modal component itself will handle displaying "not found" states.
+      // This try-catch is here for future enhancements or unexpected errors.
     } catch {
       toast.error(t('common.noResults'))
     }
@@ -224,47 +231,9 @@ export function ChatPanel({
                           content={message.content}
                           notebookId={notebookId}
                         />
-                        {(() => {
-                          // Unified reference list for THIS message:
-                          //   - Every notebook source/note that was fed as CONTEXT
-                          //     (these are the primary RAG references — always show
-                          //     them when a notebook is selected, even if the AI
-                          //     forgot to add an inline [source:xxx] citation).
-                          //   - Plus any AI-cited source/note IDs that aren't already
-                          //     in the notebook context (defensive).
-                          //   - Plus URLs the AI cited that survived the backend
-                          //     allowlist filter.
-                          const contextSources = references?.sources ?? []
-                          const contextNotes = references?.notes ?? []
-                          const cited = extractCitedReferences(message.content)
-
-                          const seenSources = new Set(contextSources.map((s) => s.id))
-                          const extraCitedSources = cited.sources
-                            .map((id) => (id.startsWith('source:') ? id : `source:${id}`))
-                            .filter((id) => !seenSources.has(id))
-                            .map((id) => ({ id }))
-
-                          const seenNotes = new Set(contextNotes.map((n) => n.id))
-                          const extraCitedNotes = cited.notes
-                            .map((id) => (id.startsWith('note:') ? id : `note:${id}`))
-                            .filter((id) => !seenNotes.has(id))
-                            .map((id) => ({ id }))
-
-                          const allSources = [...contextSources, ...extraCitedSources]
-                          const allNotes = [...contextNotes, ...extraCitedNotes]
-
-                          const hasAny =
-                            allSources.length > 0 ||
-                            allNotes.length > 0 ||
-                            cited.urls.length > 0
-                          return hasAny ? (
-                            <ReferencesList
-                              sources={allSources}
-                              notes={allNotes}
-                              urls={cited.urls}
-                            />
-                          ) : null
-                        })()}
+                        {MessageFooter && (
+                          <MessageFooter content={message.content} references={references} />
+                        )}
                       </>
                     )}
                   </div>
@@ -389,10 +358,7 @@ export function ChatPanel({
   )
 }
 
-// Helper component to render AI messages with clickable references.
-// The inline "References:" list is intentionally suppressed here — a unified
-// list (sources + notes + URLs cited in this message) is rendered by ChatPanel
-// via <ReferencesList> below the message bubble.
+// Helper component to render AI messages with clickable references
 function AIMessageContent({
   content,
   onReferenceClick
@@ -401,14 +367,17 @@ function AIMessageContent({
   onReferenceClick: (type: string, id: string) => void
 }) {
   const { t } = useTranslation()
+  // With a message footer (see ChatPanel) the inline "References:" list is left out
   const markdownWithCompactRefs = convertReferencesToCompactMarkdown(
     content,
     t('common.references'),
-    { appendList: false }
+    { appendList: !getSlot('chat.message-footer') }
   )
   const LinkComponent = createCompactReferenceLinkComponent(onReferenceClick)
   return (
-    <MarkdownRenderer components={{ a: LinkComponent }}>
+    <MarkdownRenderer components={{
+      a: LinkComponent
+    }}>
       {markdownWithCompactRefs}
     </MarkdownRenderer>
   )

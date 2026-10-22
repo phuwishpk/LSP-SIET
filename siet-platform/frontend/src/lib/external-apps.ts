@@ -3,7 +3,7 @@
  *   My-ai-quiz/            → AI Quiz app     (default http://localhost:3001/quiz)
  *   ai-roadmap-generator/  → AI Roadmap app  (default http://localhost:3002/roadmap)
  *
- * The URLs come from the runtime `/config` endpoint first, so moving the stack
+ * The URLs come from the runtime `/config/apps` endpoint first, so moving the stack
  * to a real domain only needs `MY_AI_QUIZ_URL` / `AI_ROADMAP_URL` set on the
  * container — no frontend rebuild. Build-time `NEXT_PUBLIC_*` values stay as a
  * fallback for older deployments.
@@ -31,7 +31,7 @@ async function resolveUrls(): Promise<{ quizUrl: string; roadmapUrl: string }> {
   if (cached) return cached
   const resolved = { quizUrl: FALLBACK_QUIZ_URL, roadmapUrl: FALLBACK_ROADMAP_URL }
   try {
-    const response = await fetch('/config', { cache: 'no-store' })
+    const response = await fetch('/config/apps', { cache: 'no-store' })
     if (response.ok) {
       const data = (await response.json()) as {
         quizUrl?: string | null
