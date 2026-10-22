@@ -1,0 +1,9 @@
+/*
+ * KMITL: styles of the SIET frontend packages (docs/ARCHITECTURE.md).
+ * Tailwind only scans this app by default; the packages live outside it.
+ */
+@source "../../../../siet-platform/frontend/src";
+@source "../../../../kmitl-rag/frontend/src";
+@source "../../../../community/frontend/src";
+
+@import "../../../../siet-platform/frontend/src/styles/siet-theme.css";

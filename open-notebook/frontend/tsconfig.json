@@ -25,6 +25,15 @@
     "paths": {
       "@/*": [
         "./src/*"
+      ],
+      "@siet/platform/*": [
+        "../../siet-platform/frontend/src/*"
+      ],
+      "@siet/kmitl-rag/*": [
+        "../../kmitl-rag/frontend/src/*"
+      ],
+      "@siet/community/*": [
+        "../../community/frontend/src/*"
       ]
     }
   },

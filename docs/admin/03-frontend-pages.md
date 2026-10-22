@@ -183,7 +183,7 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 - hooks ทั้งหมดอยู่ใน `lib/hooks/use-courses.ts` (คีย์ `COURSE_KEYS.adminCategories` / `categories`,
   invalidate `['admin','courses']` ด้วยเพราะตารางห้องแสดงชื่อหมวด); API ใน `lib/api/courses.ts`
   (`adminCategoriesApi`)
-- หมวดเริ่มต้น 13 สาขาของ SIET + "ทั่วไป" มาจาก `open_notebook/community/catalog.py` ตอน API เริ่มทำงาน
+- หมวดเริ่มต้น 13 สาขาของ SIET + "ทั่วไป" มาจาก `community/siet_community/catalog.py` ตอน API เริ่มทำงาน
 
 ---
 

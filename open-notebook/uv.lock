@@ -1617,6 +1617,17 @@ wheels = [
 ]
 
 [[package]]
+name = "kmitl-rag"
+version = "0.1.0"
+source = { editable = "../kmitl-rag" }
+dependencies = [
+    { name = "siet-platform" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "siet-platform", editable = "../siet-platform" }]
+
+[[package]]
 name = "langchain"
 version = "1.3.14"
 source = { registry = "https://pypi.org/simple" }
@@ -2377,13 +2388,12 @@ version = "1.10.0"
 source = { editable = "." }
 dependencies = [
     { name = "ai-prompter" },
-    { name = "aiomysql" },
     { name = "babel" },
-    { name = "bcrypt" },
     { name = "content-core" },
     { name = "esperanto" },
     { name = "fastapi" },
     { name = "httpx", extra = ["socks"] },
+    { name = "kmitl-rag" },
     { name = "langchain" },
     { name = "langchain-anthropic" },
     { name = "langchain-community" },
@@ -2398,12 +2408,12 @@ dependencies = [
     { name = "loguru" },
     { name = "numpy", version = "2.4.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
     { name = "numpy", version = "2.5.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
+    { name = "podcast-creator" },
     { name = "pycountry" },
     { name = "pydantic" },
-    { name = "pyjwt" },
     { name = "python-dotenv" },
-    { name = "redis", extra = ["hiredis"] },
-    { name = "sqlalchemy", extra = ["asyncio"] },
+    { name = "siet-community" },
+    { name = "siet-platform" },
     { name = "surreal-commands" },
     { name = "surrealdb" },
     { name = "tiktoken" },
@@ -2434,15 +2444,14 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "ai-prompter", specifier = ">=0.4,<1" },
-    { name = "aiomysql", specifier = ">=0.2.0" },
     { name = "babel", specifier = ">=2.18.0" },
-    { name = "bcrypt", specifier = ">=4.2.0" },
     { name = "content-core", specifier = ">=1.14.1,<2" },
     { name = "esperanto", specifier = ">=2.20.0,<3" },
     { name = "fastapi", specifier = ">=0.104.0" },
     { name = "httpx", extras = ["socks"], specifier = ">=0.27.0" },
     { name = "ipykernel", marker = "extra == 'dev'", specifier = ">=6.29.5" },
     { name = "ipywidgets", marker = "extra == 'dev'", specifier = ">=8.1.5" },
+    { name = "kmitl-rag", editable = "../kmitl-rag" },
     { name = "langchain", specifier = ">=1.3.9" },
     { name = "langchain-anthropic", specifier = ">=1.4.6" },
     { name = "langchain-community", specifier = ">=0.4.1" },
@@ -2457,15 +2466,15 @@ requires-dist = [
     { name = "loguru", specifier = ">=0.7.2" },
     { name = "mypy", marker = "extra == 'dev'", specifier = ">=1.11.1" },
     { name = "numpy", specifier = ">=2.4.1" },
+    { name = "podcast-creator", specifier = ">=0.12.0,<1" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=4.0.1" },
     { name = "pycountry", specifier = ">=26.2.16" },
     { name = "pydantic", specifier = ">=2.9.2" },
-    { name = "pyjwt", specifier = ">=2.9.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.3" },
     { name = "python-dotenv", specifier = ">=1.2.2" },
-    { name = "redis", extras = ["hiredis"], specifier = ">=5.0.0" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.5.5" },
-    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
+    { name = "siet-community", editable = "../community" },
+    { name = "siet-platform", editable = "../siet-platform" },
     { name = "surreal-commands", specifier = ">=1.3.1,<2" },
     { name = "surrealdb", specifier = ">=1.0.4" },
     { name = "tiktoken", specifier = ">=0.12.0" },
@@ -2747,6 +2756,31 @@ wheels = [
 ]
 
 [[package]]
+name = "podcast-creator"
+version = "0.12.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ai-prompter" },
+    { name = "click" },
+    { name = "content-core" },
+    { name = "esperanto" },
+    { name = "langgraph" },
+    { name = "loguru" },
+    { name = "moviepy" },
+    { name = "nest-asyncio" },
+    { name = "pycountry" },
+    { name = "pydub" },
+    { name = "python-dotenv" },
+    { name = "requests" },
+    { name = "tenacity" },
+    { name = "tiktoken" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/95/e3/d7112e86ec4194c14f6024dd0a0d1509b5ef70c76bf41c8359db22c6a9d9/podcast_creator-0.12.0.tar.gz", hash = "sha256:16efbafb3103fecf7f37f434e8dcaf2e5e2929c505b9be833faa25287bc8d9ad", size = 486668, upload-time = "2026-03-03T13:43:18.993Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/2f/6c/f9ed9d1e313183506d5774e4490a36ca6c0f231899055d658e283b26aaed/podcast_creator-0.12.0-py3-none-any.whl", hash = "sha256:605080b5841710733b7bcb6ff2fcb05b6a77f2aabd3c7bec617b58b03250fb47", size = 79295, upload-time = "2026-03-03T13:43:17.797Z" },
+]
+
+[[package]]
 name = "pre-commit"
 version = "4.6.2"
 source = { registry = "https://pypi.org/simple" }
@@ -3016,6 +3050,15 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/68/ca/31c57507b13119d7d3cfa1576dad2911a4861e3be07b579395f4e9d393f9/pydantic_settings-2.15.0.tar.gz", hash = "sha256:694b793e84f766ba76a90ebdefc01d0a9a045dab0382bee70393da93712ad117", size = 261253, upload-time = "2026-08-07T09:24:57.419Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/30/a4/2bffa9f8e804325a09867f0e9d30795c80ea9f8d62560bd1b6ad6220eb2f/pydantic_settings-2.15.0-py3-none-any.whl", hash = "sha256:0ba092c291c94baceb5eff768aa0d56400a457585bc0175925a5a5510303da42", size = 69413, upload-time = "2026-08-07T09:24:55.839Z" },
+]
+
+[[package]]
+name = "pydub"
+version = "0.25.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/fe/9a/e6bca0eed82db26562c73b5076539a4a08d3cffd19c3cc5913a3e61145fd/pydub-0.25.1.tar.gz", hash = "sha256:980a33ce9949cab2a569606b65674d748ecbca4f0796887fd6f46173a7b0d30f", size = 38326, upload-time = "2021-03-10T02:09:54.659Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/a6/53/d78dc063216e62fc55f6b2eebb447f6a4b0a59f55c8406376f76bf959b08/pydub-0.25.1-py2.py3-none-any.whl", hash = "sha256:65617e33033874b59d87db603aa1ed450633288aefead953b30bded59cb599a6", size = 32327, upload-time = "2021-03-10T02:09:53.503Z" },
 ]
 
 [[package]]
@@ -3520,6 +3563,44 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/58/15/8b3609fd3830ef7b27b655beb4b4e9c62313a4e8da8c676e142cc210d58e/shellingham-1.5.4.tar.gz", hash = "sha256:8dbca0739d487e5bd35ab3ca4b36e11c4078f3a234bfce294b0a0291363404de", size = 10310, upload-time = "2023-10-24T04:13:40.426Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/e0/f9/0595336914c5619e5f28a1fb793285925a8cd4b432c9da0a987836c7f822/shellingham-1.5.4-py2.py3-none-any.whl", hash = "sha256:7ecfff8f2fd72616f7481040475a65b2bf8af90a56c89140852d1120324e8686", size = 9755, upload-time = "2023-10-24T04:13:38.866Z" },
+]
+
+[[package]]
+name = "siet-community"
+version = "0.1.0"
+source = { editable = "../community" }
+dependencies = [
+    { name = "kmitl-rag" },
+    { name = "siet-platform" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "kmitl-rag", editable = "../kmitl-rag" },
+    { name = "siet-platform", editable = "../siet-platform" },
+]
+
+[[package]]
+name = "siet-platform"
+version = "0.1.0"
+source = { editable = "../siet-platform" }
+dependencies = [
+    { name = "aiomysql" },
+    { name = "bcrypt" },
+    { name = "filetype" },
+    { name = "pyjwt" },
+    { name = "redis", extra = ["hiredis"] },
+    { name = "sqlalchemy", extra = ["asyncio"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "aiomysql", specifier = ">=0.2.0" },
+    { name = "bcrypt", specifier = ">=4.2.0" },
+    { name = "filetype", specifier = ">=1.2.0" },
+    { name = "pyjwt", specifier = ">=2.9.0" },
+    { name = "redis", extras = ["hiredis"], specifier = ">=5.0.0" },
+    { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
 ]
 
 [[package]]

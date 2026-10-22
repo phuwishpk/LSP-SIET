@@ -10,7 +10,7 @@
 
 ส่วนผู้ดูแลคือชุดหน้าใต้ URL `/admin` ในแอป Next.js (`open-notebook/frontend`) ที่ให้บัญชี
 สิทธิ์ `admin` ดูสถิติและจัดการข้อมูลของ SIET Space โดยไม่ต้องเข้า MariaDB เอง
-ข้อมูลทุกอย่างมาจาก API ใต้ `/api/admin/*` (`open-notebook/api/routers/admin.py`) ซึ่ง
+ข้อมูลทุกอย่างมาจาก API ใต้ `/api/admin/*` (`community/siet_community/routers/admin.py`) ซึ่ง
 เป็น admin-only ทั้ง router
 
 แบ่งเป็น **4 ส่วน** ตามที่ตกลงกับเจ้าของระบบเมื่อ 9 ต.ค. 2026 (ดูข้อ 4):
@@ -30,10 +30,10 @@
 
 ```
 open-notebook/
-├── api/routers/admin.py                      ← ทุก endpoint ใต้ /api/admin
+├── community/siet_community/routers/admin.py                      ← ทุก endpoint ใต้ /api/admin
 ├── open_notebook/
-│   ├── community/repository.py               ← SQL ของสถิติ community / quiz / RAG / comments
-│   ├── community/library.py                  ← admin_list_documents (เอกสารที่ AI อ่าน)
+│   ├── community/siet_community/repository.py               ← SQL ของสถิติ community / quiz / RAG / comments
+│   ├── siet-platform/siet_platform/library.py                  ← admin_list_documents (เอกสารที่ AI อ่าน)
 │   └── domain/features.py                    ← QuizSession.admin_list / created_since (SurrealDB)
 ├── tests/test_admin_consoles.py              ← unit test ของ helper ฝั่ง backend
 └── frontend/src/
@@ -63,10 +63,10 @@ docs/figma-admin-plugin/                      ← ปลั๊กอิน Figma
 
 ## 3. ใครเห็นอะไร (สิทธิ์)
 
-- **Backend เป็นผู้บังคับ**: `api/auth_roles.py` มี `ADMIN_PREFIXES` ที่รวม `/api/admin` ไว้
+- **Backend เป็นผู้บังคับ**: `siet-platform/siet_platform/auth_roles.py` มี `ADMIN_PREFIXES` ที่รวม `/api/admin` ไว้
   middleware จะตอบ 403 ให้ทุก path ใต้ prefix นี้ถ้าไม่ใช่ admin และทุก route ใน
   `admin.py` ยังเรียก `_require_admin(user)` ซ้ำอีกชั้น (403 + ข้อความไทย) เผื่อ middleware ถูกแก้
-- **Frontend แค่ซ่อนประตู**: `frontend/src/lib/roles.ts` มี `ADMIN_ROUTES = ['/settings', '/advanced', '/admin']`
+- **Frontend แค่ซ่อนประตู**: `siet-platform/frontend/src/lib/roles.ts` มี `ADMIN_ROUTES = ['/settings', '/advanced', '/admin']`
   และ `canAccessRoute()`; `app/(dashboard)/layout.tsx` จะ `router.replace('/community')`
   ถ้า role เข้าไม่ได้ ส่วน `AppSidebar` แสดงกลุ่มเมนู admin เฉพาะ `isAdmin(role)`
 - หลัง admin ล็อกอิน จะถูกพาไป `/admin` (`lib/auth-redirect.ts`), role อื่นไป `/community`

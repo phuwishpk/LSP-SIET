@@ -1,0 +1,715 @@
+"""
+Admin console, platform part (/api/admin): accounts, points, CSV user
+import, provider usage and system health. The community and KMITL RAG
+consoles add their own /api/admin routes (siet_community.routers.admin,
+kmitl_rag.routers.admin).
+"""
+
+from __future__ import annotations
+
+import os
+from datetime import date, datetime, timedelta, timezone
+from typing import Any, Dict, List, Literal, Optional
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from loguru import logger
+from pydantic import BaseModel, Field
+from sqlalchemy import text
+
+from open_notebook.ai.models import DefaultModels
+from open_notebook.database.repository import repo_query
+from siet_platform import audit, library, notifications, points, pricing, ratelimit, throttle
+from siet_platform.auth_jwt import get_current_user
+from siet_platform.http import _audit, _require_admin
+from siet_platform.login_guard import clear_login_failures
+from siet_platform.users import (
+    USER_ROLE_ADMIN,
+    USER_ROLES,
+    InvalidPasswordError,
+    InvalidUsernameError,
+    User,
+    UserAlreadyExists,
+    _mariadb_session,
+    admin_delete_user,
+    admin_list_users,
+    count_admins,
+    create as create_user,
+    get_by_id,
+    hash_password,
+    set_disabled,
+    update_password,
+    update_profile,
+)
+
+router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+# ---------------------------------------------------------------------------
+# Schemas
+# ---------------------------------------------------------------------------
+
+
+class UserUpdate(BaseModel):
+    role: Optional[Literal["student", "teacher", "admin"]] = None
+    display_name: Optional[str] = Field(default=None, max_length=128)
+    student_id: Optional[str] = Field(default=None, max_length=32)
+    disabled: Optional[bool] = None
+    # With disabled=True: why, and (optionally) the day the suspension lifts itself.
+    suspend_reason: Optional[str] = Field(default=None, max_length=255)
+    suspended_until: Optional[date] = None
+
+
+class UserCreate(BaseModel):
+    username: str = Field(..., min_length=3, max_length=32)
+    password: str = Field(..., min_length=6, max_length=128)
+    display_name: Optional[str] = Field(default=None, max_length=128)
+    role: Literal["student", "teacher", "admin"] = "student"
+    student_id: Optional[str] = Field(default=None, max_length=32)
+
+
+class BulkUserIds(BaseModel):
+    ids: List[int] = Field(..., min_length=1, max_length=200)
+
+
+class CsvImport(BaseModel):
+    # Raw CSV text, pasted into the box or read from a file by the browser.
+    csv: str = Field(..., min_length=1, max_length=500_000)
+    dry_run: bool = False
+
+
+class PointsAdjust(BaseModel):
+    # Positive adds, negative deducts.
+    delta: int = Field(..., ge=-10000, le=10000)
+    note: Optional[str] = Field(default=None, max_length=200)
+
+
+class PasswordReset(BaseModel):
+    password: str = Field(..., min_length=6, max_length=128)
+
+
+# ---------------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------------
+
+
+def _guard_delete(target: User, admin_id: int) -> None:
+    """The same rails as suspension: never strand the workspace without an admin."""
+    if int(target.id or 0) == admin_id:
+        raise HTTPException(status_code=400, detail="ลบบัญชีของตัวเองไม่ได้")
+    if (target.role or "") == USER_ROLE_ADMIN:
+        raise HTTPException(
+            status_code=400,
+            detail="ลดสิทธิ์ผู้ดูแลคนนี้ให้เป็นอาจารย์หรือนักศึกษาก่อน แล้วจึงลบได้",
+        )
+
+
+def _parse_csv(raw: str, *, required: tuple, optional: tuple = ()) -> List[tuple]:
+    """
+    Read a small CSV into dicts, with or without a header row.
+
+    Teachers export from a spreadsheet, so a header line is likely but not
+    guaranteed; when it is missing the columns are taken in the documented order.
+    """
+    import csv as csv_module
+    import io
+
+    columns = list(required) + list(optional)
+    reader = csv_module.reader(io.StringIO(raw.strip()))
+    rows = [r for r in reader if any((c or "").strip() for c in r)]
+    if not rows:
+        raise HTTPException(status_code=400, detail="ไฟล์ CSV ว่างเปล่า")
+
+    header = [h.strip().lower().replace(" ", "_") for h in rows[0]]
+    has_header = all(h in columns for h in header if h) and any(h in required for h in header)
+    if has_header:
+        keys, body = header, rows[1:]
+    else:
+        keys, body = columns, rows
+    if not body:
+        raise HTTPException(status_code=400, detail="ไม่มีข้อมูลในไฟล์ CSV (มีแต่หัวตาราง)")
+
+    out: List[tuple] = []
+    for idx, row in enumerate(body, start=2 if has_header else 1):
+        out.append((idx, {k: (row[i].strip() if i < len(row) else "") for i, k in enumerate(keys)}))
+    return out
+
+
+async def _target_or_404(user_id: int) -> User:
+    target = await get_by_id(user_id)
+    if target is None:
+        raise HTTPException(status_code=404, detail="ไม่พบบัญชีนี้")
+    return target
+
+
+def _public(target: User) -> Dict[str, Any]:
+    return {
+        "id": target.id,
+        "username": target.username,
+        "display_name": target.display_name,
+        "role": target.role,
+        "email": target.email,
+        "student_id": target.student_id,
+        "avatar_url": target.avatar_url,
+        "points_balance": int(target.points_balance or 0),
+        "disabled": bool(target.disabled),
+        "suspend_reason": target.suspend_reason,
+        "suspended_until": target.suspended_until,
+        "created_at": target.created_at,
+        "last_login_at": target.last_login_at,
+    }
+
+
+def _suspension_until(day: Optional[date]) -> Optional[datetime]:
+    """A suspension that ends on a day lifts at the start of that day (UTC)."""
+    return datetime.combine(day, datetime.min.time()) if day else None
+
+
+async def _suspend(target: User, admin: User, *, reason: Optional[str], until: Optional[date]) -> None:
+    await set_disabled(int(target.id or 0), True, reason=reason, until=_suspension_until(until))
+    when = f" จนถึง {until.isoformat()}" if until else ""
+    why = f" เหตุผล: {reason}" if reason else ""
+    await notifications.add_notification(
+        int(target.id or 0), "moderation",
+        f"บัญชีของคุณถูกระงับการใช้งาน{when}{why} — ติดต่อผู้ดูแลระบบหากมีข้อสงสัย",
+    )
+
+
+# ---------------------------------------------------------------------------
+# Accounts
+# ---------------------------------------------------------------------------
+
+
+@router.get("/users")
+async def list_users(
+    q: Optional[str] = Query(default=None, max_length=100),
+    role: Optional[str] = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Search the user directory."""
+    _require_admin(user)
+    result = await admin_list_users(query=q, role=role, limit=limit, offset=offset)
+    result["me"] = int(user.id or 0)
+    return result
+
+
+@router.get("/users/{user_id}")
+async def get_user(user_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    _require_admin(user)
+    target = await _target_or_404(user_id)
+    history = await points.history(user_id, 20)
+    return {"user": _public(target), "points_history": history}
+
+
+@router.patch("/users/{user_id}")
+async def update_user(
+    user_id: int, body: UserUpdate, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Change a role, rename an account, or suspend/restore it."""
+    admin_id = _require_admin(user)
+    target = await _target_or_404(user_id)
+
+    # Guard rails: never let an admin lock themselves (or everyone) out.
+    if user_id == admin_id and body.role is not None and body.role != USER_ROLE_ADMIN:
+        raise HTTPException(status_code=400, detail="เปลี่ยนสิทธิ์ของตัวเองไม่ได้")
+    if user_id == admin_id and body.disabled:
+        raise HTTPException(status_code=400, detail="ระงับบัญชีตัวเองไม่ได้")
+    removing_admin = target.role == USER_ROLE_ADMIN and (
+        (body.role is not None and body.role != USER_ROLE_ADMIN) or body.disabled is True
+    )
+    if removing_admin and await count_admins(exclude_user_id=user_id) == 0:
+        raise HTTPException(
+            status_code=400, detail="ต้องเหลือผู้ดูแลระบบอย่างน้อยหนึ่งคน"
+        )
+    if body.role is not None and body.role not in USER_ROLES:
+        raise HTTPException(status_code=400, detail="สิทธิ์ไม่ถูกต้อง")
+
+    if body.role is not None or body.display_name is not None or body.student_id is not None:
+        await update_profile(
+            user_id,
+            role=body.role,
+            display_name=body.display_name,
+            student_id=body.student_id,
+        )
+    if body.disabled is True:
+        await _suspend(target, user, reason=body.suspend_reason, until=body.suspended_until)
+    elif body.disabled is False:
+        await set_disabled(user_id, False)
+        await notifications.add_notification(user_id, "moderation", "บัญชีของคุณกลับมาใช้งานได้แล้ว")
+
+    logger.info(
+        f"admin {user.username} updated user {target.username}: "
+        f"role={body.role} disabled={body.disabled}"
+    )
+    await _audit(
+        user, "user.update", target_type="user", target_id=user_id,
+        username=target.username, role=body.role, display_name=body.display_name,
+        student_id=body.student_id, disabled=body.disabled,
+        suspend_reason=body.suspend_reason, suspended_until=body.suspended_until,
+    )
+    return {"user": _public(await _target_or_404(user_id))}
+
+
+@router.post("/users/{user_id}/points")
+async def adjust_points(
+    user_id: int, body: PointsAdjust, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Add or remove points by hand, recorded in the wallet history like any other change."""
+    _require_admin(user)
+    target = await _target_or_404(user_id)
+    if body.delta == 0:
+        raise HTTPException(status_code=400, detail="ระบุจำนวนแต้มที่ต้องการปรับ")
+
+    note = (body.note or f"ปรับโดยผู้ดูแล ({user.username})")[:200]
+    if body.delta > 0:
+        balance = await points.grant(
+            user_id, body.delta, "admin_grant", ref_type="admin", ref_id=str(user.id), note=note
+        )
+    else:
+        current = await points.get_balance(user_id)
+        amount = min(-body.delta, current)
+        if amount <= 0:
+            raise HTTPException(status_code=400, detail="บัญชีนี้ไม่มีแต้มให้หักแล้ว")
+        charge = await points.charge(
+            User(
+                id=target.id,
+                username=target.username,
+                role="student",  # force a charge even for exempt roles
+            ),
+            "admin_deduct",
+            amount=amount,
+            ref_type="admin",
+            ref_id=str(user.id),
+            note=note,
+        )
+        balance = charge.balance_after or 0
+
+    logger.info(f"admin {user.username} adjusted points of {target.username} by {body.delta}")
+    await _audit(user, "user.points", target_type="user", target_id=user_id, username=target.username, delta=body.delta, note=note)
+    return {"user": _public(await _target_or_404(user_id)), "balance": balance}
+
+
+@router.post("/users/{user_id}/reset-password")
+async def reset_password(
+    user_id: int, body: PasswordReset, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Set a new password for an account that signs in with username/password."""
+    _require_admin(user)
+    target = await _target_or_404(user_id)
+    try:
+        hash_password(body.password)  # validate before writing
+        await update_password(user_id, body.password)
+    except InvalidPasswordError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+    # Someone locked out by the sign-in throttle needs a way back in, and a new
+    # password from an admin is exactly that moment.
+    await clear_login_failures(target.username)
+    logger.info(f"admin {user.username} reset the password of {target.username}")
+    await _audit(user, "user.reset_password", target_type="user", target_id=user_id, username=target.username)
+    return {"ok": True, "unlocked": True}
+
+
+@router.post("/users", status_code=201)
+async def create_account(body: UserCreate, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Create an account by hand.
+
+    Needed because self-registration is turned off in production and Google
+    sign-in only ever produces the role its e-mail implies - so without this an
+    admin could not give a new teacher an account at all.
+    """
+    _require_admin(user)
+    try:
+        created = await create_user(
+            username=body.username,
+            password=body.password,
+            display_name=body.display_name,
+            role=body.role,
+        )
+    except UserAlreadyExists:
+        raise HTTPException(status_code=409, detail="ชื่อผู้ใช้นี้ถูกใช้ไปแล้ว")
+    except (InvalidUsernameError, InvalidPasswordError) as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+    if body.student_id:
+        await update_profile(created.id, student_id=body.student_id)
+        created = await get_by_id(int(created.id))
+    # Same welcome allowance a self-registered account gets. Teachers and admins
+    # are points-exempt, so `ensure_welcome` is a no-op for them by design.
+    if created is not None:
+        await points.ensure_welcome(created)
+        created = await get_by_id(int(created.id))
+    logger.info(f"admin {user.username} created account {body.username} ({body.role})")
+    await _audit(user, "user.create", target_type="user", target_id=created.id, username=body.username, role=body.role)
+    return {"user": _public(created)} if created else {}
+
+
+@router.delete("/users/{user_id}")
+async def delete_account(user_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Delete one account for good. Suspend instead if you only want it off."""
+    admin_id = _require_admin(user)
+    target = await _target_or_404(user_id)
+    _guard_delete(target, admin_id)
+    removed = dict(await library.purge_user_library(user_id))
+    removed.update(await admin_delete_user(user_id))
+    await _audit(user, "user.delete", target_type="user", target_id=user_id, username=target.username, removed=removed)
+    return {"ok": True, "deleted": user_id, "removed": removed}
+
+
+@router.post("/users/bulk-delete")
+async def bulk_delete_accounts(
+    body: BulkUserIds, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Delete several accounts in one go - what clearing out test data needs."""
+    admin_id = _require_admin(user)
+    deleted: List[int] = []
+    skipped: List[Dict[str, Any]] = []
+    for uid in dict.fromkeys(body.ids):
+        target = await get_by_id(uid)
+        if target is None:
+            skipped.append({"id": uid, "reason": "ไม่พบบัญชีนี้"})
+            continue
+        try:
+            _guard_delete(target, admin_id)
+        except HTTPException as exc:
+            skipped.append({"id": uid, "username": target.username, "reason": exc.detail})
+            continue
+        await library.purge_user_library(uid)
+        await admin_delete_user(uid)
+        deleted.append(uid)
+    logger.info(f"admin {user.username} bulk-deleted {len(deleted)} accounts")
+    await _audit(user, "user.bulk_delete", target_type="user", count=len(deleted), ids=deleted)
+    return {"deleted": deleted, "skipped": skipped}
+
+
+# ---------------------------------------------------------------------------
+# Points ledger
+# ---------------------------------------------------------------------------
+
+
+@router.get("/points/log")
+async def points_log(
+    user_id: Optional[int] = None,
+    kind: Optional[str] = Query(default=None, max_length=32),
+    days: int = Query(default=7, ge=1, le=90),
+    limit: int = Query(default=100, ge=1, le=500),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Where points went: the raw ledger plus the day's totals per kind."""
+    _require_admin(user)
+    return await points.admin_points_log(user_id=user_id, kind=kind, days=days, limit=limit)
+
+
+# ---------------------------------------------------------------------------
+# CSV import
+# ---------------------------------------------------------------------------
+
+
+@router.post("/import/users")
+async def import_users(body: CsvImport, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Bulk-create accounts from ``username,password,display_name,role,student_id``."""
+    _require_admin(user)
+    rows = _parse_csv(
+        body.csv,
+        required=("username", "password"),
+        optional=("display_name", "role", "student_id"),
+    )
+    created, skipped, errors = [], [], []
+    for line_no, row in rows:
+        username = (row.get("username") or "").strip().lower()
+        password = (row.get("password") or "").strip()
+        role = (row.get("role") or "student").strip().lower()
+        if role not in USER_ROLES:
+            errors.append({"line": line_no, "username": username, "reason": f"สิทธิ์ '{role}' ไม่ถูกต้อง"})
+            continue
+        if body.dry_run:
+            created.append({"line": line_no, "username": username, "role": role})
+            continue
+        try:
+            account = await create_user(
+                username=username, password=password,
+                display_name=(row.get("display_name") or "").strip() or None, role=role,
+            )
+        except UserAlreadyExists:
+            skipped.append({"line": line_no, "username": username, "reason": "มีชื่อผู้ใช้นี้แล้ว"})
+            continue
+        except (InvalidUsernameError, InvalidPasswordError) as exc:
+            errors.append({"line": line_no, "username": username, "reason": str(exc)})
+            continue
+        if row.get("student_id"):
+            await update_profile(account.id, student_id=row["student_id"].strip()[:32])
+        fresh = await get_by_id(int(account.id))
+        if fresh is not None:
+            await points.ensure_welcome(fresh)
+        created.append({"line": line_no, "username": username, "role": role, "id": int(account.id)})
+    return {"created": created, "skipped": skipped, "errors": errors, "dry_run": body.dry_run}
+
+
+# ---------------------------------------------------------------------------
+# System health
+# ---------------------------------------------------------------------------
+
+
+USAGE_TZ_OFFSET_HOURS = int(os.getenv("USAGE_TZ_OFFSET_HOURS", "7") or 7)
+
+
+def _local_now() -> datetime:
+    return datetime.utcnow() + timedelta(hours=USAGE_TZ_OFFSET_HOURS)
+
+
+def _to_utc(local: datetime) -> datetime:
+    return local - timedelta(hours=USAGE_TZ_OFFSET_HOURS)
+
+
+_USAGE_SUMS = """
+    COUNT(*)                           AS calls,
+    COALESCE(SUM(input_tokens), 0)     AS input_tokens,
+    COALESCE(SUM(output_tokens), 0)    AS output_tokens,
+    COALESCE(SUM(cached_tokens), 0)    AS cached_tokens,
+    COALESCE(SUM(thinking_tokens), 0)  AS thinking_tokens,
+    COALESCE(SUM(search_queries), 0)   AS search_queries,
+    COALESCE(SUM(cost_usd), 0)         AS cost_usd
+"""
+
+
+def _usage_row(row: Any) -> Dict[str, Any]:
+    m = row._mapping
+    out = {k: (float(v) if k == "cost_usd" else int(v or 0)) for k, v in m.items()
+           if k in ("calls", "input_tokens", "output_tokens", "cached_tokens", "thinking_tokens", "search_queries", "cost_usd")}
+    out["cost_usd"] = round(out.get("cost_usd", 0.0), 6)
+    out["cost_thb"] = round(out["cost_usd"] * pricing.USD_THB_RATE, 2)
+    out["tokens"] = out.get("input_tokens", 0) + out.get("output_tokens", 0)
+    for k, v in m.items():
+        if k not in out:
+            out[k] = v if not hasattr(v, "isoformat") else v.isoformat()
+    return out
+
+
+@router.get("/usage")
+async def llm_usage(
+    days: int = Query(default=30, ge=1, le=365),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    Tokens and estimated cost of every provider call, for the admin page.
+
+    "Today" and "this month" follow the campus clock (USAGE_TZ_OFFSET_HOURS,
+    default UTC+7). Costs are estimates from the price list in pricing.py; the
+    provider's billing page is the invoice.
+    """
+    _require_admin(user)
+    now_local = _local_now()
+    day_start = _to_utc(now_local.replace(hour=0, minute=0, second=0, microsecond=0))
+    month_start = _to_utc(now_local.replace(day=1, hour=0, minute=0, second=0, microsecond=0))
+    window_start = datetime.utcnow() - timedelta(days=days)
+    off = USAGE_TZ_OFFSET_HOURS
+
+    async with _mariadb_session() as session:
+        async def totals(since: datetime) -> Dict[str, Any]:
+            row = (await session.execute(
+                text(f"SELECT {_USAGE_SUMS} FROM llm_usage WHERE created_at >= :since"), {"since": since}
+            )).first()
+            return _usage_row(row)
+
+        today, month, window = await totals(day_start), await totals(month_start), await totals(window_start)
+        all_time = await totals(datetime(2000, 1, 1))
+
+        by_day = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT DATE(created_at + INTERVAL :off HOUR) AS day, {_USAGE_SUMS}
+                       FROM llm_usage WHERE created_at >= :since
+                      GROUP BY day ORDER BY day"""), {"since": window_start, "off": off})).all()]
+        by_feature = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT feature, kind, {_USAGE_SUMS} FROM llm_usage WHERE created_at >= :since
+                      GROUP BY feature, kind ORDER BY cost_usd DESC, calls DESC"""), {"since": window_start})).all()]
+        by_model = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT COALESCE(model, '?') AS model, kind, MAX(estimated) AS estimated, {_USAGE_SUMS}
+                       FROM llm_usage WHERE created_at >= :since
+                      GROUP BY model, kind ORDER BY cost_usd DESC"""), {"since": window_start})).all()]
+        top_users = [_usage_row(r) for r in (await session.execute(
+            text(f"""SELECT u.id AS user_id, u.username, u.display_name, u.role, {_USAGE_SUMS}
+                       FROM llm_usage l JOIN users u ON u.id = l.user_id
+                      WHERE l.created_at >= :since
+                      GROUP BY u.id, u.username, u.display_name, u.role
+                      ORDER BY cost_usd DESC, calls DESC LIMIT 20"""), {"since": window_start})).all()]
+
+    search_month = int(month.get("search_queries", 0))
+    search_cost = pricing.search_cost_usd(search_month)
+    for bucket in (month,):
+        bucket["search_cost_usd"] = search_cost
+        bucket["total_cost_usd"] = round(bucket["cost_usd"] + search_cost, 6)
+        bucket["total_cost_thb"] = round(bucket["total_cost_usd"] * pricing.USD_THB_RATE, 2)
+
+    return {
+        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "tz_offset_hours": off,
+        "days": days,
+        "today": today,
+        "month": month,
+        "window": window,
+        "all_time": all_time,
+        "by_day": by_day,
+        "by_feature": by_feature,
+        "by_model": by_model,
+        "top_users": top_users,
+        "search": {
+            "queries_this_month": search_month,
+            "free_per_month": pricing.SEARCH_FREE_PER_MONTH,
+            "free_remaining": max(0, pricing.SEARCH_FREE_PER_MONTH - search_month),
+            "usd_per_1000": pricing.SEARCH_USD_PER_1000,
+            "cost_usd_this_month": search_cost,
+        },
+        "pricing": pricing.price_table(),
+        "note": "ค่าใช้จ่ายเป็นการประมาณจากตารางราคาในระบบ ยอดจริงดูที่ Google Cloud Billing",
+    }
+
+
+@router.get("/llm-throttle")
+async def llm_throttle(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    How hard the provider gate is working: in-flight calls per lane, how often
+    requests queued, how long they waited, 429 retries, and the per-user ask
+    policy. Counters start at zero when the API process starts.
+    """
+    _require_admin(user)
+    ask = ratelimit.LIMITS["ask"]
+    return {
+        **throttle.gate.snapshot(),
+        "per_user_ask_policy": {
+            "cooldown_seconds": ask.cooldown_seconds,
+            "per_minute": ask.per_minute,
+            "per_hour": ask.per_hour,
+            "per_day": ask.per_day,
+            "staff_multiplier": ratelimit.STAFF_MULTIPLIER,
+        },
+    }
+
+
+@router.get("/health")
+async def system_health(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Is the workspace actually able to work?
+
+    Counting rows says nothing about why "the AI does not answer" - that is
+    almost always a missing default model or a dead dependency, so check those.
+    """
+    _require_admin(user)
+    checks: List[Dict[str, Any]] = []
+
+    async def probe(name: str, label: str, fn) -> None:
+        try:
+            detail = await fn()
+            checks.append({"name": name, "label": label, "ok": True, "detail": detail})
+        except Exception as exc:  # noqa: BLE001 - a health probe reports, never raises
+            checks.append({"name": name, "label": label, "ok": False, "detail": str(exc)[:200]})
+
+    async def mariadb() -> str:
+        async with _mariadb_session() as session:
+            row = (await session.execute(text("SELECT VERSION() AS v"))).first()
+        return f"MariaDB {row.v}" if row else "connected"
+
+    async def surreal() -> str:
+        from open_notebook.database.repository import repo_query
+
+        rows = await repo_query("SELECT count() AS n FROM notebook GROUP ALL")
+        return f"{(rows[0].get('n') if rows else 0) or 0} notebooks"
+
+    async def redis_check() -> str:
+        import os
+
+        from redis.asyncio import from_url
+
+        client = from_url(os.getenv("REDIS_URL", "redis://redis:6379/0"))
+        try:
+            await client.ping()
+            return "ping ok"
+        finally:
+            await client.aclose()
+
+    async def models() -> str:
+        from open_notebook.ai.models import DefaultModels
+
+        defaults = await DefaultModels.get_instance()
+        missing = [
+            label
+            for label, value in (
+                ("โมเดลสนทนา (chat)", defaults.default_chat_model),
+                ("โมเดล embedding", defaults.default_embedding_model),
+            )
+            if not value
+        ]
+        if missing:
+            raise RuntimeError("ยังไม่ได้ตั้ง " + " และ ".join(missing))
+        return "ตั้งค่าโมเดลครบแล้ว"
+
+    await probe("mariadb", "ฐานข้อมูลผู้ใช้ (MariaDB)", mariadb)
+    await probe("surrealdb", "ฐานข้อมูลเนื้อหา (SurrealDB)", surreal)
+    await probe("redis", "แคช (Redis)", redis_check)
+    await probe("models", "โมเดล AI เริ่มต้น", models)
+
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COUNT(*) FROM library_documents WHERE status = 'failed') AS failed_docs,
+                      (SELECT COUNT(*) FROM library_documents WHERE status = 'processing') AS processing_docs,
+                      (SELECT COUNT(*) FROM posts WHERE is_deleted = 1) AS deleted_posts,
+                      (SELECT COUNT(*) FROM rooms WHERE created_by IS NULL) AS ownerless_rooms
+                    """
+                )
+            )
+        ).first()
+
+    return {
+        "checks": checks,
+        "healthy": all(c["ok"] for c in checks),
+        "content": {
+            "failed_documents": int(row.failed_docs or 0) if row else 0,
+            "processing_documents": int(row.processing_docs or 0) if row else 0,
+            "deleted_posts": int(row.deleted_posts or 0) if row else 0,
+            "ownerless_rooms": int(row.ownerless_rooms or 0) if row else 0,
+        },
+    }
+
+
+@router.get("/overview")
+async def overview(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Headline numbers for the admin dashboard."""
+    _require_admin(user)
+    from sqlalchemy import text
+
+    from siet_platform.users import _mariadb_session
+
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    """
+                    SELECT
+                      (SELECT COUNT(*) FROM users) AS users,
+                      (SELECT COUNT(*) FROM users WHERE disabled = 1) AS suspended,
+                      (SELECT COUNT(*) FROM users WHERE last_login_at >= NOW() - INTERVAL 7 DAY) AS active_week,
+                      (SELECT COUNT(*) FROM posts WHERE is_deleted = 0) AS posts,
+                      (SELECT COUNT(*) FROM rooms) AS courses,
+                      (SELECT COUNT(*) FROM library_documents WHERE status = 'ready') AS documents,
+                      (SELECT COALESCE(SUM(points_balance), 0) FROM users) AS points_outstanding,
+                      (SELECT COALESCE(SUM(-delta), 0) FROM point_transactions
+                        WHERE delta < 0 AND created_at >= NOW() - INTERVAL 7 DAY) AS points_spent_week
+                    """
+                )
+            )
+        ).first()
+    if not row:
+        return {}
+    return {
+        "users": int(row.users or 0),
+        "suspended": int(row.suspended or 0),
+        "active_week": int(row.active_week or 0),
+        "posts": int(row.posts or 0),
+        "courses": int(row.courses or 0),
+        "documents": int(row.documents or 0),
+        "points_outstanding": int(row.points_outstanding or 0),
+        "points_spent_week": int(row.points_spent_week or 0),
+    }

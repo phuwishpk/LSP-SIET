@@ -3,12 +3,13 @@
 import { createContext, useContext, useState, useCallback, ReactNode } from 'react'
 import { AddSourceDialog } from '@/components/sources/AddSourceDialog'
 import { CreateNotebookDialog } from '@/components/notebooks/CreateNotebookDialog'
-import { useAuthStore } from '@/lib/stores/auth-store'
-import { isStaff, type Role } from '@/lib/roles'
+import { GeneratePodcastDialog } from '@/components/podcasts/GeneratePodcastDialog'
+import { useGate } from '@/lib/extensions'
 
 interface CreateDialogsContextType {
   openSourceDialog: () => void
   openNotebookDialog: () => void
+  openPodcastDialog: () => void
 }
 
 const CreateDialogsContext = createContext<CreateDialogsContextType | null>(null)
@@ -16,23 +17,22 @@ const CreateDialogsContext = createContext<CreateDialogsContextType | null>(null
 export function CreateDialogsProvider({ children }: { children: ReactNode }) {
   const [sourceDialogOpen, setSourceDialogOpen] = useState(false)
   const [notebookDialogOpen, setNotebookDialogOpen] = useState(false)
-
-  // This provider wraps every dashboard page, and AddSourceDialog loads
-  // notebooks / transformations / settings as soon as it mounts, open or not.
-  // Those APIs are staff-only, so for a student each page load produced a burst
-  // of 403s (retried). Students cannot create sources or notebooks anyway, so
-  // the dialogs simply do not exist for them.
-  const role = useAuthStore((s) => s.user?.role) as Role
-  const canCreate = isStaff(role)
+  const [podcastDialogOpen, setPodcastDialogOpen] = useState(false)
+  // KMITL hooks: the dialogs load their data as soon as they mount, so an
+  // extension may withhold them (e.g. from users the API refuses anyway)
+  const canCreate = useGate('create-dialogs')
+  const showPodcasts = useGate('podcasts')
 
   const openSourceDialog = useCallback(() => setSourceDialogOpen(true), [])
   const openNotebookDialog = useCallback(() => setNotebookDialogOpen(true), [])
+  const openPodcastDialog = useCallback(() => setPodcastDialogOpen(true), [])
 
   return (
     <CreateDialogsContext.Provider
       value={{
         openSourceDialog,
         openNotebookDialog,
+        openPodcastDialog,
       }}
     >
       {children}
@@ -41,6 +41,9 @@ export function CreateDialogsProvider({ children }: { children: ReactNode }) {
           <AddSourceDialog open={sourceDialogOpen} onOpenChange={setSourceDialogOpen} />
           <CreateNotebookDialog open={notebookDialogOpen} onOpenChange={setNotebookDialogOpen} />
         </>
+      )}
+      {showPodcasts && (
+        <GeneratePodcastDialog open={podcastDialogOpen} onOpenChange={setPodcastDialogOpen} />
       )}
     </CreateDialogsContext.Provider>
   )

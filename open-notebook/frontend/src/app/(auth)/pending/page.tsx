@@ -1,10 +1,1 @@
-import { PendingScreen } from '@/components/auth/PendingScreen'
-import { ErrorBoundary } from '@/components/common/ErrorBoundary'
-
-export default function PendingPage() {
-  return (
-    <ErrorBoundary>
-      <PendingScreen />
-    </ErrorBoundary>
-  )
-}
+export { default } from '@siet/platform/app/(auth)/pending/page'

@@ -5,6 +5,7 @@ from loguru import logger
 from pydantic import BaseModel
 from surreal_commands import CommandInput, CommandOutput, command
 
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id
 from open_notebook.domain.notebook import Source
 from open_notebook.domain.transformation import Transformation
@@ -101,24 +102,12 @@ async def process_source_command(
         # 3. Process source with all notebooks
         logger.info(f"Processing source with {len(input_data.notebook_ids)} notebooks")
 
-        # Phase 2: bump every notebook's knowledge version BEFORE the
-        # source is rewritten so the answer cache cannot serve stale
-        # entries between edit and write.
-        try:
-            from open_notebook.cache.invalidation import (
-                invalidate_after_source_change,
-            )
-
-            await invalidate_after_source_change(
-                input_data.source_id,
-                extra_notebook_ids=list(input_data.notebook_ids or []),
-                clear_cache=True,
-            )
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: process_source pre-bump failed for "
-                f"{input_data.source_id}: {exc}"
-            )
+        await extensions.emit(  # KMITL hook
+            "source.changed",
+            source_id=input_data.source_id,
+            notebook_ids=list(input_data.notebook_ids or []),
+            clear_cache=True,
+        )
 
         # Execute source_graph with all notebooks
         result = await source_graph.ainvoke(

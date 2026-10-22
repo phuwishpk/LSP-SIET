@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from surreal_commands import submit_command
 from surrealdb import RecordID
 
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
@@ -76,7 +77,7 @@ class Notebook(ObjectModel):
 
     async def get_context(self) -> str:
         """
-        Build long-form notebook context for LLM workflows.
+        Build long-form notebook context for podcast and LLM workflows.
 
         Normal list retrieval omits large source/note bodies, so this method uses
         opt-in full-content fetches and formats only substantive context blocks.
@@ -444,24 +445,16 @@ class Source(ObjectModel):
     ) -> Dict[str, Any]:
         insights_list = await self.get_insights()
         insights = [insight.model_dump() for insight in insights_list]
-        asset_url = None
-        if self.asset:
-            asset_url = self.asset.url or self.asset.file_path
         if context_size == "long":
-            return dict(
+            context = dict(
                 id=self.id,
                 title=self.title,
                 insights=insights,
                 full_text=self.full_text,
-                asset_url=asset_url,
             )
         else:
-            return dict(
-                id=self.id,
-                title=self.title,
-                insights=insights,
-                asset_url=asset_url,
-            )
+            context = dict(id=self.id, title=self.title, insights=insights)
+        return await extensions.apply_filters("source.context", context, source=self)  # KMITL hook
 
     async def get_embedded_chunks(self) -> int:
         try:
@@ -720,51 +713,6 @@ class ChatSession(ObjectModel):
         return await self.relate("refers_to", source_id)
 
 
-# -----------------------------------------------------------------------------
-# GlobalChatSession — independent of any notebook; used by the /search Ask tab
-# -----------------------------------------------------------------------------
-
-class GlobalChatSession(ObjectModel):
-    """
-    A chat session that exists outside of any notebook.
-    Used by the persistent Chat UI on the Ask tab of the /search page.
-
-    User isolation is via owner_id (set from auth token at creation).
-    LangGraph checkpoints persist messages across requests using the session ID
-    as thread_id, so the same chat_graph.checkpointer used by ChatSession
-    handles both tables transparently.
-    """
-    table_name: ClassVar[str] = "global_chat_session"
-    nullable_fields: ClassVar[set[str]] = {"title", "model_override", "owner_id"}
-    title: Optional[str] = None
-    model_override: Optional[str] = None
-    owner_id: Optional[str] = None
-
-    @classmethod
-    async def get_global_sessions(cls, owner_id: str) -> List["GlobalChatSession"]:
-        """
-        Return all global chat sessions for a given owner, ordered by updated desc.
-        Falls back to sessions with no owner_id (legacy / pre-migration).
-        """
-        try:
-            results = await repo_query(
-                """
-                SELECT * FROM global_chat_session
-                WHERE owner_id = $owner_id
-                    OR owner_id = NONE
-                ORDER BY updated DESC
-                """,
-                {"owner_id": owner_id}
-            )
-            return [
-                cls(**src)
-                for src in results
-            ] if results else []
-        except RuntimeError:
-            # Table may not exist yet — return empty list until migration runs
-            return []
-
-
 async def text_search(
     keyword: str, results: int, source: bool = True, note: bool = True
 ):
@@ -817,14 +765,11 @@ async def vector_search(
     if not keyword:
         raise InvalidInputError("Search keyword cannot be empty")
     try:
-        from open_notebook.cache.service import cache_service
         from open_notebook.utils.embedding import generate_embedding
 
-        # Try cache first (key = hash of search params)
-        cache_config = {"q": keyword, "r": results, "s": source, "n": note, "ms": minimum_score}
-        cached = await cache_service.get_vector_search_results(
-            notebook_id="global", query=str(cache_config), limit=results
-        )
+        # KMITL hook: an installed cache may already hold these results
+        cache_key = {"q": keyword, "r": results, "s": source, "n": note, "ms": minimum_score}
+        cached = await extensions.cache_get("vector_search", cache_key)
         if cached is not None:
             return cached
 
@@ -842,78 +787,10 @@ async def vector_search(
                 "minimum_score": minimum_score,
             },
         )
-
-        # Cache the results
-        await cache_service.set_vector_search_results(
-            notebook_id="global",
-            query=str(cache_config),
-            results=search_results or [],
-        )
+        await extensions.cache_set("vector_search", cache_key, search_results or [])
 
         return search_results
     except Exception as e:
         logger.error(f"Error performing vector search: {str(e)}")
-        logger.exception(e)
-        raise DatabaseOperationError(e)
-
-
-async def vector_search_in_notebook(
-    keyword: str,
-    notebook_id: str,
-    results: int = 8,
-    source: bool = True,
-    note: bool = True,
-    minimum_score: float = 0.2,
-) -> List[Dict[str, Any]]:
-    """
-    Perform vector search scoped to a single notebook.
-
-    Resolves the notebook's sources via the reference table and notes via the
-    artifact table so that only content belonging to that notebook is searched.
-
-    Args:
-        keyword:      The search query text (will be embedded on the fly).
-        notebook_id:  SurrealDB record ID string for the notebook.
-        results:      Maximum number of results per notebook.
-        source:       Include source chunks.
-        note:         Include note content.
-        minimum_score: Minimum cosine similarity threshold (0-1).
-
-    Returns:
-        List of result dicts with keys: id, title, parent_id, similarity, matches.
-    """
-    if not keyword:
-        raise InvalidInputError("Search keyword cannot be empty")
-    if not notebook_id:
-        raise InvalidInputError("Notebook ID cannot be empty")
-    try:
-        from open_notebook.utils.embedding import generate_embedding
-
-        embed = await generate_embedding(keyword)
-        search_results = await repo_query(
-            """
-            SELECT * FROM fn::vector_search_in_notebook(
-                $embed,
-                $results,
-                $sources,
-                $show_notes,
-                $min_similarity,
-                $notebook_id
-            );
-            """,
-            {
-                "embed": embed,
-                "results": results,
-                "sources": source,
-                "show_notes": note,
-                "min_similarity": minimum_score,
-                "notebook_id": ensure_record_id(notebook_id),
-            },
-        )
-        return search_results or []
-    except Exception as e:
-        logger.error(
-            f"Error performing notebook-scoped vector search for {notebook_id}: {str(e)}"
-        )
         logger.exception(e)
         raise DatabaseOperationError(e)

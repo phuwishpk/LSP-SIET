@@ -1,0 +1,41 @@
+# Who reviews what (docs/ARCHITECTURE.md). Owners are requested automatically
+# on pull requests; reviews are not required by branch protection.
+# The last matching pattern wins, so specific paths come after broad ones.
+
+*                                                   @phuwishpk
+
+# open-notebook (upstream fork) and how it is synced
+/open-notebook/                                     @phuwishpk
+/docs/UPSTREAM.md                                   @phuwishpk
+/scripts/upstream/                                  @phuwishpk
+
+# SIET platform: accounts, auth, points, throttling, caches, library, AI quiz/roadmap
+/siet-platform/                                     @phuwishpk
+# workspace auth, roles and accounts (PR #3)
+/siet-platform/siet_platform/auth_*.py              @Tanabordi @phuwishpk
+/siet-platform/siet_platform/login_guard.py         @Tanabordi @phuwishpk
+/siet-platform/siet_platform/users.py               @Tanabordi @phuwishpk
+/siet-platform/siet_platform/schema.py              @Tanabordi @phuwishpk
+/siet-platform/siet_platform/routers/users.py       @Tanabordi @phuwishpk
+/siet-platform/siet_platform/routers/google_auth.py @Tanabordi @phuwishpk
+/siet-platform/frontend/src/app/(auth)/             @Tanabordi @phuwishpk
+/siet-platform/frontend/src/components/auth/        @Tanabordi @phuwishpk
+/siet-platform/frontend/src/lib/auth-redirect.ts    @Tanabordi @phuwishpk
+/siet-platform/frontend/src/lib/roles.ts            @Tanabordi @phuwishpk
+/siet-platform/frontend/src/lib/stores/auth-store.ts @Tanabordi @phuwishpk
+/siet-platform/frontend/src/lib/hooks/use-auth.ts   @Tanabordi @phuwishpk
+/docker/mariadb-init.sql                            @Tanabordi @phuwishpk
+# AI quiz
+/siet-platform/siet_platform/features/              @SpriteUm @phuwishpk
+/siet-platform/siet_platform/routers/features.py    @SpriteUm @phuwishpk
+
+# KMITL RAG AI
+/kmitl-rag/                                         @phuwishpk
+
+# Community: backend, then the community UI
+/community/                                         @phuwishpk
+/community/frontend/                                @pornprompoh @SpriteUm @phuwishpk
+
+# Standalone apps
+/My-ai-quiz/                                        @SpriteUm
+/ai-roadmap-generator/                              @phuwishpk

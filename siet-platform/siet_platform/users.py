@@ -1,0 +1,752 @@
+"""
+User domain model + repository.
+
+User accounts are stored in MariaDB (user service).
+All other workspace data (notebooks, sources, notes, etc.) stays in SurrealDB.
+Passwords are stored as bcrypt hashes; passwords are never returned through the API.
+"""
+
+from __future__ import annotations
+
+import os as _os
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
+from typing import Any, AsyncGenerator, Dict, List, Optional
+
+import bcrypt
+from loguru import logger
+from pydantic import BaseModel, Field, field_validator
+from sqlalchemy import Column, DateTime, Enum, Integer, String, Text, select, text, update
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import declarative_base
+
+from siet_platform.config import get_mariadb_url
+
+
+# =============================================================================
+# SQLAlchemy setup for MariaDB
+# =============================================================================
+
+_Base = declarative_base()
+
+class _UserRow(_Base):
+    __tablename__ = "users"
+
+    id            = Column(Integer, primary_key=True, autoincrement=True)
+    username      = Column(String(32), unique=True, nullable=False)
+    # Nullable so Google-only (SSO) accounts can exist without a password.
+    password_hash = Column(String(255), nullable=True)
+    display_name  = Column(String(128), nullable=True)
+    role          = Column(Enum("admin", "student", "teacher", "pending"), nullable=False, default="student")
+    # --- KMITL workspace / SSO profile fields (added by community schema) ---
+    email         = Column(String(191), nullable=True, unique=True)
+    google_sub    = Column(String(64), nullable=True, unique=True)
+    avatar_url    = Column(Text, nullable=True)
+    # The column is student_code (the 8-digit student number, not a foreign
+    # key); the attribute keeps the name the rest of the code uses.
+    student_id    = Column("student_code", String(32), nullable=True)
+    points_balance = Column(Integer, nullable=False, default=0)
+    disabled       = Column(Integer, nullable=False, default=0)
+    suspend_reason  = Column(String(255), nullable=True)
+    suspended_until = Column(DateTime, nullable=True)
+    # Open Notebook notebook holding this user's private uploaded documents.
+    library_notebook_id = Column(String(128), nullable=True)
+    created_at    = Column(DateTime, default=datetime.utcnow)
+    updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    last_login_at = Column(DateTime, nullable=True)
+
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
+
+
+class _AllowedTeacherRow(_Base):
+    __tablename__ = "allowed_teachers"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    email      = Column(String(191), unique=True, nullable=False)
+    role       = Column(String(32), nullable=False, default="teacher")
+    department = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
+
+
+
+# Module-level engine + session factory (lazy, one per process)
+_mariadb_engine: Optional[Any] = None
+_mariadb_session_factory: Optional[Any] = None
+
+
+def _get_engine():
+    global _mariadb_engine
+    if _mariadb_engine is None:
+        _mariadb_engine = create_async_engine(
+            get_mariadb_url(),
+            echo=False,
+            pool_size=5,
+            max_overflow=10,
+            pool_pre_ping=True,
+        )
+    return _mariadb_engine
+
+
+def _get_session_factory():
+    global _mariadb_session_factory
+    if _mariadb_session_factory is None:
+        _mariadb_session_factory = async_sessionmaker(
+            bind=_get_engine(),
+            class_=AsyncSession,
+            expire_on_commit=False,
+        )
+    return _mariadb_session_factory
+
+
+@asynccontextmanager
+async def _mariadb_session() -> AsyncGenerator[AsyncSession, None]:
+    """Async context manager for a MariaDB session."""
+    factory = _get_session_factory()
+    async with factory() as session:
+        try:
+            yield session
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            raise
+
+
+# =============================================================================
+# Constants
+# =============================================================================
+
+USERNAME_MIN_LEN = 3
+USERNAME_MAX_LEN = 32
+PASSWORD_MIN_LEN = int(_os.getenv("WORKSPACE_PASSWORD_MIN_LEN", "3"))
+PASSWORD_MAX_LEN = 128
+BCRYPT_ROUNDS = 12
+
+USER_ROLE_ADMIN   = "admin"
+USER_ROLE_STUDENT = "student"
+USER_ROLE_TEACHER = "teacher"
+USER_ROLE_PENDING = "pending"
+USER_ROLES = {USER_ROLE_ADMIN, USER_ROLE_STUDENT, USER_ROLE_TEACHER, USER_ROLE_PENDING}
+
+
+# =============================================================================
+# Exceptions
+# =============================================================================
+
+class UserError(Exception):
+    """Base error for user operations."""
+
+
+class UserAlreadyExists(UserError):
+    """Raised when a username is taken."""
+
+
+class UserNotFound(UserError):
+    """Raised when lookup fails."""
+
+
+class InvalidCredentials(UserError):
+    """Raised on bad username/password."""
+
+
+class InvalidUsernameError(UserError):
+    """Raised when the username fails validation."""
+
+
+class InvalidPasswordError(UserError):
+    """Raised when the password fails validation."""
+
+
+# =============================================================================
+# Pydantic schema
+# =============================================================================
+
+class User(BaseModel):
+    """In-memory representation of a stored user."""
+
+    id: Optional[int] = None
+    username: str
+    # Empty string for SSO-only accounts (never returned through the API).
+    password_hash: str = Field(default="", exclude=True)
+    display_name: Optional[str] = None
+    role: str = "student"
+    email: Optional[str] = None
+    google_sub: Optional[str] = None
+    avatar_url: Optional[str] = None
+    student_id: Optional[str] = None
+    points_balance: int = 0
+    disabled: bool = False
+    # Why / until when (ISO) the account is suspended; None until = indefinitely.
+    suspend_reason: Optional[str] = None
+    suspended_until: Optional[str] = None
+    library_notebook_id: Optional[str] = None
+    created_at: Optional[str] = None
+    updated_at: Optional[str] = None
+    last_login_at: Optional[str] = None
+
+    @property
+    def is_points_exempt(self) -> bool:
+        """Admins and teachers are never charged points."""
+        return (self.role or "student") in {USER_ROLE_ADMIN, USER_ROLE_TEACHER}
+
+    @field_validator("username")
+    @classmethod
+    def _normalize_username(cls, value: str) -> str:
+        normalized = value.strip().lower()
+        if not (USERNAME_MIN_LEN <= len(normalized) <= USERNAME_MAX_LEN):
+            raise InvalidUsernameError(
+                f"Username must be {USERNAME_MIN_LEN}-{USERNAME_MAX_LEN} characters"
+            )
+        if not all(ch.isalnum() or ch in "._-" for ch in normalized):
+            raise InvalidUsernameError(
+                "Username may only contain letters, digits, dots, underscores and dashes"
+            )
+        return normalized
+
+
+# =============================================================================
+# Helpers
+# =============================================================================
+
+def hash_password(plain: str) -> str:
+    """Hash a plaintext password using bcrypt."""
+    if not (PASSWORD_MIN_LEN <= len(plain) <= PASSWORD_MAX_LEN):
+        raise InvalidPasswordError(
+            f"Password must be {PASSWORD_MIN_LEN}-{PASSWORD_MAX_LEN} characters"
+        )
+    salt = bcrypt.gensalt(rounds=BCRYPT_ROUNDS)
+    return bcrypt.hashpw(plain.encode("utf-8"), salt).decode("utf-8")
+
+
+def verify_password(plain: str, hashed: str) -> bool:
+    """Constant-time bcrypt verification."""
+    try:
+        return bcrypt.checkpw(plain.encode("utf-8"), hashed.encode("utf-8"))
+    except (ValueError, TypeError):
+        return False
+
+
+def _row_to_user(row: Any) -> User:
+    """Map a SQLAlchemy row into a User instance."""
+    password_hash = getattr(row, "password_hash", "") or ""
+    created_at = getattr(row, "created_at", None)
+    updated_at = getattr(row, "updated_at", None)
+    last_login = getattr(row, "last_login_at", None)
+    suspended_until = getattr(row, "suspended_until", None)
+
+    return User(
+        id=getattr(row, "id", None),
+        username=getattr(row, "username", ""),
+        password_hash=password_hash,
+        display_name=getattr(row, "display_name", None),
+        role=getattr(row, "role", "student") or "student",
+        email=getattr(row, "email", None),
+        google_sub=getattr(row, "google_sub", None),
+        avatar_url=getattr(row, "avatar_url", None),
+        student_id=getattr(row, "student_id", None),
+        points_balance=int(getattr(row, "points_balance", 0) or 0),
+        disabled=bool(getattr(row, "disabled", 0) or 0),
+        suspend_reason=getattr(row, "suspend_reason", None),
+        suspended_until=suspended_until.isoformat() if suspended_until else None,
+        library_notebook_id=getattr(row, "library_notebook_id", None),
+        created_at=created_at.isoformat() if created_at else None,
+        updated_at=updated_at.isoformat() if updated_at else None,
+        last_login_at=last_login.isoformat() if last_login else None,
+    )
+
+
+# =============================================================================
+# Repository operations
+# =============================================================================
+
+async def get_by_username(username: str) -> Optional[User]:
+    """Look up a user by username (case-insensitive)."""
+    normalized = username.strip().lower()
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow).where(_UserRow.username == normalized).limit(1)
+        )
+        row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return _row_to_user(row)
+
+
+async def get_by_id(user_id: int | str) -> Optional[User]:
+    """Look up a user by their numeric id."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        return None
+
+    async with _mariadb_session() as session:
+        result = await session.execute(select(_UserRow).where(_UserRow.id == uid).limit(1))
+        row = result.scalar_one_or_none()
+    if row is None:
+        return None
+    return _row_to_user(row)
+
+
+async def create(
+    username: str,
+    password: str,
+    display_name: Optional[str] = None,
+    role: str = "student",
+) -> User:
+    """Create a new user. Raises UserAlreadyExists on conflict."""
+    normalized = username.strip().lower()
+    password_hash = hash_password(password)
+    now = datetime.utcnow()
+
+    async with _mariadb_session() as session:
+        existing = await session.execute(
+            select(_UserRow).where(_UserRow.username == normalized).limit(1)
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise UserAlreadyExists(f"Username '{normalized}' is already taken")
+
+        new_user = _UserRow(
+            username=normalized,
+            password_hash=password_hash,
+            display_name=display_name,
+            role=role,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(new_user)
+        await session.flush()
+        await session.refresh(new_user)
+
+    return _row_to_user(new_user)
+
+
+async def touch_last_login(user_id: int | str) -> None:
+    """Update last_login_at to now (best-effort, errors are logged)."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        logger.warning(f"Invalid user_id for touch_last_login: {user_id}")
+        return
+
+    try:
+        async with _mariadb_session() as session:
+            await session.execute(
+                update(_UserRow)
+                .where(_UserRow.id == uid)
+                .values(last_login_at=datetime.utcnow(), updated_at=datetime.utcnow())
+            )
+    except Exception as exc:
+        logger.warning(f"Failed to update last_login_at for user {uid}: {exc}")
+
+
+async def update_password(user_id: int | str, password: str) -> None:
+    """Replace a user's password hash (used by deterministic local admin seeding)."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        raise UserError(f"Invalid user_id: {user_id}")
+
+    password_hash = hash_password(password)
+    async with _mariadb_session() as session:
+        await session.execute(
+            update(_UserRow)
+            .where(_UserRow.id == uid)
+            .values(password_hash=password_hash, updated_at=datetime.utcnow())
+        )
+
+
+# =============================================================================
+# SSO / profile helpers (Google Workspace @kmitl.ac.th)
+# =============================================================================
+
+
+async def get_by_email(email: str) -> Optional[User]:
+    """Look up a user by (case-insensitive) e-mail address."""
+    normalized = (email or "").strip().lower()
+    if not normalized:
+        return None
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow).where(_UserRow.email == normalized).limit(1)
+        )
+        row = result.scalar_one_or_none()
+    return _row_to_user(row) if row is not None else None
+
+
+async def get_by_google_sub(google_sub: str) -> Optional[User]:
+    """Look up a user by the Google account subject id."""
+    if not google_sub:
+        return None
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow).where(_UserRow.google_sub == google_sub).limit(1)
+        )
+        row = result.scalar_one_or_none()
+    return _row_to_user(row) if row is not None else None
+
+
+async def username_available(username: str) -> bool:
+    normalized = (username or "").strip().lower()
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_UserRow.id).where(_UserRow.username == normalized).limit(1)
+        )
+        return result.scalar_one_or_none() is None
+
+
+async def create_sso_user(
+    *,
+    username: str,
+    email: str,
+    google_sub: Optional[str],
+    display_name: Optional[str],
+    avatar_url: Optional[str],
+    role: str = USER_ROLE_STUDENT,
+    student_id: Optional[str] = None,
+) -> User:
+    """Create a password-less account that authenticates through Google SSO."""
+    normalized = username.strip().lower()
+    User(username=normalized)  # run the username validator
+    now = datetime.utcnow()
+    async with _mariadb_session() as session:
+        existing = await session.execute(
+            select(_UserRow.id).where(_UserRow.username == normalized).limit(1)
+        )
+        if existing.scalar_one_or_none() is not None:
+            raise UserAlreadyExists(f"Username '{normalized}' is already taken")
+        row = _UserRow(
+            username=normalized,
+            password_hash=None,
+            display_name=display_name,
+            role=role if role in USER_ROLES else USER_ROLE_STUDENT,
+            email=email.strip().lower(),
+            google_sub=google_sub,
+            avatar_url=avatar_url,
+            student_id=student_id,
+            points_balance=0,
+            created_at=now,
+            updated_at=now,
+            last_login_at=now,
+        )
+        session.add(row)
+        await session.flush()
+        await session.refresh(row)
+    return _row_to_user(row)
+
+
+async def update_profile(
+    user_id: int | str,
+    *,
+    email: Optional[str] = None,
+    google_sub: Optional[str] = None,
+    display_name: Optional[str] = None,
+    avatar_url: Optional[str] = None,
+    role: Optional[str] = None,
+    student_id: Optional[str] = None,
+) -> Optional[User]:
+    """Patch profile fields (only the ones passed as non-None are written)."""
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        raise UserError(f"Invalid user_id: {user_id}")
+
+    values: Dict[str, Any] = {"updated_at": datetime.utcnow()}
+    if email is not None:
+        values["email"] = email.strip().lower()
+    if google_sub is not None:
+        values["google_sub"] = google_sub
+    if display_name is not None:
+        values["display_name"] = display_name
+    if avatar_url is not None:
+        values["avatar_url"] = avatar_url
+    if role is not None and role in USER_ROLES:
+        values["role"] = role
+    if student_id is not None:
+        values["student_id"] = student_id
+
+    async with _mariadb_session() as session:
+        await session.execute(update(_UserRow).where(_UserRow.id == uid).values(**values))
+    return await get_by_id(uid)
+
+
+async def list_users_brief(limit: int = 200) -> List[Dict[str, Any]]:
+    """Lightweight projection used by community search / leaderboards."""
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(
+                _UserRow.id,
+                _UserRow.username,
+                _UserRow.display_name,
+                _UserRow.role,
+                _UserRow.avatar_url,
+                _UserRow.points_balance,
+            ).limit(limit)
+        )
+        rows = result.all()
+    return [
+        {
+            "id": r.id,
+            "username": r.username,
+            "display_name": r.display_name,
+            "role": r.role,
+            "avatar_url": r.avatar_url,
+            "points_balance": int(r.points_balance or 0),
+        }
+        for r in rows
+    ]
+
+
+# =============================================================================
+# Administration helpers
+# =============================================================================
+
+
+async def admin_list_users(
+    query: Optional[str] = None,
+    role: Optional[str] = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> Dict[str, Any]:
+    """Paginated user directory for the admin console."""
+    where: List[str] = []
+    params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+    if query:
+        where.append(
+            "(username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q)"
+        )
+        params["q"] = f"%{query.strip()}%"
+    if role in USER_ROLES:
+        where.append("role = :role")
+        params["role"] = role
+    clause = f"WHERE {' AND '.join(where)}" if where else ""
+
+    from sqlalchemy import text as _text
+
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                _text(
+                    f"""
+                    SELECT id, username, display_name, role, email, student_code AS student_id,
+                           avatar_url, points_balance, disabled, suspend_reason, suspended_until,
+                           created_at, last_login_at
+                      FROM users {clause}
+                     ORDER BY role = 'admin' DESC, role = 'teacher' DESC, id ASC
+                     LIMIT :limit OFFSET :offset
+                    """
+                ),
+                params,
+            )
+        ).all()
+        total = (
+            await session.execute(_text(f"SELECT COUNT(*) FROM users {clause}"), params)
+        ).scalar()
+        counts = (
+            await session.execute(_text("SELECT role, COUNT(*) AS n FROM users GROUP BY role"))
+        ).all()
+
+    def _iso(value: Any) -> Optional[str]:
+        return value.isoformat() if isinstance(value, datetime) else value
+
+    return {
+        "items": [
+            {
+                "id": r.id,
+                "username": r.username,
+                "display_name": r.display_name,
+                "role": r.role,
+                "email": r.email,
+                "student_id": r.student_id,
+                "avatar_url": r.avatar_url,
+                "points_balance": int(r.points_balance or 0),
+                "disabled": bool(r.disabled),
+                "created_at": _iso(r.created_at),
+                "last_login_at": _iso(r.last_login_at),
+            }
+            for r in rows
+        ],
+        "total": int(total or 0),
+        "by_role": {r.role: int(r.n) for r in counts},
+    }
+
+
+async def count_admins(exclude_user_id: Optional[int] = None) -> int:
+    """How many enabled admins exist (optionally ignoring one account)."""
+    from sqlalchemy import text as _text
+
+    sql = "SELECT COUNT(*) FROM users WHERE role = 'admin' AND disabled = 0"
+    params: Dict[str, Any] = {}
+    if exclude_user_id is not None:
+        sql += " AND id <> :uid"
+        params["uid"] = exclude_user_id
+    async with _mariadb_session() as session:
+        return int((await session.execute(_text(sql), params)).scalar() or 0)
+
+
+async def admin_delete_user(user_id: int) -> Dict[str, int]:
+    """
+    Remove an account and everything that belongs only to it.
+
+    Suspending keeps the data; deleting is for accounts that should never have
+    existed (test runs, duplicates). Other people's content is preserved: the
+    person's posts are soft-deleted rather than dropped, and any room they
+    opened stays open with no owner instead of taking its members down with it.
+
+    The per-post counters are recomputed afterwards, so removing someone who
+    liked or commented does not leave the feed showing numbers that no longer
+    match the rows.
+    """
+    removed: Dict[str, int] = {}
+
+    async with _mariadb_session() as session:
+        # Remember which posts need their counters rebuilt before the rows go.
+        async def _affected(table: str, column: str) -> List[int]:
+            rows = (
+                await session.execute(
+                    text(f"SELECT DISTINCT post_id FROM {table} WHERE {column} = :uid"),
+                    {"uid": user_id},
+                )
+            ).all()
+            return [int(r[0]) for r in rows]
+
+        comment_posts = await _affected("post_comments", "author_id")
+        reaction_posts = await _affected("post_reactions", "user_id")
+        share_posts = await _affected("post_shares", "user_id")
+
+        async def _run(sql: str, key: Optional[str] = None) -> None:
+            result = await session.execute(text(sql), {"uid": user_id})
+            if key:
+                removed[key] = int(result.rowcount or 0)
+
+        await _run("UPDATE posts SET is_deleted = 1 WHERE author_id = :uid", "posts_hidden")
+        await _run("DELETE FROM post_comments WHERE author_id = :uid", "comments")
+        await _run("DELETE FROM post_reactions WHERE user_id = :uid", "reactions")
+        await _run("DELETE FROM post_shares WHERE user_id = :uid", "shares")
+        await _run("DELETE FROM saved_posts WHERE user_id = :uid", "saved")
+        await _run("DELETE FROM quiz_attempts WHERE user_id = :uid", "quiz_plays")
+        await _run("DELETE FROM room_members WHERE user_id = :uid", "memberships")
+        await _run("DELETE FROM library_documents WHERE owner_id = :uid", "documents")
+        await _run("DELETE FROM rag_credit_sessions WHERE user_id = :uid", "rag_sessions")
+        # Chat history is the person's own data: it goes with the account.
+        await _run(
+            "DELETE m FROM rag_messages m JOIN rag_conversations c ON c.id = m.conversation_id "
+            "WHERE c.user_id = :uid",
+            "rag_messages",
+        )
+        await _run("DELETE FROM rag_conversations WHERE user_id = :uid", "rag_conversations")
+        await _run("DELETE FROM saved_collection_posts WHERE user_id = :uid", "collection_items")
+        await _run("DELETE FROM saved_collections WHERE user_id = :uid", "collections")
+        await _run("DELETE FROM content_reports WHERE reporter_id = :uid", "reports_filed")
+        await _run(
+            "DELETE FROM notifications WHERE recipient_id = :uid OR actor_id = :uid", "notifications"
+        )
+        await _run("DELETE FROM point_transactions WHERE user_id = :uid", "point_rows")
+        # A room outlives the person who opened it; it simply loses its owner.
+        await _run("UPDATE rooms SET created_by = NULL WHERE created_by = :uid", "rooms_orphaned")
+
+        for post_ids, sql in (
+            (comment_posts, "comment_count = (SELECT COUNT(*) FROM post_comments c WHERE c.post_id = p.id)"),
+            (reaction_posts,
+             "like_count = (SELECT COUNT(*) FROM post_reactions r WHERE r.post_id = p.id AND r.kind = 'like'), "
+             "helpful_count = (SELECT COUNT(*) FROM post_reactions r WHERE r.post_id = p.id AND r.kind = 'helpful')"),
+            (share_posts, "share_count = (SELECT COUNT(*) FROM post_shares s WHERE s.post_id = p.id)"),
+        ):
+            if not post_ids:
+                continue
+            ids = ", ".join(str(int(i)) for i in post_ids)
+            await session.execute(text(f"UPDATE posts p SET {sql} WHERE p.id IN ({ids})"))
+
+        await _run("DELETE FROM users WHERE id = :uid", "users")
+
+    logger.info(f"admin deleted user {user_id}: {removed}")
+    return removed
+
+
+async def set_disabled(
+    user_id: int | str,
+    disabled: bool,
+    *,
+    reason: Optional[str] = None,
+    until: Optional[datetime] = None,
+) -> None:
+    """
+    Suspend (with an optional reason and release time) or restore an account.
+    Restoring always clears the reason and the release time.
+    """
+    try:
+        uid = int(user_id)
+    except (ValueError, TypeError):
+        raise UserError(f"Invalid user_id: {user_id}")
+    async with _mariadb_session() as session:
+        await session.execute(
+            update(_UserRow)
+            .where(_UserRow.id == uid)
+            .values(
+                disabled=1 if disabled else 0,
+                suspend_reason=(" ".join((reason or "").split())[:255] or None) if disabled else None,
+                suspended_until=until if disabled else None,
+                updated_at=datetime.utcnow(),
+            )
+        )
+
+
+def suspension_text(user: User) -> str:
+    """The message a suspended person sees, with the reason and end date when set."""
+    parts = ["บัญชีนี้ถูกระงับการใช้งาน"]
+    if user.suspend_reason:
+        parts.append(f"เหตุผล: {user.suspend_reason}")
+    if user.suspended_until:
+        parts.append(f"จนถึง {user.suspended_until[:10]}")
+    parts.append("กรุณาติดต่อผู้ดูแลระบบ")
+    return " ".join(parts)
+
+
+async def suspension_lifted(user: User) -> bool:
+    """
+    A timed suspension ends by itself: when ``suspended_until`` has passed the
+    account is restored on its next request and this returns True.
+    """
+    if not user.disabled or not user.suspended_until or user.id is None:
+        return False
+    try:
+        until = datetime.fromisoformat(user.suspended_until)
+    except ValueError:
+        return False
+    if until.tzinfo is not None:
+        until = until.astimezone(timezone.utc).replace(tzinfo=None)
+    if until > datetime.utcnow():
+        return False
+    await set_disabled(user.id, False)
+    user.disabled = False
+    user.suspend_reason = None
+    user.suspended_until = None
+    logger.info(f"suspension of user {user.id} expired and was lifted")
+    return True
+
+
+async def is_allowed_teacher(email: str) -> bool:
+    """Check if an email is in the allowed_teachers whitelist table."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_AllowedTeacherRow).where(text("LOWER(email) = :email")).params(email=email)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def add_allowed_teacher(email: str, department: Optional[str] = None, role: str = "teacher") -> bool:
+    """Add a teacher email to the whitelist table."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_AllowedTeacherRow).where(text("LOWER(email) = :email")).params(email=email)
+        )
+        if result.scalar_one_or_none() is not None:
+            return True
+        session.add(_AllowedTeacherRow(email=email, department=department, role=role))
+        return True

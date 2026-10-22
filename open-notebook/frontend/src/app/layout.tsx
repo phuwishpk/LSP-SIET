@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Thai, Inter, Noto_Sans_Thai, Nunito } from "next/font/google";
+import { Inter } from "next/font/google";
+import { sietFontVariables } from "@siet/platform/lib/fonts"; // KMITL
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,24 +11,7 @@ import { ConnectionGuard } from "@/components/common/ConnectionGuard";
 import { themeScript } from "@/lib/theme-script";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-// DESIGN.md's display face for the AI Learning Adventure theme (Latin only;
-// Thai falls back to IBM Plex Sans Thai through the font stack).
-const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
-
-// Thai faces for the SIET theme (`.theme-siet` in globals.css). Only the CSS
-// variables are set here; without preload the files are fetched by the pages
-// that actually use the family. Noto Sans Thai is a variable font and must stay
-// without a weight list: Turbopack fails to resolve its files when one is given.
-const plexThai = IBM_Plex_Sans_Thai({
-  weight: ["400", "500", "600"],
-  variable: "--font-ibm-plex-thai",
-  preload: false,
-});
-const notoThai = Noto_Sans_Thai({
-  variable: "--font-noto-thai",
-  preload: false,
-});
+const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Open Notebook",
@@ -44,7 +28,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${inter.className} ${inter.variable} ${plexThai.variable} ${notoThai.variable} ${nunito.variable}`}>
+      <body className={`${inter.className} ${sietFontVariables}`}>
         <ErrorBoundary>
           <ThemeProvider>
             <QueryProvider>

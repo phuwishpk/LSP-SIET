@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Literal, Optional
 
 from loguru import logger
 
+from open_notebook import extensions
 from open_notebook.domain.notebook import Note, Notebook, Source
 from open_notebook.exceptions import DatabaseOperationError, NotFoundError
 
@@ -54,16 +55,6 @@ class ContextConfig:
             self.notes = {}
         if self.priority_weights is None:
             self.priority_weights = {"source": 100, "note": 50, "insight": 75}
-
-    def to_cache_key(self) -> Dict[str, Any]:
-        """Return a dict suitable for use as a cache key."""
-        return {
-            "sources": dict(sorted((self.sources or {}).items())),
-            "notes": dict(sorted((self.notes or {}).items())),
-            "include_insights": self.include_insights,
-            "include_notes": self.include_notes,
-            "max_tokens": self.max_tokens,
-        }
 
 
 class ContextBuilder:
@@ -125,15 +116,13 @@ class ContextBuilder:
             # Clear existing items
             self.items = []
 
-            # Check cache first (only for notebook-level builds with consistent config)
+            # KMITL hook: an installed cache may hold this notebook-level build
+            cache_key = (self.notebook_id, self.context_config)
             if self.notebook_id and self.context_config:
-                from open_notebook.cache.service import cache_service
-
-                cache_config = self.context_config.to_cache_key()
-                cached = await cache_service.get_context(self.notebook_id, cache_config)
+                cached = await extensions.cache_get("context", cache_key)
                 if cached is not None:
-                    logger.debug(f"Context cache hit for notebook {self.notebook_id}")
-                    return self._format_response_from_items(cached)
+                    self.items = cached
+                    return self._format_response()
 
             # Build context based on parameters
             if self.source_id:
@@ -154,17 +143,8 @@ class ContextBuilder:
 
             # Format and return response
             response = self._format_response()
-
-            # Cache the result if this is a notebook-level build
             if self.notebook_id and self.context_config:
-                from open_notebook.cache.service import cache_service
-
-                await cache_service.set_context(
-                    self.notebook_id,
-                    self.context_config.to_cache_key(),
-                    self.items,
-                )
-
+                await extensions.cache_set("context", cache_key, self.items)  # KMITL hook
             return response
 
         except Exception as e:
@@ -395,28 +375,6 @@ class ContextBuilder:
 
         if removed_count > 0:
             logger.debug(f"Removed {removed_count} duplicate items")
-
-    def _items_from_dicts(self, items_data: List[Dict]) -> List[ContextItem]:
-        """Reconstruct ContextItem list from cached dict data."""
-        result = []
-        for item_data in items_data:
-            try:
-                item = ContextItem(
-                    id=item_data.get("id", ""),
-                    type=item_data.get("type", "source"),
-                    content=item_data.get("content", {}),
-                    priority=item_data.get("priority", 0),
-                    token_count=item_data.get("token_count"),
-                )
-                result.append(item)
-            except Exception as e:
-                logger.warning(f"Failed to reconstruct ContextItem from cache: {e}")
-        return result
-
-    def _format_response_from_items(self, items_data: List[Dict]) -> Dict[str, Any]:
-        """Format response from cached items data (no DB queries needed)."""
-        self.items = self._items_from_dicts(items_data)
-        return self._format_response()
 
     def _format_response(self) -> Dict[str, Any]:
         """

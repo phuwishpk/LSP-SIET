@@ -1,0 +1,4 @@
+-- k3 down (was core migration 20_down)
+-- Migration 20 rollback: drop user accounts table
+REMOVE INDEX IF EXISTS idx_user_username ON TABLE user;
+REMOVE TABLE IF EXISTS user;

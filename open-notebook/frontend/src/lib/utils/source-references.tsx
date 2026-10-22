@@ -248,7 +248,7 @@ export function convertReferencesToMarkdownLinks(text: string): string {
   // If no references found, return original text
   if (references.length === 0) return text
 
-  // Step 3: Process references from end to start (to preserve indices)
+  // Step 2: Process references from end to start (to preserve indices)
   let result = text
   for (let i = references.length - 1; i >= 0; i--) {
     const ref = references[i]
@@ -431,11 +431,13 @@ function convertReferencesToCompactMarkdownImpl(text: string, referencesLabel: s
     const refData = referenceMap.get(key)!
     const number = refData.number
 
+    // Analyze context around the reference
     const refStart = reference.startIndex
     const refEnd = reference.endIndex
     const contextBefore = result.substring(Math.max(0, refStart - 2), refStart)
     const contextAfter = result.substring(refEnd, Math.min(result.length, refEnd + 2))
 
+    // Determine what to replace based on bracket context
     let replaceStart = refStart
     let replaceEnd = refEnd
 
@@ -478,36 +480,6 @@ function convertReferencesToCompactMarkdownImpl(text: string, referencesLabel: s
     refListLines.push(refListItem)
   }
   return result + refListLines.join('\n')
-}
-
-/**
- * Extract the sources / notes / URLs actually cited in a message, deduplicated
- * and preserving first-appearance order. IDs are stripped of the `source:` /
- * `note:` prefix so callers can join them with a display name from a lookup.
- */
-export function extractCitedReferences(text: string): {
-  sources: string[]
-  notes: string[]
-  urls: string[]
-} {
-  const parsed = parseSourceReferences(text)
-  const sources = new Set<string>()
-  const notes = new Set<string>()
-  const urls = new Set<string>()
-  for (const ref of parsed) {
-    if (ref.type === 'source' || ref.type === 'source_insight') {
-      sources.add(ref.id)
-    } else if (ref.type === 'note') {
-      notes.add(ref.id)
-    } else if (ref.type === 'url') {
-      urls.add(ref.id)
-    }
-  }
-  return {
-    sources: [...sources],
-    notes: [...notes],
-    urls: [...urls],
-  }
 }
 
 /**

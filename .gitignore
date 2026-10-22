@@ -41,3 +41,6 @@ deploy/*.sql
 
 # local markdown-collab MCP tool config
 .markdown-collab/
+
+# make migrate-split copies of surreal_data
+backups/

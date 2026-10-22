@@ -36,7 +36,7 @@ export const esES = {
     podcast: "Podcast",
     quickActions: "Acciones rápidas",
     quickActionsDesc: "Navegación, búsqueda, preguntar, tema",
-    appName: "LSP-SIET",
+    appName: "Open Notebook",
     add: "Agregar",
     remove: "Quitar",
     confirm: "Confirmar",

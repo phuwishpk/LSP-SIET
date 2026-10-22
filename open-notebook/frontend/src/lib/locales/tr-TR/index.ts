@@ -36,7 +36,7 @@ export const trTR = {
     podcast: "Podcast",
     quickActions: "Hızlı eylemler",
     quickActionsDesc: "Gezinme, arama, sor, tema",
-    appName: "LSP-SIET",
+    appName: "Open Notebook",
     add: "Ekle",
     remove: "Kaldır",
     confirm: "Onayla",

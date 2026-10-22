@@ -18,7 +18,6 @@ from .chunking import (
     detect_content_type_from_heuristics,
 )
 from .embedding import (
-    cached_generate_embeddings,
     generate_embedding,
     generate_embeddings,
     mean_pool_embeddings,

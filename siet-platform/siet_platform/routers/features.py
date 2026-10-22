@@ -1,0 +1,293 @@
+"""
+API router for the bundled AI feature modules (Quiz + Roadmap).
+
+Endpoints are protected by the existing `PasswordAuthMiddleware` and
+require an `X-Owner-Id` header to separate data across users. If the
+header is missing, the request is attributed to the `default` user so
+single-user deployments keep working without any config changes.
+"""
+
+from __future__ import annotations
+
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
+from loguru import logger
+
+from siet_platform.auth_jwt import optional_current_user
+from siet_platform import points
+from siet_platform.users import User
+
+from siet_platform.features.schemas import (
+    QuizGenerateRequest,
+    QuizGenerateResponse,
+    QuizSessionResponse,
+    QuizSessionSummary,
+    RoadmapGenerateRequest,
+    RoadmapGenerateResponse,
+    RoadmapSessionResponse,
+    RoadmapSessionSummary,
+)
+from siet_platform.features.domain import QuizSession, RoadmapSession
+from open_notebook.exceptions import (
+    ConfigurationError,
+    DatabaseOperationError,
+    ExternalServiceError,
+    InvalidInputError,
+    NotFoundError,
+)
+from siet_platform.features import service as feature_service
+
+router = APIRouter(prefix="/features", tags=["features"])
+
+DEFAULT_OWNER_ID = "default"
+
+
+def _insufficient(exc: points.InsufficientPoints) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_402_PAYMENT_REQUIRED,
+        detail=f"แต้มไม่พอ: ต้องใช้ {exc.required} แต้ม แต่คุณมี {exc.balance} แต้ม",
+        headers={
+            "X-Points-Required": str(exc.required),
+            "X-Points-Balance": str(exc.balance),
+            "X-Points-Kind": exc.kind,
+        },
+    )
+
+
+async def _charge(user: Optional[User], kind: str) -> Optional[points.Charge]:
+    """Charge the wallet when the caller is a workspace user (JWT)."""
+    if user is None or user.id is None:
+        return None  # legacy shared-password callers have no wallet
+    try:
+        return await points.charge(user, kind, ref_type=kind)
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+
+def _resolve_owner_id(
+    request: Request,
+    x_owner_id: Optional[str] = Header(default=None, alias="X-Owner-Id"),
+) -> str:
+    """
+    Read the per-user identifier from the request.
+
+    Priority:
+      1. ``X-Owner-Id`` header supplied by the caller
+      2. ``request.state.owner_id`` populated by the auth middleware
+         (resolved from the verified JWT subject)
+      3. ``"default"`` so legacy single-user setups keep working
+    """
+    header_value = (x_owner_id or "").strip()
+    if header_value:
+        return header_value
+    state_owner = getattr(request.state, "owner_id", None)
+    if state_owner:
+        return str(state_owner)
+    return DEFAULT_OWNER_ID
+
+
+def _session_to_quiz_response(session: QuizSession) -> QuizSessionResponse:
+    return QuizSessionResponse(
+        id=session.id or "",
+        owner_id=session.owner_id,
+        topic=session.topic,
+        language=session.language,
+        question_count=session.question_count,
+        questions=session.questions,
+        notebook_id=session.notebook_id,
+        model_id=session.model_id,
+        prompt_hash=session.prompt_hash,
+        created=str(session.created),
+        updated=str(session.updated),
+    )
+
+
+def _session_to_roadmap_response(session: RoadmapSession) -> RoadmapSessionResponse:
+    return RoadmapSessionResponse(
+        id=session.id or "",
+        owner_id=session.owner_id,
+        title=session.title,
+        description=session.description,
+        language=session.language,
+        node_count=session.node_count,
+        nodes=session.nodes,
+        edges=session.edges,
+        notebook_id=session.notebook_id,
+        model_id=session.model_id,
+        prompt_hash=session.prompt_hash,
+        created=str(session.created),
+        updated=str(session.updated),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Quiz endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.get("/quiz/sessions", response_model=List[QuizSessionSummary])
+async def list_quiz_sessions(
+    limit: int = 50,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """List all quiz sessions belonging to the request owner."""
+    try:
+        sessions = await QuizSession.list_for_owner(owner_id=owner_id, limit=limit)
+    except DatabaseOperationError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    return [
+        QuizSessionSummary(
+            id=session.id or "",
+            topic=session.topic,
+            language=session.language,
+            question_count=session.question_count,
+            created=str(session.created),
+        )
+        for session in sessions
+    ]
+
+
+@router.get("/quiz/sessions/{session_id}", response_model=QuizSessionResponse)
+async def get_quiz_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Fetch a single quiz session, scoped to the request owner."""
+    try:
+        session = await QuizSession.get_for_owner(
+            session_id=session_id, owner_id=owner_id
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Quiz session not found")
+    except DatabaseOperationError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    return _session_to_quiz_response(session)
+
+
+@router.delete("/quiz/sessions/{session_id}")
+async def delete_quiz_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Delete a quiz session owned by the request owner."""
+    try:
+        session = await QuizSession.get_for_owner(
+            session_id=session_id, owner_id=owner_id
+        )
+        await session.delete_for_owner(owner_id)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Quiz session not found")
+    except DatabaseOperationError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    return {"message": "Quiz session deleted"}
+
+
+# ---------------------------------------------------------------------------
+# Roadmap endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/roadmap/generate", response_model=RoadmapGenerateResponse)
+async def generate_roadmap(
+    request: RoadmapGenerateRequest,
+    owner_id: str = Depends(_resolve_owner_id),
+    user: Optional[User] = Depends(optional_current_user),
+):
+    """Generate a new project roadmap and persist it for the request owner (15 pt)."""
+    charge = await _charge(user, "roadmap_generate")
+    report: dict = {}
+    try:
+        session = await feature_service.generate_roadmap(
+            owner_id=owner_id,
+            description=request.description,
+            title=request.title,
+            language=request.language,
+            node_count=request.node_count,
+            notebook_id=request.notebook_id,
+            model_id=request.model_id,
+            report=report,
+        )
+    except (InvalidInputError, ConfigurationError, ExternalServiceError) as exc:
+        await points.refund(charge, "roadmap generation failed")
+        logger.warning(f"Roadmap generation rejected for {owner_id}: {exc}")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except DatabaseOperationError as exc:
+        await points.refund(charge, "roadmap generation failed")
+        logger.exception(f"Database error while generating roadmap for {owner_id}")
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    except Exception as exc:
+        await points.refund(charge, "roadmap generation failed")
+        logger.exception(f"Unexpected error while generating roadmap for {owner_id}")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+    cached = bool(report.get("cached"))
+    if cached:
+        await points.refund(charge, "cached roadmap – no compute cost")
+    else:
+        await points.set_charge_ref(charge, "roadmap_session", session.id or "")
+
+    return RoadmapGenerateResponse(
+        session=_session_to_roadmap_response(session),
+        cached=cached,
+    )
+
+
+@router.get("/roadmap/sessions", response_model=List[RoadmapSessionSummary])
+async def list_roadmap_sessions(
+    limit: int = 50,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """List all roadmap sessions belonging to the request owner."""
+    try:
+        sessions = await RoadmapSession.list_for_owner(
+            owner_id=owner_id, limit=limit
+        )
+    except DatabaseOperationError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    return [
+        RoadmapSessionSummary(
+            id=session.id or "",
+            title=session.title,
+            description=session.description,
+            language=session.language,
+            node_count=session.node_count,
+            created=str(session.created),
+        )
+        for session in sessions
+    ]
+
+
+@router.get("/roadmap/sessions/{session_id}", response_model=RoadmapSessionResponse)
+async def get_roadmap_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Fetch a single roadmap session, scoped to the request owner."""
+    try:
+        session = await RoadmapSession.get_for_owner(
+            session_id=session_id, owner_id=owner_id
+        )
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Roadmap session not found")
+    except DatabaseOperationError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    return _session_to_roadmap_response(session)
+
+
+@router.delete("/roadmap/sessions/{session_id}")
+async def delete_roadmap_session(
+    session_id: str,
+    owner_id: str = Depends(_resolve_owner_id),
+):
+    """Delete a roadmap session owned by the request owner."""
+    try:
+        session = await RoadmapSession.get_for_owner(
+            session_id=session_id, owner_id=owner_id
+        )
+        await session.delete_for_owner(owner_id)
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Roadmap session not found")
+    except DatabaseOperationError as exc:
+        raise HTTPException(status_code=500, detail=f"Database error: {exc}")
+    return {"message": "Roadmap session deleted"}

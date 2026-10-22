@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   // Keep the Next.js rewrite proxy limit aligned with the FastAPI upload limit.
   // Otherwise Next.js truncates large multipart requests before they reach the API.
   experimental: {
+    externalDir: true,
     proxyClientMaxBodySize: `${process.env.OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB || '2048'}mb`,
   } as NextConfig['experimental'],
 

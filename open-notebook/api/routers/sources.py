@@ -31,6 +31,7 @@ from api.models import (
 )
 from commands.source_commands import SourceProcessingInput
 from open_notebook.config import UPLOADS_FOLDER
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import Asset, Notebook, Source
 from open_notebook.domain.transformation import Transformation
@@ -199,7 +200,7 @@ async def get_sources(
     sort_order: str = Query("desc", description="Sort order (asc or desc)"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Get sources with pagination and sorting support (scoped to the authenticated user)."""
+    """Get sources with pagination and sorting support."""
     try:
         # Validate sort parameters
         if sort_by not in SOURCE_SORT_FIELDS:
@@ -222,14 +223,14 @@ async def get_sources(
 
         # Build the query
         if notebook_id:
-            # Verify notebook exists and belongs to the owner
+            # Verify notebook exists first
             notebook = await Notebook.get(notebook_id)
             if not notebook:
                 raise HTTPException(status_code=404, detail="Notebook not found")
             if not owner_can_access(notebook, owner_id):
                 raise HTTPException(status_code=404, detail="Notebook not found")
 
-            # Query sources for specific notebook
+            # Query sources for specific notebook - include command field with FETCH
             query = f"""
                 SELECT id, asset, created, title, updated, topics, command,
                 ({SOURCE_TYPE_EXPRESSION}) AS type,
@@ -249,7 +250,7 @@ async def get_sources(
                 },
             )
         else:
-            # Query all sources scoped to the owner
+            # Query all sources - include command field with FETCH
             query = f"""
                 SELECT id, asset, created, title, updated, topics, command,
                 ({SOURCE_TYPE_EXPRESSION}) AS type,
@@ -336,14 +337,14 @@ async def create_source(
     ),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Create a new source (scoped to the authenticated user)."""
+    """Create a new source with support for both JSON and multipart form data."""
     source_data, upload_file = form_data
 
     # Initialize file_path before try block so exception handlers can reference it
     file_path = None
 
     try:
-        # Verify all specified notebooks exist and belong to the owner
+        # Verify all specified notebooks exist (backward compatibility support)
         for notebook_id in source_data.notebooks or []:
             notebook = await Notebook.get(notebook_id)
             if not notebook:
@@ -795,7 +796,7 @@ async def get_source_status(
 ):
     """Get processing status for a source."""
     try:
-        # First, verify source exists and belongs to the owner
+        # First, verify source exists
         source = await Source.get(source_id)
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
@@ -881,19 +882,8 @@ async def update_source(
 
         await source.save()
 
-        # Phase 2: title/topic changes don't affect retrievable content, but
-        # we still bump so any cached answer that referenced the source by
-        # version is correctly invalidated.
-        try:
-            from open_notebook.cache.invalidation import (
-                invalidate_after_source_change,
-            )
-
-            await invalidate_after_source_change(source_id, clear_cache=False)
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: knowledge_version bump failed for source {source_id}: {exc}"
-            )
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("source.changed", source_id=source_id, clear_cache=False)
 
         embedded_chunks = await source.get_embedded_chunks()
         return SourceResponse(
@@ -928,7 +918,7 @@ async def retry_source_processing(
 ):
     """Retry processing for a failed or stuck source (scoped to the authenticated user)."""
     try:
-        # First, verify source exists and belongs to the owner
+        # First, verify source exists
         source = await Source.get(source_id)
         if not source:
             raise HTTPException(status_code=404, detail="Source not found")
@@ -994,19 +984,8 @@ async def retry_source_processing(
             # Import command modules to ensure they're registered
             import commands.source_commands  # noqa: F401
 
-            # Phase 2: retry is effectively a reprocess. Bump the source
-            # version BEFORE submitting the job so the background command
-            # can't write back a cached answer with the old version.
-            try:
-                from open_notebook.cache.invalidation import (
-                    invalidate_after_source_change,
-                )
-
-                await invalidate_after_source_change(source_id, clear_cache=True)
-            except Exception as exc:
-                logger.warning(
-                    f"Phase 2: pre-retry version bump failed: {exc}"
-                )
+            # KMITL hook: answer-cache invalidation
+            await extensions.emit("source.changed", source_id=source_id, clear_cache=True)
 
             # Submit new command for background processing
             command_input = SourceProcessingInput(
@@ -1088,19 +1067,8 @@ async def delete_source(
         if not owner_can_access(source, owner_id):
             raise HTTPException(status_code=404, detail="Source not found")
 
-        # Phase 2: bump every notebook that references this source BEFORE
-        # the actual delete so the answer cache fingerprint is already
-        # stale by the time the delete commits.
-        try:
-            from open_notebook.cache.invalidation import (
-                invalidate_after_source_change,
-            )
-
-            await invalidate_after_source_change(source_id, clear_cache=True)
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: pre-delete version bump failed for {source_id}: {exc}"
-            )
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("source.changed", source_id=source_id, clear_cache=True)
 
         await source.delete()
 

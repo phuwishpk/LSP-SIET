@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5; RAG hardening + ธีม SIET Pink — ข้อ 6.3)
+> อัปเดตล่าสุด: 23 ตุลาคม 2026 (แยกโค้ด KMITL ออกเป็น `siet-platform/` `kmitl-rag/` `community/` — ข้อ 4, ข้อ 12 และ `docs/ARCHITECTURE.md`; หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5; RAG hardening + ธีม SIET Pink — ข้อ 6.3)
 
 ## สารบัญ
 
@@ -88,10 +88,11 @@ open-notebook อีกที
 │ API — FastAPI (Python 3.11)                                 │
 │                                                             │
 │  middleware:  RoleAccessMiddleware  →  PasswordAuthMiddleware│
-│  routers:     community / admin / google_auth / features /  │
-│               notebooks / sources / models / ...            │
-│  services:    community/{points,repository,library,         │
-│               retrieval,ask,ratelimit,schema}.py            │
+│  routers:     notebooks / sources / models / ... (open-notebook)│
+│               + siet_platform / kmitl_rag / siet_community  │
+│               ลงทะเบียนผ่าน open_notebook/extensions.py      │
+│  services:    siet_platform.{points,library,retrieval,...}  │
+│               kmitl_rag.ask · siet_community.repository     │
 └──────┬───────────────────────────┬──────────────────┬───────┘
        │                           │                  │
        ▼                           ▼                  ▼
@@ -111,9 +112,10 @@ open-notebook อีกที
 
 ### 2.3 ลำดับการทำงานของ middleware
 
-Starlette รัน middleware **ย้อนลำดับการลงทะเบียน** ดังนั้นใน `api/main.py`
-ต้องลงทะเบียน `RoleAccessMiddleware` **ก่อน** `PasswordAuthMiddleware`
-เพื่อให้ตอนรันจริง auth ทำงานก่อนแล้ว role ค่อยอ่าน `request.state.owner_id` ได้
+Starlette รัน middleware **ย้อนลำดับการลงทะเบียน** `api/main.py` เรียก `extensions.install_app(app)`
+ก่อนเพิ่ม `PasswordAuthMiddleware` ดังนั้น `RoleAccessMiddleware` (ลงทะเบียนใน `siet_platform/extension.py`)
+จึงถูกลงทะเบียนก่อน และตอนรันจริง auth ทำงานก่อนแล้ว role ค่อยอ่าน `request.state.owner_id` ได้
+การตรวจ JWT เองอยู่ใน `siet_platform/auth_backend.py` ซึ่ง `PasswordAuthMiddleware` เรียกผ่าน hook
 
 ---
 
@@ -168,49 +170,52 @@ Docker Compose, Traefik v2.11 (reverse proxy + basic auth), supervisord ใน c
 
 ## 4. โครงสร้างโฟลเดอร์
 
+โค้ดที่ทีมเขียนอยู่ใน 3 แพ็กเกจที่ root ส่วน `open-notebook/` เป็นของ upstream (+ hook) รายละเอียดและกฎการ import
+อยู่ใน `docs/ARCHITECTURE.md`
+
 ```
 kmitlAI/
 ├── docker-compose.yml           ← นิยาม service ทั้งหมด (production)
 ├── docker-compose-dev.yml       ← stack สำหรับ dev (hot reload)
-├── Makefile                     ← make up / down / logs / ps ...
+├── Makefile                     ← make up / down / logs / test-backend / test-frontend / migrate-split ...
 ├── .env / .env.example          ← ค่า config ทั้งหมด
 ├── docker/
 │   ├── open-notebook/           ← Dockerfile + supervisord.conf
 │   └── traefik/                 ← traefik.yml + dynamic/all.yml (router, basic auth)
 │
-├── open-notebook/               ← แอปหลัก
-│   ├── api/
-│   │   ├── main.py              ← ลงทะเบียน router, middleware, seed ข้อมูลเริ่มต้น
-│   │   ├── auth_jwt.py          ← get_current_user (ปฏิเสธบัญชีที่ถูกระงับ)
-│   │   ├── auth_roles.py        ← RoleAccessMiddleware (RBAC ตาม prefix)
-│   │   └── routers/
-│   │       ├── community.py     ← ฟีด ห้อง โพสต์ คลังความรู้ RAG (ไฟล์ใหญ่สุด)
-│   │       ├── admin.py         ← คอนโซลผู้ดูแล
-│   │       ├── google_auth.py   ← SSO /auth/google/{start,exchange}
-│   │       ├── features.py      ← สร้างควิซ/roadmap (หักแต้ม)
-│   │       └── ... (notebooks, sources, models, settings ...)
-│   ├── open_notebook/
-│   │   ├── community/
-│   │   │   ├── schema.py        ← DDL ของ MariaDB (idempotent รันทุกครั้งที่ API start)
-│   │   │   ├── repository.py    ← SQL ของฟีด/ห้อง/คอมเมนต์/รีแอ็กชัน
-│   │   │   ├── points.py        ← ราคา โบนัส เพดานรายวัน กระเป๋าแต้ม
-│   │   │   ├── library.py       ← คลังความรู้ → สร้าง Source + notebook
-│   │   │   ├── retrieval.py     ← ค้น vector เฉพาะ notebook (เขียนเอง)
-│   │   │   ├── ask.py           ← KMITL RAG AI
-│   │   │   └── ratelimit.py     ← กันสแปม (cooldown + โควตา + ลายนิ้วมือเนื้อหา)
-│   │   ├── domain/user.py       ← โมเดล User + query MariaDB
-│   │   └── database/migrations/ ← migration ของ SurrealDB
+├── open-notebook/               ← fork ของ lfnovo/open-notebook (ดู docs/UPSTREAM.md)
+│   ├── api/main.py              ← เรียก extensions.install_app / finalize_app / app.startup
+│   ├── api/dependencies.py      ← owner scoping (get_owner_id, owner_can_access)
+│   ├── open_notebook/extensions.py   ← hook points ของ backend
 │   └── frontend/src/
-│       ├── app/(dashboard)/community/page.tsx   ← หน้า 3 คอลัมน์
-│       ├── app/(dashboard)/community/ask/page.tsx ← หน้าเต็มของ KMITL RAG AI
-│       ├── app/(dashboard)/admin/page.tsx       ← คอนโซลผู้ดูแล
-│       ├── app/(dashboard)/teacher/page.tsx     ← คอนโซลอาจารย์
-│       ├── components/community/                ← 14 คอมโพเนนต์ (ดูข้อ 12)
-│       └── lib/{api,hooks,stores,utils}/        ← เรียก API + state
+│       ├── lib/extensions.ts    ← hook points ของหน้าเว็บ (+ extensions.installed.ts)
+│       └── app/...              ← route ทั้งหมด (หน้าของ KMITL เป็น stub บรรทัดเดียว)
+│
+├── siet-platform/               ← บัญชี JWT สิทธิ์ แต้ม throttle cache คลังเอกสาร ควิซ/roadmap
+│   ├── siet_platform/
+│   │   ├── users.py, auth_jwt.py, auth_backend.py, auth_roles.py, login_guard.py
+│   │   ├── schema.py            ← DDL ของ MariaDB (idempotent รันทุกครั้งที่ API start)
+│   │   ├── points.py            ← ราคา โบนัส เพดานรายวัน กระเป๋าแต้ม
+│   │   ├── library.py           ← คลังความรู้ → สร้าง Source + notebook
+│   │   ├── retrieval.py         ← ค้น vector เฉพาะ notebook
+│   │   ├── ratelimit.py         ← กันสแปม (cooldown + โควตา + ลายนิ้วมือเนื้อหา)
+│   │   ├── cache/  features/  migrations/ (k1–k8)  prompts/
+│   │   └── routers/             ← users, google_auth, features, admin (บัญชี/แต้ม/สุขภาพ), cache_admin
+│   └── frontend/src/            ← @siet/platform: lib/api, lib/hooks, auth, เมนู, header, LibraryPanel, คอนโซลผู้ดูแลหลัก
+│
+├── kmitl-rag/                   ← KMITL RAG AI
+│   ├── kmitl_rag/               ← ask.py, grounding.py, history.py, notebook_ask.py, chat_filters.py,
+│   │                              routers/{ask,admin,global_chat,notebook_ask}.py
+│   └── frontend/src/            ← @siet/kmitl-rag: /community/ask, AiQuickWidget, global chat, /admin/rag
+│
+├── community/                   ← SIET Space
+│   ├── siet_community/          ← repository.py (ฟีด/ห้อง/คอมเมนต์), moderation.py, catalog.py,
+│   │                              roadmap_plan.py, routers/{community,admin,features}.py
+│   └── frontend/src/            ← @siet/community: /community, /teacher, /admin/{community,quiz,roadmap}, /features
 │
 ├── My-ai-quiz/                  ← Next.js (มี Dockerfile อย่างเดียว)
 ├── ai-roadmap-generator/        ← Next.js + PocketBase
-└── docs/SYSTEM-GUIDE.md         ← เอกสารนี้
+└── docs/                        ← SYSTEM-GUIDE.md (เอกสารนี้), ARCHITECTURE.md, UPSTREAM.md
 ```
 
 ---
@@ -604,7 +609,7 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | เรื่อง | ทำงานอย่างไร | ที่เก็บ |
 |---|---|---|
 | **หมวดหมู่** (ภาควิชา/สาขา) | ชั้นเดียว ไม่มีต้นไม้ — ห้องวิชาเลือกได้ 1 หมวด ใช้กรองในหน้าค้นหาและจัดกลุ่มในตารางผู้ดูแล; ลบหมวดแล้วห้องกลายเป็น "ไม่ระบุหมวด" ไม่มีอะไรถูกลบ; ผู้ดูแลจัดการที่ `/admin/community` แท็บ "หมวดหมู่" | ตาราง `categories` (`slug` unique) + `rooms.category_id` (ไม่มี FK) |
-| **ข้อมูลตั้งต้น** | 13 สาขาวิชา ป.ตรี ของ SIET (4 ภาควิชา) + "ทั่วไป" และรายวิชาตัวอย่างสาขาละ 5 วิชาจากเล่มหลักสูตร มคอ.2 — seed ตอน API เริ่มทำงาน เพิ่มเฉพาะที่ยังไม่มี ไม่ทับของอาจารย์ | `open_notebook/community/catalog.py` |
+| **ข้อมูลตั้งต้น** | 13 สาขาวิชา ป.ตรี ของ SIET (4 ภาควิชา) + "ทั่วไป" และรายวิชาตัวอย่างสาขาละ 5 วิชาจากเล่มหลักสูตร มคอ.2 — seed ตอน API เริ่มทำงาน เพิ่มเฉพาะที่ยังไม่มี ไม่ทับของอาจารย์ | `community/siet_community/catalog.py` |
 | **ภาคการศึกษา** | ข้อความสั้น เช่น `1/2569` บนห้อง | `rooms.term` |
 | **รหัสเข้าห้อง** | ถ้าอาจารย์ตั้งไว้ นักศึกษาต้องกรอกครั้งเดียวตอนเข้าร่วม (`POST /courses/{id}/join` ส่ง `{code}`; ไม่มีหรือผิด → 403 + header `X-Join-Code-Required: 1`); ไม่ตั้ง = เข้าได้เลยเหมือนเดิม; ผู้สอน/ผู้ช่วยสอน/ผู้ดูแลไม่ต้องใช้; API ส่งรหัสกลับให้เฉพาะคนที่จัดการห้องได้ คนอื่นเห็นแค่ `requires_code` | `rooms.join_code` (เก็บตัวพิมพ์ใหญ่) |
 | **ผู้ช่วยสอน (TA)** | เจ้าของห้องตั้งสมาชิกคนใดก็ได้เป็น TA (บัญชีนักศึกษาก็ได้) → เพิ่มเนื้อหาเข้าคลังของห้องและดูรายชื่อสมาชิกได้เหมือนผู้สอน แต่แก้ข้อมูลห้อง/เก็บถาวร/นำคนออกไม่ได้ | `room_members.role` (`member`\|`ta`) |
@@ -667,7 +672,7 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 
 | เรื่อง | ทำงานอย่างไร | ที่เก็บ / โค้ด |
 |---|---|---|
-| **รายงาน** | ผู้ใช้ที่ล็อกอินรายงานโพสต์/ความคิดเห็น/ผู้ใช้/เอกสาร ด้วยเหตุผล 5 แบบ + รายละเอียด; รายงานได้คนละ 1 ครั้งต่อรายการ (409 ถ้าซ้ำ) รายงานของตัวเองไม่ได้ (400) รายงานโพสต์ที่ตัวเองมองไม่เห็นไม่ได้ (404); **ไม่ซ่อนอัตโนมัติ** | `content_reports` · `POST /community/reports` · `GET /community/reports/mine?target_type&ids=` (ปุ่ม "รายงานแล้ว") · `community/moderation.py` |
+| **รายงาน** | ผู้ใช้ที่ล็อกอินรายงานโพสต์/ความคิดเห็น/ผู้ใช้/เอกสาร ด้วยเหตุผล 5 แบบ + รายละเอียด; รายงานได้คนละ 1 ครั้งต่อรายการ (409 ถ้าซ้ำ) รายงานของตัวเองไม่ได้ (400) รายงานโพสต์ที่ตัวเองมองไม่เห็นไม่ได้ (404); **ไม่ซ่อนอัตโนมัติ** | `content_reports` · `POST /community/reports` · `GET /community/reports/mine?target_type&ids=` (ปุ่ม "รายงานแล้ว") · `community/siet_community/moderation.py` |
 | **คิวของเจ้าของห้อง** | ผู้สอน/TA เห็นรายงานของเนื้อหาในห้องตัวเองที่หน้าตั้งค่าห้อง (การ์ด "รายงานในห้อง"); เจ้าของห้องทำได้: ซ่อนโพสต์ (`hide_post` = soft delete), ลบความคิดเห็น, ปัดตก — เรื่องบัญชีผู้ใช้ส่งต่อผู้ดูแล | `GET /community/courses/{id}/reports`, `POST …/reports/{rid}` |
 | **คิวผู้ดูแล** | `/admin/community` แท็บ "รายงาน": สถิติ, ตารางพร้อมจำนวนคนที่รายงานรายการเดียวกัน (`report_count`) และสถานะของเป้าหมาย (`target_gone`); dialog จัดการ: ปัดตก / ซ่อน-กู้คืนโพสต์ / ลบความคิดเห็น / ลบเอกสาร / **ระงับเจ้าของ** (เหตุผล + วันปล่อย); รายงานซ้ำของเป้าหมายเดียวกันปิดตาม (`resolve_sibling_reports`) | `GET /admin/reports?status=open|dismissed|actioned|all`, `POST /admin/reports/{id}` |
 | **ระงับบัญชี** | `PATCH /admin/users/{id}` รับ `suspend_reason` + `suspended_until` (วัน); ผู้ใช้ได้รับ notification (`kind=moderation`) พร้อมเหตุผล/วัน; ข้อความ 403 ตอน login และทุก request บอกเหตุผล; **ปล่อยอัตโนมัติ** เมื่อถึงวัน (`suspension_lifted` ใน `get_current_user`/login เคลียร์ `disabled`) | `users.suspend_reason`, `users.suspended_until` · `domain/user.py` |
@@ -795,12 +800,12 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | ลบแผน | — | เหมือนเดิมโดยตั้งใจ: เจ้าของหรือผู้ดูแล (`DELETE /admin/roadmaps/{id}`) ลบ session ใน SurrealDB ได้ แต่โพสต์ยังมีสำเนาของตัวเองและอ่านได้ต่อ (ตรวจแล้ว 22 ต.ค. 2026) |
 | ธีมแอป roadmap | ธีมมืดของตัวเอง (`#0c0c0c`, น้ำเงิน `#2b6fde`, ฟอนต์ IBM Plex Sans Thai) ไม่เข้ากับ SIET Space | สว่างตาม `DESIGN.md`: พื้น `#FFFFFF`, เส้น `#E5E5E5`, ตัวอักษร `#202124`/`#3C3C3C`/`#777777`, สีหลัก `#ED4988` (hover `#D83A78`, pressed `#C92F6B`, soft `#FCE7F0`), ลิงก์/โฟกัส `#1CB0F6`; ฟอนต์ `Nunito → IBM Plex Sans Thai`; หัวข้อหนา 800; ปุ่มหลักขอบล่าง 4px และยุบเมื่อกด; ด่านที่เลือกเป็นชมพูทึบ; เส้นขยายเป็นเส้นประชมพู; ป้ายชื่อเลนเป็นชิปสีเข้มของ accent (`#1686BD` ฟ้า, `#3E8A50` เขียว, `#C66F00` ส้ม, `#9A4FE0` ม่วง, `#C92F6B` ชมพู) ให้อ่านออกบนพื้นขาว; รูป PNG ที่ดาวน์โหลดเป็นพื้นขาว; light เท่านั้น; กล่องด่านใหญ่ขึ้น (หลัก 272×56, ย่อย 240×46, ฟอนต์ 15/14px) และกราฟ**ขยายอัตโนมัติ**ให้เต็มความกว้างของพื้นที่ (1–1.6 เท่า ผ่าน `transform: scale` บน wrapper `.graph-fit` จึงไม่กระทบ PNG ที่ export จาก `.graph`) |
 
-ไฟล์: `open-notebook/api/routers/community.py` (`expand_my_roadmap`), `ai-roadmap-generator/src/styles/app.css`, `src/lib/roadmap-layout.js` (สีเลน), `src/components/RoadmapGraph.jsx` (หัวลูกศร), `src/pages/_document.js` (โหลด Nunito), `src/pages/roadmap/[id].jsx` ทดสอบ: `tests/test_roadmap_sync.py`
+ไฟล์: `community/siet_community/routers/community.py` (`expand_my_roadmap`), `ai-roadmap-generator/src/styles/app.css`, `src/lib/roadmap-layout.js` (สีเลน), `src/components/RoadmapGraph.jsx` (หัวลูกศร), `src/pages/_document.js` (โหลด Nunito), `src/pages/roadmap/[id].jsx` ทดสอบ: `tests/test_roadmap_sync.py`
 
 ## 7. บทบาทผู้ใช้ (Roles) โดยละเอียด
 
 ระบบมี 3 บทบาท จัดลำดับสิทธิ์เป็น **student < teacher < admin**
-บังคับที่ `api/auth_roles.py` แบบ *ปิดไว้ก่อน* — router ใหม่ที่ขึ้น prefix เดิมจะถูกล็อกอัตโนมัติ
+บังคับที่ `siet-platform/siet_platform/auth_roles.py` แบบ *ปิดไว้ก่อน* — router ใหม่ที่ขึ้น prefix เดิมจะถูกล็อกอัตโนมัติ
 ถูกปฏิเสธจะได้ `403` พร้อม header `X-Required-Role`
 
 ### 7.1 ตารางสรุปสิทธิ์
@@ -968,7 +973,7 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 
 ## 9. ระบบกันสแปม
 
-อยู่ใน `open_notebook/community/ratelimit.py` มี 3 ด่าน
+อยู่ใน `siet-platform/siet_platform/ratelimit.py` มี 3 ด่าน
 
 **ด่านที่ 1 — cooldown + โควตา** (นับจากตารางเนื้อหาโดยตรง ไม่มีตารางบันทึกเพิ่ม)
 
@@ -990,7 +995,7 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 ### การป้องกันการเดารหัสผ่าน
 
 ระบบกันสแปมด้านบนนับจากตารางเนื้อหา ซึ่งใช้กับการล็อกอินไม่ได้ (การเดารหัสไม่เขียนอะไรลงฐานข้อมูล)
-จึงมีตัวนับแยกอยู่ใน `api/login_guard.py` เก็บใน Redis (รอดการรีสตาร์ท ใช้ร่วมกันหลาย worker)
+จึงมีตัวนับแยกอยู่ใน `siet-platform/siet_platform/login_guard.py` เก็บใน Redis (รอดการรีสตาร์ท ใช้ร่วมกันหลาย worker)
 ถ้า Redis ล่มจะถอยไปนับในหน่วยความจำแทน ไม่ปล่อยผ่าน
 
 | ตัวนับ | ค่าเริ่มต้น | หมายเหตุ |
@@ -1140,7 +1145,7 @@ GET    /admin/audit?action=&actor_id=   (บันทึกผู้ดูแล
 | `rag_sessions` | เซสชัน RAG 5 ข้อความ |
 | `notifications` | แจ้งเตือน |
 
-Schema เป็น **idempotent DDL** ใน `community/schema.py` รันทุกครั้งที่ API start
+Schema เป็น **idempotent DDL** ใน `siet-platform/siet_platform/schema.py` รันทุกครั้งที่ API start
 เพิ่มคอลัมน์ใหม่ให้เพิ่มที่นี่ **และ** ที่ `_UserRow` + โมเดล `User` ใน
 `domain/user.py` ไม่งั้นจะพังตอน runtime
 
@@ -1160,27 +1165,26 @@ Migration รันอัตโนมัติตอน API start (`database/mig
 
 | อยากแก้ | ไฟล์ |
 |---|---|
-| ราคา/โบนัส/เพดานแต้ม | `open_notebook/community/points.py` (หรือ `POINTS_*` ใน `.env`) |
-| กติกากันสแปม | `open_notebook/community/ratelimit.py` (หรือ `SPAM_*`) |
-| สิทธิ์ของแต่ละบทบาท | `api/auth_roles.py` (หลังบ้าน) + `frontend/src/lib/roles.ts` (หน้าบ้าน) |
-| เพิ่มคอลัมน์ฐานข้อมูล | `community/schema.py` + `domain/user.py` |
-| SQL ของฟีด/ห้อง | `community/repository.py` |
-| endpoint ของชุมชน | `api/routers/community.py` |
-| คอนโซลผู้ดูแล | `api/routers/admin.py` + `frontend/src/app/(dashboard)/admin/page.tsx` |
-| แท็บย่อยของคอนโซลผู้ดูแล | `frontend/src/components/admin/{HealthPanel,ModerationPanel,RoomsPanel,PointsLogPanel,ImportPanel,CreateUserDialog}.tsx` |
-| คอนโซลอาจารย์ | `frontend/src/app/(dashboard)/teacher/page.tsx` + endpoint `/community/teacher/*` |
-| แถบซ้าย (เมนู/ห้อง/เครื่องมือ AI) | `frontend/src/components/community/CourseSidebar.tsx` |
-| กล่องเขียนโพสต์ | `components/community/CreatorBox.tsx` |
-| การ์ดโพสต์ | `components/community/PostCard.tsx` |
-| กล่องถาม RAG ทางขวา | `components/community/AiQuickWidget.tsx` |
-| หน้าเต็มของ RAG (`/community/ask`) | `app/(dashboard)/community/ask/page.tsx` |
-| คลังความรู้ | `components/community/LibraryPanel.tsx` + `community/library.py` |
-| ปุ่ม "เลือกผลงานขึ้นฟีด" | `components/community/ShareMyWorkDialog.tsx` |
-
-คอมโพเนนต์ชุมชนทั้งหมด 14 ตัว: `AiQuickWidget`, `CommunityHeader`, `CourseSidebar`,
-`CreatorBox`, `Leaderboard`, `LibraryPanel`, `NotificationsMenu`, `PointsWallet`,
-`PostCard`, `QuizEmbed`, `RoadmapEmbed`, `ShareMyWorkDialog`, `ShareToFeedButton`,
-`StudyDialog`
+| ราคา/โบนัส/เพดานแต้ม | `siet-platform/siet_platform/points.py` (หรือ `POINTS_*` ใน `.env`) |
+| กติกากันสแปม | `siet-platform/siet_platform/ratelimit.py` (หรือ `SPAM_*`) |
+| สิทธิ์ของแต่ละบทบาท | `siet_platform/auth_roles.py` (หลังบ้าน) + `siet-platform/siet-platform/frontend/src/lib/roles.ts` (หน้าบ้าน) |
+| เมนูซ้าย (ตามบทบาท) | `siet-platform/frontend/src/lib/navigation.ts` |
+| เพิ่มคอลัมน์ฐานข้อมูล | `siet_platform/schema.py` + `siet_platform/users.py` |
+| SQL ของฟีด/ห้อง | `community/siet_community/repository.py` |
+| endpoint ของชุมชน | `community/siet_community/routers/community.py` |
+| endpoint ของ KMITL RAG AI | `kmitl-rag/kmitl_rag/routers/ask.py` (+ pipeline ใน `kmitl_rag/ask.py`) |
+| คอนโซลผู้ดูแล | หลังบ้าน `routers/admin.py` ของแพ็กเกจเจ้าของเรื่อง (ดู `docs/ARCHITECTURE.md` ข้อ 2) + หน้า `siet-platform/siet-platform/frontend/src/app/(dashboard)/admin/page.tsx` |
+| แท็บย่อยของคอนโซลผู้ดูแล | `siet-platform/frontend/src/components/admin/*` (บัญชี/แต้ม/สุขภาพ), `community/frontend/src/components/admin/*` (ชุมชน/ควิซ/roadmap), `kmitl-rag/frontend/src/components/admin/rag/*` |
+| คอนโซลอาจารย์ | `community/community/frontend/src/app/(dashboard)/teacher/page.tsx` + endpoint `/community/teacher/*` |
+| แถบซ้ายของหน้าชุมชน | `community/community/frontend/src/components/community/CourseSidebar.tsx` |
+| กล่องเขียนโพสต์ / การ์ดโพสต์ | `community/frontend/src/components/community/{CreatorBox,PostCard}.tsx` |
+| กล่องถาม RAG ทางขวา | `kmitl-rag/kmitl-rag/frontend/src/components/community/AiQuickWidget.tsx` |
+| หน้าเต็มของ RAG (`/community/ask`) | `kmitl-rag/kmitl-rag/frontend/src/app/(dashboard)/community/ask/page.tsx` |
+| คลังความรู้ | `siet-platform/siet-platform/frontend/src/components/community/LibraryPanel.tsx` + `siet_platform/library.py` |
+| ปุ่ม "เลือกผลงานขึ้นฟีด" | `community/community/frontend/src/components/community/ShareMyWorkDialog.tsx` |
+| prompt ภาษาไทยของแชต | `siet-platform/siet_platform/prompts/{chat,source_chat}/system.jinja` |
+| ธีม/สี/ฟอนต์ | `siet-platform/frontend/src/styles/siet-theme.css`, `siet-platform/frontend/src/lib/fonts.ts` |
+| พฤติกรรมของ open-notebook | hook เท่านั้น — `docs/ARCHITECTURE.md` ข้อ 4 |
 
 ---
 
@@ -1196,16 +1200,16 @@ curl -s http://localhost:5055/api/auth/status | head -c 200
 ### ชุดทดสอบฝั่งหน้าเว็บ
 
 ```bash
-cd open-notebook/frontend && npx vitest run
+make test-frontend        # tsc + vitest ของ open-notebook และ test ในทั้ง 3 แพ็กเกจ
+make test-backend         # pytest ของ open-notebook + siet-platform/tests + kmitl-rag/tests + community/tests
 ```
 
-10 ไฟล์ · ที่เกี่ยวกับ SIET Space คือ `components/community/mobile-nav.test.tsx`
-(ปุ่มเมนูและลิ้นชักบนมือถือ) และ `components/layout/AppSidebar.test.tsx`
-(เมนูตามบทบาท: นักศึกษาไม่เห็นส่วนของอาจารย์/ผู้ดูแล)
+test ของ SIET อยู่ในแพ็กเกจ เช่น `siet-platform/frontend/src/components/layout/AppSidebar.workspace.test.tsx`
+(เมนูตามบทบาท), `.../components/community/mobile-nav.test.tsx` (เมนูบนมือถือ) และ test กฎการ import
+`siet-platform/tests/test_layering.py`, `siet-platform/frontend/src/layering.test.ts`
 
-> `lib/locales/index.test.ts` ยังแดงอยู่ 14 เคส — เป็นคีย์แปลของหน้า `/features`
-> ที่ไม่ได้ใส่ในภาษาอื่นอีก 13 ภาษา มีมาก่อนงาน SIET Space และไม่กระทบการใช้งาน
-> (หน้าชุมชนเป็นภาษาไทยฝังในโค้ด ไม่ได้ผ่าน i18n)
+> `lib/locales/index.test.ts` เหลือแดง 1 เคส (Unused Key Detection): คีย์ของฟอร์มล็อกอินแบบรหัสผ่าน
+> ของ upstream ที่เราแทนด้วย Google Workspace จึงไม่มีใครเรียก — มีมาก่อนการแยก ไม่กระทบการใช้งาน
 
 ### ชุดทดสอบ API (12 ชุด)
 

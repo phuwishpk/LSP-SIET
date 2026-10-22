@@ -36,7 +36,7 @@ export const jaJP = {
     podcast: "ポッドキャスト",
     quickActions: "クイックアクション",
     quickActionsDesc: "ナビゲーション、検索、質問、テーマ",
-    appName: "LSP-SIET",
+    appName: "Open Notebook",
     add: "追加",
     remove: "削除",
     confirm: "確認",

@@ -36,7 +36,7 @@ export const ruRU = {
     podcast: "Подкаст",
     quickActions: "Быстрые действия",
     quickActionsDesc: "Навигация, поиск, запрос, тема",
-    appName: "LSP-SIET",
+    appName: "Open Notebook",
     add: "Добавить",
     remove: "Удалить",
     confirm: "Подтвердить",
