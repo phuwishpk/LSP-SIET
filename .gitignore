@@ -38,3 +38,6 @@ logs/
 deploy/*.tar.gz
 deploy/*.sql
 .env.bak-*
+
+# local markdown-collab MCP tool config
+.markdown-collab/
