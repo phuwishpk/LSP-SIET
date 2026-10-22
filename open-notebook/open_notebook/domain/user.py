@@ -16,7 +16,7 @@ from typing import Any, AsyncGenerator, Dict, List, Optional
 import bcrypt
 from loguru import logger
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy import Column, DateTime, Enum, Integer, String, select, text, update
+from sqlalchemy import Column, DateTime, Enum, Integer, String, Text, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.orm import declarative_base
 
@@ -37,11 +37,11 @@ class _UserRow(_Base):
     # Nullable so Google-only (SSO) accounts can exist without a password.
     password_hash = Column(String(255), nullable=True)
     display_name  = Column(String(128), nullable=True)
-    role          = Column(Enum("admin", "student", "teacher"), nullable=False, default="student")
+    role          = Column(Enum("admin", "student", "teacher", "pending"), nullable=False, default="student")
     # --- KMITL workspace / SSO profile fields (added by community schema) ---
     email         = Column(String(191), nullable=True, unique=True)
     google_sub    = Column(String(64), nullable=True, unique=True)
-    avatar_url    = Column(String(512), nullable=True)
+    avatar_url    = Column(Text, nullable=True)
     # The column is student_code (the 8-digit student number, not a foreign
     # key); the attribute keeps the name the rest of the code uses.
     student_id    = Column("student_code", String(32), nullable=True)
@@ -54,6 +54,18 @@ class _UserRow(_Base):
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     last_login_at = Column(DateTime, nullable=True)
+
+    __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
+
+
+class _AllowedTeacherRow(_Base):
+    __tablename__ = "allowed_teachers"
+
+    id         = Column(Integer, primary_key=True, autoincrement=True)
+    email      = Column(String(191), unique=True, nullable=False)
+    role       = Column(String(32), nullable=False, default="teacher")
+    department = Column(String(128), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
     __table_args__ = {"mysql_engine": "InnoDB", "mysql_charset": "utf8mb4"}
 
@@ -114,7 +126,8 @@ BCRYPT_ROUNDS = 12
 USER_ROLE_ADMIN   = "admin"
 USER_ROLE_STUDENT = "student"
 USER_ROLE_TEACHER = "teacher"
-USER_ROLES = {USER_ROLE_ADMIN, USER_ROLE_STUDENT, USER_ROLE_TEACHER}
+USER_ROLE_PENDING = "pending"
+USER_ROLES = {USER_ROLE_ADMIN, USER_ROLE_STUDENT, USER_ROLE_TEACHER, USER_ROLE_PENDING}
 
 
 # =============================================================================
@@ -710,3 +723,30 @@ async def suspension_lifted(user: User) -> bool:
     user.suspended_until = None
     logger.info(f"suspension of user {user.id} expired and was lifted")
     return True
+
+
+async def is_allowed_teacher(email: str) -> bool:
+    """Check if an email is in the allowed_teachers whitelist table."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_AllowedTeacherRow).where(text("LOWER(email) = :email")).params(email=email)
+        )
+        return result.scalar_one_or_none() is not None
+
+
+async def add_allowed_teacher(email: str, department: Optional[str] = None, role: str = "teacher") -> bool:
+    """Add a teacher email to the whitelist table."""
+    email = (email or "").strip().lower()
+    if not email:
+        return False
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            select(_AllowedTeacherRow).where(text("LOWER(email) = :email")).params(email=email)
+        )
+        if result.scalar_one_or_none() is not None:
+            return True
+        session.add(_AllowedTeacherRow(email=email, department=department, role=role))
+        return True

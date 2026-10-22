@@ -38,20 +38,27 @@ export default function DashboardLayout({
         // Store the current path to redirect back after login
         rememberPostLoginPath(window.location.pathname + window.location.search)
         router.push('/login')
+      } else if (role === 'pending') {
+        router.replace('/pending')
       } else {
         // Reached a page while signed in: the remembered target is used up.
         clearPostLoginPath()
       }
     }
-  }, [isAuthenticated, isLoading, router])
+  }, [isAuthenticated, isLoading, role, router])
 
   // The API refuses these routes for students (api/auth_roles.py); send them
   // back to the community instead of rendering a page full of 403s.
+  // For pending users, send them to /pending.
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !allowed) {
-      router.replace('/community')
+    if (!isLoading && isAuthenticated) {
+      if (role === 'pending') {
+        router.replace('/pending')
+      } else if (!allowed) {
+        router.replace('/community')
+      }
     }
-  }, [isLoading, isAuthenticated, allowed, router])
+  }, [isLoading, isAuthenticated, role, allowed, router])
 
   // Show loading spinner during initial auth check or while loading
   if (isLoading || !hasCheckedAuth) {
@@ -62,8 +69,8 @@ export default function DashboardLayout({
     )
   }
 
-  // Don't render anything if not authenticated (during redirect)
-  if (!isAuthenticated || !allowed) {
+  // Don't render anything if not authenticated or not allowed or pending (during redirect)
+  if (!isAuthenticated || !allowed || role === 'pending') {
     return null
   }
 

@@ -155,6 +155,9 @@ services:
       # DEV ONLY: lets you "sign in with Google" without real credentials.
       - GOOGLE_OAUTH_MOCK=${GOOGLE_OAUTH_MOCK:-0}
       - WORKSPACE_ADMIN_EMAILS=${WORKSPACE_ADMIN_EMAILS:-}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - TEACHER_EMAILS=${TEACHER_EMAILS:-}
+      - KMITL_FACULTY_CODE=${KMITL_FACULTY_CODE:-03}
       # Browsers only need this for the roadmap app, which calls /api/users/me
       # directly from the page. The main frontend proxies /api through itself,
       # so locking this down does not affect it. '*' would let any site on the

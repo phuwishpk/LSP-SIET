@@ -50,12 +50,14 @@ from open_notebook.domain.user import (
     USER_ROLE_ADMIN,
     USER_ROLE_STUDENT,
     USER_ROLE_TEACHER,
+    USER_ROLE_PENDING,
     User,
     UserAlreadyExists,
     create_sso_user,
     get_by_email,
     get_by_google_sub,
     get_by_id,
+    is_allowed_teacher,
     touch_last_login,
     update_profile,
     username_available,
@@ -115,25 +117,62 @@ def student_regex() -> re.Pattern[str]:
 
 
 def admin_emails() -> set[str]:
-    raw = os.getenv("WORKSPACE_ADMIN_EMAILS") or ""
+    raw_admin = os.getenv("ADMIN_EMAILS") or ""
+    raw_ws = os.getenv("WORKSPACE_ADMIN_EMAILS") or ""
+    combined = f"{raw_admin},{raw_ws}"
+    return {e.strip().lower() for e in combined.split(",") if e.strip()}
+
+
+def teacher_emails() -> set[str]:
+    raw = os.getenv("TEACHER_EMAILS") or ""
     return {e.strip().lower() for e in raw.split(",") if e.strip()}
 
 
-def derive_role(email: str) -> Tuple[str, Optional[str]]:
-    """Return ``(role, student_id)`` for an institutional e-mail."""
+def siet_faculty_codes() -> set[str]:
+    # Faculty code for SIET is 030 (e.g. 65030xxx). Allow comma-separated in env.
+    raw = os.getenv("KMITL_FACULTY_CODES") or os.getenv("KMITL_FACULTY_CODE") or "030,03"
+    return {c.strip() for c in raw.split(",") if c.strip()}
+
+
+async def derive_role(email: str) -> Tuple[str, Optional[str]]:
+    """Return ``(role, student_id)`` for a user email based on priority:
+    1. ADMIN: in ADMIN_EMAILS / WORKSPACE_ADMIN_EMAILS (.env), allows personal Gmail
+    2. STUDENT: @kmitl.ac.th + 8-digit prefix starting with faculty code 030 (SIET) -> STUDENT + student_id
+    3. TEACHER: in TEACHER_EMAILS (.env) or allowed_teachers whitelist table in Database -> TEACHER
+    4. PENDING: other emails (general Gmail, other KMITL faculties) -> PENDING (awaiting admin approval)
+    """
     email = (email or "").strip().lower()
-    local = email.split("@", 1)[0]
+    if not email:
+        return USER_ROLE_PENDING, None
+
+    # Priority 1: ADMIN (check .env)
     if email in admin_emails():
         return USER_ROLE_ADMIN, None
-    if student_regex().match(local):
-        return USER_ROLE_STUDENT, local
-    return USER_ROLE_TEACHER, None
+
+    local = email.split("@", 1)[0]
+    domain = email.rsplit("@", 1)[-1].lower() if "@" in email else ""
+
+    # Priority 2: STUDENT (@kmitl.ac.th + 8-digit code + SIET faculty code prefix 030)
+    if domain == "kmitl.ac.th" and student_regex().match(local) and len(local) == 8:
+        if any(local[2:].startswith(code) for code in siet_faculty_codes()):
+            return USER_ROLE_STUDENT, local
+
+    # Priority 3: TEACHER (whitelist table in Database or TEACHER_EMAILS in .env)
+    if email in teacher_emails() or await is_allowed_teacher(email):
+        return USER_ROLE_TEACHER, None
+
+    # Priority 4: PENDING (Alumni / personal Gmail / waiting admin approval)
+    return USER_ROLE_PENDING, None
 
 
-def _domain_allowed(email: str, hd: Optional[str]) -> bool:
+async def _domain_allowed(email: str, hd: Optional[str]) -> bool:
+    email = (email or "").strip().lower()
+    # Always allow admin emails and whitelisted teachers even if outside allowed domains
+    if email in admin_emails() or email in teacher_emails() or await is_allowed_teacher(email):
+        return True
     domain = (email or "").rsplit("@", 1)[-1].lower()
     allowed = allowed_domains()
-    if domain in allowed:
+    if not allowed or domain in allowed:
         return True
     return bool(hd) and hd.lower() in allowed
 
@@ -235,7 +274,7 @@ async def _unique_username(base: str) -> str:
 
 async def _upsert_google_user(profile: GoogleProfile) -> Tuple[User, bool]:
     email = profile.email.strip().lower()
-    role, student_id = derive_role(email)
+    role, student_id = await derive_role(email)
 
     user = await get_by_google_sub(profile.sub) if profile.sub else None
     if user is None:
@@ -383,7 +422,7 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
 
     if not profile.email or not profile.email_verified:
         raise HTTPException(status_code=403, detail="Google account e-mail is not verified")
-    if not _domain_allowed(profile.email, profile.hd):
+    if not await _domain_allowed(profile.email, profile.hd):
         domains = ", ".join(f"@{d}" for d in allowed_domains())
         raise HTTPException(
             status_code=403,
@@ -396,11 +435,17 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
     fresh = await get_by_id(user.id or 0) or user
 
     access_token, expires_at = issue_access_token(fresh)
+    if fresh.role == USER_ROLE_PENDING:
+        target_next = "/pending"
+    elif fresh.role == USER_ROLE_ADMIN:
+        target_next = "/admin"
+    else:
+        target_next = next_path
     return GoogleTokenResponse(
         access_token=access_token,
         expires_at=expires_at,
         user=_to_response(fresh),
-        next=next_path,
+        next=target_next,
         is_new_user=is_new,
         welcome_granted=welcome,
     )
