@@ -192,6 +192,12 @@ services:
     volumes:
       - ./open-notebook/frontend:/app
       - frontend_node_modules_dev:/app/node_modules
+      # SIET frontend packages (imported as @siet/*). Their node_modules symlink
+      # points at ../../open-notebook/frontend/node_modules, so mount it there too.
+      - ./siet-platform/frontend:/siet-platform/frontend
+      - ./kmitl-rag/frontend:/kmitl-rag/frontend
+      - ./community/frontend:/community/frontend
+      - frontend_node_modules_dev:/open-notebook/frontend/node_modules
     networks:
       - kmitlai_default
     ports:

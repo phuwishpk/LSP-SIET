@@ -16,9 +16,9 @@ import { Search, ChevronDown, AlertCircle } from 'lucide-react'
 import { useSearch } from '@/lib/hooks/use-search'
 import { useModelDefaults } from '@/lib/hooks/use-models'
 import { useModalManager } from '@/lib/hooks/use-modal-manager'
-import { useGlobalChat } from '@/lib/hooks/useGlobalChat'
-import { SessionSidebar } from '@/components/search/SessionSidebar'
-import { AskChatView } from '@/components/search/AskChatView'
+import { useGlobalChat } from '@siet/kmitl-rag/lib/hooks/useGlobalChat'
+import { SessionSidebar } from '@siet/kmitl-rag/components/search/SessionSidebar'
+import { AskChatView } from '@siet/kmitl-rag/components/search/AskChatView'
 import { NotebookResponse } from '@/lib/types/api'
 
 export default function SearchPage() {

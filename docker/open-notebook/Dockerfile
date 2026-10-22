@@ -81,6 +81,10 @@ COPY siet-platform/ /siet-platform/
 COPY kmitl-rag/ /kmitl-rag/
 COPY community/ /community/
 
+# SIET frontend packages are compiled into this app (tsconfig paths @siet/*) and
+# resolve their imports through the app's node_modules.
+RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done
+
 WORKDIR /app/frontend
 RUN npm run build
 

@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getApiUrl } from '@/lib/config'
-import { authApi } from '@/lib/api/auth'
+import { authApi } from '@siet/platform/lib/api/auth'
 
 export interface AuthUser {
   id: string

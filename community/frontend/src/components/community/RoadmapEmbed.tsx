@@ -1,0 +1,128 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { ArrowRight, ChevronDown, ChevronUp, Footprints, Map, Sparkles } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { RoadmapPlanView } from '@siet/community/components/community/RoadmapPlanView'
+import type { CommunityPost, RoadmapEmbed as RoadmapEmbedData } from '@siet/platform/lib/api/community'
+import { openRoadmapApp } from '@siet/platform/lib/external-apps'
+import { useRoadmapFollow } from '@siet/platform/lib/hooks/use-community'
+
+/** `roadmap_session:abc` -> the page of that roadmap inside the roadmap app. */
+const roadmapPath = (sessionId: string) => `/roadmap/${sessionId.replace(':', '-')}`
+
+interface RoadmapEmbedProps {
+  post: CommunityPost
+  embed: RoadmapEmbedData
+}
+
+const PREVIEW_COUNT = 4
+
+export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
+  const follow = useRoadmapFollow()
+  const [expanded, setExpanded] = useState(false)
+  const [followedSession, setFollowedSession] = useState<string | null>(null)
+
+  // The preview walks the main path; sub-nodes hang off it and are counted apart.
+  const ordered = useMemo(
+    () =>
+      embed.nodes.filter((node) => !node.parent).sort((a, b) => (a.order ?? 0) - (b.order ?? 0)),
+    [embed.nodes]
+  )
+  const subCount = embed.nodes.length - ordered.length
+  const preview = ordered.slice(0, PREVIEW_COUNT)
+  const remaining = Math.max(0, ordered.length - PREVIEW_COUNT)
+
+  return (
+    <div className="rounded-xl border border-orange-200/70 bg-orange-50/40 p-4 dark:border-orange-900/60 dark:bg-orange-950/20">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge className="gap-1 bg-orange-600 hover:bg-orange-600">
+          <Map className="h-3 w-3" /> AI Roadmap
+        </Badge>
+        <p className="font-semibold">{embed.title || post.title}</p>
+        <span className="text-xs text-muted-foreground">
+          {ordered.length} ด่าน{subCount > 0 ? ` · ${subCount} ด่านย่อย` : ''} · มีคนเดินตาม {post.counts.follow} คน
+        </span>
+        {embed.grounding?.label && (
+          <Badge variant="outline" className="font-normal">
+            {embed.grounding.label}
+          </Badge>
+        )}
+      </div>
+      {embed.description && (
+        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{embed.description}</p>
+      )}
+
+      {!expanded ? (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {preview.map((node, index) => (
+            <div key={node.id} className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 rounded-full border bg-background px-3 py-1 text-xs">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-orange-500 text-[10px] font-bold text-white">
+                  {index + 1}
+                </span>
+                <span className="max-w-[160px] truncate">{node.label}</span>
+              </div>
+              {index < preview.length - 1 && <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />}
+            </div>
+          ))}
+          {remaining > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
+              className="rounded-full border border-dashed px-3 py-1 text-xs text-muted-foreground hover:bg-accent"
+            >
+              +{remaining} ด่าน…
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="no-scrollbar mt-3 overflow-x-auto rounded-lg border bg-background p-3">
+          <RoadmapPlanView nodes={embed.nodes} grounding={embed.grounding} />
+        </div>
+      )}
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <Button
+          size="sm"
+          className="gap-1.5 bg-orange-600 hover:bg-orange-700"
+          disabled={follow.isPending}
+          onClick={() =>
+            follow.mutate(post.id, { onSuccess: (data) => setFollowedSession(data.session_id) })
+          }
+        >
+          <Footprints className="h-4 w-4" /> นำทางตามแผนนี้ (Follow Path) · ฟรี
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setExpanded((v) => !v)} className="gap-1">
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          {expanded ? 'ย่อ' : 'ดูแผนผังเต็ม'}
+        </Button>
+        {post.is_author ? (
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => void openRoadmapApp({ path: roadmapPath(embed.id) })}
+          >
+            เปิดในแอป AI Roadmap
+          </Button>
+        ) : (
+          followedSession && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => void openRoadmapApp({ path: roadmapPath(followedSession) })}
+            >
+              เปิดแผนของฉันในแอป AI Roadmap
+            </Button>
+          )
+        )}
+        {(followedSession || post.viewer.saved) && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ใน “Roadmap ของฉัน” แล้ว ขยายด่านต่อได้ในแอป AI Roadmap
+          </span>
+        )}
+      </div>
+    </div>
+  )
+}

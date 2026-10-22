@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useCallback, ReactNode } from 'rea
 import { AddSourceDialog } from '@/components/sources/AddSourceDialog'
 import { CreateNotebookDialog } from '@/components/notebooks/CreateNotebookDialog'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { isStaff, type Role } from '@/lib/roles'
+import { isStaff, type Role } from '@siet/platform/lib/roles'
 
 interface CreateDialogsContextType {
   openSourceDialog: () => void

@@ -1,6 +1,6 @@
 'use client'
 
-import { peekPostLoginPath } from '@/lib/auth-redirect'
+import { peekPostLoginPath } from '@siet/platform/lib/auth-redirect'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useRouter } from 'next/navigation'
 import { useEffect } from 'react'

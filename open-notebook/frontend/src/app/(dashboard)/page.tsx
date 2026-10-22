@@ -1,8 +1,8 @@
 'use client'
 
 import { useAuth } from '@/lib/hooks/use-auth'
-import { buildCrossAppLink } from '@/lib/cross-app'
-import { openRoadmapApp } from '@/lib/external-apps'
+import { buildCrossAppLink } from '@siet/platform/lib/cross-app'
+import { openRoadmapApp } from '@siet/platform/lib/external-apps'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { LogOut, BookOpen, GraduationCap, Map, ArrowRight, Sparkles, ExternalLink, Users } from 'lucide-react'

@@ -4,8 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { getApiUrl } from '@/lib/config'
-import { authApi } from '@/lib/api/auth'
-import { peekPostLoginPath } from '@/lib/auth-redirect'
+import { authApi } from '@siet/platform/lib/api/auth'
+import { peekPostLoginPath } from '@siet/platform/lib/auth-redirect'
 import { Button } from '@/components/ui/button'
 import {
   Card,

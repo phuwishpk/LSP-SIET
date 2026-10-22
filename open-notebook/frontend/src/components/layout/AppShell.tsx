@@ -3,7 +3,7 @@
 import { AppSidebar } from './AppSidebar'
 import { SetupBanner } from './SetupBanner'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { isAdmin, type Role } from '@/lib/roles'
+import { isAdmin, type Role } from '@siet/platform/lib/roles'
 
 interface AppShellProps {
   children: React.ReactNode

@@ -50,7 +50,7 @@ import {
   Database,
 } from 'lucide-react'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { isAdmin, isStaff, type Role } from '@/lib/roles'
+import { isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
 
 const getNavigation = (t: TFunction, role: Role) => [
   {

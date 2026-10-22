@@ -11,7 +11,7 @@ ENV_FILE      ?= .env
 PROJECT_NAME  ?= kmitlai
 COMPOSE       += -p $(PROJECT_NAME)
 
-.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check test-backend migrate-split
+.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check test-backend test-frontend frontend-links migrate-split
 
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -107,3 +107,15 @@ migrate-split:  ## One-time: move KMITL migration records to the SIET track (CON
 	$(SPLIT_COMPOSE) run --rm --no-deps $(SPLIT_API) /app/.venv/bin/python -m siet_platform.migrations.split --dry-run
 	$(SPLIT_COMPOSE) run --rm --no-deps $(SPLIT_API) /app/.venv/bin/python -m siet_platform.migrations.split --backup-done
 	@echo "Backup: $(BACKUP_DIR). Start the stack again (make up / make up-dev)."
+
+# The SIET frontend packages (siet-platform/frontend, kmitl-rag/frontend,
+# community/frontend) are compiled into open-notebook's Next.js app and resolve
+# react & co. through its node_modules, via a symlink in each package.
+SIET_FRONTENDS = siet-platform kmitl-rag community
+
+frontend-links:  ## Link each SIET frontend package to open-notebook/frontend/node_modules
+	@for d in $(SIET_FRONTENDS); do ln -sfn ../../open-notebook/frontend/node_modules $$d/frontend/node_modules; done
+	@echo "linked: $(SIET_FRONTENDS)"
+
+test-frontend: frontend-links  ## Typecheck and run frontend tests (open-notebook + SIET packages)
+	cd open-notebook/frontend && npx tsc --noEmit -p . && npx vitest run $(ARGS)

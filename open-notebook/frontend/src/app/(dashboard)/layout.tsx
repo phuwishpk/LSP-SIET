@@ -10,8 +10,8 @@ import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
 import { usePathname } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { canAccessRoute, isStaff, type Role } from '@/lib/roles'
-import { clearPostLoginPath, rememberPostLoginPath } from '@/lib/auth-redirect'
+import { canAccessRoute, isStaff, type Role } from '@siet/platform/lib/roles'
+import { clearPostLoginPath, rememberPostLoginPath } from '@siet/platform/lib/auth-redirect'
 
 export default function DashboardLayout({
   children,
