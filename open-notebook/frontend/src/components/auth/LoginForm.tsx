@@ -90,6 +90,17 @@ export function LoginForm() {
     }
   }, [hasHydrated, authRequired, isAuthenticated, router])
 
+  // Reset googleBusy when returning to this page via browser Back button (bfcache restoration)
+  useEffect(() => {
+    const handlePageShow = () => {
+      setGoogleBusy(false)
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow)
+    }
+  }, [])
+
   if (!hasHydrated || isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
