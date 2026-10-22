@@ -157,7 +157,7 @@ export function CourseSidebar({
         )}
         {others.length > 0 && (
           <div className="mt-2 space-y-0.5">
-            <p className="px-3 text-[11px] text-muted-foreground">ห้องอื่น ๆ (กด + เพื่อเข้าร่วม)</p>
+            <p className="px-3 text-xs text-muted-foreground">ห้องอื่น ๆ (กด + เพื่อเข้าร่วม)</p>
             {others.map((c) => (
               <div key={c.id} className="flex items-center gap-1 pr-1">
                 <NavButton
@@ -186,7 +186,7 @@ export function CourseSidebar({
   return (
     <aside className="space-y-4">
       <nav className="space-y-0.5 rounded-xl border bg-card p-3 shadow-sm">
-        <p className="mb-2 px-2 text-xs font-semibold text-foreground">พื้นที่การเรียนของฉัน</p>
+        <p className="mb-2 px-2 text-sm font-semibold text-foreground">พื้นที่การเรียนของฉัน</p>
         <NavButton
           active={view === 'all' && courseId === null}
           icon={Newspaper}
@@ -235,10 +235,10 @@ export function CourseSidebar({
 
       {/* ------------------------------------------------ official course rooms */}
       <div className="rounded-xl border bg-card p-3 shadow-sm">
-        <p className="mb-2 px-2 text-xs font-semibold text-foreground">
+        <p className="mb-2 px-2 text-sm font-semibold text-foreground">
           {view === 'mine' ? 'กิจกรรมในชั้นเรียนของฉัน' : 'ชั้นเรียนของฉัน'}
         </p>
-        <p className="mb-1 px-2 text-[11px] font-medium text-muted-foreground">ห้องวิชา</p>
+        <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">ห้องวิชา</p>
         {isLoading && (
           <div className="space-y-1 px-3">
             <Skeleton className="h-7 w-full" />
@@ -268,7 +268,7 @@ export function CourseSidebar({
         )}
         {/* Student discussion rooms share the enrolled-rooms card. */}
         <div className="mt-4 border-t border-border pt-3">
-          <p className="mb-1 px-2 text-[11px] font-medium text-muted-foreground">
+          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">
             ห้องพูดคุย
           </p>
           <RoomList rooms={clubRooms} icon={MessagesSquare} showCode={false} />

@@ -169,10 +169,32 @@
 }
 
 .community-theme::-webkit-scrollbar,
-.community-theme *::-webkit-scrollbar {
+.community-theme *::-webkit-scrollbar,
+.community-theme ::-webkit-scrollbar {
   display: none !important;
-  width: 0;
-  height: 0;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+}
+
+.no-scrollbar {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 .dark .community-theme {

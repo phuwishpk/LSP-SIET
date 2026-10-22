@@ -243,9 +243,12 @@ function CommunityContent() {
         </SheetContent>
       </Sheet>
 
-      <div className="no-scrollbar mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 md:px-6 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6">
+      <div className="no-scrollbar mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 md:px-6 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {/* Left column */}
-        <div className="no-scrollbar hidden min-h-0 space-y-4 overflow-x-hidden overflow-y-auto lg:block">
+        <div
+          className="no-scrollbar hidden min-h-0 space-y-4 overflow-x-hidden overflow-y-auto lg:block [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           <CourseSidebar
             view={view}
             courseId={courseId}
@@ -272,7 +275,10 @@ function CommunityContent() {
         </div>
 
         {/* Center column */}
-        <main className="no-scrollbar min-h-0 min-w-0 w-full space-y-4 overflow-x-hidden lg:overflow-y-auto">
+        <main
+          className="no-scrollbar min-h-0 min-w-0 w-full space-y-4 overflow-x-hidden lg:overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           <div className="lg:hidden">
             <Button
               type="button"
@@ -572,7 +578,10 @@ function CommunityContent() {
         </main>
 
         {/* Right column */}
-        <div className="no-scrollbar hidden min-h-0 w-full space-y-4 overflow-x-hidden lg:block lg:overflow-y-auto">
+        <div
+          className="no-scrollbar hidden min-h-0 w-full space-y-4 overflow-x-hidden lg:block lg:overflow-y-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {view === 'rules' ? (
             <CommunityCreditsPanel />
           ) : view === 'saved' ? (
