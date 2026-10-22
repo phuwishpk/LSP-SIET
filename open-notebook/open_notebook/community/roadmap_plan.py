@@ -24,15 +24,15 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from loguru import logger
 
-from open_notebook.cache.service import cache_service
+from siet_platform.cache.service import cache_service
 from open_notebook.community import ask as rag
 from open_notebook.community import grounding
-from open_notebook.community.retrieval import content_key
-from open_notebook.config import DEFAULT_CACHE_TTL
-from open_notebook.domain.features import RoadmapSession
+from siet_platform.retrieval import content_key
+from siet_platform.config import DEFAULT_CACHE_TTL
+from siet_platform.features.domain import RoadmapSession
 from open_notebook.exceptions import ExternalServiceError, InvalidInputError
-from open_notebook.community import usage
-from open_notebook.features.service import _extract_json, _hash_prompt, _invoke_chat
+from siet_platform import usage
+from siet_platform.features.service import _extract_json, _hash_prompt, _invoke_chat
 
 STAGES: Tuple[str, ...] = ("พื้นฐาน", "แนวคิดหลัก", "ฝึกปฏิบัติ", "ประยุกต์", "ทบทวน/ประเมิน")
 # How big a plan is, and how far a node is broken down, is the model's call.
@@ -559,7 +559,7 @@ async def generate_plan(
     Without ``node_count`` the model decides how many nodes the subject needs.
     """
     usage.set_context(feature="roadmap")
-    from open_notebook.community import library
+    from siet_platform import library
 
     description = (description or "").strip()
     if not description:
@@ -818,7 +818,7 @@ async def expand_node(
     Uses the same order of knowledge as generation: the library inside the
     given scope, then the web, then the model.
     """
-    from open_notebook.community import library
+    from siet_platform import library
 
     nodes: List[Dict[str, Any]] = list(session.nodes or [])
     blocked = expansion_block(nodes, node_id)

@@ -21,11 +21,12 @@ from datetime import date, datetime, timedelta, timezone
 from loguru import logger
 from pydantic import BaseModel, Field
 
-from api.auth_jwt import get_current_user
-from api.login_guard import clear_login_failures
-from open_notebook.community import library, moderation, points, pricing, ratelimit, throttle
+from siet_platform.auth_jwt import get_current_user
+from siet_platform.login_guard import clear_login_failures
+from open_notebook.community import moderation
+from siet_platform import audit, library, notifications, points, pricing, ratelimit, throttle
 from open_notebook.community import repository as repo
-from open_notebook.domain.user import (
+from siet_platform.users import (
     USER_ROLE_ADMIN,
     USER_ROLES,
     InvalidPasswordError,
@@ -194,7 +195,7 @@ def _public(target: User) -> Dict[str, Any]:
 async def _audit(user: User, action: str, *, target_type: Optional[str] = None,
                  target_id: Optional[Any] = None, **detail: Any) -> None:
     """One line in admin_audit_log for every change an admin makes."""
-    await moderation.log_action(
+    await audit.log_action(
         int(user.id or 0), action, target_type=target_type, target_id=target_id,
         detail={k: v for k, v in detail.items() if v is not None} or None,
     )
@@ -209,7 +210,7 @@ async def _suspend(target: User, admin: User, *, reason: Optional[str], until: O
     await set_disabled(int(target.id or 0), True, reason=reason, until=_suspension_until(until))
     when = f" จนถึง {until.isoformat()}" if until else ""
     why = f" เหตุผล: {reason}" if reason else ""
-    await repo.add_notification(
+    await notifications.add_notification(
         int(target.id or 0), "moderation",
         f"บัญชีของคุณถูกระงับการใช้งาน{when}{why} — ติดต่อผู้ดูแลระบบหากมีข้อสงสัย",
     )
@@ -277,7 +278,7 @@ async def update_user(
         await _suspend(target, user, reason=body.suspend_reason, until=body.suspended_until)
     elif body.disabled is False:
         await set_disabled(user_id, False)
-        await repo.add_notification(user_id, "moderation", "บัญชีของคุณกลับมาใช้งานได้แล้ว")
+        await notifications.add_notification(user_id, "moderation", "บัญชีของคุณกลับมาใช้งานได้แล้ว")
 
     logger.info(
         f"admin {user.username} updated user {target.username}: "
@@ -558,7 +559,7 @@ async def list_all_roadmaps(
 ) -> Dict[str, Any]:
     """Every roadmap in the workspace as a summary (no nodes), newest first."""
     _require_admin(user)
-    from open_notebook.domain.features import RoadmapSession
+    from siet_platform.features.domain import RoadmapSession
 
     page = await RoadmapSession.admin_list(query=q, origin=origin, limit=limit, offset=offset)
     rows = page["items"]
@@ -593,7 +594,7 @@ async def list_all_roadmaps(
 async def delete_any_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """Delete a roadmap for good. A post made from it keeps its own copy."""
     _require_admin(user)
-    from open_notebook.domain.features import RoadmapSession
+    from siet_platform.features.domain import RoadmapSession
 
     if not session_id.startswith("roadmap_session:"):
         raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้")
@@ -635,7 +636,7 @@ async def roadmap_stats(
     _require_admin(user)
     from datetime import datetime, timedelta, timezone
 
-    from open_notebook.domain.features import RoadmapSession
+    from siet_platform.features.domain import RoadmapSession
 
     viewer_zone = timezone(timedelta(minutes=tz_offset))
     today = datetime.now(viewer_zone).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -699,7 +700,7 @@ async def list_all_quizzes(
 ) -> Dict[str, Any]:
     """Every quiz in the workspace as a summary (no questions), newest first."""
     _require_admin(user)
-    from open_notebook.domain.features import QuizSession
+    from siet_platform.features.domain import QuizSession
 
     page = await QuizSession.admin_list(query=q, origin=origin, limit=limit, offset=offset)
     rows = page["items"]
@@ -732,7 +733,7 @@ async def list_all_quizzes(
 async def delete_any_quiz(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
     """Delete a quiz for good. A post made from it keeps its own copy."""
     _require_admin(user)
-    from open_notebook.domain.features import QuizSession
+    from siet_platform.features.domain import QuizSession
 
     if not session_id.startswith("quiz_session:"):
         raise HTTPException(status_code=404, detail="ไม่พบ Quiz นี้")
@@ -766,7 +767,7 @@ async def quiz_stats(
 ) -> Dict[str, Any]:
     """How much the quiz feature is used: made per day, played, scored, and what it cost."""
     _require_admin(user)
-    from open_notebook.domain.features import QuizSession
+    from siet_platform.features.domain import QuizSession
 
     since, viewer_zone = _viewer_window(days, tz_offset)
     per_day: Dict[str, int] = {}
@@ -1022,7 +1023,7 @@ async def audit_log(
 ) -> Dict[str, Any]:
     """Who changed what, newest first. ``action`` matches a prefix such as ``user.`` or ``report.``."""
     _require_admin(user)
-    return await moderation.list_audit(action=action, actor_id=actor_id, limit=limit, offset=offset)
+    return await audit.list_audit(action=action, actor_id=actor_id, limit=limit, offset=offset)
 
 
 # ---------------------------------------------------------------------------
@@ -1449,7 +1450,7 @@ async def overview(user: User = Depends(get_current_user)) -> Dict[str, Any]:
     _require_admin(user)
     from sqlalchemy import text
 
-    from open_notebook.domain.user import _mariadb_session
+    from siet_platform.users import _mariadb_session
 
     async with _mariadb_session() as session:
         row = (

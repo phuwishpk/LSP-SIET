@@ -11,9 +11,10 @@ import pytest
 from fastapi.testclient import TestClient
 
 from open_notebook.community import moderation
+from siet_platform import audit as audit_log, notifications
 from open_notebook.community import repository as repo
-from open_notebook.domain import user as users
-from open_notebook.domain.user import User
+from siet_platform import users
+from siet_platform.users import User
 
 
 def _user(uid: int, role: str, **over) -> User:
@@ -115,17 +116,17 @@ async def test_resolve_validates_and_closes_siblings(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_audit_never_raises_and_lists(monkeypatch):
-    _patch(monkeypatch, moderation, _Session(fail=True))
-    await moderation.log_action(1, "user.update", target_type="user", target_id=5, detail={"role": "teacher"})
+    _patch(monkeypatch, audit_log, _Session(fail=True))
+    await audit_log.log_action(1, "user.update", target_type="user", target_id=5, detail={"role": "teacher"})
 
     fake = _Session([_Result()])
-    _patch(monkeypatch, moderation, fake)
-    await moderation.log_action(1, "x" * 100, target_type="user", target_id=5, detail={"a": 1})
+    _patch(monkeypatch, audit_log, fake)
+    await audit_log.log_action(1, "x" * 100, target_type="user", target_id=5, detail={"a": 1})
     assert len(fake.params[-1]["action"]) == 64 and fake.params[-1]["detail"] == '{"a": 1}'
 
     fake = _Session([_Result(scalar=1), _Result(rows=[])])
-    _patch(monkeypatch, moderation, fake)
-    out = await moderation.list_audit(action="user.", actor_id=1)
+    _patch(monkeypatch, audit_log, fake)
+    out = await audit_log.list_audit(action="user.", actor_id=1)
     assert out["total"] == 1 and fake.params[-1]["action"] == "user.%" and "a.actor_id = :actor" in fake.statements[-1]
 
 
@@ -171,7 +172,7 @@ def app():
 @pytest.fixture
 def client(app, monkeypatch):
     from api.auth import PasswordAuthMiddleware
-    from api.auth_roles import RoleAccessMiddleware
+    from siet_platform.auth_roles import RoleAccessMiddleware
 
     async def passthrough(self, request, call_next):
         return await call_next(request)
@@ -183,7 +184,7 @@ def client(app, monkeypatch):
 
 @pytest.fixture
 def sign_in(app):
-    from api.auth_jwt import get_current_user
+    from siet_platform.auth_jwt import get_current_user
 
     def _as(user: User) -> User:
         app.dependency_overrides[get_current_user] = lambda: user
@@ -222,7 +223,7 @@ def test_room_owner_settles_reports_in_own_room_only(client, sign_in, monkeypatc
     hide = AsyncMock(); monkeypatch.setattr(repo, "soft_delete_post", hide)
     resolve = AsyncMock(); monkeypatch.setattr(moderation, "resolve_report", resolve)
     siblings = AsyncMock(return_value=1); monkeypatch.setattr(moderation, "resolve_sibling_reports", siblings)
-    audit = AsyncMock(); monkeypatch.setattr(moderation, "log_action", audit)
+    audit = AsyncMock(); monkeypatch.setattr(audit_log, "log_action", audit)
 
     sign_in(_user(7, "teacher"))
     res = client.post("/api/community/courses/5/reports/3", json={"status": "actioned", "action": "hide_post"})
@@ -244,11 +245,11 @@ def test_admin_resolves_with_suspension_and_audit(client, sign_in, monkeypatch):
     monkeypatch.setattr(moderation, "get_report", AsyncMock(return_value=_report(target_type="comment", target_id=44)))
     monkeypatch.setattr(moderation, "resolve_report", AsyncMock())
     monkeypatch.setattr(moderation, "resolve_sibling_reports", AsyncMock(return_value=0))
-    audit = AsyncMock(); monkeypatch.setattr(moderation, "log_action", audit)
+    audit = AsyncMock(); monkeypatch.setattr(audit_log, "log_action", audit)
     target = _user(9, "student")
     monkeypatch.setattr(admin_router, "_target_or_404", AsyncMock(return_value=target))
     suspended = AsyncMock(); monkeypatch.setattr(admin_router, "set_disabled", suspended)
-    notified = AsyncMock(); monkeypatch.setattr(repo, "add_notification", notified)
+    notified = AsyncMock(); monkeypatch.setattr(notifications, "add_notification", notified)
 
     sign_in(_user(7, "teacher"))
     assert client.post("/api/admin/reports/3", json={"status": "actioned"}).status_code == 403
@@ -275,8 +276,8 @@ def test_admin_user_update_carries_suspension_fields_and_is_audited(client, sign
     target = _user(9, "student")
     monkeypatch.setattr(admin_router, "_target_or_404", AsyncMock(return_value=target))
     suspended = AsyncMock(); monkeypatch.setattr(admin_router, "set_disabled", suspended)
-    monkeypatch.setattr(repo, "add_notification", AsyncMock())
-    audit = AsyncMock(); monkeypatch.setattr(moderation, "log_action", audit)
+    monkeypatch.setattr(notifications, "add_notification", AsyncMock())
+    audit = AsyncMock(); monkeypatch.setattr(audit_log, "log_action", audit)
     sign_in(_user(1, "admin"))
     res = client.patch("/api/admin/users/9", json={"disabled": True, "suspend_reason": "harassment", "suspended_until": "2026-11-15"})
     assert res.status_code == 200

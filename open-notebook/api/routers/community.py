@@ -33,14 +33,15 @@ from loguru import logger
 from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
-from api.auth_jwt import get_current_user
-from open_notebook.community import library, moderation, points, ratelimit, throttle
+from siet_platform.auth_jwt import get_current_user
+from open_notebook.community import moderation
+from siet_platform import audit, library, notifications, points, ratelimit, throttle
 from open_notebook.community import repository as repo
-from open_notebook.cache.service import cache_service
+from siet_platform.cache.service import cache_service
 from open_notebook.community.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
 from open_notebook.config import DATA_FOLDER
-from open_notebook.domain.features import QuizSession, RoadmapSession
-from open_notebook.domain.user import USER_ROLE_ADMIN, USER_ROLE_TEACHER, User
+from siet_platform.features.domain import QuizSession, RoadmapSession
+from siet_platform.users import USER_ROLE_ADMIN, USER_ROLE_TEACHER, User
 from open_notebook.exceptions import (
     ConfigurationError,
     ExternalServiceError,
@@ -603,7 +604,7 @@ async def delete_course(course_id: int, user: User = Depends(get_current_user)) 
         return {"ok": True, "id": course_id, "archived": True, "deleted": None}
     purged = await library.purge_course_library(course)
     await repo.delete_course(course_id)
-    await moderation.log_action(
+    await audit.log_action(
         _uid(user), "room.purge", target_type="room", target_id=course_id,
         detail={"code": course.get("code"), "name": course.get("name"), "purged": purged},
     )
@@ -776,7 +777,7 @@ async def resolve_room_report(
         await moderation.resolve_sibling_reports(
             report["target_type"], int(report["target_id"]), status="actioned", action=body.action, reviewer_id=uid
         )
-    await moderation.log_action(
+    await audit.log_action(
         uid, f"room.report.{body.action}", target_type=report["target_type"], target_id=report["target_id"],
         detail={"report_id": report_id, "room_id": course_id, "status": body.status, "note": body.note},
     )
@@ -1068,7 +1069,7 @@ async def react(post_id: int, body: ReactionBody, user: User = Depends(get_curre
     author_id = int(post["author_id"])
     if active and author_id != uid:
         label = "ถูกใจ" if body.kind == "like" else "บอกว่าโพสต์นี้มีประโยชน์"
-        await repo.add_notification(
+        await notifications.add_notification(
             author_id, body.kind, f"{_display(user)} {label} โพสต์ของคุณ", post_id=post_id, actor_id=uid
         )
         # The author earns for the attention their post gets. Each reactor can
@@ -1121,7 +1122,7 @@ async def add_comment(post_id: int, body: CommentBody, user: User = Depends(get_
     await _guard_spam(user, "comment")
     await repo.add_comment(post_id, uid, body.content, body.parent_id)
     notification_user_id = int(parent["author_id"]) if parent else int(post["author_id"])
-    await repo.add_notification(
+    await notifications.add_notification(
         notification_user_id, "comment",
         f"{_display(user)} {'ตอบกลับความคิดเห็นของคุณ' if parent else 'แสดงความคิดเห็นในโพสต์ของคุณ'}",
         post_id=post_id, actor_id=uid,
@@ -1233,7 +1234,7 @@ async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[
             author_id, points.SHARE_BONUS, "share_bonus",
             ref_type="post", ref_id=str(post_id), note=repo.actor_note("share_bonus", uid),
         )
-    await repo.add_notification(
+    await notifications.add_notification(
         author_id, "share", f"{_display(user)} แชร์โพสต์ของคุณ", post_id=post_id, actor_id=uid
     )
     fresh = await repo.get_post(post_id, uid)
@@ -1329,7 +1330,7 @@ async def quiz_submit(post_id: int, body: QuizSubmitBody, user: User = Depends(g
             ref_type="post", ref_id=str(post_id), note=f"{_display(user)} finished your quiz",
         )
         await repo.bump_counter(post_id, "cashback_earned", points.CASHBACK_PER_PLAY)
-        await repo.add_notification(
+        await notifications.add_notification(
             author_id, "cashback",
             f"{_display(user)} ทำควิซของคุณจนจบ คุณได้รับแต้มคืน +{points.CASHBACK_PER_PLAY}",
             post_id=post_id, actor_id=uid,
@@ -1371,7 +1372,7 @@ async def quiz_import(post_id: int, user: User = Depends(get_current_user)) -> D
         await points.refund(charge, "quiz import failed")
         raise HTTPException(status_code=500, detail=f"Could not import quiz: {exc}")
 
-    await repo.add_notification(
+    await notifications.add_notification(
         int(post["author_id"]), "import", f"{_display(user)} นำควิซของคุณเข้าคลังส่วนตัว", post_id=post_id, actor_id=uid
     )
     return {"session_id": session.id, "charged": charge.amount, "balance": await points.get_balance(uid)}
@@ -1412,7 +1413,7 @@ async def roadmap_follow(post_id: int, user: User = Depends(get_current_user)) -
         created = True
         await repo.bump_counter(post_id, "roadmap_follow_count", 1)
         if int(post["author_id"]) != uid:
-            await repo.add_notification(
+            await notifications.add_notification(
                 int(post["author_id"]), "follow", f"{_display(user)} เริ่มเดินตาม Roadmap ของคุณ", post_id=post_id, actor_id=uid
             )
     await repo.save_item(post_id, uid)
@@ -1716,12 +1717,12 @@ async def popular_roadmaps(limit: int = Query(default=5, ge=1, le=20), user: Use
 
 @router.get("/notifications")
 async def notifications(limit: int = Query(default=20, ge=1, le=100), user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    return await repo.list_notifications(_uid(user), limit)
+    return await notifications.list_notifications(_uid(user), limit)
 
 
 @router.post("/notifications/read")
 async def notifications_read(body: NotificationsRead, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    await repo.mark_notifications_read(_uid(user), body.ids)
+    await notifications.mark_notifications_read(_uid(user), body.ids)
     return {"ok": True}
 
 
@@ -2226,7 +2227,7 @@ async def study_quiz(
     body: StudyQuizBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Generate a quiz grounded in the selected course material / own documents."""
-    from open_notebook.features import service as feature_service
+    from siet_platform.features import service as feature_service
 
     uid = _uid(user)
     notebook_ids, label, _fallback = await _resolve_scope(

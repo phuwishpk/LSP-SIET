@@ -11,9 +11,9 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from open_notebook.community import library
+from siet_platform import library
 from open_notebook.community import repository as repo
-from open_notebook.domain.user import User
+from siet_platform.users import User
 
 
 def _user(uid: int, role: str) -> User:
@@ -128,9 +128,9 @@ async def test_document_search_stays_inside_readable_notebooks(monkeypatch):
     ])
     _patch(monkeypatch, library, fake)
     searched = AsyncMock(return_value=[{"id": "source:x", "similarity": 0.8, "content": "chunk"}])
-    monkeypatch.setattr("open_notebook.community.retrieval.search_in_notebooks", searched)
-    monkeypatch.setattr("open_notebook.cache.service.cache_service.get_json", AsyncMock(return_value=None))
-    monkeypatch.setattr("open_notebook.cache.service.cache_service.set_json", AsyncMock())
+    monkeypatch.setattr("siet_platform.retrieval.search_in_notebooks", searched)
+    monkeypatch.setattr("siet_platform.cache.service.cache_service.get_json", AsyncMock(return_value=None))
+    monkeypatch.setattr("siet_platform.cache.service.cache_service.set_json", AsyncMock())
 
     await library.search_documents(_user(20, "student"), "deadlock", limit=5)
     assert searched.await_args.args[1] == ["notebook:a"]          # notebook:b never searched
@@ -143,9 +143,9 @@ async def test_document_search_serves_the_cache(monkeypatch):
     monkeypatch.setattr(library, "room_ids_readable_by", AsyncMock(return_value=set()))
     fake = _Session([_Result(rows=[])])
     _patch(monkeypatch, library, fake)
-    monkeypatch.setattr("open_notebook.cache.service.cache_service.get_json", AsyncMock(return_value=[{"id": 1, "cached": True}]))
+    monkeypatch.setattr("siet_platform.cache.service.cache_service.get_json", AsyncMock(return_value=[{"id": 1, "cached": True}]))
     searched = AsyncMock()
-    monkeypatch.setattr("open_notebook.community.retrieval.search_in_notebooks", searched)
+    monkeypatch.setattr("siet_platform.retrieval.search_in_notebooks", searched)
     out = await library.search_documents(_user(20, "student"), "x")
     assert out == [{"id": 1, "cached": True}]
     searched.assert_not_awaited()
@@ -166,7 +166,7 @@ def app():
 @pytest.fixture
 def client(app, monkeypatch):
     from api.auth import PasswordAuthMiddleware
-    from api.auth_roles import RoleAccessMiddleware
+    from siet_platform.auth_roles import RoleAccessMiddleware
 
     async def passthrough(self, request, call_next):
         return await call_next(request)
@@ -178,7 +178,7 @@ def client(app, monkeypatch):
 
 @pytest.fixture
 def sign_in(app):
-    from api.auth_jwt import get_current_user
+    from siet_platform.auth_jwt import get_current_user
 
     def _as(user: User) -> User:
         app.dependency_overrides[get_current_user] = lambda: user

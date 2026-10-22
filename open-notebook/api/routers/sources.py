@@ -885,7 +885,7 @@ async def update_source(
         # we still bump so any cached answer that referenced the source by
         # version is correctly invalidated.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_source_change,
             )
 
@@ -998,7 +998,7 @@ async def retry_source_processing(
             # version BEFORE submitting the job so the background command
             # can't write back a cached answer with the old version.
             try:
-                from open_notebook.cache.invalidation import (
+                from siet_platform.cache.invalidation import (
                     invalidate_after_source_change,
                 )
 
@@ -1092,7 +1092,7 @@ async def delete_source(
         # the actual delete so the answer cache fingerprint is already
         # stale by the time the delete commits.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_source_change,
             )
 

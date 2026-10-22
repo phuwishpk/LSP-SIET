@@ -60,8 +60,11 @@ MODULE_MAP: dict[str, str] = {
 }
 
 # `from open_notebook.community import points` style imports of a package
-# attribute. (package, name) -> new module that provides `name`.
+# attribute. (package, name) -> new package that provides `name`, or
+# "package:newname" when the module was renamed too.
 FROM_PACKAGE_MAP: dict[tuple[str, str], str] = {
+    ("open_notebook.domain", "user"): "siet_platform:users",
+    ("open_notebook.domain", "features"): "siet_platform.features:domain",
     ("open_notebook.community", "points"): "siet_platform",
     ("open_notebook.community", "throttle"): "siet_platform",
     ("open_notebook.community", "usage"): "siet_platform",
@@ -161,7 +164,12 @@ def rewrite_python(text: str) -> str:
                 return match.group(0)
             kept = [p for p in parts if p not in moved]
             indent = match.group("indent")
-            lines = [f"{indent}from {new_pkg} import {m}" for m in moved]
+            target, _, new_name = new_pkg.partition(":")
+            if new_name:
+                # keep the name the importing code uses: `user` -> `users as user`
+                aliases = [m.split(" as ")[1].strip() if " as " in m else name for m in moved]
+                moved = [new_name if a == new_name else f"{new_name} as {a}" for a in aliases]
+            lines = [f"{indent}from {target} import {m}" for m in moved]
             if kept:
                 lines.insert(0, f"{indent}from {pkg} import {', '.join(kept)}")
             return "\n".join(lines)
@@ -169,7 +177,31 @@ def rewrite_python(text: str) -> str:
         text = pattern.sub(_split, text)
     for old in sorted(MODULE_MAP, key=len, reverse=True):
         text = _module_pattern(old).sub(MODULE_MAP[old], text)
-    return text
+    return _merge_adjacent_imports(text)
+
+
+_SIMPLE_FROM = re.compile(r"^(?P<indent>[ \t]*)from (?P<module>[\w.]+) import (?P<names>[^\n()#\\]+)$")
+
+
+def _merge_adjacent_imports(text: str) -> str:
+    """`from m import a` + `from m import b` on consecutive lines -> `from m import a, b`."""
+    out: list[str] = []
+    for line in text.split("\n"):
+        current = _SIMPLE_FROM.match(line)
+        previous = _SIMPLE_FROM.match(out[-1]) if out else None
+        if (
+            current
+            and previous
+            and current.group("module") == previous.group("module")
+            and current.group("indent") == previous.group("indent")
+            and current.group("module").startswith(("siet_platform", "kmitl_rag", "siet_community"))
+        ):
+            names = [n.strip() for n in (previous.group("names") + "," + current.group("names")).split(",")]
+            names = sorted(dict.fromkeys(n for n in names if n), key=lambda n: n.split(" as ")[0].lower())
+            out[-1] = f"{current.group('indent')}from {current.group('module')} import {', '.join(names)}"
+        else:
+            out.append(line)
+    return "\n".join(out)
 
 
 def rewrite_ts(text: str) -> str:

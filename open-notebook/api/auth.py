@@ -13,7 +13,7 @@ from open_notebook.utils.encryption import get_secret_from_env
 
 # ----------------------------------------------------------------------------
 # JWT helpers used by the workspace auth flow.
-# We import them lazily here to avoid a circular dependency with api.auth_jwt
+# We import them lazily here to avoid a circular dependency with siet_platform.auth_jwt
 # (which itself imports from this module via `get_current_user`).
 # ----------------------------------------------------------------------------
 
@@ -28,7 +28,7 @@ def _jwt_enabled() -> bool:
 def _try_resolve_jwt(token: str) -> Optional[str]:
     """Decode a JWT and return the user id (subject) on success, else None."""
     try:
-        from api.auth_jwt import JWT_AUDIENCE, JWT_ISSUER, decode_access_token
+        from siet_platform.auth_jwt import JWT_AUDIENCE, JWT_ISSUER, decode_access_token
 
         secret = get_secret_from_env("JWT_SECRET") or get_secret_from_env(
             "OPEN_NOTEBOOK_ENCRYPTION_KEY"

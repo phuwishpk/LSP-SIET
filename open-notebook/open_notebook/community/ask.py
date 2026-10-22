@@ -23,8 +23,9 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
-from open_notebook.community import grounding, usage
-from open_notebook.community.retrieval import (
+from open_notebook.community import grounding
+from siet_platform import usage
+from siet_platform.retrieval import (
     content_key,
     search_in_notebooks,
     source_summaries,

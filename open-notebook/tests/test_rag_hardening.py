@@ -8,9 +8,9 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from open_notebook.community import library
+from siet_platform import library
 from open_notebook.community import repository as repo
-from open_notebook.domain import user as users
+from siet_platform import users
 
 
 class _Result:

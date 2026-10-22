@@ -1,6 +1,6 @@
 """Answer-cache key and the per-user ask policy."""
 
-from open_notebook.community import ratelimit
+from siet_platform import ratelimit
 from open_notebook.community.ask import answer_cache_key
 
 

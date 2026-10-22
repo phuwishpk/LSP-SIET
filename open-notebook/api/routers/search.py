@@ -17,17 +17,17 @@ from api.models import (
     SearchResponse,
 )
 from open_notebook.ai.models import Model, model_manager
-from open_notebook.cache.answer_cache import (
+from siet_platform.cache.answer_cache import (
     context_fingerprint,
     get_cached_answer,
     set_cached_answer,
 )
-from open_notebook.cache.metrics import cache_metrics
-from open_notebook.cache.intent_validator import validate_intent_match
-from open_notebook.config import ANSWER_CACHE_INTENT_MIN_SIMILARITY
+from siet_platform.cache.metrics import cache_metrics
+from siet_platform.cache.intent_validator import validate_intent_match
+from siet_platform.config import ANSWER_CACHE_INTENT_MIN_SIMILARITY
 from open_notebook.domain.notebook import text_search, vector_search
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
-from open_notebook.features.service import (
+from siet_platform.features.service import (
     _build_notebook_ask_prompt,
     _invoke_direct_answer,
     notebook_ask,

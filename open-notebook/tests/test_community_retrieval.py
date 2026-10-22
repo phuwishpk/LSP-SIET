@@ -9,7 +9,7 @@ passage while claiming the document did not cover the question.
 import pytest
 
 from open_notebook.community import ask
-from open_notebook.community.retrieval import content_key, dedupe_hits
+from siet_platform.retrieval import content_key, dedupe_hits
 
 
 def hit(content, similarity, kind="chunk", id_="source:a", title="doc"):
@@ -114,7 +114,7 @@ async def test_summary_query_selects_the_field_it_orders_by(monkeypatch):
     and the document summary silently never reached the model."""
     import re
 
-    from open_notebook.community import retrieval
+    from siet_platform import retrieval
 
     seen = {}
 

@@ -10,15 +10,15 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from api.routers.search import _stream_notebook_ask_response
-from open_notebook.cache.answer_cache import set_cached_answer
-from open_notebook.cache.intent_validator import validate_intent_match
-from open_notebook.cache.metrics import cache_metrics
+from siet_platform.cache.answer_cache import set_cached_answer
+from siet_platform.cache.intent_validator import validate_intent_match
+from siet_platform.cache.metrics import cache_metrics
 
 
 @pytest.mark.asyncio
 async def test_validate_intent_match_returns_true():
     with patch(
-        "open_notebook.cache.intent_validator._invoke_json_model",
+        "siet_platform.cache.intent_validator._invoke_json_model",
         new=AsyncMock(return_value={"same_intent": True}),
     ):
         result = await validate_intent_match(
@@ -34,7 +34,7 @@ async def test_validate_intent_match_returns_true():
 @pytest.mark.asyncio
 async def test_validate_intent_match_returns_false():
     with patch(
-        "open_notebook.cache.intent_validator._invoke_json_model",
+        "siet_platform.cache.intent_validator._invoke_json_model",
         new=AsyncMock(return_value={"same_intent": False}),
     ):
         result = await validate_intent_match(
@@ -54,10 +54,10 @@ async def test_validate_intent_timeout_returns_none():
         return {"same_intent": True}
 
     with patch(
-        "open_notebook.cache.intent_validator._invoke_json_model",
+        "siet_platform.cache.intent_validator._invoke_json_model",
         side_effect=slow_model,
     ), patch(
-        "open_notebook.cache.intent_validator.ANSWER_CACHE_INTENT_TIMEOUT_MS", 1
+        "siet_platform.cache.intent_validator.ANSWER_CACHE_INTENT_TIMEOUT_MS", 1
     ):
         result = await validate_intent_match(
             "new",
@@ -77,16 +77,16 @@ async def test_set_cached_answer_extracts_intent_automatically():
         return True
 
     with patch(
-        "open_notebook.cache.answer_cache.generate_embedding",
+        "siet_platform.cache.answer_cache.generate_embedding",
         new=AsyncMock(return_value=[1.0, 0.0]),
     ), patch(
-        "open_notebook.cache.intent_validator._extract_intent_and_entities",
+        "siet_platform.cache.intent_validator._extract_intent_and_entities",
         new=AsyncMock(return_value=("definition", {"topic": "AI"})),
     ), patch(
-        "open_notebook.cache.answer_cache.cache_service.set_json",
+        "siet_platform.cache.answer_cache.cache_service.set_json",
         side_effect=fake_set,
     ), patch(
-        "open_notebook.cache.answer_cache.cache_service.get_json",
+        "siet_platform.cache.answer_cache.cache_service.get_json",
         new=AsyncMock(return_value=[]),
     ):
         await set_cached_answer(

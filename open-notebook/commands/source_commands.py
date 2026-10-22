@@ -105,7 +105,7 @@ async def process_source_command(
         # source is rewritten so the answer cache cannot serve stale
         # entries between edit and write.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_source_change,
             )
 

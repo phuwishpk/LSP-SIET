@@ -233,7 +233,7 @@ async def create_model(model_data: ModelCreate):
 
         # Invalidate provider availability cache
         try:
-            from open_notebook.cache.service import cache_service
+            from siet_platform.cache.service import cache_service
             await cache_service.invalidate_provider_cache()
         except Exception:
             pass  # Non-critical
@@ -266,7 +266,7 @@ async def delete_model(model_id: str):
 
         # Invalidate provider availability cache
         try:
-            from open_notebook.cache.service import cache_service
+            from siet_platform.cache.service import cache_service
             await cache_service.invalidate_provider_cache()
         except Exception:
             pass  # Non-critical
@@ -358,7 +358,7 @@ async def update_default_models(defaults_data: DefaultModelsResponse):
 
         # Invalidate provider availability cache since defaults affect model selection
         try:
-            from open_notebook.cache.service import cache_service
+            from siet_platform.cache.service import cache_service
             await cache_service.invalidate_provider_cache()
         except Exception:
             pass  # Non-critical
@@ -386,7 +386,7 @@ async def get_provider_availability():
     """Get provider availability based on database config and environment variables."""
     try:
         # Try cache first
-        from open_notebook.cache.service import cache_service
+        from siet_platform.cache.service import cache_service
 
         cached = await cache_service.get_provider_availability()
         if cached is not None:
@@ -574,7 +574,7 @@ async def sync_models(provider: str):
 
         # Invalidate provider availability cache
         try:
-            from open_notebook.cache.service import cache_service
+            from siet_platform.cache.service import cache_service
             await cache_service.invalidate_provider_cache()
         except Exception:
             pass  # Non-critical
@@ -618,7 +618,7 @@ async def sync_all_models():
 
         # Invalidate provider availability cache
         try:
-            from open_notebook.cache.service import cache_service
+            from siet_platform.cache.service import cache_service
             await cache_service.invalidate_provider_cache()
         except Exception:
             pass  # Non-critical
@@ -820,7 +820,7 @@ async def auto_assign_defaults():
 
             # Invalidate provider availability cache
             try:
-                from open_notebook.cache.service import cache_service
+                from siet_platform.cache.service import cache_service
                 await cache_service.invalidate_provider_cache()
             except Exception:
                 pass  # Non-critical

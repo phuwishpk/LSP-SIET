@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from open_notebook.community import repository as repo
-from open_notebook.domain.user import User
+from siet_platform.users import User
 
 
 def _user(uid: int, role: str) -> User:
@@ -23,7 +23,7 @@ def app():
 @pytest.fixture
 def client(app, monkeypatch):
     from api.auth import PasswordAuthMiddleware
-    from api.auth_roles import RoleAccessMiddleware
+    from siet_platform.auth_roles import RoleAccessMiddleware
 
     async def passthrough(self, request, call_next):
         return await call_next(request)
@@ -35,7 +35,7 @@ def client(app, monkeypatch):
 
 @pytest.fixture
 def sign_in(app):
-    from api.auth_jwt import get_current_user
+    from siet_platform.auth_jwt import get_current_user
 
     def _as(user: User) -> User:
         app.dependency_overrides[get_current_user] = lambda: user
@@ -57,7 +57,8 @@ class _Session:
 @pytest.mark.parametrize("shared_post", [None, 77])
 def test_expand_syncs_the_feed_post_when_one_exists(client, sign_in, monkeypatch, shared_post):
     from api.routers import community as router
-    from open_notebook.community import points, roadmap_plan
+    from open_notebook.community import roadmap_plan
+    from siet_platform import points
 
     session = _Session()
     monkeypatch.setattr(router, "_my_roadmap_or_404", AsyncMock(return_value=session))

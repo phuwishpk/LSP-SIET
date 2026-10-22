@@ -171,8 +171,8 @@ async def get_redis_status():
     is working.
     """
     try:
-        from open_notebook.cache.redis_client import redis_client
-        from open_notebook.cache.service import cache_service
+        from siet_platform.cache.redis_client import redis_client
+        from siet_platform.cache.service import cache_service
 
         health = await redis_client.health_check()
         metrics = cache_service.get_metrics()
@@ -219,7 +219,7 @@ async def get_redis_status():
 async def reset_redis_metrics():
     """Reset cache metrics counters."""
     try:
-        from open_notebook.cache.service import cache_service
+        from siet_platform.cache.service import cache_service
 
         cache_service.reset_metrics()
         return {"message": "Cache metrics reset successfully"}
@@ -244,11 +244,11 @@ async def get_answer_cache_analytics():
     system is working.
     """
     try:
-        from open_notebook.cache.answer_cache import get_cache_analytics
-        from open_notebook.cache.metrics import cache_metrics
-        from open_notebook.cache.redis_client import redis_client
-        from open_notebook.cache.threshold_tuner import threshold_tuner
-        from open_notebook.config import ANSWER_CACHE_TUNER_ENABLED
+        from siet_platform.cache.answer_cache import get_cache_analytics
+        from siet_platform.cache.metrics import cache_metrics
+        from siet_platform.cache.redis_client import redis_client
+        from siet_platform.cache.threshold_tuner import threshold_tuner
+        from siet_platform.config import ANSWER_CACHE_TUNER_ENABLED
 
         health = await redis_client.health_check()
         analytics = await get_cache_analytics()
@@ -301,48 +301,48 @@ async def get_answer_cache_analytics():
             "config": {
                 "ttl_seconds": int(
                     __import__(
-                        "open_notebook.cache.answer_cache",
+                        "siet_platform.cache.answer_cache",
                         fromlist=["ANSWER_CACHE_TTL"],
                     ).ANSWER_CACHE_TTL
                 ),
                 "semantic_threshold": float(
                     __import__(
-                        "open_notebook.cache.answer_cache",
+                        "siet_platform.cache.answer_cache",
                         fromlist=["ANSWER_CACHE_THRESHOLD"],
                     ).ANSWER_CACHE_THRESHOLD
                 ),
                 "high_threshold": float(
                     __import__(
-                        "open_notebook.cache.answer_cache",
+                        "siet_platform.cache.answer_cache",
                         fromlist=["ANSWER_CACHE_HIGH_THRESHOLD"],
                     ).ANSWER_CACHE_HIGH_THRESHOLD
                 ),
                 "mid_threshold": float(
                     __import__(
-                        "open_notebook.cache.answer_cache",
+                        "siet_platform.cache.answer_cache",
                         fromlist=["ANSWER_CACHE_MID_THRESHOLD"],
                     ).ANSWER_CACHE_MID_THRESHOLD
                 ),
                 "max_entries": int(
                     __import__(
-                        "open_notebook.cache.answer_cache",
+                        "siet_platform.cache.answer_cache",
                         fromlist=["ANSWER_CACHE_MAX_ENTRIES"],
                     ).ANSWER_CACHE_MAX_ENTRIES
                 ),
                 "intent_validation_enabled": __import__(
-                    "open_notebook.config",
+                    "siet_platform.config",
                     fromlist=["ANSWER_CACHE_INTENT_VALIDATOR_ENABLED"],
                 ).ANSWER_CACHE_INTENT_VALIDATOR_ENABLED,
                 "intent_timeout_ms": __import__(
-                    "open_notebook.config",
+                    "siet_platform.config",
                     fromlist=["ANSWER_CACHE_INTENT_TIMEOUT_MS"],
                 ).ANSWER_CACHE_INTENT_TIMEOUT_MS,
                 "intent_min_similarity": __import__(
-                    "open_notebook.config",
+                    "siet_platform.config",
                     fromlist=["ANSWER_CACHE_INTENT_MIN_SIMILARITY"],
                 ).ANSWER_CACHE_INTENT_MIN_SIMILARITY,
                 "circuit_breaker_enabled": __import__(
-                    "open_notebook.config",
+                    "siet_platform.config",
                     fromlist=["ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED"],
                 ).ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED,
             },
@@ -356,7 +356,7 @@ async def get_answer_cache_analytics():
 
 def _get_circuit_breaker_status() -> dict:
     try:
-        from open_notebook.cache.circuit_breaker import (
+        from siet_platform.cache.circuit_breaker import (
             ANSWER_CACHE_CIRCUIT_BREAKER_ENABLED,
             circuit_breaker,
         )
@@ -373,7 +373,7 @@ async def reset_answer_cache_thresholds():
     current user model has no role field yet, so there is no finer-grained
     admin RBAC distinction to enforce here.
     """
-    from open_notebook.cache.threshold_tuner import threshold_tuner
+    from siet_platform.cache.threshold_tuner import threshold_tuner
 
     threshold_tuner.reset()
     return {
@@ -393,7 +393,7 @@ async def get_threshold_history():
     - Human-readable reason
     - Signal snapshot at decision time
     """
-    from open_notebook.cache.tuner_decision_log import get_history
+    from siet_platform.cache.tuner_decision_log import get_history
 
     limit_str = __import__("os").environ.get(
         "OPEN_NOTEBOOK_TUNER_HISTORY_LIMIT", "100"
@@ -406,7 +406,7 @@ async def get_threshold_history():
 @router.post("/config/answer-cache/thresholds/history/clear")
 async def clear_threshold_history():
     """Phase 6.4: Clear the tuner decision log."""
-    from open_notebook.cache.tuner_decision_log import clear_history
+    from siet_platform.cache.tuner_decision_log import clear_history
 
     success = await clear_history()
     return {"status": "ok" if success else "error"}
@@ -415,7 +415,7 @@ async def clear_threshold_history():
 @router.post("/config/answer-cache/circuit-breaker/open")
 async def open_circuit_breaker():
     """Phase 6.5: Manually open the intent-validation circuit breaker."""
-    from open_notebook.cache.circuit_breaker import circuit_breaker
+    from siet_platform.cache.circuit_breaker import circuit_breaker
 
     await circuit_breaker.open()
     return {
@@ -427,7 +427,7 @@ async def open_circuit_breaker():
 @router.post("/config/answer-cache/circuit-breaker/close")
 async def close_circuit_breaker():
     """Phase 6.5: Manually close (reset) the intent-validation circuit breaker."""
-    from open_notebook.cache.circuit_breaker import circuit_breaker
+    from siet_platform.cache.circuit_breaker import circuit_breaker
 
     await circuit_breaker.close()
     return {
@@ -439,7 +439,7 @@ async def close_circuit_breaker():
 @router.get("/config/answer-cache/circuit-breaker/status")
 async def get_circuit_breaker_status():
     """Phase 6.5: Return current circuit-breaker state and stats."""
-    from open_notebook.cache.circuit_breaker import circuit_breaker
+    from siet_platform.cache.circuit_breaker import circuit_breaker
 
     return circuit_breaker.get_status()
 
@@ -453,7 +453,7 @@ async def report_answer_cache_quality_failure(request: Request):
     incorrect" so we can later tune thresholds against real feedback.
     """
     try:
-        from open_notebook.cache.metrics import cache_metrics
+        from siet_platform.cache.metrics import cache_metrics
 
         try:
             body = await request.json()

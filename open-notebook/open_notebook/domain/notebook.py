@@ -817,7 +817,7 @@ async def vector_search(
     if not keyword:
         raise InvalidInputError("Search keyword cannot be empty")
     try:
-        from open_notebook.cache.service import cache_service
+        from siet_platform.cache.service import cache_service
         from open_notebook.utils.embedding import generate_embedding
 
         # Try cache first (key = hash of search params)

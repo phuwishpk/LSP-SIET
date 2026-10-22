@@ -127,7 +127,7 @@ class ContextBuilder:
 
             # Check cache first (only for notebook-level builds with consistent config)
             if self.notebook_id and self.context_config:
-                from open_notebook.cache.service import cache_service
+                from siet_platform.cache.service import cache_service
 
                 cache_config = self.context_config.to_cache_key()
                 cached = await cache_service.get_context(self.notebook_id, cache_config)
@@ -157,7 +157,7 @@ class ContextBuilder:
 
             # Cache the result if this is a notebook-level build
             if self.notebook_id and self.context_config:
-                from open_notebook.cache.service import cache_service
+                from siet_platform.cache.service import cache_service
 
                 await cache_service.set_context(
                     self.notebook_id,

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING, List, Optional
 import numpy as np
 from loguru import logger
 
-from open_notebook.community import throttle, usage
+from siet_platform import throttle, usage
 from open_notebook.exceptions import RateLimitError
 
 from .chunking import CHUNK_SIZE, ContentType, chunk_text
@@ -251,7 +251,7 @@ async def cached_generate_embeddings(
         ValueError: If no embedding model is configured
         RuntimeError: If embedding generation fails
     """
-    from open_notebook.cache.service import cache_service
+    from siet_platform.cache.service import cache_service
 
     if not texts:
         return []

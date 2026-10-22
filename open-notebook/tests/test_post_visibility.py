@@ -20,7 +20,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from open_notebook.community import repository as repo
-from open_notebook.domain.user import User
+from siet_platform.users import User
 
 
 def _post(**over):
@@ -162,7 +162,7 @@ def app():
 @pytest.fixture
 def client(app, monkeypatch):
     from api.auth import PasswordAuthMiddleware
-    from api.auth_roles import RoleAccessMiddleware
+    from siet_platform.auth_roles import RoleAccessMiddleware
 
     async def passthrough(self, request, call_next):
         return await call_next(request)
@@ -174,7 +174,7 @@ def client(app, monkeypatch):
 
 @pytest.fixture
 def sign_in(app):
-    from api.auth_jwt import get_current_user
+    from siet_platform.auth_jwt import get_current_user
 
     def _as(user: User) -> User:
         app.dependency_overrides[get_current_user] = lambda: user
@@ -271,7 +271,7 @@ def test_private_room_flag_round_trips_through_course_settings(client, sign_in, 
 
 @pytest.mark.asyncio
 async def test_library_lists_use_the_readable_rule(monkeypatch):
-    from open_notebook.community import library
+    from siet_platform import library
 
     fake = _Session()
 
@@ -292,7 +292,7 @@ async def test_library_lists_use_the_readable_rule(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_can_read_document_private_room_needs_membership(monkeypatch):
-    from open_notebook.community import library
+    from siet_platform import library
 
     monkeypatch.setattr(library, "get_course", AsyncMock(return_value=_room(is_private=1)))
     checks = AsyncMock(side_effect=[False, True])

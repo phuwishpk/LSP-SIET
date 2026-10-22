@@ -321,7 +321,7 @@ async def update_notebook(
         # questions about potentially different content. Bump the version
         # so the answer cache fingerprint shifts.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_notebook_change,
             )
 
@@ -422,7 +422,7 @@ async def add_source_to_notebook(
         # retrievable content, so bump the knowledge version on both
         # sides.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_source_change,
             )
 
@@ -476,7 +476,7 @@ async def remove_source_from_notebook(
         # content. Bump the notebook version so the answer cache can
         # detect that cached answers are stale.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_notebook_change,
             )
 
@@ -528,7 +528,7 @@ async def delete_notebook(
         # Phase 2: wipe the answer cache entries that referenced this
         # notebook before the underlying data is removed.
         try:
-            from open_notebook.cache.invalidation import (
+            from siet_platform.cache.invalidation import (
                 invalidate_after_notebook_change,
             )
 

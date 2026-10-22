@@ -12,8 +12,8 @@ from unittest.mock import AsyncMock
 import pytest
 from fastapi.testclient import TestClient
 
-from open_notebook.community import library
-from open_notebook.domain.user import User
+from siet_platform import library
+from siet_platform.users import User
 
 
 def _user(uid: int, role: str) -> User:
@@ -203,7 +203,7 @@ def app():
 @pytest.fixture
 def client(app, monkeypatch):
     from api.auth import PasswordAuthMiddleware
-    from api.auth_roles import RoleAccessMiddleware
+    from siet_platform.auth_roles import RoleAccessMiddleware
 
     async def passthrough(self, request, call_next):
         return await call_next(request)
@@ -215,7 +215,7 @@ def client(app, monkeypatch):
 
 @pytest.fixture
 def sign_in(app):
-    from api.auth_jwt import get_current_user
+    from siet_platform.auth_jwt import get_current_user
 
     def _as(user: User) -> User:
         app.dependency_overrides[get_current_user] = lambda: user

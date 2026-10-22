@@ -11,7 +11,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from open_notebook.community import repository as repo
-from open_notebook.domain.user import User
+from siet_platform.users import User
 
 
 # ---------------------------------------------------------------------------
@@ -90,7 +90,7 @@ def client(app, monkeypatch):
     through the dependency instead, so both gates are made to pass through.
     """
     from api.auth import PasswordAuthMiddleware
-    from api.auth_roles import RoleAccessMiddleware
+    from siet_platform.auth_roles import RoleAccessMiddleware
 
     async def passthrough(self, request, call_next):
         return await call_next(request)
@@ -102,7 +102,7 @@ def client(app, monkeypatch):
 
 @pytest.fixture
 def sign_in(app):
-    from api.auth_jwt import get_current_user
+    from siet_platform.auth_jwt import get_current_user
 
     def _as(user: User) -> User:
         app.dependency_overrides[get_current_user] = lambda: user

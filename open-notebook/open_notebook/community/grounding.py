@@ -135,7 +135,7 @@ async def invoke_chat(
     so a misconfigured model costs a retry, not an error for the student.
     """
     from open_notebook.ai.models import model_manager
-    from open_notebook.community import throttle, usage
+    from siet_platform import throttle, usage
     from open_notebook.exceptions import ConfigurationError, ExternalServiceError
     from open_notebook.utils.text_utils import extract_text_content
 

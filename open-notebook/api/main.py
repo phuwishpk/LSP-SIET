@@ -14,8 +14,8 @@ from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.auth import PasswordAuthMiddleware
-from api.auth_jwt import get_current_user, jwt_auth_enabled
-from api.auth_roles import RoleAccessMiddleware
+from siet_platform.auth_jwt import get_current_user, jwt_auth_enabled
+from siet_platform.auth_roles import RoleAccessMiddleware
 from api.routers import (
     chat,
     config,
@@ -37,10 +37,8 @@ from api.routers import (
 from api.routers import admin as admin_router
 from api.routers import commands as commands_router
 from api.routers import community as community_router
-from api.routers import features as features_router
-from api.routers import google_auth as google_auth_router
-from api.routers import users as users_router
-from open_notebook.community.throttle import ProviderBusy
+from siet_platform.routers import features as features_router, google_auth as google_auth_router, users as users_router
+from siet_platform.throttle import ProviderBusy
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -191,7 +189,7 @@ async def lifespan(app: FastAPI):
 
     # Community / point-wallet schema (idempotent) – must run before seeding.
     try:
-        from open_notebook.community.schema import ensure_schema
+        from siet_platform.schema import ensure_schema
 
         await ensure_schema()
     except Exception as exc:
@@ -199,7 +197,7 @@ async def lifespan(app: FastAPI):
 
     # Library documents whose background ingestion died with the last process.
     try:
-        from open_notebook.community.library import reap_stuck_documents
+        from siet_platform.library import reap_stuck_documents
 
         await reap_stuck_documents()
     except Exception as exc:
@@ -208,7 +206,7 @@ async def lifespan(app: FastAPI):
     # Seed: 1 admin + 5 students on MariaDB startup.
     # Set WORKSPACE_SEED_ADMIN=false to disable.
     try:
-        from open_notebook.domain.user import (
+        from siet_platform.users import (
             USER_ROLE_ADMIN,
             USER_ROLE_STUDENT,
             UserAlreadyExists,
@@ -279,7 +277,7 @@ async def lifespan(app: FastAPI):
 
             # Demo data for the community: welcome allowance + sample course rooms.
             try:
-                from open_notebook.community import points as community_points
+                from siet_platform import points as community_points
 
                 for u in seed_users:
                     seeded = await get_by_username(u["username"])
@@ -300,7 +298,7 @@ async def lifespan(app: FastAPI):
     # singleton remains available while disabled so hot-path threshold reads
     # transparently fall back to static defaults.
     try:
-        from open_notebook.cache.threshold_tuner import start_tuner_if_enabled
+        from siet_platform.cache.threshold_tuner import start_tuner_if_enabled
 
         await start_tuner_if_enabled()
     except Exception as exc:
@@ -308,7 +306,7 @@ async def lifespan(app: FastAPI):
 
     # Phase 6.5: load persisted circuit-breaker state on startup
     try:
-        from open_notebook.cache.circuit_breaker import init_circuit_breaker
+        from siet_platform.cache.circuit_breaker import init_circuit_breaker
 
         await init_circuit_breaker()
     except Exception as exc:
@@ -318,7 +316,7 @@ async def lifespan(app: FastAPI):
     yield
 
     try:
-        from open_notebook.cache.threshold_tuner import stop_tuner
+        from siet_platform.cache.threshold_tuner import stop_tuner
 
         await stop_tuner()
     except Exception as exc:
@@ -326,7 +324,7 @@ async def lifespan(app: FastAPI):
 
     # Shutdown: close Redis connection
     try:
-        from open_notebook.cache.redis_client import redis_client
+        from siet_platform.cache.redis_client import redis_client
 
         await redis_client.close()
         logger.info("Redis connection closed")
