@@ -8,7 +8,7 @@ passage while claiming the document did not cover the question.
 
 import pytest
 
-from open_notebook.community import ask
+from kmitl_rag import ask
 from siet_platform.retrieval import content_key, dedupe_hits
 
 

@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_owner_id, owner_can_access
-from api.routers.chat import _filter_url_citations, _verify_course_codes
+from kmitl_rag.chat_filters import _filter_url_citations, _verify_course_codes
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, Source
 from open_notebook.exceptions import (

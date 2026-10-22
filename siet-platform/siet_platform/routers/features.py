@@ -19,7 +19,7 @@ from open_notebook.community import repository as community_repo
 from siet_platform import points
 from siet_platform.users import User
 
-from api.models import (
+from siet_platform.features.schemas import (
     QuizGenerateRequest,
     QuizGenerateResponse,
     QuizSessionResponse,

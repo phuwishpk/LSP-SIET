@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from api.routers.search import _stream_notebook_ask_response
+from kmitl_rag.routers.notebook_ask import _stream_notebook_ask_response
 from siet_platform.cache.answer_cache import set_cached_answer
 from siet_platform.cache.intent_validator import validate_intent_match
 from siet_platform.cache.metrics import cache_metrics
@@ -153,9 +153,9 @@ def _mid_match():
 @pytest.mark.asyncio
 async def test_mid_band_intent_pass_reuses_candidate():
     with patch(
-        "api.routers.search.validate_intent_match", new=AsyncMock(return_value=True)
+        "kmitl_rag.routers.notebook_ask.validate_intent_match", new=AsyncMock(return_value=True)
     ), patch(
-        "api.routers.search._invoke_direct_answer", new=AsyncMock()
+        "kmitl_rag.routers.notebook_ask._invoke_direct_answer", new=AsyncMock()
     ) as fresh:
         events = await _collect_stream(**_stream_args(_mid_match()))
 
@@ -168,12 +168,12 @@ async def test_mid_band_intent_pass_reuses_candidate():
 @pytest.mark.asyncio
 async def test_mid_band_intent_fail_generates_fresh_answer():
     with patch(
-        "api.routers.search.validate_intent_match", new=AsyncMock(return_value=False)
+        "kmitl_rag.routers.notebook_ask.validate_intent_match", new=AsyncMock(return_value=False)
     ), patch(
-        "api.routers.search._invoke_direct_answer",
+        "kmitl_rag.routers.notebook_ask._invoke_direct_answer",
         new=AsyncMock(return_value="คำตอบใหม่"),
     ), patch(
-        "api.routers.search.set_cached_answer", new=AsyncMock()
+        "kmitl_rag.routers.notebook_ask.set_cached_answer", new=AsyncMock()
     ):
         events = await _collect_stream(**_stream_args(_mid_match()))
 

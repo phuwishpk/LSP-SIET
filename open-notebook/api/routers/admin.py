@@ -22,6 +22,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from siet_platform.auth_jwt import get_current_user
+from siet_platform.http import _audit, _require_admin, _viewer_window
 from siet_platform.login_guard import clear_login_failures
 from open_notebook.community import moderation
 from siet_platform import audit, library, notifications, points, pricing, ratelimit, throttle
@@ -117,14 +118,6 @@ class PasswordReset(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-def _require_admin(user: User) -> int:
-    if (user.role or "") != USER_ROLE_ADMIN:
-        raise HTTPException(status_code=403, detail="ส่วนนี้สำหรับผู้ดูแลระบบเท่านั้น")
-    if user.id is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
-    return int(user.id)
-
-
 def _guard_delete(target: User, admin_id: int) -> None:
     """The same rails as suspension: never strand the workspace without an admin."""
     if int(target.id or 0) == admin_id:
@@ -190,15 +183,6 @@ def _public(target: User) -> Dict[str, Any]:
         "created_at": target.created_at,
         "last_login_at": target.last_login_at,
     }
-
-
-async def _audit(user: User, action: str, *, target_type: Optional[str] = None,
-                 target_id: Optional[Any] = None, **detail: Any) -> None:
-    """One line in admin_audit_log for every change an admin makes."""
-    await audit.log_action(
-        int(user.id or 0), action, target_type=target_type, target_id=target_id,
-        detail={k: v for k, v in detail.items() if v is not None} or None,
-    )
 
 
 def _suspension_until(day: Optional[date]) -> Optional[datetime]:
@@ -529,17 +513,6 @@ async def _session_owners(rows: List[Dict[str, Any]]) -> Dict[str, Dict[str, Any
     return {str(r.id): {"id": r.id, "username": r.username, "display_name": r.display_name, "role": r.role} for r in found}
 
 
-def _viewer_window(days: int, tz_offset: int) -> tuple[datetime, timezone]:
-    """
-    ``days`` whole calendar days ending today *for the viewer*, as the UTC
-    instant it starts at, plus the viewer's zone. The server runs in UTC, and
-    something done at 00:30 in Bangkok would otherwise land on the day before.
-    """
-    viewer_zone = timezone(timedelta(minutes=tz_offset))
-    today = datetime.now(viewer_zone).replace(hour=0, minute=0, second=0, microsecond=0)
-    return (today - timedelta(days=days - 1)).astimezone(timezone.utc), viewer_zone
-
-
 def _viewer_day(created: Any, viewer_zone: timezone) -> Optional[str]:
     """The viewer's calendar day of a SurrealDB timestamp (naive ones are UTC)."""
     if not hasattr(created, "astimezone"):
@@ -850,92 +823,6 @@ async def moderate_delete_comment(comment_id: int, user: User = Depends(get_curr
     logger.info(f"admin {user.username} deleted comment {comment_id} on post {comment['post_id']}")
     await _audit(user, "comment.delete", target_type="comment", target_id=comment_id, post_id=comment["post_id"])
     return {"ok": True, "deleted": comment_id}
-
-
-# ---------------------------------------------------------------------------
-# KMITL RAG AI
-#
-# Statistics and the document library only. What people asked and what the AI
-# answered stays private to each user - the console never reads it.
-# ---------------------------------------------------------------------------
-
-
-@router.get("/rag/stats")
-async def rag_stats(
-    days: int = Query(default=30, ge=1, le=180),
-    tz_offset: int = Query(default=0, ge=-840, le=840, description="Viewer's offset from UTC in minutes"),
-    user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """Questions per day, how well the library covered them, cost, and the per-user limits."""
-    _require_admin(user)
-    since, _zone = _viewer_window(days, tz_offset)
-    stats = await repo.rag_stats(since, tz_offset)
-    stats["usage"]["cost_thb"] = round(stats["usage"]["cost_usd"] * pricing.USD_THB_RATE, 2)
-    ask = ratelimit.LIMITS["ask"]
-    return {
-        "days": days,
-        **stats,
-        "costs": {
-            "question": points.COSTS["rag_question"],
-            "session": points.COSTS["rag_session"],
-            "session_messages": points.RAG_SESSION_MESSAGES,
-        },
-        "policy": {
-            "cooldown_seconds": ask.cooldown_seconds,
-            "per_minute": ask.per_minute,
-            "per_hour": ask.per_hour,
-            "per_day": ask.per_day,
-            "staff_multiplier": ratelimit.STAFF_MULTIPLIER,
-        },
-    }
-
-
-@router.get("/rag/documents")
-async def list_all_documents(
-    q: Optional[str] = Query(default=None, max_length=200),
-    status: Optional[Literal["processing", "ready", "failed"]] = None,
-    scope: Optional[Literal["course", "personal"]] = None,
-    limit: int = Query(default=50, ge=1, le=200),
-    offset: int = Query(default=0, ge=0),
-    user: User = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """Every document people gave the AI to read, personal ones included (never the content)."""
-    _require_admin(user)
-    return await library.admin_list_documents(query=q, status=status, scope=scope, limit=limit, offset=offset)
-
-
-async def _document_or_404(doc_id: int) -> Dict[str, Any]:
-    doc = await library.get_document(doc_id)
-    if not doc:
-        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
-    return doc
-
-
-@router.post("/rag/documents/{doc_id}/retry")
-async def retry_any_document(
-    doc_id: int, background: BackgroundTasks, user: User = Depends(get_current_user)
-) -> Dict[str, Any]:
-    """Index a document again. The library's own route only reaches documents the caller can read."""
-    _require_admin(user)
-    doc = await _document_or_404(doc_id)
-    if doc["kind"] == "text":
-        raise HTTPException(status_code=400, detail="เอกสารแบบข้อความต้องอัปโหลดใหม่")
-    await library.update_document(doc_id, status="processing", error=None)
-    background.add_task(library.ingest_document, doc_id, None)
-    logger.info(f"admin {user.username} re-indexed library document {doc_id}")
-    await _audit(user, "document.retry", target_type="document", target_id=doc_id)
-    return {"ok": True}
-
-
-@router.delete("/rag/documents/{doc_id}")
-async def delete_any_document(doc_id: int, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Remove a document with its embeddings and uploaded file, whoever owns it."""
-    _require_admin(user)
-    doc = await _document_or_404(doc_id)
-    await library.delete_document(doc)
-    logger.info(f"admin {user.username} deleted library document {doc_id} of owner {doc.get('owner_id')}")
-    await _audit(user, "document.delete", target_type="document", target_id=doc_id, owner_id=doc.get("owner_id"), title=doc.get("title"))
-    return {"ok": True, "deleted": doc_id}
 
 
 # ---------------------------------------------------------------------------

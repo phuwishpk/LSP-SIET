@@ -2,7 +2,7 @@
 
 import pytest
 
-from open_notebook.community.repository import TITLE_MAX, conversation_title
+from kmitl_rag.history import TITLE_MAX, conversation_title
 
 
 @pytest.mark.parametrize(

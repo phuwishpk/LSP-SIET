@@ -11,21 +11,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import bindparam, text
 
+from siet_platform.db import _row, _rows
 from siet_platform.users import _mariadb_session
-
-
-def _iso(value: Any) -> Any:
-    if isinstance(value, datetime):
-        return value.isoformat()
-    return value
-
-
-def _row(r: Any) -> Dict[str, Any]:
-    return {k: _iso(v) for k, v in dict(r._mapping).items()}
-
-
-def _rows(result: Any) -> List[Dict[str, Any]]:
-    return [_row(r) for r in result.all()]
 
 
 # ---------------------------------------------------------------------------

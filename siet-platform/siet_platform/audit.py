@@ -12,14 +12,8 @@ from typing import Any, Dict, List, Optional
 
 from sqlalchemy import text
 
+from siet_platform.db import _row, _rows
 from siet_platform.users import _mariadb_session
-
-
-def _row(r: Any) -> Dict[str, Any]:
-    out = {}
-    for k, v in dict(r._mapping).items():
-        out[k] = v.isoformat() if isinstance(v, datetime) else v
-    return out
 
 
 

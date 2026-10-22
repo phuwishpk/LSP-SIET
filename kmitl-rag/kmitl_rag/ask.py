@@ -23,7 +23,7 @@ from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
-from open_notebook.community import grounding
+from kmitl_rag import grounding
 from siet_platform import usage
 from siet_platform.retrieval import (
     content_key,

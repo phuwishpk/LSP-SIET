@@ -5,7 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from open_notebook.community import grounding, roadmap_plan
+from open_notebook.community import roadmap_plan
+from kmitl_rag import grounding
 from open_notebook.exceptions import ExternalServiceError
 
 

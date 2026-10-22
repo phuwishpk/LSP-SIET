@@ -39,6 +39,9 @@ from api.routers import commands as commands_router
 from api.routers import community as community_router
 from siet_platform.routers import features as features_router, google_auth as google_auth_router, users as users_router
 from siet_platform.throttle import ProviderBusy
+from kmitl_rag.routers import admin as rag_admin_router
+from kmitl_rag.routers import ask as rag_ask_router
+from kmitl_rag.routers import global_chat as global_chat_router, notebook_ask as notebook_ask_router
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -519,6 +522,7 @@ app.include_router(users_router.router, prefix="/api", tags=["users"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])
 app.include_router(search.router, prefix="/api", tags=["search"])
+app.include_router(notebook_ask_router.router, prefix="/api", tags=["search"])
 app.include_router(models.router, prefix="/api", tags=["models"])
 app.include_router(transformations.router, prefix="/api", tags=["transformations"])
 app.include_router(notes.router, prefix="/api", tags=["notes"])
@@ -532,13 +536,16 @@ app.include_router(sources.router, prefix="/api", tags=["sources"])
 app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(commands_router.router, prefix="/api", tags=["commands"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
+app.include_router(global_chat_router.router, prefix="/api", tags=["chat"])
 app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(languages.router, prefix="/api", tags=["languages"])
 app.include_router(features_router.router, prefix="/api", tags=["features"])
 app.include_router(google_auth_router.router, prefix="/api", tags=["auth"])
 app.include_router(community_router.router, prefix="/api", tags=["community"])
+app.include_router(rag_ask_router.router, prefix="/api", tags=["community"])
 app.include_router(admin_router.router, prefix="/api", tags=["admin"])
+app.include_router(rag_admin_router.router, prefix="/api", tags=["admin"])
 
 
 @app.get("/")

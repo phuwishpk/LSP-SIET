@@ -1,7 +1,7 @@
 """Answer-cache key and the per-user ask policy."""
 
 from siet_platform import ratelimit
-from open_notebook.community.ask import answer_cache_key
+from kmitl_rag.ask import answer_cache_key
 
 
 def key(**over):
@@ -43,6 +43,6 @@ def test_ask_policy_counts_stored_questions_of_the_caller():
 
 
 def test_inflight_registry_exists_for_request_coalescing():
-    from api.routers import community
+    from kmitl_rag.routers import ask as rag_router
 
-    assert isinstance(community._INFLIGHT, dict) and not community._INFLIGHT
+    assert isinstance(rag_router._INFLIGHT, dict) and not rag_router._INFLIGHT

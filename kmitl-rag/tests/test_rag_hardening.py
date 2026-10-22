@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock
 import pytest
 
 from siet_platform import library
-from open_notebook.community import repository as repo
+from kmitl_rag import history as repo
 from siet_platform import users
 
 
@@ -80,7 +80,7 @@ async def test_release_and_save_do_not_touch_each_other(monkeypatch):
 
 
 def test_internal_error_hides_the_exception_but_keeps_a_reference():
-    from api.routers.community import _internal_error
+    from siet_platform.http import _internal_error
 
     exc = _internal_error(RuntimeError("sk-live-SECRET /app/data/x.pdf"), "quick ask failed")
     assert exc.status_code == 500
@@ -92,9 +92,11 @@ def test_no_route_returns_raw_500_text():
     import inspect
 
     from api.routers import community
+    from kmitl_rag.routers import ask
 
-    source = inspect.getsource(community)
-    assert "status_code=500, detail=str(exc)" not in source
+    for module in (community, ask):
+        source = inspect.getsource(module)
+        assert "status_code=500, detail=str(exc)" not in source
 
 
 # ---------------------------------------------------------------------------

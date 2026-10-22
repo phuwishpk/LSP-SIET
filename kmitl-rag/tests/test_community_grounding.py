@@ -7,7 +7,7 @@ only when the library is not enough, and the answer carries [n] / [Wn] reference
 
 import pytest
 
-from open_notebook.community import ask, grounding
+from kmitl_rag import ask, grounding
 
 
 # ---------------------------------------------------------------- web mode ceiling

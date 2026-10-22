@@ -25,8 +25,7 @@ from typing import Any, Dict, List, Optional, Sequence, Tuple
 from loguru import logger
 
 from siet_platform.cache.service import cache_service
-from open_notebook.community import ask as rag
-from open_notebook.community import grounding
+from kmitl_rag import ask as rag, grounding
 from siet_platform.retrieval import content_key
 from siet_platform.config import DEFAULT_CACHE_TTL
 from siet_platform.features.domain import RoadmapSession

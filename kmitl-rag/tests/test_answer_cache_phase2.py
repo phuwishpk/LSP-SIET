@@ -27,7 +27,7 @@ from siet_platform.cache.invalidation import (
     invalidate_after_notebook_change,
     invalidate_after_source_change,
 )
-from siet_platform.features.service import NotebookContextBlock, ResolvedNotebooks
+from kmitl_rag.notebook_ask import NotebookContextBlock, ResolvedNotebooks
 
 
 def _block(nb_id: str, kv: int = 1, chunks=None) -> NotebookContextBlock:
