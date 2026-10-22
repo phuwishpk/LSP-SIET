@@ -1,3 +1,4 @@
+-- k8 down (was core migration 25_down)
 -- Rollback migration 25.
 REMOVE FIELD IF EXISTS settings  ON TABLE roadmap_session;
 REMOVE FIELD IF EXISTS grounding ON TABLE roadmap_session;

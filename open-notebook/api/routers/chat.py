@@ -1,22 +1,14 @@
 import asyncio
-import json
-import re
 import traceback
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import StreamingResponse
-from langchain_core.messages import HumanMessage
+from fastapi import APIRouter, Depends, HTTPException, Query
 from langchain_core.runnables import RunnableConfig
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import _resolve_owner_id, owner_can_access
-from kmitl_rag.chat_filters import (
-    _filter_url_citations,
-    _pin_relevant_excerpts,
-    _verify_course_codes,
-)
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, Note, Notebook, Source
 from open_notebook.exceptions import (
@@ -110,7 +102,7 @@ async def get_sessions(
 ):
     """Get all chat sessions for a notebook (scoped to the authenticated user)."""
     try:
-        # Verify notebook exists and belongs to the owner
+        # Get notebook to verify it exists
         notebook = await Notebook.get(notebook_id)
         if not notebook:
             raise HTTPException(status_code=404, detail="Notebook not found")
@@ -163,7 +155,7 @@ async def create_session(
 ):
     """Create a new chat session (scoped to the authenticated user)."""
     try:
-        # Verify notebook exists and belongs to the owner
+        # Verify notebook exists
         notebook = await Notebook.get(request.notebook_id)
         if not notebook:
             raise HTTPException(status_code=404, detail="Notebook not found")
@@ -211,6 +203,7 @@ async def get_session(
 ):
     """Get a specific session with its messages (scoped to the authenticated user)."""
     try:
+        # Get session
         # Ensure session_id has proper table prefix
         full_session_id = (
             session_id
@@ -233,27 +226,21 @@ async def get_session(
             config=RunnableConfig(configurable={"thread_id": full_session_id}),
         )
 
-        # Extract messages from state — apply URL/course-code filters on replay
-        # so hallucinated URLs from older responses get stripped and fake course
-        # codes get flagged with ⚠️ instead of silently misleading the reader.
+        # Extract messages from state
         messages: list[ChatMessage] = []
-        stored_context = (
-            thread_state.values.get("context")
-            if thread_state and thread_state.values
-            else None
-        ) or {}
         if thread_state and thread_state.values and "messages" in thread_state.values:
             for msg in thread_state.values["messages"]:
-                content = msg.content if hasattr(msg, "content") else str(msg)
-                msg_type = msg.type if hasattr(msg, "type") else "unknown"
-                if msg_type == "ai" and isinstance(content, str):
-                    content = _filter_url_citations(content, stored_context)
-                    content = await _verify_course_codes(content, stored_context)
                 messages.append(
                     ChatMessage(
                         id=getattr(msg, "id", f"msg_{len(messages)}"),
-                        type=msg_type,
-                        content=content,
+                        type=msg.type if hasattr(msg, "type") else "unknown",
+                        # KMITL hook: extensions may filter what the model said
+                        content=await extensions.apply_filters(
+                            "chat.message",
+                            msg.content if hasattr(msg, "content") else str(msg),
+                            message=msg,
+                            context=thread_state.values.get("context"),
+                        ),
                         timestamp=None,  # LangChain messages don't have timestamps by default
                     )
                 )
@@ -439,16 +426,13 @@ async def execute_chat(
             config=RunnableConfig(configurable={"thread_id": full_session_id}),
         )
 
-        # Prepare state for execution — pin semantic-search excerpts from the
-        # linked notebook so the model sees the most relevant chunks first
-        # (mirrors the streaming global-chat behaviour).
+        # Prepare state for execution
         state_values = current_state.values if current_state else {}
         state_values["messages"] = state_values.get("messages", [])
-        notebook_id_for_pin = notebook.id if notebook else None
-        pinned_context = await _pin_relevant_excerpts(
-            request.context or {}, notebook_id_for_pin, request.message
+        # KMITL hook: extensions may add to the context (pinned excerpts)
+        state_values["context"] = await extensions.apply_filters(
+            "chat.context", request.context, notebook=notebook, message=request.message
         )
-        state_values["context"] = pinned_context
         state_values["notebook"] = notebook
         state_values["model_override"] = model_override
 
@@ -476,19 +460,19 @@ async def execute_chat(
         # Update session timestamp
         await session.save()
 
-        # Convert messages to response format (URL + course-code filtering)
+        # Convert messages to response format
         messages: list[ChatMessage] = []
         for msg in result.get("messages", []):
-            content = msg.content if hasattr(msg, "content") else str(msg)
-            msg_type = msg.type if hasattr(msg, "type") else "unknown"
-            if msg_type == "ai" and isinstance(content, str):
-                content = _filter_url_citations(content, pinned_context)
-                content = await _verify_course_codes(content, pinned_context)
             messages.append(
                 ChatMessage(
                     id=getattr(msg, "id", f"msg_{len(messages)}"),
-                    type=msg_type,
-                    content=content,
+                    type=msg.type if hasattr(msg, "type") else "unknown",
+                    content=await extensions.apply_filters(  # KMITL hook
+                        "chat.message",
+                        msg.content if hasattr(msg, "content") else str(msg),
+                        message=msg,
+                        context=state_values["context"],
+                    ),
                     timestamp=None,
                 )
             )

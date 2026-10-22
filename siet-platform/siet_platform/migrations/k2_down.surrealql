@@ -1,3 +1,4 @@
+-- k2 down (was core migration 19_down)
 -- Migration 19 down: drop AI feature modules tables
 -- WARNING: dropping these tables will delete all generated quizzes and roadmaps.
 

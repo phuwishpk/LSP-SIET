@@ -16,10 +16,10 @@ async def get_notes(
     notebook_id: Optional[str] = Query(None, description="Filter by notebook ID"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Get all notes with optional notebook filtering (scoped to the authenticated user)."""
+    """Get all notes with optional notebook filtering."""
     try:
         if notebook_id:
-            # Verify notebook belongs to the owner
+            # Get notes for a specific notebook
             from open_notebook.domain.notebook import Notebook
             notebook = await Notebook.get(notebook_id)
             if not notebook:

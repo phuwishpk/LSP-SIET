@@ -14,33 +14,30 @@ from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.auth import PasswordAuthMiddleware
-from siet_platform.auth_jwt import get_current_user, jwt_auth_enabled
-from siet_platform.auth_roles import RoleAccessMiddleware
 from api.routers import (
+    auth,
     chat,
     config,
     context,
     credentials,
     embedding,
     embedding_rebuild,
+    episode_profiles,
     insights,
     languages,
     models,
     notebooks,
     notes,
+    podcasts,
     search,
     settings,
     source_chat,
     sources,
+    speaker_profiles,
     transformations,
 )
-from siet_community.routers import admin as admin_router
-from siet_community.routers import features as community_features_router
 from api.routers import commands as commands_router
-from siet_community.routers import community as community_router
-from siet_platform.routers import admin as platform_admin_router, features as features_router, google_auth as google_auth_router, users as users_router
-from siet_platform.throttle import ProviderBusy
-from kmitl_rag.routers import admin as rag_admin_router, ask as rag_ask_router, global_chat as global_chat_router, notebook_ask as notebook_ask_router
+from open_notebook import extensions
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -189,150 +186,26 @@ async def lifespan(app: FastAPI):
         # Fail fast - don't start the API with an outdated database schema
         raise RuntimeError(f"Failed to run database migrations: {str(e)}") from e
 
-    # Community / point-wallet schema (idempotent) – must run before seeding.
+    # Run podcast profile data migration (legacy strings -> Model registry)
     try:
-        from siet_platform.schema import ensure_schema
+        from open_notebook.podcasts.migration import migrate_podcast_profiles
 
-        await ensure_schema()
-    except Exception as exc:
-        logger.error(f"Community MariaDB schema setup failed: {exc}")
+        await migrate_podcast_profiles()
+    except Exception as e:
+        logger.warning(f"Podcast profile migration encountered errors: {e}")
+        # Non-fatal: profiles can be migrated manually via UI
 
-    # Library documents whose background ingestion died with the last process.
-    try:
-        from siet_platform.library import reap_stuck_documents
-
-        await reap_stuck_documents()
-    except Exception as exc:
-        logger.warning(f"Library reaper skipped: {exc}")
-
-    # Seed: 1 admin + 5 students on MariaDB startup.
-    # Set WORKSPACE_SEED_ADMIN=false to disable.
-    try:
-        from siet_platform.users import (
-            USER_ROLE_ADMIN,
-            USER_ROLE_STUDENT,
-            UserAlreadyExists,
-            create as create_user,
-            get_by_username,
-            update_password,
-            verify_password,
-        )
-
-        seed_enabled = os.getenv("WORKSPACE_SEED_ADMIN", "true").lower() not in {
-            "0",
-            "false",
-            "no",
-        }
-        if seed_enabled and jwt_auth_enabled():
-            seed_users = [
-                {
-                    "username": "admin1",
-                    "password": os.getenv("WORKSPACE_SEED_ADMIN_PASSWORD", "admin1"),
-                    "display_name": "Administrator",
-                    "role": USER_ROLE_ADMIN,
-                },
-                {
-                    "username": "student1",
-                    "password": "student1",
-                    "display_name": "Student 1",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student2",
-                    "password": "student2",
-                    "display_name": "Student 2",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student3",
-                    "password": "student3",
-                    "display_name": "Student 3",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student4",
-                    "password": "student4",
-                    "display_name": "Student 4",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student5",
-                    "password": "student5",
-                    "display_name": "Student 5",
-                    "role": USER_ROLE_STUDENT,
-                },
-            ]
-            for u in seed_users:
-                seed_password = u["password"]
-                existing = await get_by_username(u["username"])
-                if existing is None:
-                    try:
-                        await create_user(**u)
-                        logger.success(f"Seeded user '{u['username']}'")
-                    except UserAlreadyExists:
-                        pass
-                    except Exception as exc:
-                        logger.warning(f"Failed to seed user '{u['username']}': {exc}")
-                elif existing.id and not verify_password(seed_password, existing.password_hash):
-                    await update_password(existing.id, seed_password)
-                    logger.success(f"Updated seeded user '{u['username']}'")
-
-            # Demo data for the community: welcome allowance + sample course rooms.
-            try:
-                from siet_platform import points as community_points
-
-                for u in seed_users:
-                    seeded = await get_by_username(u["username"])
-                    if seeded is not None:
-                        await community_points.ensure_welcome(seeded)
-                # Categories + sample courses live in community/catalog.py.
-                from siet_community.catalog import seed_catalog
-
-                await seed_catalog()
-            except Exception as exc:
-                logger.warning(f"Community seed skipped: {exc}")
-    except Exception as exc:
-        logger.debug(f"Skipping default user seed: {exc}")
+    # KMITL hook: startup steps of installed extensions (their own migrations
+    # run here, right after open-notebook's)
+    await extensions.emit("app.startup")
 
     logger.success("API initialization completed successfully")
-
-    # Phase 5: start the periodic tuner only when explicitly enabled. The
-    # singleton remains available while disabled so hot-path threshold reads
-    # transparently fall back to static defaults.
-    try:
-        from siet_platform.cache.threshold_tuner import start_tuner_if_enabled
-
-        await start_tuner_if_enabled()
-    except Exception as exc:
-        logger.warning(f"Adaptive threshold tuner failed to start safely: {exc}")
-
-    # Phase 6.5: load persisted circuit-breaker state on startup
-    try:
-        from siet_platform.cache.circuit_breaker import init_circuit_breaker
-
-        await init_circuit_breaker()
-    except Exception as exc:
-        logger.warning(f"Circuit breaker init failed safely: {exc}")
 
     # Yield control to the application
     yield
 
-    try:
-        from siet_platform.cache.threshold_tuner import stop_tuner
-
-        await stop_tuner()
-    except Exception as exc:
-        logger.debug(f"Adaptive threshold tuner shutdown skipped: {exc}")
-
-    # Shutdown: close Redis connection
-    try:
-        from siet_platform.cache.redis_client import redis_client
-
-        await redis_client.close()
-        logger.info("Redis connection closed")
-    except Exception:
-        pass
-
+    # Shutdown: cleanup if needed
+    await extensions.emit("app.shutdown")  # KMITL hook
     logger.info("API shutdown complete")
 
 
@@ -341,6 +214,10 @@ app = FastAPI(
     description="API for Open Notebook - Research Assistant",
     lifespan=lifespan,
 )
+
+# KMITL hook: installed extensions add their middleware and routers here, so
+# they sit inside the password middleware and ahead of open-notebook's routes
+extensions.install_app(app)
 
 if CORS_IS_DEFAULT_WILDCARD:
     logger.warning(
@@ -352,24 +229,8 @@ if CORS_IS_DEFAULT_WILDCARD:
 else:
     logger.info(f"CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 
-# Role gate. Added BEFORE the password middleware so that it *runs after* it
-# (Starlette executes middleware in reverse registration order) and can read the
-# owner id that authentication resolved.
-app.add_middleware(
-    RoleAccessMiddleware,
-    exempt_paths=[
-        "/",
-        "/health",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/api/config",
-    ],
-)
-
 # Add password authentication middleware first
-# Exclude auth + workspace user endpoints so the frontend can probe auth state
-# and complete the initial login without already having a token.
+# Exclude /api/auth/status and /api/config from authentication
 app.add_middleware(
     PasswordAuthMiddleware,
     excluded_paths=[
@@ -379,13 +240,7 @@ app.add_middleware(
         "/openapi.json",
         "/redoc",
         "/api/auth/status",
-        "/api/auth/legacy-status",
         "/api/config",
-        "/api/users/login",
-        "/api/users/register",
-        "/api/users/logout",
-        "/api/auth/google/start",
-        "/api/auth/google/exchange",
     ],
 )
 
@@ -397,9 +252,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Note: body-size enforcement lives in api/middleware.py (MaxBodySizeMiddleware),
-# which is registered via api.main when running in the prebuilt image. The
-# OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB environment variable controls its limit.
 
 
 # Custom exception handler to ensure CORS headers are included in error responses
@@ -450,27 +302,10 @@ async def authentication_error_handler(request: Request, exc: AuthenticationErro
 
 @app.exception_handler(RateLimitError)
 async def rate_limit_error_handler(request: Request, exc: RateLimitError):
-    # The provider kept answering 429 even after the gate's retries: tell the
-    # client when to try again instead of leaving it to guess.
     return JSONResponse(
         status_code=429,
         content={"detail": str(exc)},
-        headers={**_cors_headers(request), "Retry-After": "15", "X-Points-Kind": "provider_rate_limit"},
-    )
-
-
-@app.exception_handler(ProviderBusy)
-async def provider_busy_handler(request: Request, exc: ProviderBusy):
-    # Our own queue stayed full for the whole timeout: a temporary overload,
-    # not a client fault, so 503 + Retry-After (clients retry automatically).
-    return JSONResponse(
-        status_code=503,
-        content={"detail": str(exc)},
-        headers={
-            **_cors_headers(request),
-            "Retry-After": str(exc.retry_after),
-            "X-Points-Kind": "llm_busy",
-        },
+        headers=_cors_headers(request),
     )
 
 
@@ -511,17 +346,10 @@ async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
 
 
 # Include routers
-# NOTE: `/auth/status` is served by `users_router` and reports JWT auth state.
-# A second `api/routers/auth.py` used to define the same path but only checked
-# `OPEN_NOTEBOOK_PASSWORD`, so it always answered `{auth_enabled: false}` and
-# made the frontend think auth was off while login/register were 401-blocked.
-# It was never mounted here, and the module has since been deleted - do not
-# reintroduce a second auth status route.
-app.include_router(users_router.router, prefix="/api", tags=["users"])
+app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])
 app.include_router(search.router, prefix="/api", tags=["search"])
-app.include_router(notebook_ask_router.router, prefix="/api", tags=["search"])
 app.include_router(models.router, prefix="/api", tags=["models"])
 app.include_router(transformations.router, prefix="/api", tags=["transformations"])
 app.include_router(notes.router, prefix="/api", tags=["notes"])
@@ -534,19 +362,13 @@ app.include_router(context.router, prefix="/api", tags=["context"])
 app.include_router(sources.router, prefix="/api", tags=["sources"])
 app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(commands_router.router, prefix="/api", tags=["commands"])
+app.include_router(podcasts.router, prefix="/api", tags=["podcasts"])
+app.include_router(episode_profiles.router, prefix="/api", tags=["episode-profiles"])
+app.include_router(speaker_profiles.router, prefix="/api", tags=["speaker-profiles"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
-app.include_router(global_chat_router.router, prefix="/api", tags=["chat"])
 app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(languages.router, prefix="/api", tags=["languages"])
-app.include_router(features_router.router, prefix="/api", tags=["features"])
-app.include_router(community_features_router.router, prefix="/api", tags=["features"])
-app.include_router(google_auth_router.router, prefix="/api", tags=["auth"])
-app.include_router(community_router.router, prefix="/api", tags=["community"])
-app.include_router(rag_ask_router.router, prefix="/api", tags=["community"])
-app.include_router(platform_admin_router.router, prefix="/api", tags=["admin"])
-app.include_router(admin_router.router, prefix="/api", tags=["admin"])
-app.include_router(rag_admin_router.router, prefix="/api", tags=["admin"])
 
 
 @app.get("/")
@@ -557,3 +379,7 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+# KMITL hook: installed extensions may override exception handlers or routes
+extensions.finalize_app(app)

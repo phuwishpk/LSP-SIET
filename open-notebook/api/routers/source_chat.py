@@ -10,7 +10,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import get_owner_id, owner_can_access
-from kmitl_rag.chat_filters import _filter_url_citations, _verify_course_codes
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import ChatSession, Source
 from open_notebook.exceptions import (
@@ -94,9 +94,9 @@ async def create_source_chat_session(
     source_id: str = Path(..., description="Source ID"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Create a new chat session for a source (scoped to the authenticated user)."""
+    """Create a new chat session for a source."""
     try:
-        # Verify source exists and belongs to the owner
+        # Verify source exists
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
@@ -146,7 +146,7 @@ async def get_source_chat_sessions(
 ):
     """Get all chat sessions for a source (scoped to the authenticated user)."""
     try:
-        # Verify source exists and belongs to the owner
+        # Verify source exists
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
@@ -219,9 +219,9 @@ async def get_source_chat_session(
     session_id: str = Path(..., description="Session ID"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Get a specific source chat session with its messages (scoped to the authenticated user)."""
+    """Get a specific source chat session with its messages."""
     try:
-        # Verify source exists and belongs to the owner
+        # Verify source exists
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
@@ -274,25 +274,20 @@ async def get_source_chat_session(
         context_indicators = None
 
         if thread_state and thread_state.values:
-            # The formatted context that the LLM was actually shown, kept as
-            # a plain string. We wrap it as a fake "sources" list so the
-            # URL/code filter can do verbatim matching for stripping.
-            formatted_ctx = thread_state.values.get("context") or ""
-            filter_ctx = {"sources": [{"full_text": formatted_ctx}]} if formatted_ctx else {}
-
             # Extract messages
             if "messages" in thread_state.values:
                 for msg in thread_state.values["messages"]:
-                    content = msg.content if hasattr(msg, "content") else str(msg)
-                    msg_type = msg.type if hasattr(msg, "type") else "unknown"
-                    if msg_type == "ai" and isinstance(content, str) and filter_ctx:
-                        content = _filter_url_citations(content, filter_ctx)
-                        content = await _verify_course_codes(content, filter_ctx)
                     messages.append(
                         ChatMessage(
                             id=getattr(msg, "id", f"msg_{len(messages)}"),
-                            type=msg_type,
-                            content=content,
+                            type=msg.type if hasattr(msg, "type") else "unknown",
+                            # KMITL hook: extensions may filter what the model said
+                            content=await extensions.apply_filters(
+                                "chat.message",
+                                msg.content if hasattr(msg, "content") else str(msg),
+                                message=msg,
+                                context=thread_state.values.get("context") or "",
+                            ),
                             timestamp=None,  # LangChain messages don't have timestamps by default
                         )
                     )
@@ -336,9 +331,9 @@ async def update_source_chat_session(
     session_id: str = Path(..., description="Session ID"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Update source chat session (scoped to the authenticated user)."""
+    """Update source chat session title and/or model override."""
     try:
-        # Verify source exists and belongs to the owner
+        # Verify source exists
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
@@ -416,9 +411,9 @@ async def delete_source_chat_session(
     session_id: str = Path(..., description="Session ID"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Delete a source chat session (scoped to the authenticated user)."""
+    """Delete a source chat session."""
     try:
-        # Verify source exists and belongs to the owner
+        # Verify source exists
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )
@@ -511,21 +506,18 @@ async def stream_source_chat_response(
             ),
         )
 
-        # Stream the complete AI response — apply the same URL/course-code
-        # filters used by the global chat so hallucinated URLs and fabricated
-        # course codes get stripped/flagged before reaching the browser.
-        formatted_ctx = result.get("context") or ""
-        filter_ctx = {"sources": [{"full_text": formatted_ctx}]} if formatted_ctx else {}
+        # Stream the complete AI response
         if "messages" in result:
             for msg in result["messages"]:
                 if hasattr(msg, "type") and msg.type == "ai":
-                    content = msg.content if hasattr(msg, "content") else str(msg)
-                    if isinstance(content, str) and filter_ctx:
-                        content = _filter_url_citations(content, filter_ctx)
-                        content = await _verify_course_codes(content, filter_ctx)
                     ai_event = {
                         "type": "ai_message",
-                        "content": content,
+                        "content": await extensions.apply_filters(  # KMITL hook
+                            "chat.message",
+                            msg.content if hasattr(msg, "content") else str(msg),
+                            message=msg,
+                            context=result.get("context") or "",
+                        ),
                         "timestamp": None,
                     }
                     yield f"data: {json.dumps(ai_event)}\n\n"
@@ -558,9 +550,9 @@ async def send_message_to_source_chat(
     session_id: str = Path(..., description="Session ID"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Send a message to source chat session with SSE streaming response (scoped to the authenticated user)."""
+    """Send a message to source chat session with SSE streaming response."""
     try:
-        # Verify source exists and belongs to the owner
+        # Verify source exists
         full_source_id = (
             source_id if source_id.startswith("source:") else f"source:{source_id}"
         )

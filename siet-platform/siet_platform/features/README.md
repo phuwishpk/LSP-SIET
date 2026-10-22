@@ -5,13 +5,13 @@ Bundled add-on modules that fold the standalone **My-ai-quiz** and
 
 ## What was added
 
-- **SurrealDB migration** `19.surrealql` (and `19_down.surrealql`)
+- **SurrealDB migration** k2 (`siet_platform/migrations/k2.surrealql`, was core 19)
   adds two tables: `quiz_session` and `roadmap_session`. Every row is
   keyed by `owner_id` so multi-user deployments keep data isolated.
-- **Domain models** in `open_notebook/domain/features.py`:
+- **Domain models** in `siet_platform/features/domain.py`:
   - `QuizSession`
   - `RoadmapSession`
-- **Service layer** in `open_notebook/features/service.py`:
+- **Service layer** in `siet_platform/features/service.py`:
   - `generate_quiz`
   - `generate_roadmap`
   - `generate_quiz` and `generate_roadmap` both:
@@ -23,7 +23,7 @@ Bundled add-on modules that fold the standalone **My-ai-quiz** and
       options per question, the correct answer must be one of the
       options, descriptive explanations, no orphan edges) to keep
       hallucinations from sneaking through
-- **API router** at `api/routers/features.py` (mounted under
+- **API router** at `siet_platform/routers/features.py` (mounted under
   `/api/features`):
   - `POST /api/features/quiz/generate`
   - `GET /api/features/quiz/sessions`

@@ -261,7 +261,7 @@ def test_document_projection_marks_media_and_download(client, sign_in, monkeypat
 
 
 def test_only_file_routes_take_a_query_token():
-    from api.auth import accepts_query_token
+    from siet_platform.auth_backend import accepts_query_token
 
     assert accepts_query_token("/api/community/library/3/download")
     assert accepts_query_token("/api/community/posts/11/attachment")

@@ -333,3 +333,23 @@ async def _pin_relevant_excerpts(
             f"Pinned {len(excerpts)} relevant excerpt(s) for notebook {notebook_id}"
         )
     return context
+
+
+# =============================================================================
+# Web grounding for notebook chat
+# =============================================================================
+
+
+def enable_google_search(model):
+    """Attach Gemini's built-in google_search tool when running on a Google model.
+
+    Non-Google models are returned untouched. Failures fall back to the plain
+    model so a broken grounding call never breaks chat.
+    """
+    try:
+        from langchain_google_genai import ChatGoogleGenerativeAI
+    except ImportError:
+        return model
+    if not isinstance(model, ChatGoogleGenerativeAI):
+        return model
+    return model.bind(tools=[{"google_search": {}}])

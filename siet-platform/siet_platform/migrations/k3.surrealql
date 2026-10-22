@@ -1,3 +1,4 @@
+-- k3 (was core migration 20)
 -- Migration 20: User accounts for the multi-app workspace
 -- Adds persistent storage for username/password accounts so the
 -- open-notebook API can issue JWTs and propagate an `owner_id` to

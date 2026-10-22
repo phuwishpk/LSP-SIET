@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from surreal_commands import submit_command
 from surrealdb import RecordID
 
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel
 from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
@@ -76,7 +77,7 @@ class Notebook(ObjectModel):
 
     async def get_context(self) -> str:
         """
-        Build long-form notebook context for LLM workflows.
+        Build long-form notebook context for podcast and LLM workflows.
 
         Normal list retrieval omits large source/note bodies, so this method uses
         opt-in full-content fetches and formats only substantive context blocks.
@@ -444,24 +445,16 @@ class Source(ObjectModel):
     ) -> Dict[str, Any]:
         insights_list = await self.get_insights()
         insights = [insight.model_dump() for insight in insights_list]
-        asset_url = None
-        if self.asset:
-            asset_url = self.asset.url or self.asset.file_path
         if context_size == "long":
-            return dict(
+            context = dict(
                 id=self.id,
                 title=self.title,
                 insights=insights,
                 full_text=self.full_text,
-                asset_url=asset_url,
             )
         else:
-            return dict(
-                id=self.id,
-                title=self.title,
-                insights=insights,
-                asset_url=asset_url,
-            )
+            context = dict(id=self.id, title=self.title, insights=insights)
+        return await extensions.apply_filters("source.context", context, source=self)  # KMITL hook
 
     async def get_embedded_chunks(self) -> int:
         try:
@@ -772,14 +765,11 @@ async def vector_search(
     if not keyword:
         raise InvalidInputError("Search keyword cannot be empty")
     try:
-        from siet_platform.cache.service import cache_service
         from open_notebook.utils.embedding import generate_embedding
 
-        # Try cache first (key = hash of search params)
-        cache_config = {"q": keyword, "r": results, "s": source, "n": note, "ms": minimum_score}
-        cached = await cache_service.get_vector_search_results(
-            notebook_id="global", query=str(cache_config), limit=results
-        )
+        # KMITL hook: an installed cache may already hold these results
+        cache_key = {"q": keyword, "r": results, "s": source, "n": note, "ms": minimum_score}
+        cached = await extensions.cache_get("vector_search", cache_key)
         if cached is not None:
             return cached
 
@@ -797,13 +787,7 @@ async def vector_search(
                 "minimum_score": minimum_score,
             },
         )
-
-        # Cache the results
-        await cache_service.set_vector_search_results(
-            notebook_id="global",
-            query=str(cache_config),
-            results=search_results or [],
-        )
+        await extensions.cache_set("vector_search", cache_key, search_results or [])
 
         return search_results
     except Exception as e:

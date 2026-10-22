@@ -142,19 +142,6 @@ User documentation is at @docs/
 - **URL handling**: Extracts text + metadata from web pages
 - **Large files**: Content processing is sync; may block API briefly
 
-### 4. Redis Caching Layer
-- **Redis**: In-memory cache for expensive operations
-- **docker-compose**: Redis 7 Alpine service with healthcheck, persistence, and LRU eviction
-- **Key patterns**:
-  - `search:vector:{notebook_id}:{hash}` — Vector search results (TTL: 30 min)
-  - `context:{notebook_id}:{config_hash}` — Context build results (TTL: 15 min)
-  - `embed:{source_id}:{chunk_idx}` — Embedding vectors (TTL: 2 hours)
-  - `notebook:{id}:meta` — Notebook metadata (TTL: 10 min)
-  - `models:providers:availability` — Provider availability (TTL: 5 min)
-- **Invalidation**: Automatic on source/note/insight CRUD; decorator-based helpers
-- **Graceful degradation**: If Redis unavailable, operations fall through to DB without errors
-- **Monitoring**: Hit/miss metrics tracked per cache type; exposed via `/api/config/redis`
-
 ---
 
 ## Component References
@@ -168,7 +155,6 @@ See dedicated CLAUDE.md files for detailed guidance:
 - **[open_notebook/ai/CLAUDE.md](open_notebook/ai/CLAUDE.md)**: ModelManager, AI provider integration, Esperanto usage
 - **[open_notebook/graphs/CLAUDE.md](open_notebook/graphs/CLAUDE.md)**: LangGraph workflow design, state machines
 - **[open_notebook/database/CLAUDE.md](open_notebook/database/CLAUDE.md)**: SurrealDB operations, migrations, async patterns
-- **[open_notebook/cache/CLAUDE.md](open_notebook/cache/CLAUDE.md)**: Redis caching architecture, invalidation, metrics
 
 ---
 

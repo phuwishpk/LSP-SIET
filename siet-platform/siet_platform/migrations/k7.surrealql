@@ -1,3 +1,4 @@
+-- k7 (was core migration 24)
 -- Migration 24: drop tables nothing uses any more.
 --
 -- episode / episode_profile / podcast_config / speaker_profile belonged to the

@@ -1,3 +1,4 @@
+-- k6 (was core migration 23)
 -- Migration 23: make nested objects in quiz/roadmap sessions FLEXIBLE.
 --
 -- SCHEMAFULL tables silently drop nested keys of `array<object>` fields unless

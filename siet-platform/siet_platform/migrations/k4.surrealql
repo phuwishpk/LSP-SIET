@@ -1,3 +1,4 @@
+-- k4 (was core migration 21)
 -- Migration 21: Knowledge version tracking for answer-cache invalidation.
 --
 -- Phase 2 of the token-saving plan. Each notebook and source gets a

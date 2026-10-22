@@ -1,3 +1,4 @@
+-- k8 (was core migration 25)
 -- Migration 25: roadmap sessions remember how they were generated.
 --
 -- settings  = the knowledge scope + web mode chosen at generation, reused when

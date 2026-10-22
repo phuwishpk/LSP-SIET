@@ -13,6 +13,7 @@ from api.models import (
     ModelResponse,
     ProviderAvailabilityResponse,
 )
+from open_notebook import extensions
 from open_notebook.ai.connection_tester import test_individual_model
 from open_notebook.ai.key_provider import provision_provider_keys
 from open_notebook.ai.model_discovery import (
@@ -231,12 +232,7 @@ async def create_model(model_data: ModelCreate):
         )
         await new_model.save()
 
-        # Invalidate provider availability cache
-        try:
-            from siet_platform.cache.service import cache_service
-            await cache_service.invalidate_provider_cache()
-        except Exception:
-            pass  # Non-critical
+        await extensions.emit("models.changed")  # KMITL hook
 
         return ModelResponse(
             id=new_model.id or "",
@@ -264,12 +260,7 @@ async def delete_model(model_id: str):
 
         await model.delete()
 
-        # Invalidate provider availability cache
-        try:
-            from siet_platform.cache.service import cache_service
-            await cache_service.invalidate_provider_cache()
-        except Exception:
-            pass  # Non-critical
+        await extensions.emit("models.changed")  # KMITL hook
 
         return {"message": "Model deleted successfully"}
     except HTTPException:
@@ -356,12 +347,8 @@ async def update_default_models(defaults_data: DefaultModelsResponse):
 
         await defaults.update()
 
-        # Invalidate provider availability cache since defaults affect model selection
-        try:
-            from siet_platform.cache.service import cache_service
-            await cache_service.invalidate_provider_cache()
-        except Exception:
-            pass  # Non-critical
+        # No cache refresh needed - next access will fetch fresh data from DB
+        await extensions.emit("models.changed")  # KMITL hook
 
         return DefaultModelsResponse(
             default_chat_model=defaults.default_chat_model,  # type: ignore[attr-defined]
@@ -385,12 +372,9 @@ async def update_default_models(defaults_data: DefaultModelsResponse):
 async def get_provider_availability():
     """Get provider availability based on database config and environment variables."""
     try:
-        # Try cache first
-        from siet_platform.cache.service import cache_service
-
-        cached = await cache_service.get_provider_availability()
+        # KMITL hook: an installed cache may hold the last answer
+        cached = await extensions.cache_get("provider_availability", None)
         if cached is not None:
-            logger.debug("Provider availability cache hit")
             return ProviderAvailabilityResponse(
                 available=cached.get("available", []),
                 unavailable=cached.get("unavailable", []),
@@ -507,10 +491,7 @@ async def get_provider_availability():
             unavailable=unavailable_providers,
             supported_types=supported_types,
         )
-
-        # Cache the result
-        await cache_service.set_provider_availability(response.model_dump())
-
+        await extensions.cache_set("provider_availability", None, response.model_dump())  # KMITL hook
         return response
     except Exception as e:
         logger.error(f"Error checking provider availability: {str(e)}")
@@ -572,12 +553,7 @@ async def sync_models(provider: str):
             provider, auto_register=True
         )
 
-        # Invalidate provider availability cache
-        try:
-            from siet_platform.cache.service import cache_service
-            await cache_service.invalidate_provider_cache()
-        except Exception:
-            pass  # Non-critical
+        await extensions.emit("models.changed")  # KMITL hook
 
         return ProviderSyncResponse(
             provider=provider,
@@ -616,12 +592,7 @@ async def sync_all_models():
             total_discovered += discovered
             total_new += new
 
-        # Invalidate provider availability cache
-        try:
-            from siet_platform.cache.service import cache_service
-            await cache_service.invalidate_provider_cache()
-        except Exception:
-            pass  # Non-critical
+        await extensions.emit("models.changed")  # KMITL hook
 
         return AllProvidersSyncResponse(
             results=response_results,
@@ -818,12 +789,7 @@ async def auto_assign_defaults():
         if assigned:
             await defaults.update()
 
-            # Invalidate provider availability cache
-            try:
-                from siet_platform.cache.service import cache_service
-                await cache_service.invalidate_provider_cache()
-            except Exception:
-                pass  # Non-critical
+            await extensions.emit("models.changed")  # KMITL hook
 
         return AutoAssignResult(
             assigned=assigned,

@@ -12,6 +12,7 @@ from api.models import (
     NotebookUpdate,
     RecentlyViewedResponse,
 )
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.notebook import Notebook, Source
 from open_notebook.exceptions import InvalidInputError, NotFoundError
@@ -61,7 +62,7 @@ async def get_notebooks(
     order_by: str = Query("updated desc", description="Order by field and direction"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Get all notebooks (scoped to the authenticated user)."""
+    """Get all notebooks with optional filtering and ordering."""
     try:
         # Validate order_by against allowlist to prevent SurrealQL injection
         allowed_fields = {"name", "created", "updated"}
@@ -88,7 +89,7 @@ async def get_notebooks(
                 detail=f"Invalid order_by format: '{order_by}'. Expected 'field' or 'field direction'",
             )
 
-        # Build the query with counts — filter by owner_id (backward compat: "default")
+        # Build the query with counts
         query = f"""
             SELECT *,
             count(<-reference.in) as source_count,
@@ -164,7 +165,7 @@ async def get_recently_viewed(
     limit: int = Query(12, ge=1, le=50, description="Number of items to return"),
     owner_id: str = Depends(get_owner_id),
 ):
-    """Get recently viewed notebooks and sources, newest first (scoped to the authenticated user)."""
+    """Get recently viewed notebooks and sources, newest first."""
     try:
         notebooks = await repo_query(
             """
@@ -317,19 +318,8 @@ async def update_notebook(
 
         await notebook.save()
 
-        # Phase 2: any field change to a notebook prompts users to ask
-        # questions about potentially different content. Bump the version
-        # so the answer cache fingerprint shifts.
-        try:
-            from siet_platform.cache.invalidation import (
-                invalidate_after_notebook_change,
-            )
-
-            await invalidate_after_notebook_change(notebook_id, clear_cache=True)
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: notebook version bump failed for {notebook_id}: {exc}"
-            )
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("notebook.changed", notebook_id=notebook_id, clear_cache=True)
 
         # Query with counts after update
         query = """
@@ -418,21 +408,12 @@ async def add_source_to_notebook(
                 },
             )
 
-        # Phase 2: adding a source changes the notebook's effective
-        # retrievable content, so bump the knowledge version on both
-        # sides.
-        try:
-            from siet_platform.cache.invalidation import (
-                invalidate_after_source_change,
-            )
-
-            await invalidate_after_source_change(
-                source_id, extra_notebook_ids=[notebook_id], clear_cache=True
-            )
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: link-source bump failed: {exc}"
-            )
+        await extensions.emit(  # KMITL hook
+            "source.changed",
+            source_id=source_id,
+            notebook_ids=[notebook_id],
+            clear_cache=True,
+        )
 
         return {"message": "Source linked to notebook successfully"}
     except HTTPException:
@@ -472,19 +453,8 @@ async def remove_source_from_notebook(
             },
         )
 
-        # Phase 2: removing a source changes the notebook's retrievable
-        # content. Bump the notebook version so the answer cache can
-        # detect that cached answers are stale.
-        try:
-            from siet_platform.cache.invalidation import (
-                invalidate_after_notebook_change,
-            )
-
-            await invalidate_after_notebook_change(notebook_id, clear_cache=True)
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: unlink-source bump failed: {exc}"
-            )
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("notebook.changed", notebook_id=notebook_id, clear_cache=True)
 
         return {"message": "Source removed from notebook successfully"}
     except HTTPException:
@@ -525,18 +495,8 @@ async def delete_notebook(
         if not owner_can_access(notebook, owner_id):
             raise HTTPException(status_code=404, detail="Notebook not found")
 
-        # Phase 2: wipe the answer cache entries that referenced this
-        # notebook before the underlying data is removed.
-        try:
-            from siet_platform.cache.invalidation import (
-                invalidate_after_notebook_change,
-            )
-
-            await invalidate_after_notebook_change(notebook_id, clear_cache=True)
-        except Exception as exc:
-            logger.warning(
-                f"Phase 2: pre-delete notebook bump failed: {exc}"
-            )
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("notebook.changed", notebook_id=notebook_id, clear_cache=True)
 
         result = await notebook.delete(
             delete_exclusive_sources=delete_exclusive_sources

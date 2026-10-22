@@ -1,3 +1,4 @@
+-- k6 down (was core migration 23_down)
 -- Rollback migration 23: restore strict (non-flexible) object arrays.
 DEFINE FIELD OVERWRITE questions ON TABLE quiz_session TYPE array<object>;
 DEFINE FIELD OVERWRITE nodes     ON TABLE roadmap_session TYPE array<object>;

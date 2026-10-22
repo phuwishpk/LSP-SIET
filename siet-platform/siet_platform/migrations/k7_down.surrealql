@@ -1,3 +1,4 @@
+-- k7 down (was core migration 24_down)
 -- Rollback migration 24: recreate the dropped tables (empty - the rows are gone;
 -- restore surreal_data from a backup to get them back).
 DEFINE TABLE IF NOT EXISTS episode SCHEMALESS;
