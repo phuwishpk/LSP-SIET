@@ -58,6 +58,10 @@ function GoogleCallback() {
         const apiUrl = await getApiUrl()
         const data = await authApi.googleExchange(apiUrl, { code, state })
         useAuthStore.getState().setSession(data.access_token, data.user)
+        if (data.user?.role === 'pending') {
+          router.replace('/pending')
+          return
+        }
         if (data.welcome_granted) {
           toast.success(`ยินดีต้อนรับสู่ SIET Space! รับแต้มเริ่มต้น ${data.user.points_balance ?? 20} แต้ม 🎁`)
         }

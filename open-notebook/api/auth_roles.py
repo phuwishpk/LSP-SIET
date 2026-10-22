@@ -30,11 +30,17 @@ from starlette.types import ASGIApp
 
 from open_notebook.domain.user import (
     USER_ROLE_ADMIN,
+    USER_ROLE_PENDING,
     USER_ROLE_STUDENT,
     USER_ROLE_TEACHER,
 )
 
-ROLE_RANK = {USER_ROLE_STUDENT: 1, USER_ROLE_TEACHER: 2, USER_ROLE_ADMIN: 3}
+ROLE_RANK = {
+    USER_ROLE_PENDING: 0,
+    USER_ROLE_STUDENT: 1,
+    USER_ROLE_TEACHER: 2,
+    USER_ROLE_ADMIN: 3,
+}
 
 # The Open Notebook research surface: teachers prepare material here.
 STAFF_PREFIXES: tuple[str, ...] = (
@@ -108,8 +114,16 @@ def required_role(path: str, method: str = "GET") -> Optional[str]:
     return None
 
 
+PENDING_ALLOWED_PREFIXES: tuple[str, ...] = (
+    "/api/auth",
+    "/api/users/me",
+    "/api/config",
+)
+PENDING_DENIED_MESSAGE = "บัญชีของคุณอยู่ระหว่างรอผู้ดูแลระบบอนุมัติ หรืออยู่นอกคณะครุศาสตร์ฯ"
+
+
 def role_allows(role: Optional[str], needed: str) -> bool:
-    return ROLE_RANK.get(role or USER_ROLE_STUDENT, 1) >= ROLE_RANK[needed]
+    return ROLE_RANK.get(role or USER_ROLE_PENDING, 0) >= ROLE_RANK[needed]
 
 
 class RoleAccessMiddleware(BaseHTTPMiddleware):
@@ -126,13 +140,29 @@ class RoleAccessMiddleware(BaseHTTPMiddleware):
         if request.method == "OPTIONS" or path in self.exempt_paths:
             return await call_next(request)
 
+        owner_id = getattr(request.state, "owner_id", None)
+        role: Optional[str] = None
+        if owner_id and not str(owner_id).startswith("password:"):
+            role = await self._role_for(owner_id)
+            if role == USER_ROLE_PENDING:
+                is_allowed_for_pending = any(
+                    path == p or path.startswith(p + "/") for p in PENDING_ALLOWED_PREFIXES
+                )
+                if not is_allowed_for_pending:
+                    logger.info(f"RBAC: pending user {owner_id} blocked from {request.method} {path}")
+                    return JSONResponse(
+                        status_code=403,
+                        content={"detail": PENDING_DENIED_MESSAGE},
+                        headers={"X-Required-Role": USER_ROLE_STUDENT},
+                    )
+                return await call_next(request)
+
         needed = required_role(path, request.method)
         if needed is None:
             return await call_next(request)
 
         # Anything below this point is a restricted path, so the extra user
         # lookup only happens for the small set of admin/teacher endpoints.
-        owner_id = getattr(request.state, "owner_id", None)
         if not owner_id:
             # Auth is disabled entirely (single-user deployment) – keep working.
             return await call_next(request)
@@ -140,7 +170,9 @@ class RoleAccessMiddleware(BaseHTTPMiddleware):
             # Legacy shared-password caller: treat as the operator.
             return await call_next(request)
 
-        role = await self._role_for(owner_id)
+        if role is None:
+            role = await self._role_for(owner_id)
+
         if not role_allows(role, needed):
             logger.info(f"RBAC: {role or 'unknown'} blocked from {request.method} {path}")
             return JSONResponse(

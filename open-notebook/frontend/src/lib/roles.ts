@@ -5,7 +5,7 @@
  * enforcement point, this is only so students are not shown doors that are
  * locked (and so shared components do not call APIs that would 403).
  */
-export type Role = 'student' | 'teacher' | 'admin' | null | undefined
+export type Role = 'student' | 'teacher' | 'admin' | 'pending' | null | undefined
 
 /** Teachers prepare material in the Open Notebook surface; students do not. */
 export function isStaff(role: Role): boolean {
@@ -32,6 +32,9 @@ export const STAFF_ROUTES = [
 export const ADMIN_ROUTES = ['/settings', '/advanced', '/admin'] as const
 
 export function canAccessRoute(role: Role, pathname: string): boolean {
+  if (role === 'pending') {
+    return false
+  }
   const matches = (routes: readonly string[]) =>
     routes.some((r) => pathname === r || pathname.startsWith(r + '/'))
   if (matches(ADMIN_ROUTES)) return isAdmin(role)

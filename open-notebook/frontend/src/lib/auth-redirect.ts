@@ -16,14 +16,23 @@ export function rememberPostLoginPath(path: string) {
 }
 
 export function peekPostLoginPath(role?: string | null): string {
+  if (role === 'pending') {
+    return '/pending'
+  }
   let stored: string | null = null
   try {
     stored = sessionStorage.getItem(KEY)
   } catch {
     stored = null
   }
-  // Same-origin paths only, and never back to the sign-in page itself.
-  if (stored && stored.startsWith('/') && !stored.startsWith('//') && !stored.startsWith('/login')) {
+  // Same-origin paths only, and never back to the sign-in page itself or pending page.
+  if (
+    stored &&
+    stored.startsWith('/') &&
+    !stored.startsWith('//') &&
+    !stored.startsWith('/login') &&
+    !stored.startsWith('/pending')
+  ) {
     return stored
   }
   return role === 'admin' ? '/admin' : '/community'

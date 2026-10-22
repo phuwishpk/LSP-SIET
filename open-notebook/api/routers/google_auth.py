@@ -430,11 +430,12 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
     fresh = await get_by_id(user.id or 0) or user
 
     access_token, expires_at = issue_access_token(fresh)
+    target_next = "/pending" if fresh.role == USER_ROLE_PENDING else next_path
     return GoogleTokenResponse(
         access_token=access_token,
         expires_at=expires_at,
         user=_to_response(fresh),
-        next=next_path,
+        next=target_next,
         is_new_user=is_new,
         welcome_granted=welcome,
     )
