@@ -304,8 +304,10 @@ def _public_room(room: Dict[str, Any], *, manager: bool) -> Dict[str, Any]:
     """
     out = dict(room)
     code = out.pop("join_code", None)
-    out["requires_code"] = bool(code)
-    if manager:
+    # List queries do not select the code itself, only a computed
+    # ``requires_code`` flag; detail queries carry the real column.
+    out["requires_code"] = bool(code) or bool(room.get("requires_code"))
+    if manager and "join_code" in room:
         out["join_code"] = code
     out["status"] = out.get("status") or repo.STATUS_ACTIVE
     out["archived"] = out["status"] == repo.STATUS_ARCHIVED

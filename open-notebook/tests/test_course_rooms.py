@@ -351,6 +351,22 @@ def test_join_code_is_only_returned_to_managers(client, sign_in, monkeypatch):
     assert "join_code" not in items[0] and items[0]["can_manage"] is False
 
 
+def test_list_rows_keep_the_computed_requires_code_flag(client, sign_in, monkeypatch):
+    """list_courses selects a requires_code flag instead of the code column itself."""
+    row = _room(id=5, created_by=7, membership_role=None)
+    del row["join_code"]
+    row["requires_code"] = True
+    monkeypatch.setattr(repo, "list_courses", AsyncMock(return_value=[row]))
+
+    sign_in(_user(20, "student"))
+    items = client.get("/api/community/courses").json()
+    assert items[0]["requires_code"] is True and "join_code" not in items[0]
+
+    sign_in(_user(7, "teacher"))
+    items = client.get("/api/community/courses").json()
+    assert items[0]["requires_code"] is True and "join_code" not in items[0]   # not selected -> not invented
+
+
 # ---------------------------------------------------------------------------
 # router: /api/admin/categories
 # ---------------------------------------------------------------------------

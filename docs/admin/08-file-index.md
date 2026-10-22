@@ -14,7 +14,7 @@
 | `app/globals.css` | แก้ | โทเค็น `canvas`/`subtle-foreground`/`ai*` ใน `@theme inline`, `:root`, `.dark`; class `.theme-siet` (light + dark); ปิดเงา; ฟอนต์ | 02 §2 |
 | `app/(dashboard)/admin/layout.tsx` | ใหม่ | ใส่ `.theme-siet` ให้ wrapper และ `<body>` ตลอดที่อยู่ใน `/admin` | 02 §3 |
 | `app/(dashboard)/admin/page.tsx` | แก้ | จัดการระบบ: 5 แท็บ, ตารางผู้ใช้, `UserDialog`; ถอดแท็บเนื้อหา/ห้อง | 03 §1 |
-| `app/(dashboard)/admin/community/page.tsx` | ใหม่ | จัดการ Community: ภาพรวม/โพสต์/ความคิดเห็น/ห้อง | 03 §2 |
+| `app/(dashboard)/admin/community/page.tsx` | ใหม่ | จัดการ Community: ภาพรวม/โพสต์/ความคิดเห็น/ห้อง/หมวดหมู่ (แท็บหมวดหมู่ 22 ต.ค.) | 03 §2 |
 | `app/(dashboard)/admin/rag/page.tsx` | ใหม่ | จัดการ RAG AI: ภาพรวม/เอกสารที่ AI อ่าน/แหล่งความรู้ | 03 §3 |
 | `app/(dashboard)/admin/roadmap/page.tsx` | แก้ | จัดการ AI Roadmap (เปลี่ยนชื่อ, ใช้ `AdminPageHeader`) | 03 §4 |
 | `app/(dashboard)/admin/quiz/page.tsx` | ใหม่ | จัดการ Quiz: ภาพรวม/Quiz ทั้งหมด/ที่แชร์ในฟีด | 03 §5 |
@@ -39,7 +39,9 @@
 | `ImportPanel.tsx` | ไม่แก้ | นำเข้า CSV รายวิชา/ผู้ใช้ | 03 §1.7 |
 | `CreateUserDialog.tsx` | แก้ | สร้างบัญชี (`sm:max-w-lg`) | 03 §1.3 |
 | `ModerationPanel.tsx` | แก้ | โพสต์ทั้งระบบ; `postTypeLabel`, `PostCounts`, ปุ่มซ่อนสีเทา | 03 §2.2 |
-| `RoomsPanel.tsx` | แก้ | ห้องทั้งหมด; ไอคอนเทา, โน้ตพื้น `bg-muted` | 03 §2.4 |
+| `RoomsPanel.tsx` | แก้ | ห้องทั้งหมด; ไอคอนเทา, โน้ตพื้น `bg-muted`; คอลัมน์หมวด/เทอม, ป้ายเก็บถาวร, ลบถาวรผ่าน `usePurgeCourse` (22 ต.ค.) | 03 §2.4 |
+| `community/CategoriesPanel.tsx` | ใหม่ (22 ต.ค.) | หมวดหมู่รายวิชา: เพิ่ม/แก้ในแถว/ลบ | 03 §2.5 |
+| `lib/api/courses.ts`, `lib/hooks/use-courses.ts` | ใหม่ (22 ต.ค.) | API + hooks ของห้องวิชา (รายละเอียด, เก็บถาวร, ลบถาวร, สมาชิก, TA) และ `adminCategoriesApi` | 03 §2.5, SYSTEM-GUIDE §6.2.1 |
 
 ### Panel ของ Community / RAG / Roadmap / Quiz
 

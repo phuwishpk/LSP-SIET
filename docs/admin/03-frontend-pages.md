@@ -121,7 +121,8 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 | `overview` ภาพรวม | `community/CommunityStatsPanel` | `GET /admin/community/stats` |
 | `posts` โพสต์ | `ModerationPanel` (เดิม) | `GET /admin/posts`, `DELETE /admin/posts/{id}`, `POST …/restore` |
 | `comments` ความคิดเห็น | `community/CommentsPanel` | `GET /admin/comments`, `DELETE /admin/comments/{id}` |
-| `rooms` ห้อง | `RoomsPanel` (เดิม) | `GET /admin/courses`, `DELETE /community/courses/{id}` |
+| `rooms` ห้อง | `RoomsPanel` (แก้ 22 ต.ค.) | `GET /admin/courses`, `DELETE /community/courses/{id}` (admin = ลบถาวร) |
+| `categories` หมวดหมู่ | `community/CategoriesPanel` (ใหม่ 22 ต.ค.) | `GET/POST /admin/categories`, `PATCH/DELETE /admin/categories/{id}` |
 
 ### 2.1 `CommunityStatsPanel` — `components/admin/community/CommunityStatsPanel.tsx`
 
@@ -154,11 +155,25 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 
 ### 2.4 `RoomsPanel` — `components/admin/RoomsPanel.tsx`
 
-- `useAdminCourses()`; ตาราง `min-w-[720px]`: ห้อง (ไอคอน `Hash` หรือ `MessagesSquare` สีเทา
-  `text-subtle-foreground`), เจ้าของ (หรือป้าย "ไม่มีเจ้าของ"), สมาชิก, โพสต์, เอกสาร (club = —),
-  โพสต์ล่าสุด, ปุ่มเปิด/ปิดห้อง
-- ปิดห้อง: `window.confirm` → `useDeleteCourse()` จาก `use-community.ts`
+- `useAdminCourses()`; ตาราง `min-w-[860px]`: ห้อง (ไอคอน `Hash` หรือ `MessagesSquare` สีเทา
+  `text-subtle-foreground`, ป้าย "เก็บถาวร", ไอคอน `KeyRound` ถ้าต้องใช้รหัสเข้าห้อง), **หมวดหมู่ / เทอม**,
+  เจ้าของ (หรือป้าย "ไม่มีเจ้าของ"), สมาชิก, โพสต์, เอกสาร (club = —), โพสต์ล่าสุด, ปุ่มเปิด/ลบถาวร
+- ลบถาวร: `window.confirm` (บอกว่าเอกสาร+notebook ของวิชาหายด้วย) → `usePurgeCourse()` จาก `use-courses.ts`
+  — backend ลบเอกสาร/Source/embeddings/notebook แล้วปลดโพสต์กลับฟีดรวม; อาจารย์ที่กด DELETE เดียวกันจะได้
+  "เก็บถาวร" แทน (ดู `docs/SYSTEM-GUIDE.md` §6.2.1)
 - โน้ตเรื่องห้องไม่มีเจ้าของเป็นกล่อง `bg-muted` (เดิมเหลือง)
+
+### 2.5 `CategoriesPanel` — `components/admin/community/CategoriesPanel.tsx` (ใหม่ 22 ต.ค. 2026)
+
+- `useAdminCategories()` → ตาราง หมวดหมู่ (ไทย + อังกฤษ), `slug`, ลำดับ, จำนวนห้องวิชา (+ที่เก็บถาวร)
+- ฟอร์มเพิ่มบนหัวตาราง (ชื่อไทยบังคับ ≥ 2 ตัว, ชื่ออังกฤษไม่บังคับ; `slug` backend สร้างจากชื่ออังกฤษ
+  หรือ `cat-xxxxxx` ถ้ามีแต่ไทย) → `useCreateCategory()`
+- แก้ไขในแถว (`Pencil` → input ชื่อ/อังกฤษ/ลำดับ → `Check`/`X`) → `useUpdateCategory()`
+- ลบ: `AlertDialog` บอกจำนวนห้องที่จะกลายเป็น "ไม่ระบุหมวด" → `useDeleteCategory()`
+- hooks ทั้งหมดอยู่ใน `lib/hooks/use-courses.ts` (คีย์ `COURSE_KEYS.adminCategories` / `categories`,
+  invalidate `['admin','courses']` ด้วยเพราะตารางห้องแสดงชื่อหมวด); API ใน `lib/api/courses.ts`
+  (`adminCategoriesApi`)
+- หมวดเริ่มต้น 13 สาขาของ SIET + "ทั่วไป" มาจาก `open_notebook/community/catalog.py` ตอน API เริ่มทำงาน
 
 ---
 

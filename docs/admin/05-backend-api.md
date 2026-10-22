@@ -67,7 +67,12 @@ def _viewer_day(created, viewer_zone) -> 'YYYY-MM-DD' | None   # สำหรั
 | `DELETE /posts/{id}` / `POST /posts/{id}/restore` | | ธง `is_deleted`; ใช้ `repo.post_exists` เพื่อให้ restore โพสต์ที่ซ่อนอยู่ได้ |
 | `GET /courses` | | `{ items, totals: { courses, clubs, empty, ownerless } }` จาก `repo.admin_list_courses` |
 | `GET /points/log` | `user_id?`, `kind?`, `days` 1–90, `limit` ≤500 | `{ items, by_kind, top_spenders(10), days }` |
-| `POST /import/courses`, `POST /import/users` | `CsvImport { csv ≤500k, dry_run }` | `_parse_csv` มี/ไม่มีหัวตารางก็ได้ |
+| `POST /import/courses`, `POST /import/users` | `CsvImport { csv ≤500k, dry_run }` | `_parse_csv` มี/ไม่มีหัวตารางก็ได้; รายวิชารับคอลัมน์เพิ่ม `category` (slug หรือชื่อหมวด) และ `term` (22 ต.ค.) |
+| `GET /categories` | — | `{items: [{id, slug, name, name_en, sort_order, course_count, archived_count}], total}` (`repo.list_categories`) |
+| `POST /categories` | `CategoryCreate {name, name_en?, slug?, sort_order}` | 201; `slug` จาก `_slugify(slug ‖ name_en ‖ name)`, ซ้ำ → 409 |
+| `PATCH /categories/{id}` | `CategoryUpdate {name?, name_en?, sort_order?}` | 404 ถ้าไม่มี |
+| `DELETE /categories/{id}` | — | `{ok, deleted, rooms_uncategorised}`; `rooms.category_id` ของห้องในหมวดถูกตั้งเป็น NULL (`repo.delete_category`) |
+| `GET /courses` (เดิม) | — | แถวละห้องเพิ่ม `category_id/category_name/category_slug, term, status, archived, archived_at, requires_code` (`_ROOM_META_COLUMNS`) |
 
 ### 3.4 AI Roadmap (เดิม, แก้เล็กน้อย)
 
