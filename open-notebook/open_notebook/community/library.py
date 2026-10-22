@@ -21,6 +21,7 @@ surreal-commands, so it also works in the dev stack where no worker runs.
 from __future__ import annotations
 
 import hashlib
+import json
 import os
 import re
 import uuid
@@ -1358,3 +1359,135 @@ async def purge_course_library(course: Dict[str, Any]) -> Dict[str, int]:
             logger.warning(f"library: could not delete course notebook {notebook_id}: {exc}")
     logger.info(f"library: purged course {course.get('code')}: {removed}")
     return removed
+
+
+# ---------------------------------------------------------------------------
+# Document search (4.3.3): meaning-based, inside what the viewer may read
+# ---------------------------------------------------------------------------
+
+SEARCH_CACHE_TTL = 300
+
+
+async def _searchable_notebooks(
+    user: User, *, course_id: Optional[int] = None, category_id: Optional[int] = None
+) -> List[str]:
+    """
+    Notebooks whose documents this user may read: the course libraries of
+    readable rooms (public, or private ones they belong to), narrowed by room /
+    category when asked, plus their own personal library.
+    """
+    readable = await room_ids_readable_by(user)
+    where = ["c.library_notebook_id IS NOT NULL", "c.status = 'active'"]
+    params: Dict[str, Any] = {}
+    if course_id:
+        where.append("c.id = :course_id")
+        params["course_id"] = int(course_id)
+    if category_id:
+        where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(f"SELECT c.id, c.library_notebook_id FROM rooms c WHERE {' AND '.join(where)}"),
+                params,
+            )
+        ).all()
+    ids = [str(r[1]) for r in rows if readable is None or int(r[0]) in readable]
+    if not course_id and not category_id and user.library_notebook_id:
+        ids.append(str(user.library_notebook_id))
+    return list(dict.fromkeys(ids))
+
+
+async def search_documents(
+    user: User,
+    query: str,
+    *,
+    course_id: Optional[int] = None,
+    category_id: Optional[int] = None,
+    limit: int = 10,
+) -> List[Dict[str, Any]]:
+    """
+    Library documents about ``query``: a cosine search over the chunks of every
+    notebook the viewer may read (same vectors the RAG uses), folded back to
+    one row per document with its best-matching passage, plus plain title
+    matches so a document is found even before it is embedded.
+
+    Results are cached for five minutes per (viewer-scope, filters, query).
+    """
+    from open_notebook.cache.service import cache_service
+    from open_notebook.community.retrieval import search_in_notebooks
+
+    q = " ".join((query or "").split())
+    if not q:
+        return []
+    notebook_ids = await _searchable_notebooks(user, course_id=course_id, category_id=category_id)
+    cache_key = "search:docs:v1:" + hashlib.sha1(
+        json.dumps([sorted(notebook_ids), int(user.id or 0), q.lower(), int(limit)], ensure_ascii=False).encode()
+    ).hexdigest()
+    try:
+        cached = await cache_service.get_json(cache_key)
+        if isinstance(cached, list):
+            return cached
+    except Exception as exc:  # cache is a convenience, never a dependency
+        logger.debug(f"document search cache read skipped: {exc}")
+
+    by_source: Dict[str, Dict[str, Any]] = {}
+    if notebook_ids:
+        try:
+            hits = await search_in_notebooks(q, notebook_ids, results=max(int(limit) * 3, 12), include_notes=False)
+        except Exception as exc:
+            logger.warning(f"document search: retrieval failed, falling back to titles: {exc}")
+            hits = []
+        for h in hits:
+            sid = str(h.get("id") or "")
+            if sid and sid not in by_source:
+                by_source[sid] = {"similarity": float(h.get("similarity") or 0.0), "snippet": (h.get("content") or "")[:280]}
+
+    uid, admin = int(user.id or 0), 1 if is_admin(user) else 0
+    params: Dict[str, Any] = {"uid": uid, "is_admin": admin, "q": "%" + q.replace("%", "\\%").replace("_", "\\_") + "%", "limit": int(limit) * 2}
+    source_clause = ""
+    if by_source:
+        placeholders = ", ".join(f":s{i}" for i in range(len(by_source)))
+        params.update({f"s{i}": sid for i, sid in enumerate(by_source)})
+        source_clause = f"OR d.source_id IN ({placeholders})"
+    scope_where = []
+    if course_id:
+        scope_where.append("d.room_id = :course_id")
+        params["course_id"] = int(course_id)
+    if category_id:
+        scope_where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {_DOC_COLUMNS}, c.code AS course_code, c.name AS course_name,
+                           u.username AS owner_username, u.display_name AS owner_display_name,
+                           u.role AS owner_role
+                      FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                      LEFT JOIN users u ON u.id = d.owner_id
+                     WHERE {_DOC_READABLE_SQL}
+                       AND d.status = 'ready'
+                       AND (d.title LIKE :q OR d.filename LIKE :q {source_clause})
+                       {"AND " + " AND ".join(scope_where) if scope_where else ""}
+                     LIMIT :limit
+                    """
+                ),
+                params,
+            )
+        ).all()
+    docs = [_row(r) for r in rows]
+    for d in docs:
+        hit = by_source.get(str(d.get("source_id") or ""))
+        d["similarity"] = hit["similarity"] if hit else None
+        d["snippet"] = hit["snippet"] if hit else None
+        d["match"] = "semantic" if hit else "title"
+    docs.sort(key=lambda d: (d["similarity"] is None, -(d["similarity"] or 0.0), -(d.get("id") or 0)))
+    result = docs[: int(limit)]
+    try:
+        await cache_service.set_json(cache_key, result, ttl=SEARCH_CACHE_TTL)
+    except Exception as exc:
+        logger.debug(f"document search cache write skipped: {exc}")
+    return result

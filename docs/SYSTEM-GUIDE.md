@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3)
+> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4)
 
 ## สารบัญ
 
@@ -648,6 +648,21 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | **แชร์ลงฟีด** | โพสต์ได้ **สำเนา** ไฟล์ใน `DATA_FOLDER/community` ลบเอกสารในคลังแล้วไฟล์แนบของโพสต์ไม่หาย; เอกสารเก่าที่ยังใช้ไฟล์ร่วมกับโพสต์จะไม่ถูกลบไฟล์ (`_file_still_referenced`) |
 | **สิทธิ์จัดการ** | ลบ/ลองใหม่ได้โดย: ผู้อัปโหลด, ผู้ดูแล, และ **ผู้สอน/ผู้ช่วยสอนของห้อง** สำหรับเอกสารของห้องนั้น (`can_manage_document(user, doc, managed_room_ids(user))`) |
 
+#### 6.2.4 ค้นหาขั้นสูง (22 ต.ค. 2026)
+
+หน้า **`/community/search`** (ของเรา ไม่ใช่ช่องค้นหาบนหัว community ที่กรองฟีดอย่างเดียว) เรียก `GET /community/search` ครั้งเดียวแล้วได้ 4 ชนิดผลลัพธ์ ทุกตัวกรองอยู่ใน URL แชร์ลิงก์ได้
+
+| ชนิด | หาอย่างไร | ตัวกรอง | หมายเหตุ |
+|---|---|---|---|
+| โพสต์ | query ฟีดเดิม (`list_posts`) จึงเคารพ visibility/ห้องส่วนตัวอัตโนมัติ | `course_id`, `category_id` (หมวดของห้อง), `type`, `author` (@username), `tag` (ตรงทั้งแท็ก ไม่ใช่ substring), `since`/`until` (วัน; until รวมทั้งวัน), `order` newest/popular | `kind=posts` แบ่งหน้าด้วย `before_id`; **คำสั่ง popular ใช้ keyset (คะแนน, id)** แล้ว ไม่ข้าม/ซ้ำหน้า (`_POPULARITY`) |
+| รายวิชา | `search_courses`: รหัส/ชื่อห้อง/ชื่อหมวด เฉพาะห้อง active | `category_id` | ได้ `category_name`, `term`, `member_count`, `joined`, `requires_code`, `is_private` (ไม่มี `join_code`) |
+| เอกสาร | **ค้นด้วยความหมาย**: embed คำค้น (`retrieval.question_embedding`, cache 1 ชม.) → cosine บน `source_embedding` ของ notebook ที่ผู้ใช้อ่านได้ (`library._searchable_notebooks` = ห้อง public + ห้องส่วนตัวที่เป็นสมาชิก + คลังส่วนตัว) → ยุบเหลือเอกสารละ 1 แถวพร้อม `snippet`/`similarity`; รวมกับการตรงชื่อ (`match: title`) | `course_id`, `category_id` | ผลลัพธ์ cache 5 นาทีต่อ (ขอบเขต, คำค้น); จำกัด **20 ครั้ง/นาที/คน** (staff ×4, `SEARCH_DOCS_PER_MINUTE`, นับในโปรเซส) → 429 + Retry-After; ฟรี ไม่หักแต้ม |
+| ผู้ใช้ | `search_users`: ชื่อ/username; **เฉพาะ staff** จึงจับคู่ email/รหัสนักศึกษาและได้ `student_id` กลับ (`include_contact`) | — | บัญชีที่ถูกระงับไม่แสดง |
+
+- `kind=all` ให้ชนิดละ 5 รายการ (preview) + ปุ่ม "ดูทั้งหมด" ไปยังแท็บนั้น
+- `_like()` escape `%`, `_`, `\` ของผู้ใช้แล้ว (เดิม "%" ค้นได้ทุกโพสต์)
+- ช่องค้นหาบนหัว community (ของ Poh) ยังชี้ไป `/community?q=` — ดู `docs/handoff/for-poh.md`
+
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
 ### 6.3 โพสต์ — มี 5 ชนิด
@@ -1034,6 +1049,7 @@ POST   /community/courses/{id}/archive · POST /community/courses/{id}/restore  
 DELETE /community/courses/{id}                     (เจ้าของ = เก็บถาวร, ผู้ดูแล = ลบถาวร + cascade)
 GET    /community/courses/{id}/members             (ผู้สอน/TA/ผู้ดูแล)
 GET    /community/library/{id}/download            (ไฟล์ของเอกสาร; inline สำหรับ pdf/รูป/วิดีโอ; รับ ?token=)
+GET    /community/search?q=&kind=all|posts|courses|documents|users&course_id=&category_id=&type=&author=&tag=&since=&until=&order=&before_id=&limit=
 PATCH  /community/courses/{id}/members/{uid} {role: member|ta} · DELETE …/members/{uid}   (เจ้าของ/ผู้ดูแล)
 ```
 

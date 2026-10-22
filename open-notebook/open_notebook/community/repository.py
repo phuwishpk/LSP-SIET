@@ -61,7 +61,9 @@ def _rows(result: Any) -> List[Dict[str, Any]]:
 
 
 def _like(q: str) -> str:
-    return f"%{q.strip()}%"
+    """A contains-match where the user's own ``%``/``_`` stay literal."""
+    cleaned = q.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{cleaned}%"
 
 
 # The MariaDB columns were renamed (see ``schema.RENAMES``) but callers and the
@@ -78,6 +80,12 @@ _POST_COLUMNS = """
     p.visibility,
     p.created_at, p.updated_at
 """
+
+# How "popular" ranks a post; also the keyset the popular cursor pages on.
+_POPULARITY = (
+    "p.like_count * 2 + p.helpful_count * 3 + p.roadmap_follow_count * 2 "
+    "+ p.quiz_play_count + p.comment_count"
+)
 
 # One rule for "may this viewer read this post", used by every feed query and
 # mirrored in Python by ``post_visible_to`` for the single-post routes.
@@ -922,6 +930,11 @@ async def list_posts(
     limit: int = 20,
     order: str = "newest",
     viewer_is_admin: bool = False,
+    tag: Optional[str] = None,
+    since: Optional[datetime] = None,
+    until: Optional[datetime] = None,
+    author_username: Optional[str] = None,
+    category_id: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     # Visibility first: nothing below widens what the viewer may read.
     where = ["p.is_deleted = 0", _VISIBLE_SQL]
@@ -930,6 +943,22 @@ async def list_posts(
         "viewer_is_admin": 1 if viewer_is_admin else 0,
         "limit": max(1, min(int(limit), 100)),
     }
+    if tag:
+        # tags are stored comma-separated; match a whole tag, not a substring
+        where.append("CONCAT(',', REPLACE(IFNULL(p.tags, ''), ' ', ''), ',') LIKE :tag")
+        params["tag"] = f"%,{tag.strip().lstrip('#')},%"
+    if since is not None:
+        where.append("p.created_at >= :since")
+        params["since"] = since
+    if until is not None:
+        where.append("p.created_at < :until")
+        params["until"] = until
+    if author_username:
+        where.append("u.username = :author_username")
+        params["author_username"] = author_username.strip().lstrip("@").lower()
+    if category_id:
+        where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
     if course_id:
         where.append("p.room_id = :course_id")
         params["course_id"] = course_id
@@ -984,12 +1013,26 @@ async def list_posts(
         types = [t for t in embed_types if t in ("quiz", "roadmap")]
         if types:
             where.append("p.linked_type IN (" + ",".join(f"'{t}'" for t in types) + ")")
-    if before_id:
+    if before_id and order == "popular":
+        # Keyset cursor on (score, id): the id alone would skip and repeat
+        # pages because popular order is not id order. The cursor row's own
+        # score is looked up so the client keeps passing just the last id.
+        where.append(
+            f"""
+            (
+                ({_POPULARITY}) < (SELECT {_POPULARITY.replace('p.', 'cur.')} FROM posts cur WHERE cur.id = :before_id)
+                OR (({_POPULARITY}) = (SELECT {_POPULARITY.replace('p.', 'cur.')} FROM posts cur WHERE cur.id = :before_id)
+                    AND p.id < :before_id)
+            )
+            """
+        )
+        params["before_id"] = int(before_id)
+    elif before_id:
         where.append("p.id < :before_id")
         params["before_id"] = int(before_id)
 
     if order == "popular":
-        order_by = "(p.like_count * 2 + p.helpful_count * 3 + p.roadmap_follow_count * 2 + p.quiz_play_count + p.comment_count) DESC, p.id DESC"
+        order_by = f"({_POPULARITY}) DESC, p.id DESC"
     elif saved_only:
         order_by = (
             "(SELECT s.created_at FROM saved_posts s "
@@ -2868,15 +2911,28 @@ async def mark_notifications_read(user_id: int, ids: Optional[List[int]] = None)
 # ---------------------------------------------------------------------------
 
 
-async def search_users(query: str, limit: int = 8) -> List[Dict[str, Any]]:
+async def search_users(
+    query: str, limit: int = 8, *, include_contact: bool = False
+) -> List[Dict[str, Any]]:
+    """
+    Find people by name. Only staff (``include_contact``) may also match on
+    e-mail / student code, and only they get the student code back - a
+    classmate searching for "6599" must not enumerate the roster.
+    """
+    if include_contact:
+        match = "(username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q)"
+        columns = "id, username, display_name, avatar_url, role, student_code AS student_id"
+    else:
+        match = "(username LIKE :q OR display_name LIKE :q)"
+        columns = "id, username, display_name, avatar_url, role, NULL AS student_id"
     async with _mariadb_session() as session:
         rows = _rows(
             await session.execute(
                 text(
-                    """
-                    SELECT id, username, display_name, avatar_url, role, student_code AS student_id
+                    f"""
+                    SELECT {columns}
                       FROM users
-                     WHERE username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q
+                     WHERE {match} AND IFNULL(disabled, 0) = 0
                      ORDER BY display_name ASC
                      LIMIT :limit
                     """
@@ -2887,22 +2943,38 @@ async def search_users(query: str, limit: int = 8) -> List[Dict[str, Any]]:
     return rows
 
 
-async def search_courses(query: str, limit: int = 8) -> List[Dict[str, Any]]:
+async def search_courses(
+    query: str, limit: int = 8, *, category_id: Optional[int] = None, viewer_id: Optional[int] = None
+) -> List[Dict[str, Any]]:
+    """Active rooms matching by code or name, with their category and member count."""
+    where = ["c.status = 'active'", "(c.code LIKE :q OR c.name LIKE :q OR cat.name LIKE :q)"]
+    params: Dict[str, Any] = {"q": _like(query), "limit": int(limit), "viewer": viewer_id or 0}
+    if category_id:
+        where.append("c.category_id = :category_id")
+        params["category_id"] = int(category_id)
     async with _mariadb_session() as session:
         rows = _rows(
             await session.execute(
                 text(
-                    """
-                    SELECT id, code, name, description, kind
-                      FROM rooms
-                     WHERE code LIKE :q OR name LIKE :q
-                     ORDER BY kind ASC, code ASC
+                    f"""
+                    SELECT c.id, c.code, c.name, c.description, c.kind,
+                           {_ROOM_META_COLUMNS},
+                           (SELECT COUNT(*) FROM room_members m WHERE m.room_id = c.id) AS member_count,
+                           EXISTS(SELECT 1 FROM room_members m WHERE m.room_id = c.id AND m.user_id = :viewer) AS joined
+                      FROM rooms c
+                      LEFT JOIN categories cat ON cat.id = c.category_id
+                     WHERE {' AND '.join(where)}
+                     ORDER BY c.kind ASC, c.code ASC
                      LIMIT :limit
                     """
                 ),
-                {"q": _like(query), "limit": int(limit)},
+                params,
             )
         )
+    for r in rows:
+        r["member_count"] = int(r.get("member_count") or 0)
+        r["joined"] = bool(r.get("joined"))
+        _room_meta(r)
     return rows
 
 

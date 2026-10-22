@@ -11,8 +11,11 @@ import os
 import re
 import asyncio
 import shutil
+import time
 import uuid
-from typing import Any, Dict, List, Literal, Optional
+from collections import deque
+from datetime import date, datetime, timedelta
+from typing import Any, Deque, Dict, List, Literal, Optional
 
 from fastapi import (
     APIRouter,
@@ -1597,15 +1600,119 @@ async def notifications_read(body: NotificationsRead, user: User = Depends(get_c
     return {"ok": True}
 
 
-@router.get("/search")
-async def search(q: str = Query(..., min_length=1, max_length=200), user: User = Depends(get_current_user)) -> Dict[str, Any]:
+# Document search embeds the query (one provider call per distinct query), so
+# it gets a small per-process burst limit. Posts/courses/users are plain SQL.
+SEARCH_DOCS_PER_MINUTE = int(os.getenv("SEARCH_DOCS_PER_MINUTE", "20"))
+_SEARCH_WINDOW: Dict[int, Deque[float]] = {}
+
+
+def _check_search_rate(user: User) -> None:
     uid = _uid(user)
-    return {
+    quota = SEARCH_DOCS_PER_MINUTE * (ratelimit.STAFF_MULTIPLIER if _is_staff(user) else 1)
+    now = time.monotonic()
+    window = _SEARCH_WINDOW.setdefault(uid, deque())
+    while window and now - window[0] > 60:
+        window.popleft()
+    if len(window) >= quota:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="ค้นหาเอกสารถี่เกินไป รอสักครู่แล้วลองใหม่",
+            headers={"Retry-After": str(int(61 - (now - window[0])))},
+        )
+    window.append(now)
+
+
+@router.get("/search")
+async def search(
+    q: str = Query(..., min_length=1, max_length=200),
+    kind: Literal["all", "posts", "courses", "documents", "users"] = "all",
+    course_id: Optional[int] = Query(default=None, ge=1),
+    category_id: Optional[int] = Query(default=None, ge=1),
+    type: Optional[str] = Query(default=None, pattern="^(summary|quiz|roadmap|question|material)$"),
+    author: Optional[str] = Query(default=None, max_length=32),
+    tag: Optional[str] = Query(default=None, max_length=40),
+    since: Optional[date] = None,
+    until: Optional[date] = None,
+    order: Literal["newest", "popular"] = "newest",
+    before_id: Optional[int] = None,
+    limit: int = Query(default=20, ge=1, le=50),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """
+    One search box, four kinds of result.
+
+    * posts   - the feed query with every filter (room, category, type, author,
+                tag, date range, order); paged with ``before_id`` like the feed
+    * courses - active rooms by code / name / category
+    * documents - meaning-based search over the libraries the caller may read
+                (same vectors the RAG uses), plus title matches
+    * users   - by name; staff may also match e-mail / student code
+
+    ``kind=all`` returns a short list of each; a single kind returns a full
+    page. Everything respects post visibility and room privacy.
+    """
+    uid = _uid(user)
+    admin = user.role == USER_ROLE_ADMIN
+    wants = lambda k: kind in ("all", k)  # noqa: E731
+    preview = 5
+    out: Dict[str, Any] = {
         "query": q,
-        "posts": await repo.list_posts(uid, query=q, limit=10),
-        "users": await repo.search_users(q),
-        "courses": await repo.search_courses(q),
+        "kind": kind,
+        "posts": [],
+        "next_before_id": None,
+        "courses": [],
+        "documents": [],
+        "users": [],
+        "filters": {
+            "course_id": course_id, "category_id": category_id, "type": type, "author": author,
+            "tag": tag, "since": since.isoformat() if since else None,
+            "until": until.isoformat() if until else None, "order": order,
+        },
     }
+    if wants("posts"):
+        page = limit if kind == "posts" else preview
+        posts = await repo.list_posts(
+            uid,
+            viewer_is_admin=admin,
+            query=q,
+            course_id=course_id,
+            category_id=category_id,
+            post_type=type,
+            author_username=author,
+            tag=tag,
+            since=datetime.combine(since, datetime.min.time()) if since else None,
+            until=datetime.combine(until + timedelta(days=1), datetime.min.time()) if until else None,
+            order=order,
+            before_id=before_id,
+            limit=page,
+        )
+        out["posts"] = posts
+        out["next_before_id"] = posts[-1]["id"] if kind == "posts" and len(posts) >= page else None
+    if wants("courses"):
+        out["courses"] = await repo.search_courses(
+            q, limit=limit if kind == "courses" else preview, category_id=category_id, viewer_id=uid
+        )
+    if wants("users"):
+        out["users"] = await repo.search_users(
+            q, limit=limit if kind == "users" else preview, include_contact=_is_staff(user)
+        )
+    if wants("documents"):
+        _check_search_rate(user)
+        managed = await library.managed_room_ids(user)
+        docs = await library.search_documents(
+            user, q, course_id=course_id, category_id=category_id,
+            limit=limit if kind == "documents" else preview,
+        )
+        out["documents"] = [
+            {
+                **_doc_public(d, user, managed),
+                "snippet": d.get("snippet"),
+                "similarity": d.get("similarity"),
+                "match": d.get("match"),
+            }
+            for d in docs
+        ]
+    return out
 
 
 @router.get("/materials")
