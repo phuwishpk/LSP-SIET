@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Thai, Inter, Noto_Sans_Thai } from "next/font/google";
+import { IBM_Plex_Sans_Thai, Inter, Noto_Sans_Thai, Nunito } from "next/font/google";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -11,6 +11,9 @@ import { themeScript } from "@/lib/theme-script";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
+// DESIGN.md's display face for the AI Learning Adventure theme (Latin only;
+// Thai falls back to IBM Plex Sans Thai through the font stack).
+const nunito = Nunito({ subsets: ["latin"], variable: "--font-nunito" });
 
 // Thai faces for the SIET theme (`.theme-siet` in globals.css). Only the CSS
 // variables are set here; without preload the files are fetched by the pages
@@ -41,7 +44,7 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${inter.className} ${inter.variable} ${plexThai.variable} ${notoThai.variable}`}>
+      <body className={`${inter.className} ${inter.variable} ${plexThai.variable} ${notoThai.variable} ${nunito.variable}`}>
         <ErrorBoundary>
           <ThemeProvider>
             <QueryProvider>

@@ -392,7 +392,8 @@ async def delete_account(user_id: int, user: User = Depends(get_current_user)) -
     admin_id = _require_admin(user)
     target = await _target_or_404(user_id)
     _guard_delete(target, admin_id)
-    removed = await admin_delete_user(user_id)
+    removed = dict(await library.purge_user_library(user_id))
+    removed.update(await admin_delete_user(user_id))
     await _audit(user, "user.delete", target_type="user", target_id=user_id, username=target.username, removed=removed)
     return {"ok": True, "deleted": user_id, "removed": removed}
 
@@ -415,6 +416,7 @@ async def bulk_delete_accounts(
         except HTTPException as exc:
             skipped.append({"id": uid, "username": target.username, "reason": exc.detail})
             continue
+        await library.purge_user_library(uid)
         await admin_delete_user(uid)
         deleted.append(uid)
     logger.info(f"admin {user.username} bulk-deleted {len(deleted)} accounts")

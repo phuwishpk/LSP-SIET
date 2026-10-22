@@ -1491,3 +1491,58 @@ async def search_documents(
     except Exception as exc:
         logger.debug(f"document search cache write skipped: {exc}")
     return result
+
+
+
+async def purge_user_library(user_id: int) -> Dict[str, int]:
+    """
+    Before an account is deleted: remove the person's personal documents
+    (files, Sources, embeddings) and their personal notebook; hand their
+    course documents to the room's owner so course material survives the
+    teacher who uploaded it, or delete them when the room has no owner.
+    """
+    removed = {"personal_documents": 0, "course_documents_reassigned": 0, "course_documents_deleted": 0, "notebooks": 0}
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(
+                    f"""
+                    SELECT {_DOC_COLUMNS}, c.created_by AS room_owner_id
+                      FROM library_documents d
+                      LEFT JOIN rooms c ON c.id = d.room_id
+                     WHERE d.owner_id = :uid
+                    """
+                ),
+                {"uid": int(user_id)},
+            )
+        ).all()
+        notebook_row = (
+            await session.execute(
+                text("SELECT library_notebook_id FROM users WHERE id = :uid"), {"uid": int(user_id)}
+            )
+        ).first()
+    docs = [_row(r) for r in rows]
+    for d in docs:
+        new_owner = d.get("room_owner_id")
+        if d.get("scope") == SCOPE_COURSE and new_owner and int(new_owner) != int(user_id):
+            async with _mariadb_session() as session:
+                await session.execute(
+                    text("UPDATE library_documents SET owner_id = :owner WHERE id = :id"),
+                    {"owner": int(new_owner), "id": d["id"]},
+                )
+            removed["course_documents_reassigned"] += 1
+            continue
+        await delete_document(d)
+        removed["personal_documents" if d.get("scope") != SCOPE_COURSE else "course_documents_deleted"] += 1
+
+    notebook_id = notebook_row[0] if notebook_row else None
+    if notebook_id:
+        try:
+            notebook = await Notebook.get(str(notebook_id))
+            if notebook:
+                await notebook.delete(delete_exclusive_sources=True)
+                removed["notebooks"] = 1
+        except Exception as exc:
+            logger.warning(f"library: could not delete personal notebook {notebook_id}: {exc}")
+    logger.info(f"library: purged library of user {user_id}: {removed}")
+    return removed

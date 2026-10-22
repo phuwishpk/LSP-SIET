@@ -425,3 +425,92 @@ body.theme-siet {
     transform: translateY(-3px) rotate(-3deg);
   }
 }
+
+
+/* ---------------------------------------------------------------------------
+   SIET Pink — "AI Learning Adventure" (root DESIGN.md), as a scoped theme.
+   Applied to the KMITL RAG AI page and the roadmap app; the values are the
+   design system's own (#ED4988 etc.), mapped onto the same semantic variables
+   the rest of the app reads, so shadcn components and the community panels
+   pick it up without changes. Light only, as DESIGN.md specifies.
+   --------------------------------------------------------------------------- */
+.theme-adventure {
+  color-scheme: light;
+  --radius: 0.75rem;
+  --canvas: #ffffff;
+  --background: #ffffff;
+  --foreground: #202124;
+  --card: #ffffff;
+  --card-foreground: #202124;
+  --popover: #ffffff;
+  --popover-foreground: #202124;
+  --primary: #ed4988;
+  --primary-foreground: #ffffff;
+  --secondary: #fce7f0;
+  --secondary-foreground: #202124;
+  --muted: #f7f7f8;
+  --muted-foreground: #777777;
+  --subtle-foreground: #afafaf;
+  --accent: #fce7f0;
+  --accent-foreground: #202124;
+  --border: #e5e5e5;
+  --input: #e5e5e5;
+  --ring: #1cb0f6;
+  --destructive: #ff4b4b;
+  --ai: #ed4988;
+  --ai-soft: #fce7f0;
+  --ai-foreground: #ffffff;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #202124;
+  --sidebar-primary: #ed4988;
+  --sidebar-primary-foreground: #ffffff;
+  --sidebar-accent: #fce7f0;
+  --sidebar-accent-foreground: #202124;
+  --sidebar-border: #e5e5e5;
+  --sidebar-ring: #1cb0f6;
+  /* gamification colours from DESIGN.md, for badges and status */
+  --adventure-info: #1cb0f6;
+  --adventure-success: #58a66a;
+  --adventure-error: #ff4b4b;
+  --adventure-streak: #ff9600;
+  --adventure-xp: #ffc800;
+  --adventure-reward: #ce82ff;
+  color: var(--foreground);
+  background: var(--canvas);
+  /* Nunito carries Latin and digits; Thai glyphs fall through to IBM Plex Sans Thai. */
+  font-family: var(--font-nunito), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+}
+
+/* Keep the page light even when the app-wide dark toggle is on: DESIGN.md has no dark mode. */
+.dark .theme-adventure {
+  color-scheme: light;
+}
+
+.theme-adventure h1,
+.theme-adventure h2,
+.theme-adventure h3 {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* DESIGN.md primary button: 16px radius, flat 4px lip in the pressed colour, sinks on press. */
+.theme-adventure .adventure-button,
+.theme-adventure button[data-slot="button"]:not([data-variant]):not(.no-lip) {
+  box-shadow: 0 4px 0 #c92f6b;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.theme-adventure .adventure-button:active,
+.theme-adventure button[data-slot="button"]:not([data-variant]):not(.no-lip):active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+.theme-adventure button[data-slot="button"]:not([data-variant]):hover {
+  background-color: #d83a78;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-adventure .adventure-button,
+  .theme-adventure button[data-slot="button"] {
+    transition: none;
+  }
+}

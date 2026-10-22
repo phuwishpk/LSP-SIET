@@ -615,6 +615,16 @@ async def admin_delete_user(user_id: int) -> Dict[str, int]:
         await _run("DELETE FROM room_members WHERE user_id = :uid", "memberships")
         await _run("DELETE FROM library_documents WHERE owner_id = :uid", "documents")
         await _run("DELETE FROM rag_credit_sessions WHERE user_id = :uid", "rag_sessions")
+        # Chat history is the person's own data: it goes with the account.
+        await _run(
+            "DELETE m FROM rag_messages m JOIN rag_conversations c ON c.id = m.conversation_id "
+            "WHERE c.user_id = :uid",
+            "rag_messages",
+        )
+        await _run("DELETE FROM rag_conversations WHERE user_id = :uid", "rag_conversations")
+        await _run("DELETE FROM saved_collection_posts WHERE user_id = :uid", "collection_items")
+        await _run("DELETE FROM saved_collections WHERE user_id = :uid", "collections")
+        await _run("DELETE FROM content_reports WHERE reporter_id = :uid", "reports_filed")
         await _run(
             "DELETE FROM notifications WHERE recipient_id = :uid OR actor_id = :uid", "notifications"
         )

@@ -100,6 +100,20 @@ def _insufficient(exc: points.InsufficientPoints) -> HTTPException:
     )
 
 
+
+def _internal_error(exc: Exception, what: str) -> HTTPException:
+    """
+    An unexpected failure: log the traceback with a short reference and give
+    the client that reference instead of the exception text, which can carry
+    provider responses, file paths or SQL.
+    """
+    ref = uuid.uuid4().hex[:8]
+    logger.exception(f"{what} [ref {ref}]")
+    return HTTPException(
+        status_code=500,
+        detail=f"เกิดข้อผิดพลาดภายในระบบ (รหัสอ้างอิง {ref}) ลองใหม่อีกครั้ง หรือแจ้งผู้ดูแลพร้อมรหัสนี้",
+    )
+
 async def _guard_spam(user: User, action: str) -> None:
     """Stop rapid-fire / bulk submissions before any work is done."""
     try:
@@ -1575,8 +1589,7 @@ async def expand_my_roadmap(
         raise
     except Exception as exc:
         await points.refund(charge, "roadmap expansion failed")
-        logger.exception("roadmap expansion failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _internal_error(exc, "roadmap expansion failed")
 
     shared = await repo.roadmap_posts_for_author(uid, [str(session.id)])
     return {
@@ -2240,8 +2253,7 @@ async def study_quiz(
         raise
     except Exception as exc:
         await points.refund(charge, "quiz generation failed")
-        logger.exception("study quiz failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _internal_error(exc, "study quiz failed")
 
     if report.get("cached"):
         await points.refund(charge, "cached quiz – no compute cost")
@@ -2326,8 +2338,7 @@ async def study_roadmap(
         raise
     except Exception as exc:
         await points.refund(charge, "roadmap generation failed")
-        logger.exception("study roadmap failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        raise _internal_error(exc, "study roadmap failed")
 
     if report.get("cached"):
         await points.refund(charge, "cached roadmap – no compute cost")
@@ -2527,12 +2538,17 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     charge: Optional[points.Charge] = None
     session: Optional[Dict[str, Any]] = None
     session_id: Optional[str] = body.session_id
+    # A session message credit is *reserved* up front with one atomic UPDATE
+    # (credits_left > 0), so two questions fired at once cannot both pass a
+    # read-then-write check; the credit is given back if the answer fails.
+    credits_after: Optional[int] = None
 
     if session_id:
         session = await repo.get_rag_session(session_id, uid)
         if not session:
             raise HTTPException(status_code=404, detail="Session not found")
-        if int(session.get("credits_left") or 0) <= 0:
+        credits_after = await repo.reserve_rag_credit(session_id, uid)
+        if credits_after is None:
             raise HTTPException(
                 status_code=status.HTTP_402_PAYMENT_REQUIRED,
                 detail=f"เซสชันนี้ใช้ครบ {points.RAG_SESSION_MESSAGES} ข้อความแล้ว เริ่มเซสชันใหม่ ({points.COSTS['rag_session']} แต้ม) หรือถามแบบคำถามเดี่ยว ({points.COSTS['rag_question']} แต้ม)",
@@ -2546,6 +2562,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         session_id = await repo.create_rag_session(uid, points.RAG_SESSION_MESSAGES)
         await points.set_charge_ref(charge, "rag_session", session_id)
         session = {"id": session_id, "messages": [], "credits_left": points.RAG_SESSION_MESSAGES}
+        credits_after = await repo.reserve_rag_credit(session_id, uid)
     else:
         try:
             charge = await points.charge(user, "rag_question", ref_type="rag_question")
@@ -2606,19 +2623,26 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             )
     except (ConfigurationError, InvalidInputError) as exc:
         await points.refund(charge, "ask failed")
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
         raise HTTPException(status_code=400, detail=str(exc))
     except ExternalServiceError as exc:
         await points.refund(charge, "ask failed")
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
         raise HTTPException(status_code=502, detail=str(exc))
     except (throttle.ProviderBusy, RateLimitError):
         # Queue full / provider rate limit: the global handlers answer 503 / 429
         # with Retry-After; the student keeps the point.
         await points.refund(charge, "ask throttled")
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
         raise
     except Exception as exc:
         await points.refund(charge, "ask failed")
-        logger.exception("quick ask failed")
-        raise HTTPException(status_code=500, detail=str(exc))
+        if credits_after is not None:
+            await repo.release_rag_credit(session_id or "")
+        raise _internal_error(exc, "quick ask failed")
     finally:
         if leader is not None:
             _INFLIGHT.pop(cache_key or "", None)
@@ -2639,8 +2663,8 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     if session:
         history.append({"role": "user", "content": body.question})
         history.append({"role": "assistant", "content": result["answer"]})
-        credits_left = int(session.get("credits_left") or 0) - 1
-        await repo.update_rag_session(session_id or "", history, credits_left)
+        credits_left = credits_after if credits_after is not None else int(session.get("credits_left") or 0) - 1
+        await repo.save_rag_messages(session_id or "", history)
 
     charged_amount = charge.amount if charge and charge.charged else 0
     conversation_id = await _store_exchange(

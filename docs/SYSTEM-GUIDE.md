@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5)
+> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5; RAG hardening + ธีม SIET Pink — ข้อ 6.3)
 
 ## สารบัญ
 
@@ -676,6 +676,15 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 
 ปุ่ม `<ReportButton targetType targetId />` (`components/common/ReportButton.tsx`) พร้อมใช้สำหรับ PostCard/PostDetailModal — ดู `docs/handoff/for-poh.md`
 
+### 6.3 KMITL RAG AI — ความทนทานและธีม (22 ต.ค. 2026)
+
+| เรื่อง | ก่อน | หลัง |
+|---|---|---|
+| โควตาข้อความของเซสชัน | อ่าน `credits_left` ตอนเริ่ม แล้วเขียน `credits_left - 1` ตอนจบ → ยิงพร้อมกันหลายคำถามใช้เกินโควตาได้ | **จองเครดิตก่อนเรียกโมเดล** ด้วย `UPDATE … SET credits_left = credits_left - 1 WHERE … AND credits_left > 0` (`repository.reserve_rag_credit`); rowcount 0 → 402 ทันที; ถ้าคำตอบล้มเหลว/ถูก throttle คืนเครดิต (`release_rag_credit`); ข้อความบันทึกแยก (`save_rag_messages`) |
+| ข้อความ error | `except Exception → detail=str(exc)` ใน ask / quiz / roadmap / expand ส่งข้อความดิบของ provider, path, SQL ให้ client | `_internal_error(exc, what)`: log traceback พร้อม **รหัสอ้างอิง 8 ตัว** แล้วตอบ 500 ด้วยข้อความไทย + รหัสนั้น; error ที่จัดประเภทแล้ว (400/502) ยังส่งข้อความที่ปลอดภัยเหมือนเดิม |
+| ลบบัญชี | เหลือ `rag_conversations`/`rag_messages`, `saved_collections`, รายงานที่เขายื่น, ไฟล์/Source/embeddings ของเอกสาร และ notebook ส่วนตัวใน SurrealDB | `library.purge_user_library` (เอกสารส่วนตัว → ลบพร้อมไฟล์+Source; เอกสารของห้อง → โอนให้ผู้สอนของห้อง ถ้าห้องไม่มีเจ้าของจึงลบ; ลบ notebook ส่วนตัวพร้อม source ที่ใช้เฉพาะ) แล้ว `admin_delete_user` ลบประวัติแชท คอลเลกชัน รายงานที่ยื่น ด้วย; ทั้งเดี่ยวและ bulk |
+| ธีมหน้า `/community/ask` | shadcn ค่าเริ่มต้น + violet/sky ฝังในโค้ด | class `.theme-adventure` (ค่าจาก `DESIGN.md`: ชมพู `#ED4988`, hover `#D83A78`, pressed lip `#C92F6B`, soft `#FCE7F0`, ink `#202124`, border `#E5E5E5`, info `#1CB0F6` …) map ลงตัวแปร semantic เดิม + ฟอนต์ `Nunito → IBM Plex Sans Thai → Noto Sans Thai` (เพิ่ม Nunito ใน `app/layout.tsx`); ปุ่มหลักมีขอบล่าง 4px ตาม DESIGN.md; light เท่านั้น (`.dark .theme-adventure` คง light) |
+
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
 ### 6.3 โพสต์ — มี 5 ชนิด
@@ -1079,7 +1088,7 @@ GET  /community/teacher/quiz-results  (?course_id=&limit=)
 GET    /admin/overview             · GET    /admin/health
 GET    /admin/users                · POST   /admin/users          (สร้างบัญชี)
 GET    /admin/users/{id}           · PATCH  /admin/users/{id}
-DELETE /admin/users/{id}           · POST   /admin/users/bulk-delete
+DELETE /admin/users/{id}           · POST   /admin/users/bulk-delete   (ล้างเอกสาร/notebook/ประวัติแชท/คอลเลกชัน/รายงานของผู้ใช้ด้วย)
 POST   /admin/users/{id}/points    · POST   /admin/users/{id}/reset-password
 GET    /admin/posts                · DELETE /admin/posts/{id}
 POST   /admin/posts/{id}/restore   · GET    /admin/courses

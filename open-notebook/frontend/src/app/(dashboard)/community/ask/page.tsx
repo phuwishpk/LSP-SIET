@@ -347,7 +347,7 @@ function AskContent() {
     : costs?.rag_question ?? 1
 
   return (
-    <div className="min-h-screen bg-muted/30">
+    <div className="theme-adventure min-h-screen bg-canvas">
       <CommunityHeader
         query=""
         onSearch={(q) => router.push(q ? `/community?q=${encodeURIComponent(q)}` : '/community')}
@@ -507,7 +507,7 @@ function AskContent() {
                       className={cn(
                         'rounded-lg border px-2 py-1.5 text-[11px] transition',
                         webMode === value
-                          ? 'border-sky-500 bg-sky-100 text-sky-900 dark:bg-sky-950/50 dark:text-sky-100'
+                          ? 'border-primary bg-primary/10 text-primary'
                           : 'hover:bg-accent'
                       )}
                     >
@@ -740,7 +740,7 @@ function ScopeButton({
       className={cn(
         'flex flex-col items-start gap-1 rounded-lg border px-2.5 py-2 text-left text-[11px] transition',
         active
-          ? 'border-violet-500 bg-violet-100 text-violet-900 dark:bg-violet-950/50 dark:text-violet-100'
+          ? 'border-primary bg-primary/10 text-primary'
           : 'hover:bg-accent'
       )}
     >
@@ -770,7 +770,7 @@ function ModeRow({
       className={cn(
         'flex w-full items-center gap-2 rounded-lg border px-2.5 py-2 text-left transition',
         active
-          ? 'border-violet-500 bg-violet-100 dark:bg-violet-950/50'
+          ? 'border-primary bg-primary/10'
           : 'hover:bg-accent'
       )}
     >

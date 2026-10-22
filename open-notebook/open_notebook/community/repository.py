@@ -2657,6 +2657,52 @@ async def get_rag_session(session_id: str, user_id: int) -> Optional[Dict[str, A
     return data
 
 
+async def reserve_rag_credit(session_id: str, user_id: int) -> Optional[int]:
+    """
+    Take one message credit atomically. Returns the credits left after the
+    reservation, or ``None`` when the session is exhausted (or not theirs) -
+    the UPDATE's own ``credits_left > 0`` guard is what makes two concurrent
+    questions unable to both succeed on a single remaining credit.
+    """
+    async with _mariadb_session() as session:
+        result = await session.execute(
+            text(
+                """
+                UPDATE rag_credit_sessions
+                   SET credits_left = credits_left - 1
+                 WHERE id = :id AND user_id = :uid AND credits_left > 0
+                """
+            ),
+            {"id": session_id, "uid": user_id},
+        )
+        if not result.rowcount:
+            return None
+        row = (
+            await session.execute(
+                text("SELECT credits_left FROM rag_credit_sessions WHERE id = :id"), {"id": session_id}
+            )
+        ).first()
+    return int(row[0]) if row else 0
+
+
+async def release_rag_credit(session_id: str) -> None:
+    """Give a reserved credit back (the answer failed, so the message was never used)."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE rag_credit_sessions SET credits_left = credits_left + 1 WHERE id = :id"),
+            {"id": session_id},
+        )
+
+
+async def save_rag_messages(session_id: str, messages: List[Dict[str, Any]]) -> None:
+    """Persist the conversation window without touching the credit counter."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE rag_credit_sessions SET messages = :messages WHERE id = :id"),
+            {"messages": json.dumps(messages[-20:], ensure_ascii=False), "id": session_id},
+        )
+
+
 async def update_rag_session(
     session_id: str, messages: List[Dict[str, Any]], credits_left: int
 ) -> None:

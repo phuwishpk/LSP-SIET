@@ -79,6 +79,7 @@ def _viewer_day(created, viewer_zone) -> 'YYYY-MM-DD' | None   # สำหรั
 | `POST /reports/{id}` | `ReportResolve {status, action, note?, suspend_reason?, suspended_until?}` | ทำ action กับเป้าหมาย → `resolve_report` → ปิดรายงานซ้ำ (`siblings_closed`) → `_audit("report.<action>")`; 400 ถ้า action ไม่ตรงชนิด/รายงานปิดแล้ว |
 | `GET /audit` | `action` (prefix), `actor_id`, `limit`, `offset` | `{items, total, offset}` จาก `admin_audit_log` (`moderation.list_audit`) |
 | `PATCH /users/{id}` (เดิม) | + `suspend_reason`, `suspended_until` (วัน) | `disabled=true` → `_suspend` (เหตุผล/วันปล่อย + notification) ; `disabled=false` → คืนสิทธิ์ + notification; ทุกครั้ง `_audit("user.update")` |
+| `DELETE /users/{id}`, `POST /users/bulk-delete` (เดิม) | — | เรียก `library.purge_user_library` ก่อน `admin_delete_user`; `removed` ใน response รวม `personal_documents`, `course_documents_reassigned`, `notebooks`, `rag_conversations`, `collections`, `reports_filed` (22 ต.ค.) |
 
 ### 3.4 AI Roadmap (เดิม, แก้เล็กน้อย)
 
