@@ -47,6 +47,11 @@ const episodeProfileSchema = (t: TFunction) => z.object({
     .int(t('podcasts.segmentsInteger') || 'Must be an integer')
     .min(3, t('podcasts.segmentsMin') || 'At least 3 segments')
     .max(20, t('podcasts.segmentsMax') || 'Maximum 20 segments'),
+  max_tokens: z.number()
+    .int(t('podcasts.maxTokensInteger') || 'Must be an integer')
+    .positive(t('podcasts.maxTokensPositive') || 'Must be a positive integer')
+    .nullable()
+    .optional(),
 })
 
 export type EpisodeProfileFormValues = z.infer<ReturnType<typeof episodeProfileSchema>>
@@ -72,18 +77,21 @@ export function EpisodeProfileFormDialog({
   const { data: languages = [] } = useLanguages()
 
   const getDefaults = useCallback((): EpisodeProfileFormValues => {
-    const firstSpeaker = speakerProfiles[0]?.name ?? ''
+    const firstSpeaker = speakerProfiles[0]?.id ?? ''
 
     if (initialData) {
       return {
         name: initialData.name,
         description: initialData.description ?? '',
-        speaker_config: initialData.speaker_config,
+        // speaker_config is a speaker_profile record ID; it can be null when
+        // the referenced profile was deleted - force the user to pick again.
+        speaker_config: initialData.speaker_config ?? '',
         outline_llm: initialData.outline_llm ?? '',
         transcript_llm: initialData.transcript_llm ?? '',
         language: initialData.language ?? null,
         default_briefing: initialData.default_briefing,
         num_segments: initialData.num_segments,
+        max_tokens: initialData.max_tokens ?? null,
       }
     }
 
@@ -96,6 +104,7 @@ export function EpisodeProfileFormDialog({
       language: null,
       default_briefing: '',
       num_segments: 5,
+      max_tokens: null,
     }
   }, [initialData, speakerProfiles])
 
@@ -122,6 +131,7 @@ export function EpisodeProfileFormDialog({
       ...values,
       description: values.description ?? '',
       language: values.language || null,
+      max_tokens: values.max_tokens ?? null,
     }
 
     if (mode === 'create') {
@@ -153,7 +163,7 @@ export function EpisodeProfileFormDialog({
         </DialogHeader>
 
         {speakerProfiles.length === 0 ? (
-          <Alert className="bg-amber-50 text-amber-900 border-amber-200">
+          <Alert className="bg-warn-tint text-warn border-warn/30">
             <AlertTitle>{t('podcasts.noSpeakerProfilesAvailable')}</AlertTitle>
             <AlertDescription>
               {t('podcasts.noSpeakerProfilesDesc')}
@@ -167,7 +177,7 @@ export function EpisodeProfileFormDialog({
               <Label htmlFor="name">{t('podcasts.profileName')} *</Label>
               <Input id="name" placeholder={t('podcasts.profileNamePlaceholder')} {...register('name')} />
               {errors.name ? (
-                <p className="text-xs text-red-600">{errors.name.message}</p>
+                <p className="text-xs text-destructive">{errors.name.message}</p>
               ) : null}
             </div>
 
@@ -182,7 +192,35 @@ export function EpisodeProfileFormDialog({
                 autoComplete="off"
               />
               {errors.num_segments ? (
-                <p className="text-xs text-red-600">{errors.num_segments.message}</p>
+                <p className="text-xs text-destructive">{errors.num_segments.message}</p>
+              ) : null}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="max_tokens">{t('podcasts.maxTokens')}</Label>
+              <Input
+                id="max_tokens"
+                type="number"
+                min={1}
+                step={1}
+                placeholder={t('podcasts.maxTokensPlaceholder')}
+                {...register('max_tokens', {
+                  // Empty and transient/invalid number-input states (which yield
+                  // NaN) both mean "unset" for this optional override; map them to
+                  // null so an empty field never trips the positive-integer rule.
+                  setValueAs: (value) => {
+                    if (value === '' || value === null || value === undefined) {
+                      return null
+                    }
+                    const parsed = Number(value)
+                    return Number.isNaN(parsed) ? null : parsed
+                  },
+                })}
+                autoComplete="off"
+              />
+              <p className="text-xs text-muted-foreground">{t('podcasts.maxTokensHelp')}</p>
+              {errors.max_tokens ? (
+                <p className="text-xs text-destructive">{errors.max_tokens.message}</p>
               ) : null}
             </div>
 
@@ -217,14 +255,14 @@ export function EpisodeProfileFormDialog({
                     </SelectTrigger>
                     <SelectContent title={t('podcasts.speakerProfile')}>
                       {speakerProfiles.map((profile) => (
-                        <SelectItem key={profile.id} value={profile.name}>
+                        <SelectItem key={profile.id} value={profile.id}>
                           {profile.name}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {errors.speaker_config ? (
-                    <p className="text-xs text-red-600">
+                    <p className="text-xs text-destructive">
                       {errors.speaker_config.message}
                     </p>
                   ) : null}
@@ -253,7 +291,7 @@ export function EpisodeProfileFormDialog({
                     placeholder={t('podcasts.selectOutlineModel')}
                   />
                   {errors.outline_llm ? (
-                    <p className="text-xs text-red-600 mt-1">
+                    <p className="text-xs text-destructive mt-1">
                       {errors.outline_llm.message}
                     </p>
                   ) : null}
@@ -282,7 +320,7 @@ export function EpisodeProfileFormDialog({
                     placeholder={t('podcasts.selectTranscriptModel')}
                   />
                   {errors.transcript_llm ? (
-                    <p className="text-xs text-red-600 mt-1">
+                    <p className="text-xs text-destructive mt-1">
                       {errors.transcript_llm.message}
                     </p>
                   ) : null}
@@ -333,7 +371,7 @@ export function EpisodeProfileFormDialog({
               {...register('default_briefing')}
             />
             {errors.default_briefing ? (
-              <p className="text-xs text-red-600">
+              <p className="text-xs text-destructive">
                 {errors.default_briefing.message}
               </p>
             ) : null}

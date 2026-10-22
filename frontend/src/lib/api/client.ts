@@ -1,5 +1,6 @@
 import axios, { AxiosResponse } from 'axios'
 import { getApiUrl } from '@/lib/config'
+import { getAuthToken } from '@/lib/auth-token'
 
 // API client with runtime-configurable base URL
 // The base URL is fetched from the API config endpoint on first request
@@ -18,6 +19,10 @@ const apiTimeout = Number.isFinite(parsedTimeout) && parsedTimeout >= 0
   ? parsedTimeout
   : DEFAULT_API_TIMEOUT_MS
 
+// Resolved request budget in milliseconds (0 = disabled). Exported so streaming
+// consumers can align their own idle watchdogs to the same configurable budget.
+export const API_TIMEOUT_MS = apiTimeout
+
 export const apiClient = axios.create({
   timeout: apiTimeout,
   headers: {
@@ -34,18 +39,9 @@ apiClient.interceptors.request.use(async (config) => {
     config.baseURL = `${apiUrl}/api`
   }
 
-  if (typeof window !== 'undefined') {
-    const authStorage = localStorage.getItem('auth-storage')
-    if (authStorage) {
-      try {
-        const { state } = JSON.parse(authStorage)
-        if (state?.token) {
-          config.headers.Authorization = `Bearer ${state.token}`
-        }
-      } catch (error) {
-        console.error('Error parsing auth storage:', error)
-      }
-    }
+  const token = getAuthToken()
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
   }
 
   // Handle FormData vs JSON content types

@@ -37,7 +37,7 @@ const getNavigationItems = (t: TFunction) => [
   { name: t('navigation.notebooks'), href: '/notebooks', icon: Book, keywords: ['notes', 'research', 'projects'] },
   { name: t('navigation.askAndSearch'), href: '/search', icon: Search, keywords: ['find', 'query'] },
   { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic, keywords: ['audio', 'episodes', 'generate'] },
-  { name: t('navigation.models'), href: '/settings/api-keys', icon: Bot, keywords: ['ai', 'llm', 'providers', 'openai', 'anthropic'] },
+  { name: t('navigation.models'), href: '/settings/models', icon: Bot, keywords: ['ai', 'llm', 'providers', 'openai', 'anthropic'] },
   { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle, keywords: ['prompts', 'templates', 'actions'] },
   { name: t('navigation.settings'), href: '/settings', icon: Settings, keywords: ['preferences', 'config', 'options'] },
   { name: t('navigation.advanced'), href: '/advanced', icon: Wrench, keywords: ['debug', 'system', 'tools'] },
@@ -187,7 +187,7 @@ export function CommandPalette() {
               forceMount
             >
               <Search className="h-4 w-4" />
-              <span>{t('searchPage.searchResultsFor').replace('{query}', query)}</span>
+              <span>{t('searchPage.searchResultsFor', { query: query })}</span>
             </CommandItem>
             <CommandItem
               value={`__ask__ ${query}`}
@@ -195,7 +195,7 @@ export function CommandPalette() {
               forceMount
             >
               <MessageCircleQuestion className="h-4 w-4" />
-              <span>{t('searchPage.askAbout').replace('{query}', query)}</span>
+              <span>{t('searchPage.askAbout', { query: query })}</span>
             </CommandItem>
           </CommandGroup>
         )}
@@ -274,7 +274,7 @@ export function CommandPalette() {
                 forceMount
               >
                 <Search className="h-4 w-4" />
-                <span>{t('searchPage.searchResultsFor').replace('{query}', query)}</span>
+                <span>{t('searchPage.searchResultsFor', { query: query })}</span>
               </CommandItem>
               <CommandItem
                 value={`__ask__ ${query}`}
@@ -282,7 +282,7 @@ export function CommandPalette() {
                 forceMount
               >
                 <MessageCircleQuestion className="h-4 w-4" />
-                <span>{t('searchPage.askAbout').replace('{query}', query)}</span>
+                <span>{t('searchPage.askAbout', { query: query })}</span>
               </CommandItem>
             </CommandGroup>
           </>

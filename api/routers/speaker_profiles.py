@@ -4,6 +4,7 @@ from fastapi import APIRouter, HTTPException
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from open_notebook.exceptions import OpenNotebookError
 from open_notebook.podcasts.models import SpeakerProfile
 
 router = APIRouter()
@@ -15,9 +16,6 @@ class SpeakerProfileResponse(BaseModel):
     description: str
     voice_model: Optional[str] = None
     speakers: List[Dict[str, Any]]
-    # Legacy fields (for display/migration awareness)
-    tts_provider: Optional[str] = None
-    tts_model: Optional[str] = None
 
 
 def _profile_to_response(profile: SpeakerProfile) -> SpeakerProfileResponse:
@@ -27,8 +25,6 @@ def _profile_to_response(profile: SpeakerProfile) -> SpeakerProfileResponse:
         description=profile.description or "",
         voice_model=profile.voice_model,
         speakers=profile.speakers,
-        tts_provider=profile.tts_provider,
-        tts_model=profile.tts_model,
     )
 
 
@@ -38,11 +34,13 @@ async def list_speaker_profiles():
     try:
         profiles = await SpeakerProfile.get_all(order_by="name asc")
         return [_profile_to_response(p) for p in profiles]
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch speaker profiles: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch speaker profiles"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch speaker profiles")
 
 
 @router.get("/speaker-profiles/{profile_name}", response_model=SpeakerProfileResponse)
@@ -60,11 +58,11 @@ async def get_speaker_profile(profile_name: str):
 
     except HTTPException:
         raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Failed to fetch speaker profile '{profile_name}': {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to fetch speaker profile"
-        )
+        raise HTTPException(status_code=500, detail="Failed to fetch speaker profile")
 
 
 class SpeakerProfileCreate(BaseModel):
@@ -74,9 +72,6 @@ class SpeakerProfileCreate(BaseModel):
     speakers: List[Dict[str, Any]] = Field(
         ..., description="Array of speaker configurations"
     )
-    # Legacy fields (accepted but not required)
-    tts_provider: Optional[str] = None
-    tts_model: Optional[str] = None
 
 
 @router.post("/speaker-profiles", response_model=SpeakerProfileResponse)
@@ -88,18 +83,18 @@ async def create_speaker_profile(profile_data: SpeakerProfileCreate):
             description=profile_data.description,
             voice_model=profile_data.voice_model,
             speakers=profile_data.speakers,
-            tts_provider=profile_data.tts_provider,
-            tts_model=profile_data.tts_model,
         )
 
         await profile.save()
         return _profile_to_response(profile)
 
+    except HTTPException:
+        raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Failed to create speaker profile: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to create speaker profile"
-        )
+        raise HTTPException(status_code=500, detail="Failed to create speaker profile")
 
 
 @router.put("/speaker-profiles/{profile_id}", response_model=SpeakerProfileResponse)
@@ -121,11 +116,11 @@ async def update_speaker_profile(profile_id: str, profile_data: SpeakerProfileCr
 
     except HTTPException:
         raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Failed to update speaker profile: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to update speaker profile"
-        )
+        raise HTTPException(status_code=500, detail="Failed to update speaker profile")
 
 
 @router.delete("/speaker-profiles/{profile_id}")
@@ -145,11 +140,11 @@ async def delete_speaker_profile(profile_id: str):
 
     except HTTPException:
         raise
+    except OpenNotebookError:
+        raise
     except Exception as e:
         logger.error(f"Failed to delete speaker profile: {e}")
-        raise HTTPException(
-            status_code=500, detail="Failed to delete speaker profile"
-        )
+        raise HTTPException(status_code=500, detail="Failed to delete speaker profile")
 
 
 @router.post(
@@ -170,14 +165,14 @@ async def duplicate_speaker_profile(profile_id: str):
             description=original.description,
             voice_model=original.voice_model,
             speakers=original.speakers,
-            tts_provider=original.tts_provider,
-            tts_model=original.tts_model,
         )
 
         await duplicate.save()
         return _profile_to_response(duplicate)
 
     except HTTPException:
+        raise
+    except OpenNotebookError:
         raise
     except Exception as e:
         logger.error(f"Failed to duplicate speaker profile: {e}")

@@ -394,11 +394,11 @@ export function AddSourceDialog({
 
         // Show summary toast
         if (results.failed === 0) {
-          toast.success(t('sources.batchSuccess').replace('{count}', results.success.toString()))
+          toast.success(t('sources.batchSuccess', { count: results.success }))
         } else if (results.success === 0) {
-          toast.error(t('sources.batchFailed').replace('{count}', results.failed.toString()))
+          toast.error(t('sources.batchFailed', { count: results.failed }))
         } else {
-          toast.warning(t('sources.batchPartial').replace('{success}', results.success.toString()).replace('{failed}', results.failed.toString()))
+          toast.warning(t('sources.batchPartial', { success: results.success.toString(), failed: results.failed.toString() }))
         }
 
         handleClose()
@@ -465,7 +465,7 @@ export function AddSourceDialog({
             </DialogTitle>
             <DialogDescription>
               {batchProgress
-                ? t('sources.processingBatchSources').replace('{count}', batchProgress.total.toString())
+                ? t('sources.processingBatchSources', { count: batchProgress.total })
                 : t('sources.processingSource')
               }
             </DialogDescription>
@@ -491,7 +491,7 @@ export function AddSourceDialog({
 
                 <div className="flex items-center justify-between text-sm">
                   <div className="flex items-center gap-4">
-                    <span className="flex items-center gap-1.5 text-green-600">
+                    <span className="flex items-center gap-1.5 text-fern">
                       <CheckCircleIcon className="h-4 w-4" />
                       {batchProgress.completed} {t('common.completed')}
                     </span>
@@ -585,7 +585,7 @@ export function AddSourceDialog({
           </WizardContainer>
 
           {/* Navigation */}
-          <div className="flex justify-between items-center px-6 py-4 border-t border-border bg-muted">
+          <div className="flex justify-between items-center px-6 py-4 border-t border-border">
             <Button 
               type="button" 
               variant="outline" 

@@ -7,188 +7,53 @@ Extracted from the credentials router to follow the service layer pattern.
 All functions raise ValueError for business errors (router converts to HTTPException).
 """
 
-import ipaddress
 import os
-import socket
-from typing import Dict, List, Optional
-from urllib.parse import urlparse
+from typing import Any, Dict, List, Literal
 
 import httpx
 from loguru import logger
 from pydantic import SecretStr
 
-from api.models import CredentialResponse
-from open_notebook.ai.model_discovery import classify_model_type
+from api.models import CredentialResponse, validate_url_key_provider_required_fields
+from open_notebook.ai.connection_tester import normalize_anthropic_compatible_base_url
+from open_notebook.ai.model_discovery import (
+    ANTHROPIC_FALLBACK_MODELS,
+    audio_seed,
+    classify_model_type,
+    fetch_anthropic_model_ids,
+)
+from open_notebook.ai.provider_registry import PROVIDERS
 from open_notebook.domain.credential import Credential
-from open_notebook.utils.encryption import get_secret_from_env
+from open_notebook.utils.encryption import (
+    PBKDF2_MARKER,
+    decrypt_value,
+    encrypt_value,
+    get_secret_from_env,
+)
+from open_notebook.utils.ssl_config import httpx_verify_setting
+from open_notebook.utils.url_validation import (
+    prepare_pinned_http_target,
+)
+from open_notebook.utils.url_validation import (
+    validate_url as validate_url,  # re-export for routers
+)
 
 # =============================================================================
 # Constants
 # =============================================================================
 
-# Provider environment variable configuration.
+# Provider environment variable configuration, derived from the provider
+# registry (open_notebook/ai/provider_registry.py — the source of truth).
 # - "required": ALL listed env vars must be set for the provider to be considered configured.
 # - "required_any": at least ONE of the listed env vars must be set.
 # - "optional": additional env vars used during migration but not required.
 PROVIDER_ENV_CONFIG: Dict[str, dict] = {
-    "openai": {"required": ["OPENAI_API_KEY"]},
-    "anthropic": {"required": ["ANTHROPIC_API_KEY"]},
-    "google": {"required_any": ["GOOGLE_API_KEY", "GEMINI_API_KEY"]},
-    "groq": {"required": ["GROQ_API_KEY"]},
-    "mistral": {"required": ["MISTRAL_API_KEY"]},
-    "deepseek": {"required": ["DEEPSEEK_API_KEY"]},
-    "xai": {"required": ["XAI_API_KEY"]},
-    "openrouter": {"required": ["OPENROUTER_API_KEY"]},
-    "voyage": {"required": ["VOYAGE_API_KEY"]},
-    "elevenlabs": {"required": ["ELEVENLABS_API_KEY"]},
-    "deepgram": {"required": ["DEEPGRAM_API_KEY"]},
-    "ollama": {"required": ["OLLAMA_API_BASE"]},
-    "vertex": {
-        "required": ["VERTEX_PROJECT", "VERTEX_LOCATION"],
-        "optional": ["GOOGLE_APPLICATION_CREDENTIALS"],
-    },
-    "azure": {
-        "required": ["AZURE_OPENAI_API_KEY", "AZURE_OPENAI_ENDPOINT", "AZURE_OPENAI_API_VERSION"],
-        "optional": [
-            "AZURE_OPENAI_ENDPOINT_LLM",
-            "AZURE_OPENAI_ENDPOINT_EMBEDDING",
-            "AZURE_OPENAI_ENDPOINT_STT",
-            "AZURE_OPENAI_ENDPOINT_TTS",
-        ],
-    },
-    "openai_compatible": {
-        "required_any": ["OPENAI_COMPATIBLE_BASE_URL", "OPENAI_COMPATIBLE_API_KEY"],
-    },
-    "dashscope": {"required": ["DASHSCOPE_API_KEY"]},
-    "minimax": {"required": ["MINIMAX_API_KEY"]},
+    name: spec.env_config() for name, spec in PROVIDERS.items()
 }
 
 PROVIDER_MODALITIES: Dict[str, List[str]] = {
-    "openai": ["language", "embedding", "speech_to_text", "text_to_speech"],
-    "anthropic": ["language"],
-    "google": ["language", "embedding", "speech_to_text", "text_to_speech"],
-    "groq": ["language", "speech_to_text"],
-    "mistral": ["language", "embedding", "speech_to_text", "text_to_speech"],
-    "deepseek": ["language"],
-    "xai": ["language", "text_to_speech"],
-    "openrouter": ["language", "embedding"],
-    "voyage": ["embedding"],
-    "elevenlabs": ["text_to_speech", "speech_to_text"],
-    "deepgram": ["text_to_speech"],
-    "ollama": ["language", "embedding"],
-    "vertex": ["language", "embedding", "text_to_speech"],
-    "azure": ["language", "embedding", "speech_to_text", "text_to_speech"],
-    "openai_compatible": ["language", "embedding", "speech_to_text", "text_to_speech"],
-    "dashscope": ["language"],
-    "minimax": ["language"],
+    name: list(spec.modalities) for name, spec in PROVIDERS.items()
 }
-
-
-# =============================================================================
-# URL Validation (SSRF protection)
-# =============================================================================
-
-
-def validate_url(url: str, provider: str) -> None:
-    """
-    Validate URL format for API endpoints.
-
-    This is a self-hosted application, so we allow:
-    - Private IPs (10.x, 172.16-31.x, 192.168.x) for self-hosted services
-    - Localhost for local services (Ollama, LM Studio, etc.)
-
-    We only block:
-    - Invalid schemes (must be http or https)
-    - Malformed URLs
-    - Link-local addresses (169.254.x.x) - used for cloud metadata endpoints
-    - Hostnames that resolve to link-local addresses
-
-    Args:
-        url: The URL to validate
-        provider: The provider name (for logging/context)
-
-    Raises:
-        ValueError: If the URL is invalid
-    """
-    if not url or not url.strip():
-        return  # Empty URLs handled elsewhere
-
-    try:
-        parsed = urlparse(url.strip())
-
-        # Validate scheme - only http/https allowed
-        if parsed.scheme not in ("http", "https"):
-            raise ValueError(
-                f"Invalid URL scheme: '{parsed.scheme}'. Only http and https are allowed."
-            )
-
-        # Extract hostname
-        hostname = parsed.hostname
-        if not hostname:
-            raise ValueError("Invalid URL: hostname could not be determined.")
-
-        # Try to parse as IP address to check for dangerous addresses
-        try:
-            ip = ipaddress.ip_address(hostname)
-
-            # Block link-local addresses (169.254.x.x) - used for cloud metadata
-            # These are dangerous as they can expose cloud instance credentials
-            if ip.is_link_local:
-                raise ValueError(
-                    "Link-local addresses (169.254.x.x) are not allowed for security reasons. "
-                    "These addresses are used for cloud metadata endpoints."
-                )
-
-            # Block IPv4-mapped IPv6 addresses pointing to link-local
-            # e.g. ::ffff:169.254.169.254 bypasses IPv6 is_link_local check
-            if hasattr(ip, "ipv4_mapped") and ip.ipv4_mapped and ip.ipv4_mapped.is_link_local:
-                raise ValueError(
-                    "Link-local addresses (169.254.x.x) are not allowed for security reasons. "
-                    "These addresses are used for cloud metadata endpoints."
-                )
-
-        except ValueError as ve:
-            # Re-raise our own ValueErrors
-            if "Link-local" in str(ve) or "Invalid URL" in str(ve):
-                raise
-            # Not an IP address, it's a hostname - need to resolve and check
-            try:
-                # Resolve hostname to IP address
-                resolved_ips = socket.getaddrinfo(hostname, None)
-                for family, _, _, _, sockaddr in resolved_ips:
-                    ip_addr = sockaddr[0]
-                    try:
-                        parsed_ip = ipaddress.ip_address(ip_addr)
-                        if parsed_ip.is_link_local:
-                            raise ValueError(
-                                f"Hostname '{hostname}' resolves to a link-local address (169.254.x.x) which is not allowed for security reasons. "
-                                "These addresses are used for cloud metadata endpoints."
-                            )
-                        # Block IPv4-mapped IPv6 addresses pointing to link-local
-                        if (
-                            hasattr(parsed_ip, "ipv4_mapped")
-                            and parsed_ip.ipv4_mapped
-                            and parsed_ip.ipv4_mapped.is_link_local
-                        ):
-                            raise ValueError(
-                                f"Hostname '{hostname}' resolves to a link-local address (169.254.x.x) which is not allowed for security reasons. "
-                                "These addresses are used for cloud metadata endpoints."
-                            )
-                    except ValueError as inner_ve:
-                        if "link-local" in str(inner_ve).lower() or "Link-local" in str(inner_ve):
-                            raise
-                        # Skip non-IP addresses (e.g., IPv6 zones)
-                        continue
-            except socket.gaierror:
-                # Could not resolve hostname - allow it since the URL may be
-                # valid in the deployment environment (e.g., Azure endpoints,
-                # internal DNS names). We only block link-local addresses.
-                pass
-
-    except ValueError:
-        raise
-    except Exception:
-        raise ValueError("Invalid URL format. Check server logs for details.")
 
 
 # =============================================================================
@@ -205,7 +70,9 @@ def require_encryption_key() -> None:
         )
 
 
-def credential_to_response(cred: Credential, model_count: int = 0) -> CredentialResponse:
+def credential_to_response(
+    cred: Credential, model_count: int = 0
+) -> CredentialResponse:
     """Convert a Credential domain object to API response."""
     return CredentialResponse(
         id=cred.id or "",
@@ -249,6 +116,14 @@ def get_default_modalities(provider: str) -> List[str]:
     return PROVIDER_MODALITIES.get(provider.lower(), ["language"])
 
 
+def ensure_provider_required_fields(cred: Credential) -> None:
+    """Validate provider-specific required fields on a merged credential before
+    save (update path). Delegates to the shared rule in api.models so the create
+    and update paths cannot drift."""
+    api_key = cred.api_key.get_secret_value() if cred.api_key else None
+    validate_url_key_provider_required_fields(cred.provider, cred.base_url, api_key)
+
+
 def create_credential_from_env(provider: str) -> Credential:
     """Create a Credential from environment variables for a given provider."""
     modalities = get_default_modalities(provider)
@@ -260,6 +135,15 @@ def create_credential_from_env(provider: str) -> Credential:
             provider=provider,
             modalities=modalities,
             base_url=os.environ.get("OLLAMA_API_BASE"),
+        )
+    elif provider == "omlx":
+        api_key = os.environ.get("OMLX_API_KEY")
+        return Credential(
+            name=name,
+            provider=provider,
+            modalities=modalities,
+            api_key=SecretStr(api_key) if api_key else None,
+            base_url=os.environ.get("OMLX_API_BASE"),
         )
     elif provider == "vertex":
         return Credential(
@@ -283,14 +167,15 @@ def create_credential_from_env(provider: str) -> Credential:
             endpoint_stt=os.environ.get("AZURE_OPENAI_ENDPOINT_STT"),
             endpoint_tts=os.environ.get("AZURE_OPENAI_ENDPOINT_TTS"),
         )
-    elif provider == "openai_compatible":
-        api_key = os.environ.get("OPENAI_COMPATIBLE_API_KEY")
+    elif provider in ("openai_compatible", "anthropic_compatible"):
+        env_prefix = provider.upper()
+        api_key = os.environ.get(f"{env_prefix}_API_KEY")
         return Credential(
             name=name,
             provider=provider,
             modalities=modalities,
             api_key=SecretStr(api_key) if api_key else None,
-            base_url=os.environ.get("OPENAI_COMPATIBLE_BASE_URL"),
+            base_url=os.environ.get(f"{env_prefix}_BASE_URL"),
         )
     elif provider == "google":
         # Support both GOOGLE_API_KEY and GEMINI_API_KEY (fallback)
@@ -302,16 +187,22 @@ def create_credential_from_env(provider: str) -> Credential:
             api_key=SecretStr(api_key) if api_key else None,
         )
     else:
-        # Simple API key providers
+        # Simple API key providers (plus an optional *_BASE_URL endpoint
+        # override for providers that declare one, e.g. regional endpoints)
         config = PROVIDER_ENV_CONFIG.get(provider, {})
         required = config.get("required", [])
         env_var = required[0] if required else None
         api_key = os.environ.get(env_var) if env_var else None
+        spec = PROVIDERS.get(provider)
+        base_url_env = spec.base_url_env if spec else None
         return Credential(
             name=name,
             provider=provider,
             modalities=modalities,
             api_key=SecretStr(api_key) if api_key else None,
+            base_url=(os.environ.get(base_url_env, "").strip() or None)
+            if base_url_env
+            else None,
         )
 
 
@@ -374,9 +265,12 @@ async def test_credential(credential_id: str) -> dict:
         config = cred.to_esperanto_config()
 
         from open_notebook.ai.connection_tester import (
+            _is_vertex_credentials_file_error,
+            _test_anthropic_compatible_connection,
             _test_azure_connection,
             _test_ollama_connection,
             _test_openai_compatible_connection,
+            classify_provider_test_error,
         )
 
         provider = cred.provider.lower()
@@ -396,6 +290,29 @@ async def test_credential(credential_id: str) -> dict:
                     "success": False,
                     "message": "No base URL configured",
                 }
+            success, message = await _test_openai_compatible_connection(
+                base_url, api_key
+            )
+            return {"provider": provider, "success": success, "message": message}
+
+        if provider == "anthropic_compatible":
+            base_url = config.get("base_url")
+            api_key = config.get("api_key")
+            if not base_url:
+                return {
+                    "provider": provider,
+                    "success": False,
+                    "message": "No base URL configured",
+                }
+            success, message = await _test_anthropic_compatible_connection(
+                base_url, api_key
+            )
+            return {"provider": provider, "success": success, "message": message}
+
+        if provider == "omlx":
+            # Esperanto oMLX profile default; port 11435 avoids SurrealDB on 8000.
+            base_url = config.get("base_url") or "http://localhost:11435/v1"
+            api_key = config.get("api_key")
             success, message = await _test_openai_compatible_connection(
                 base_url, api_key
             )
@@ -435,17 +352,27 @@ async def test_credential(credential_id: str) -> dict:
             )
             lc_model = model.to_langchain()
             await lc_model.ainvoke("Hi")
-            return {"provider": provider, "success": True, "message": "Connection successful"}
+            return {
+                "provider": provider,
+                "success": True,
+                "message": "Connection successful",
+            }
 
         elif test_type == "embedding":
-            model = AIFactory.create_embedding(
+            embedding_model = AIFactory.create_embedding(
                 model_name=test_model, provider=provider, config=config
             )
-            await model.aembed(["test"])
-            return {"provider": provider, "success": True, "message": "Connection successful"}
+            await embedding_model.aembed(["test"])
+            return {
+                "provider": provider,
+                "success": True,
+                "message": "Connection successful",
+            }
 
         elif test_type == "text_to_speech":
-            AIFactory.create_text_to_speech(model_name=test_model, provider=provider, config=config)
+            AIFactory.create_text_to_speech(
+                model_name=test_model, provider=provider, config=config
+            )
             return {
                 "provider": provider,
                 "success": True,
@@ -459,19 +386,21 @@ async def test_credential(credential_id: str) -> dict:
         }
 
     except Exception as e:
+        if provider == "vertex" and _is_vertex_credentials_file_error(e):
+            logger.debug(
+                f"Vertex credentials file error for credential {credential_id}: {e}"
+            )
+            return {
+                "provider": provider,
+                "success": False,
+                "message": "Invalid or inaccessible credentials file",
+            }
+
         error_msg = str(e)
-        if "401" in error_msg or "unauthorized" in error_msg.lower():
-            return {"provider": provider, "success": False, "message": "Invalid API key"}
-        elif "403" in error_msg or "forbidden" in error_msg.lower():
-            return {"provider": provider, "success": False, "message": "API key lacks required permissions"}
-        elif "rate" in error_msg.lower() and "limit" in error_msg.lower():
-            return {"provider": provider, "success": True, "message": "Rate limited - but connection works"}
-        elif "not found" in error_msg.lower() and "model" in error_msg.lower():
-            return {"provider": provider, "success": True, "message": "API key valid (test model not available)"}
-        else:
+        success, message = classify_provider_test_error(error_msg)
+        if not success:
             logger.debug(f"Test connection error for credential {credential_id}: {e}")
-            truncated = error_msg[:100] + "..." if len(error_msg) > 100 else error_msg
-            return {"provider": provider, "success": False, "message": f"Error: {truncated}"}
+        return {"provider": provider, "success": success, "message": message}
 
 
 async def discover_with_config(provider: str, config: dict) -> List[dict]:
@@ -492,57 +421,84 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
 
     # Static model lists for providers without a listing API
     STATIC_MODELS: Dict[str, List[str]] = {
-        "anthropic": [
-            "claude-opus-4-20250514",
-            "claude-sonnet-4-20250514",
-            "claude-3-5-sonnet-20241022",
-            "claude-3-5-haiku-20241022",
-            "claude-3-opus-20240229",
-            "claude-3-sonnet-20240229",
-            "claude-3-haiku-20240307",
-        ],
         "voyage": [
-            "voyage-3", "voyage-3-lite", "voyage-code-3",
-            "voyage-finance-2", "voyage-law-2", "voyage-multilingual-2",
+            "voyage-3",
+            "voyage-3-lite",
+            "voyage-code-3",
+            "voyage-finance-2",
+            "voyage-law-2",
+            "voyage-multilingual-2",
         ],
         "elevenlabs": [
-            "eleven_multilingual_v2", "eleven_turbo_v2_5",
-            "eleven_turbo_v2", "eleven_monolingual_v1",
+            "eleven_multilingual_v2",
+            "eleven_turbo_v2_5",
+            "eleven_turbo_v2",
+            "eleven_monolingual_v1",
             "scribe_v1",  # speech-to-text
         ],
         "deepgram": [
-            "aura-2-thalia-en", "aura-2-andromeda-en", "aura-2-helena-en",
-            "aura-2-apollo-en", "aura-2-arcas-en", "aura-2-asteria-en",
-            "aura-2-athena-en", "aura-2-hera-en", "aura-2-hermes-en",
+            # TTS (Aura) voices
+            "aura-2-thalia-en",
+            "aura-2-andromeda-en",
+            "aura-2-helena-en",
+            "aura-2-apollo-en",
+            "aura-2-arcas-en",
+            "aura-2-asteria-en",
+            "aura-2-athena-en",
+            "aura-2-hera-en",
+            "aura-2-hermes-en",
             "aura-2-atlas-en",
+            # STT (Nova / Whisper) transcription models
+            "nova-3",
+            "nova-2",
+            "whisper-large",
+            "whisper-medium",
+            "whisper-small",
+            "whisper-base",
+            "whisper-tiny",
         ],
     }
 
     if provider in STATIC_MODELS:
         if not api_key and provider != "ollama":
             return []
-        return [
-            {"name": m, "provider": provider}
-            for m in STATIC_MODELS[provider]
-        ]
+        return [{"name": m, "provider": provider} for m in STATIC_MODELS[provider]]
 
-    # API-based discovery URLs (OpenAI-style /models endpoints)
+    if provider == "anthropic":
+        if not api_key:
+            return []
+        try:
+            model_names = await fetch_anthropic_model_ids(api_key)
+        except Exception as e:
+            logger.warning(
+                f"Failed to discover Anthropic models, using static fallback: {e}"
+            )
+            model_names = list(ANTHROPIC_FALLBACK_MODELS)
+        return [{"name": m, "provider": "anthropic"} for m in model_names]
+
+    # API-based discovery URLs (OpenAI-style /models endpoints), from the registry
     url_map = {
-        "openai": "https://api.openai.com/v1/models",
-        "groq": "https://api.groq.com/openai/v1/models",
-        "mistral": "https://api.mistral.ai/v1/models",
-        "deepseek": "https://api.deepseek.com/models",
-        "xai": "https://api.x.ai/v1/models",
-        "openrouter": "https://openrouter.ai/api/v1/models",
-        "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1/models",
-        "minimax": "https://api.minimax.io/v1/models",
+        name: spec.openai_compat_discovery_url
+        for name, spec in PROVIDERS.items()
+        if spec.openai_compat_discovery_url
     }
 
     if provider == "ollama":
         ollama_url = base_url or "http://localhost:11434"
         try:
-            async with httpx.AsyncClient() as client:
-                response = await client.get(f"{ollama_url}/api/tags", timeout=10.0)
+            # Pin DNS at request time so httpx cannot re-resolve to a
+            # metadata address after validation (DNS rebinding TOCTOU).
+            target = await prepare_pinned_http_target(
+                f"{ollama_url.rstrip('/')}/api/tags", "ollama"
+            )
+            headers = dict(target.headers)
+            async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
+                response = await client.get(
+                    target.url,
+                    headers=headers,
+                    timeout=10.0,
+                    extensions=target.extensions,
+                )
                 response.raise_for_status()
                 data = response.json()
                 return [
@@ -562,14 +518,20 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
         if not base_url:
             return []
         try:
-            headers = {}
+            # Pin DNS at request time so httpx cannot re-resolve to a
+            # metadata address after validation (DNS rebinding TOCTOU).
+            target = await prepare_pinned_http_target(
+                models_endpoint(base_url), "openai_compatible"
+            )
+            headers = dict(target.headers)
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
                 response = await client.get(
-                    models_endpoint(base_url),
+                    target.url,
                     headers=headers,
                     timeout=30.0,
+                    extensions=target.extensions,
                 )
                 response.raise_for_status()
                 data = response.json()
@@ -582,16 +544,82 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
             logger.warning(f"Failed to discover openai_compatible models: {e}")
             return []
 
+    if provider == "anthropic_compatible":
+        if not base_url or not api_key:
+            return []
+        try:
+            normalized_base_url = normalize_anthropic_compatible_base_url(base_url)
+            models_url = f"{normalized_base_url}/models"
+            # Pin DNS at request time (DNS-rebinding TOCTOU), mirroring the
+            # openai_compatible discovery path above.
+            target = await prepare_pinned_http_target(
+                models_url, "anthropic_compatible"
+            )
+            headers = dict(target.headers)
+            headers["x-api-key"] = api_key
+            headers["anthropic-version"] = "2023-06-01"
+            async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
+                response = await client.get(
+                    target.url,
+                    headers=headers,
+                    timeout=30.0,
+                    extensions=target.extensions,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return [
+                    {"name": m.get("id", ""), "provider": "anthropic_compatible"}
+                    for m in data.get("data", [])
+                    if m.get("id")
+                ]
+        except Exception as e:
+            logger.warning(f"Failed to discover anthropic_compatible models: {e}")
+            return []
+
+    if provider == "omlx":
+        omlx_url = base_url or "http://localhost:11435/v1"
+        try:
+            target = await prepare_pinned_http_target(models_endpoint(omlx_url), "omlx")
+            headers = dict(target.headers)
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+            async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
+                response = await client.get(
+                    target.url,
+                    headers=headers,
+                    timeout=30.0,
+                    extensions=target.extensions,
+                )
+                response.raise_for_status()
+                data = response.json()
+                return [
+                    {"name": m.get("id", ""), "provider": "omlx"}
+                    for m in data.get("data", [])
+                    if m.get("id")
+                ]
+        except Exception as e:
+            logger.warning(f"Failed to discover omlx models: {e}")
+            return []
+
     if provider == "azure":
         endpoint = config.get("endpoint")
         api_version = config.get("api_version", "2024-10-21")
         if not endpoint or not api_key:
             return []
         try:
+            # Pin DNS at request time so httpx cannot re-resolve to a
+            # metadata address after validation (DNS rebinding TOCTOU).
             url = f"{endpoint.rstrip('/')}/openai/models?api-version={api_version}"
-            headers = {"api-key": api_key}
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, headers=headers, timeout=30.0)
+            target = await prepare_pinned_http_target(url, "azure")
+            headers = dict(target.headers)
+            headers["api-key"] = api_key
+            async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
+                response = await client.get(
+                    target.url,
+                    headers=headers,
+                    timeout=30.0,
+                    extensions=target.extensions,
+                )
                 response.raise_for_status()
                 data = response.json()
                 return [
@@ -607,10 +635,9 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
         # Vertex AI requires service-account OAuth2 for model listing.
         # Return a curated static list of well-known Vertex models instead.
         VERTEX_MODELS = [
-            "gemini-2.0-flash",
-            "gemini-2.0-flash-lite",
-            "gemini-1.5-pro",
-            "gemini-1.5-flash",
+            "gemini-3.5-flash",
+            "gemini-2.5-flash",
+            "gemini-2.5-flash-lite",
             "text-embedding-005",
         ]
         return [{"name": m, "provider": "vertex"} for m in VERTEX_MODELS]
@@ -618,7 +645,7 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
     if provider == "google":
         try:
             headers = {"X-Goog-Api-Key": api_key} if api_key else {}
-            async with httpx.AsyncClient() as client:
+            async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
                 response = await client.get(
                     "https://generativelanguage.googleapis.com/v1/models",
                     headers=headers,
@@ -639,24 +666,66 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
             logger.warning(f"Failed to discover Google models: {e}")
             return []
 
+    if provider == "cohere":
+        # Cohere is not OpenAI-compatible; use esperanto's bespoke discovery.
+        if not api_key:
+            return []
+        try:
+            import asyncio
+
+            from esperanto import AIFactory
+
+            models = await asyncio.to_thread(
+                AIFactory.get_provider_models, "cohere", api_key=api_key
+            )
+            return [
+                {"name": m.id, "provider": "cohere"}
+                for m in models
+                if m.type in ("language", "embedding")
+            ]
+        except Exception as e:
+            logger.warning(f"Failed to discover Cohere models: {e}")
+            return []
+
     # Standard OpenAI-style API discovery
     discovery_url = url_map.get(provider)
-    if provider == "openai" and base_url:
-        discovery_url = models_endpoint(base_url)
+    user_supplied_url = False
+    # A credential's base URL override is also where its models are listed:
+    # OpenAI (gateways) and providers that declare a *_BASE_URL override, e.g.
+    # SiliconFlow's mainland-China api.siliconflow.cn. Other providers keep
+    # their registry URL, which may carry provider-specific query params.
+    spec = PROVIDERS.get(provider)
+    honors_base_url = provider == "openai" or bool(spec and spec.base_url_env)
+    if base_url and base_url.strip() and discovery_url and honors_base_url:
+        discovery_url = models_endpoint(base_url.strip())
+        user_supplied_url = True
     if not discovery_url or not api_key:
         return []
 
     try:
-        async with httpx.AsyncClient() as client:
+        headers = {"Authorization": f"Bearer {api_key}"}
+        if user_supplied_url:
+            # Pin DNS at request time so httpx cannot re-resolve a
+            # user-supplied host to a metadata address after validation
+            # (DNS rebinding TOCTOU) — mirrors the openai_compatible path.
+            target = await prepare_pinned_http_target(discovery_url, provider)
+            request_url = target.url
+            headers.update(target.headers)
+            extensions = target.extensions
+        else:
+            request_url = discovery_url
+            extensions = {}
+        async with httpx.AsyncClient(verify=httpx_verify_setting()) as client:
             response = await client.get(
-                discovery_url,
-                headers={"Authorization": f"Bearer {api_key}"},
+                request_url,
+                headers=headers,
                 timeout=30.0,
+                extensions=extensions,
             )
             response.raise_for_status()
             data = response.json()
 
-            return [
+            discovered = [
                 {
                     "name": m.get("id", ""),
                     "provider": provider,
@@ -665,6 +734,16 @@ async def discover_with_config(provider: str, config: dict) -> List[dict]:
                 for m in data.get("data", [])
                 if m.get("id")
             ]
+            # Some /models listings (OpenRouter, MiniMax) don't surface their
+            # TTS/STT catalog, so seed the audio model ids esperanto supports
+            # (only on top of a successful listing).
+            if discovered:
+                seen = {m["name"] for m in discovered}
+                for name, _model_type in audio_seed(provider):
+                    if name not in seen:
+                        discovered.append({"name": name, "provider": provider})
+                        seen.add(name)
+            return discovered
     except Exception as e:
         logger.warning(f"Failed to discover {provider} models: {e}")
         return []
@@ -853,7 +932,9 @@ async def migrate_from_env() -> dict:
                 not_configured.append(provider)
                 continue
 
-            logger.info(f"[{provider}] Env vars detected, checking for existing credentials")
+            logger.info(
+                f"[{provider}] Env vars detected, checking for existing credentials"
+            )
 
             existing = await Credential.get_by_provider(provider)
             if existing:
@@ -865,6 +946,9 @@ async def migrate_from_env() -> dict:
 
             logger.info(f"[{provider}] Creating credential from env vars")
             cred = create_credential_from_env(provider)
+            # Same URL checks as credentials created through the API.
+            if cred.base_url:
+                await validate_url(cred.base_url, provider)
             await cred.save()
             logger.info(f"[{provider}] Credential saved successfully (id={cred.id})")
 
@@ -911,5 +995,217 @@ async def migrate_from_env() -> dict:
         "migrated": migrated,
         "skipped": skipped,
         "not_configured": not_configured,
+        "errors": errors,
+    }
+
+
+# Placeholder the domain layer substitutes when a stored key cannot be
+# decrypted (open_notebook/domain/credential.py). Must never be re-encrypted:
+# it is a marker of a previous failure, not a secret.
+_UNDECRYPTABLE_PLACEHOLDER = "UNDECRYPTABLE"
+
+# Closed set of per-record outcomes for the encryption-scheme pass.
+ReencryptStatus = Literal["migrated", "skipped", "error"]
+
+
+def _reencrypt_stored_value(stored: object) -> tuple[ReencryptStatus, str]:
+    """
+    Decide the fate of one stored api_key value.
+
+    Returns (status, payload) where status is one of migrated, skipped, or
+    error. Payload is the new marked value for migrated rows, otherwise a
+    short reason code. Reasons carry record context only, never key material.
+
+    Args:
+        stored: The raw api_key value read from the database.
+
+    Returns:
+        Tuple of status and payload.
+    """
+    if stored is None or stored == "":
+        return ("skipped", "empty")
+    if not isinstance(stored, str):
+        return ("error", "unexpected-type")
+    if stored == _UNDECRYPTABLE_PLACEHOLDER:
+        return ("error", "decrypt-placeholder")
+    if stored.startswith(PBKDF2_MARKER):
+        try:
+            decrypt_value(stored)
+        except ValueError:
+            return ("error", "undecryptable-marked")
+        return ("skipped", "already-migrated")
+    try:
+        secret = decrypt_value(stored)
+    except ValueError:
+        return ("error", "undecryptable-legacy")
+    return ("migrated", encrypt_value(secret))
+
+
+def _record_settled_outcome(
+    status: ReencryptStatus,
+    payload: str,
+    label: str,
+    skipped: List[str],
+    errors: List[str],
+) -> None:
+    """
+    Record a skipped/error outcome plus its log line.
+
+    Only called for settled (non-migrated) outcomes; migrated rows take
+    their own write path. Reasons carry record context only, never key
+    material.
+
+    Args:
+        status: Settled outcome (skipped or error).
+        payload: Skip reason or error reason.
+        label: Record label for logs and summaries.
+        skipped: Summary list to append skip entries to.
+        errors: Summary list to append error entries to.
+    """
+    if status == "skipped":
+        skipped.append(f"{label}: {payload}")
+    else:
+        logger.warning(f"[{label}] Left untouched: {payload}")
+        errors.append(f"{label}: {payload}")
+
+
+def _migrate_provider_config_entries(
+    creds: Dict[str, Any],
+    skipped: List[str],
+    errors: List[str],
+) -> List[str]:
+    """
+    Re-encrypt nested provider_configs entries in memory.
+
+    Mutates entries with successfully decrypted values; undecryptable
+    entries are left untouched and reported. Never writes to the database:
+    the caller persists the map and owns the migrated labels, so a failed
+    rewrite is never reported as migrated.
+
+    Args:
+        creds: The raw credentials map from the singleton record.
+        skipped: Summary list to append skip entries to.
+        errors: Summary list to append error entries to.
+
+    Returns:
+        Labels re-encrypted in memory, pending persistence.
+    """
+    pending: List[str] = []
+    for provider, entries in creds.items():
+        if not isinstance(entries, list):
+            errors.append(f"provider_configs/{provider}: unexpected-group-type")
+            continue
+        for index, entry in enumerate(entries):
+            if not isinstance(entry, dict):
+                errors.append(
+                    f"provider_configs/{provider}/{index}: unexpected-entry-type"
+                )
+                continue
+            label = f"provider_configs/{provider}/{entry.get('name', index)}"
+            try:
+                status, payload = _reencrypt_stored_value(entry.get("api_key"))
+            except Exception as e:
+                logger.error(f"[{label}] Re-encryption FAILED: {type(e).__name__}")
+                errors.append(f"{label}: unexpected-failure")
+                continue
+            if status == "migrated":
+                entry["api_key"] = payload
+                pending.append(label)
+            else:
+                _record_settled_outcome(status, payload, label, skipped, errors)
+    return pending
+
+
+async def migrate_encryption_scheme() -> dict:
+    """
+    Re-encrypt stored API keys into the versioned PBKDF2 format.
+
+    One-shot, idempotent, and fail-closed per record. Reads raw database
+    rows (never domain-decrypted objects, which can carry UNDECRYPTABLE
+    placeholders) and writes a row back only when its value decrypted
+    successfully. Undecryptable rows are left untouched and reported.
+
+    Run as a single-admin operation: there is no locking, so concurrent
+    credential edits during the pass can be overwritten. Re-running over a
+    migrated corpus changes nothing.
+
+    Returns dict with message, migrated, skipped, errors.
+    """
+    from open_notebook.database.repository import (
+        ensure_record_id,
+        repo_query,
+        repo_update,
+        repo_upsert,
+    )
+    from open_notebook.domain.provider_config import ProviderConfig
+
+    logger.info("=== Starting encryption-scheme migration ===")
+
+    require_encryption_key()
+    logger.info("Encryption key verified")
+
+    migrated: List[str] = []
+    skipped: List[str] = []
+    errors: List[str] = []
+
+    rows = await repo_query("SELECT id, api_key FROM credential")
+    for row in rows:
+        record_id = str(row.get("id", ""))
+        try:
+            status, payload = _reencrypt_stored_value(row.get("api_key"))
+        except Exception as e:
+            logger.error(f"[{record_id}] Re-encryption FAILED: {type(e).__name__}")
+            errors.append(f"{record_id}: unexpected-failure")
+            continue
+        if status == "migrated":
+            try:
+                await repo_update("credential", record_id, {"api_key": payload})
+            except Exception as e:
+                logger.error(f"[{record_id}] Write FAILED: {type(e).__name__}")
+                errors.append(f"{record_id}: write-failed")
+                continue
+            logger.info(f"[{record_id}] Re-encrypted to versioned format")
+            migrated.append(record_id)
+        else:
+            _record_settled_outcome(status, payload, record_id, skipped, errors)
+
+    singleton_rows = await repo_query(
+        "SELECT * FROM ONLY $record_id",
+        {"record_id": ensure_record_id(ProviderConfig.record_id)},
+    )
+    if singleton_rows:
+        data = singleton_rows[0] if isinstance(singleton_rows, list) else singleton_rows
+        creds = data.get("credentials") if isinstance(data, dict) else None
+        if isinstance(creds, dict):
+            pending = _migrate_provider_config_entries(creds, skipped, errors)
+            if pending:
+                try:
+                    await repo_upsert(
+                        "open_notebook",
+                        ProviderConfig.record_id,
+                        {"credentials": creds},
+                    )
+                except Exception as e:
+                    logger.error(f"Singleton rewrite FAILED: {type(e).__name__}")
+                    errors.extend(f"{label}: write-failed" for label in pending)
+                    pending = []
+                migrated.extend(pending)
+
+    logger.info(
+        "=== Encryption-scheme migration complete === "
+        f"migrated={len(migrated)} skipped={len(skipped)} errors={len(errors)}"
+    )
+    if migrated:
+        logger.info(f"  Migrated: {', '.join(migrated)}")
+    if errors:
+        logger.error(f"  Errors: {'; '.join(errors)}")
+
+    return {
+        "message": (
+            f"Encryption migration complete. Migrated {len(migrated)} "
+            f"record(s) with {len(errors)} error(s)."
+        ),
+        "migrated": migrated,
+        "skipped": skipped,
         "errors": errors,
     }

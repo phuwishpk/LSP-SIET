@@ -1,12 +1,35 @@
 import os
+import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional, TypeVar, Union
 
 from loguru import logger
 from surrealdb import AsyncSurreal, RecordID  # type: ignore
+from surrealdb.data.types.table import Table  # type: ignore
+
+from open_notebook.utils.proxy import ensure_internal_no_proxy
+
+# Keep the internal SurrealDB websocket out of any configured HTTP proxy
+# (issue #1160). Runs at import time - i.e. before any db_connection() can be
+# opened - so it protects every entrypoint (API + worker) that touches the DB.
+ensure_internal_no_proxy()
 
 T = TypeVar("T", Dict[str, Any], List[Dict[str, Any]])
+
+# Bare SurrealDB table/relation identifier: no ':', whitespace, or query
+# syntax. Used to validate the parts of RELATE/UPSERT/UPDATE that name a
+# table or edge-relation and therefore can't be bound as a query parameter
+# (SurrealQL only allows binding record/table *values*, not identifiers in
+# that position).
+_IDENTIFIER_RE = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
+
+
+def _ensure_safe_identifier(value: str, kind: str) -> str:
+    """Validate a table/relationship name before it is interpolated into a query."""
+    if not isinstance(value, str) or not _IDENTIFIER_RE.match(value):
+        raise ValueError(f"Invalid {kind} name: {value!r}")
+    return value
 
 
 def _get_env_or_default(name: str, default: str) -> str:
@@ -117,17 +140,26 @@ async def repo_create(table: str, data: Dict[str, Any]) -> Dict[str, Any]:
 
 
 async def repo_relate(
-    source: str, relationship: str, target: str, data: Optional[Dict[str, Any]] = None
+    source: Union[str, RecordID],
+    relationship: str,
+    target: Union[str, RecordID],
+    data: Optional[Dict[str, Any]] = None,
 ) -> List[Dict[str, Any]]:
     """Create a relationship between two records with optional data"""
     if data is None:
         data = {}
-    query = f"RELATE {source}->{relationship}->{target} CONTENT $data;"
+    # relationship is an edge-table name, not a record value, so it can't be
+    # bound as a query parameter; validate it against an identifier allowlist
+    # instead of trusting the caller. source/target are always bound.
+    _ensure_safe_identifier(relationship, "relationship")
+    query = f"RELATE $source->{relationship}->$target CONTENT $data;"
     # logger.debug(f"Relate query: {query}")
 
     return await repo_query(
         query,
         {
+            "source": ensure_record_id(source),
+            "target": ensure_record_id(target),
             "data": data,
         },
     )
@@ -140,27 +172,32 @@ async def repo_upsert(
     data.pop("id", None)
     if add_timestamp:
         data["updated"] = datetime.now(timezone.utc)
-    query = f"UPSERT {id if id else table} MERGE $data;"
-    return await repo_query(query, {"data": data})
+    _ensure_safe_identifier(table, "table")
+    target: Union[RecordID, Table] = ensure_record_id(id) if id else Table(table)
+    query = "UPSERT $target MERGE $data;"
+    return await repo_query(query, {"target": target, "data": data})
 
 
 async def repo_update(
-    table: str, id: str, data: Dict[str, Any]
+    table: str, id: Union[str, RecordID], data: Dict[str, Any]
 ) -> List[Dict[str, Any]]:
     """Update an existing record by table and id"""
     # If id already contains the table name, use it as is
     try:
-        if isinstance(id, RecordID) or (":" in id and id.startswith(f"{table}:")):
-            record_id = id
+        _ensure_safe_identifier(table, "table")
+        if isinstance(id, RecordID):
+            record_id: RecordID = id
+        elif ":" in id and id.startswith(f"{table}:"):
+            record_id = ensure_record_id(id)
         else:
-            record_id = f"{table}:{id}"
+            record_id = RecordID(table, id)
         data.pop("id", None)
         if "created" in data and isinstance(data["created"], str):
             data["created"] = datetime.fromisoformat(data["created"])
         data["updated"] = datetime.now(timezone.utc)
-        query = f"UPDATE {record_id} MERGE $data;"
+        query = "UPDATE $target MERGE $data;"
         # logger.debug(f"Update query: {query}")
-        result = await repo_query(query, {"data": data})
+        result = await repo_query(query, {"target": record_id, "data": data})
         # if isinstance(result, list):
         #     return [_return_data(item) for item in result]
         return parse_record_ids(result)
@@ -180,28 +217,45 @@ async def repo_delete(record_id: Union[str, RecordID]):
 
 
 async def repo_insert(
-    table: str, data: List[Dict[str, Any]], ignore_duplicates: bool = False
+    table: str,
+    data: List[Dict[str, Any]],
+    ignore_duplicates: bool = False,
+    batch_size: int = 50,
 ) -> List[Dict[str, Any]]:
-    """Create a new record in the specified table"""
-    try:
-        async with db_connection() as connection:
-            result = parse_record_ids(await connection.insert(table, data))
-            # SurrealDB may return a string error message instead of the expected records
-            if isinstance(result, str):
-                raise RuntimeError(result)
-            return result
-    except RuntimeError as e:
-        if ignore_duplicates and "already contains" in str(e):
-            return []
-        # Log transaction conflicts at debug level (they are expected during concurrent operations)
-        error_str = str(e).lower()
-        if "transaction" in error_str or "conflict" in error_str:
-            logger.debug(str(e))
-        else:
-            logger.error(str(e))
-        raise
-    except Exception as e:
-        if ignore_duplicates and "already contains" in str(e):
-            return []
-        logger.exception(e)
-        raise RuntimeError("Failed to create record")
+    """Insert records in bounded batches using a single database connection."""
+    if not data:
+        return []
+    if isinstance(data, dict):
+        data = [data]
+
+    results = []
+    if batch_size <= 0:
+        raise ValueError("batch_size must be greater than zero")
+    async with db_connection() as connection:
+        for i in range(0, len(data), batch_size):
+            chunk = data[i : i + batch_size]
+            try:
+                result = parse_record_ids(await connection.insert(table, chunk))
+                # SurrealDB may return a string error message instead of the expected records
+                if isinstance(result, str):
+                    raise RuntimeError(result)
+                if isinstance(result, list):
+                    results.extend(result)
+                elif result is not None:
+                    results.append(result)
+            except RuntimeError as e:
+                if ignore_duplicates and "already contains" in str(e):
+                    continue
+                # Log transaction conflicts at debug level (they are expected during concurrent operations)
+                error_str = str(e).lower()
+                if "transaction" in error_str or "conflict" in error_str:
+                    logger.debug(str(e))
+                else:
+                    logger.error(str(e))
+                raise
+            except Exception as e:
+                if ignore_duplicates and "already contains" in str(e):
+                    continue
+                logger.exception(e)
+                raise RuntimeError("Failed to create record")
+    return results

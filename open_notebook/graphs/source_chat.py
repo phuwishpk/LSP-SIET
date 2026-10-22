@@ -3,7 +3,7 @@ import sqlite3
 from typing import Annotated, Dict, List, Optional
 
 from ai_prompter import Prompter
-from langchain_core.messages import AIMessage, SystemMessage
+from langchain_core.messages import SystemMessage
 from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.graph import END, START, StateGraph
@@ -13,9 +13,12 @@ from typing_extensions import TypedDict
 from open_notebook.ai.provision import provision_langchain_model
 from open_notebook.config import LANGGRAPH_CHECKPOINT_FILE
 from open_notebook.domain.notebook import Source, SourceInsight
-from open_notebook.exceptions import OpenNotebookError
+from open_notebook.exceptions import IncompleteGenerationError, OpenNotebookError
 from open_notebook.utils import clean_thinking_content
-from open_notebook.utils.context_builder import ContextBuilder
+from open_notebook.utils.context_builder import (
+    build_source_context,
+    format_source_context,
+)
 from open_notebook.utils.error_classifier import classify_error
 from open_notebook.utils.text_utils import extract_text_content
 
@@ -30,6 +33,18 @@ class SourceChatState(TypedDict):
     context_indicators: Optional[Dict[str, List[str]]]
 
 
+def _source_content_is_available(
+    source_info: Dict,
+    context_data: Dict,
+) -> bool:
+    """Return whether source text, including a truncated prefix, is available."""
+    status = context_data.get("metadata", {}).get("source_text_status")
+    if status is not None:
+        return status in {"available", "truncated"}
+    full_text = source_info.get("full_text")
+    return isinstance(full_text, str) and bool(full_text.strip())
+
+
 def call_model_with_source_context(
     state: SourceChatState, config: RunnableConfig
 ) -> dict:
@@ -37,7 +52,7 @@ def call_model_with_source_context(
     Main function that builds source context and calls the model.
 
     This function:
-    1. Uses ContextBuilder to build source-specific context
+    1. Uses build_source_context to build source-specific context
     2. Applies the source_chat Jinja2 prompt template
     3. Handles model provisioning with override support
     4. Tracks context indicators for referenced insights/content
@@ -58,19 +73,18 @@ def _call_model_with_source_context_inner(
     if not source_id:
         raise ValueError("source_id is required in state")
 
-    # Build source context using ContextBuilder (run async code in new loop)
+    # Build source context using build_source_context (run async code in new loop)
     def build_context():
         """Build context in a new event loop"""
         new_loop = asyncio.new_event_loop()
         try:
             asyncio.set_event_loop(new_loop)
-            context_builder = ContextBuilder(
-                source_id=source_id,
-                include_insights=True,
-                include_notes=False,  # Focus on source-specific content
-                max_tokens=50000,  # Reasonable limit for source context
+            return new_loop.run_until_complete(
+                build_source_context(
+                    source_id=source_id,
+                    max_tokens=50000,  # Reasonable limit for source context
+                )
             )
-            return new_loop.run_until_complete(context_builder.build())
         finally:
             new_loop.close()
             asyncio.set_event_loop(None)
@@ -101,7 +115,12 @@ def _call_model_with_source_context_inner(
     if context_data.get("sources"):
         source_info = context_data["sources"][0]  # First source
         source = Source(**source_info) if isinstance(source_info, dict) else source_info
-        context_indicators["sources"].append(source.id)
+        if (
+            isinstance(source_info, dict)
+            and _source_content_is_available(source_info, context_data)
+            and source.id
+        ):
+            context_indicators["sources"].append(source.id)
 
     if context_data.get("insights"):
         for insight_data in context_data["insights"]:
@@ -175,6 +194,13 @@ def _call_model_with_source_context_inner(
     # Clean thinking content from AI response (e.g., <think>...</think> tags)
     content = extract_text_content(ai_message.content)
     cleaned_content = clean_thinking_content(content)
+    if not cleaned_content.strip():
+        # Raising inside the node keeps LangGraph from checkpointing a blank
+        # AI message that would be replayed as context later.
+        raise IncompleteGenerationError(
+            "The model returned an empty response. Try again, or pick a "
+            "different model if this keeps happening."
+        )
     cleaned_message = ai_message.model_copy(update={"content": cleaned_content})
 
     # Update state with context information
@@ -188,56 +214,8 @@ def _call_model_with_source_context_inner(
 
 
 def _format_source_context(context_data: Dict) -> str:
-    """
-    Format the context data into a readable string for the prompt.
-
-    Args:
-        context_data: Context data from ContextBuilder
-
-    Returns:
-        Formatted context string
-    """
-    context_parts = []
-
-    # Add source information
-    if context_data.get("sources"):
-        context_parts.append("## SOURCE CONTENT")
-        for source in context_data["sources"]:
-            if isinstance(source, dict):
-                context_parts.append(f"**Source ID:** {source.get('id', 'Unknown')}")
-                context_parts.append(f"**Title:** {source.get('title', 'No title')}")
-                if source.get("full_text"):
-                    # Truncate full text if too long
-                    full_text = source["full_text"]
-                    if len(full_text) > 5000:
-                        full_text = full_text[:5000] + "...\n[Content truncated]"
-                    context_parts.append(f"**Content:**\n{full_text}")
-                context_parts.append("")  # Empty line for separation
-
-    # Add insights
-    if context_data.get("insights"):
-        context_parts.append("## SOURCE INSIGHTS")
-        for insight in context_data["insights"]:
-            if isinstance(insight, dict):
-                context_parts.append(f"**Insight ID:** {insight.get('id', 'Unknown')}")
-                context_parts.append(
-                    f"**Type:** {insight.get('insight_type', 'Unknown')}"
-                )
-                context_parts.append(
-                    f"**Content:** {insight.get('content', 'No content')}"
-                )
-                context_parts.append("")  # Empty line for separation
-
-    # Add metadata
-    if context_data.get("metadata"):
-        metadata = context_data["metadata"]
-        context_parts.append("## CONTEXT METADATA")
-        context_parts.append(f"- Source count: {metadata.get('source_count', 0)}")
-        context_parts.append(f"- Insight count: {metadata.get('insight_count', 0)}")
-        context_parts.append(f"- Total tokens: {context_data.get('total_tokens', 0)}")
-        context_parts.append("")
-
-    return "\n".join(context_parts)
+    """Format context through the builder's shared budgeted renderer."""
+    return format_source_context(context_data)
 
 
 # Create SQLite checkpointer
