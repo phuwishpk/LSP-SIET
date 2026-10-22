@@ -100,7 +100,7 @@ export function CommunityHeader({
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
-            className="h-9 rounded-lg border-border bg-muted/70 pl-9 pr-16"
+            className="h-9 cursor-text rounded-lg border-border bg-muted/70 pl-9 pr-16 transition-all duration-200 hover:bg-slate-100/80 focus:bg-white focus:ring-2 focus:ring-pink-300/50 dark:bg-muted/70 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900 dark:focus:ring-pink-500/30"
           />
           {draft && (
             <button

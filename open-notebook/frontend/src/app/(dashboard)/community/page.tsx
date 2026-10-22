@@ -484,13 +484,18 @@ function CommunityContent() {
               {view !== 'materials' && view !== 'saved' && view !== 'mine' && (
                 <>
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <h1 className="text-lg font-semibold tracking-tight">
-                      {query
-                        ? `ผลการค้นหา “${query}”`
-                        : view === 'all' && courseId
-                          ? 'ฟีดห้องวิชา'
-                          : viewTitle[view]}
-                    </h1>
+                    <div className="min-w-0 space-y-1">
+                      <h1 className="text-lg font-semibold tracking-tight">
+                        {query
+                          ? `ผลการค้นหา “${query}”`
+                          : view === 'all' && courseId
+                            ? 'ฟีดห้องวิชา'
+                            : viewTitle[view]}
+                      </h1>
+                      <p className="text-xs text-muted-foreground">
+                        โพสต์และสื่อการเรียนรู้จากชุมชน SIET Space
+                      </p>
+                    </div>
                     <div className="flex items-center gap-2">
                       {view === 'all' || view === 'popular' ? (
                         <select

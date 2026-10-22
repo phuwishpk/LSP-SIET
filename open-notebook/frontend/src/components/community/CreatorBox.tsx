@@ -118,7 +118,7 @@ export function CreatorBox({
             type="button"
             onClick={() => setIsOpen(true)}
             aria-label="สร้างโพสต์"
-            className="flex w-full items-center gap-3 rounded-full bg-muted/80 px-2.5 py-2 text-left transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-transparent bg-muted/80 px-2.5 py-2 text-left transition-all duration-200 hover:border-pink-200/80 hover:bg-slate-50/80 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
           >
             <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
             <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
