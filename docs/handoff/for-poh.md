@@ -44,10 +44,19 @@
 - `GET /community/search` ของผู้ใช้ทั่วไป **ไม่คืน `student_id`/ไม่จับคู่ email แล้ว** — ถ้า UI ไหนเคยโชว์รหัสนักศึกษาจากผลค้นหา ให้คาดว่าเป็น null
 - ฟีด `order=popular` + `before_id` ตอนนี้แบ่งหน้าถูกแล้ว (เดิมข้าม/ซ้ำ) — ไม่ต้องแก้ฝั่ง UI
 
-## 3. บั๊กที่เจอในไฟล์ของ Poh (ยังไม่ได้แก้ เพราะอยู่ในเขตของ Poh)
+## 2d. รายงานเนื้อหา (4.3.5)
 
-- `open_notebook/community/repository.py::list_comments` (commit `8494961`) ไม่ SELECT `c.parent_id` แต่ return `r.get("parent_id")`
-  → `PostDetailModal` สร้าง tree ไม่ได้ reply ทุกอันขึ้นเป็นคอมเมนต์ชั้นบน — แก้โดยเพิ่ม `c.parent_id` ใน SELECT (เราจะแก้ให้ในข้อ 4.3.5 ถ้ายังไม่ถูกแก้)
+- ปุ่มสำเร็จรูป: `<ReportButton targetType="post" targetId={post.id} targetLabel={post.title} alreadyReported={…} size="icon" />`
+  จาก `components/common/ReportButton.tsx` — เปิด dialog เลือกเหตุผล + รายละเอียด แล้วยิง `POST /community/reports` เอง
+- ขอวางใน `PostCard` (เมนู ⋯ หรือมุมขวาล่าง) และ `PostDetailModal` (โพสต์ + ทุกคอมเมนต์ `targetType="comment"`)
+  และหน้าโปรไฟล์ (`targetType="user"`); ไม่ต้องแสดงกับเนื้อหาของตัวเอง (backend ตอบ 400 อยู่แล้ว)
+- สถานะ "รายงานแล้ว": `useMyReports('post', ids)` คืน id ที่ผู้ใช้เคยรายงาน → ส่ง `alreadyReported`
+- ผู้สอนเห็นรายงานของห้องที่ `/teacher/courses/{id}` และผู้ดูแลที่ `/admin/community` แท็บ "รายงาน" — ไม่ต้องทำ UI ฝั่ง community เพิ่ม
+- ผู้ใช้ที่ถูกระงับจะได้ notification `kind: "moderation"` — ถ้า `NotificationsMenu` map ไอคอนตาม kind ให้เพิ่มเคสนี้ (ไอคอน shield/ban)
+
+## 3. บั๊กที่เจอในไฟล์ของ Poh
+
+- ~~`list_comments` ไม่ SELECT `c.parent_id`~~ — **แก้แล้ว** ในข้อ 4.3.5 (`repository.list_comments` เพิ่ม `c.parent_id`); `PostDetailModal` ไม่ต้องแก้
 
 ## 4. ธีม
 

@@ -3,7 +3,7 @@
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4)
+> อัปเดตล่าสุด: 22 ตุลาคม 2026 (หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5)
 
 ## สารบัญ
 
@@ -663,6 +663,19 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 - `_like()` escape `%`, `_`, `\` ของผู้ใช้แล้ว (เดิม "%" ค้นได้ทุกโพสต์)
 - ช่องค้นหาบนหัว community (ของ Poh) ยังชี้ไป `/community?q=` — ดู `docs/handoff/for-poh.md`
 
+#### 6.2.5 รายงานเนื้อหา การระงับบัญชี และบันทึกผู้ดูแล (22 ต.ค. 2026)
+
+| เรื่อง | ทำงานอย่างไร | ที่เก็บ / โค้ด |
+|---|---|---|
+| **รายงาน** | ผู้ใช้ที่ล็อกอินรายงานโพสต์/ความคิดเห็น/ผู้ใช้/เอกสาร ด้วยเหตุผล 5 แบบ + รายละเอียด; รายงานได้คนละ 1 ครั้งต่อรายการ (409 ถ้าซ้ำ) รายงานของตัวเองไม่ได้ (400) รายงานโพสต์ที่ตัวเองมองไม่เห็นไม่ได้ (404); **ไม่ซ่อนอัตโนมัติ** | `content_reports` · `POST /community/reports` · `GET /community/reports/mine?target_type&ids=` (ปุ่ม "รายงานแล้ว") · `community/moderation.py` |
+| **คิวของเจ้าของห้อง** | ผู้สอน/TA เห็นรายงานของเนื้อหาในห้องตัวเองที่หน้าตั้งค่าห้อง (การ์ด "รายงานในห้อง"); เจ้าของห้องทำได้: ซ่อนโพสต์ (`hide_post` = soft delete), ลบความคิดเห็น, ปัดตก — เรื่องบัญชีผู้ใช้ส่งต่อผู้ดูแล | `GET /community/courses/{id}/reports`, `POST …/reports/{rid}` |
+| **คิวผู้ดูแล** | `/admin/community` แท็บ "รายงาน": สถิติ, ตารางพร้อมจำนวนคนที่รายงานรายการเดียวกัน (`report_count`) และสถานะของเป้าหมาย (`target_gone`); dialog จัดการ: ปัดตก / ซ่อน-กู้คืนโพสต์ / ลบความคิดเห็น / ลบเอกสาร / **ระงับเจ้าของ** (เหตุผล + วันปล่อย); รายงานซ้ำของเป้าหมายเดียวกันปิดตาม (`resolve_sibling_reports`) | `GET /admin/reports?status=open|dismissed|actioned|all`, `POST /admin/reports/{id}` |
+| **ระงับบัญชี** | `PATCH /admin/users/{id}` รับ `suspend_reason` + `suspended_until` (วัน); ผู้ใช้ได้รับ notification (`kind=moderation`) พร้อมเหตุผล/วัน; ข้อความ 403 ตอน login และทุก request บอกเหตุผล; **ปล่อยอัตโนมัติ** เมื่อถึงวัน (`suspension_lifted` ใน `get_current_user`/login เคลียร์ `disabled`) | `users.suspend_reason`, `users.suspended_until` · `domain/user.py` |
+| **บันทึกผู้ดูแล** | ทุก route ที่เปลี่ยนข้อมูลใน `/api/admin/*` (บัญชี แต้ม รหัสผ่าน ลบ โพสต์ ความคิดเห็น เอกสาร หมวดหมู่ roadmap quiz รายงาน) และการลบห้องถาวร/การจัดการรายงานโดยเจ้าของห้อง เขียน 1 แถว: ใคร action เป้าหมาย detail(JSON); ดูได้ที่ `/admin` แท็บ "บันทึกผู้ดูแล" กรองด้วย prefix เช่น `user.` `report.` | `admin_audit_log` · `moderation.log_action` (ไม่ raise) · `GET /admin/audit` |
+| **บั๊กที่แก้** | `list_comments` ไม่ได้ SELECT `parent_id` ทำให้ reply ทุกอันขึ้นเป็นคอมเมนต์ชั้นบน (regression จาก `8494961`) | `repository.list_comments` |
+
+ปุ่ม `<ReportButton targetType targetId />` (`components/common/ReportButton.tsx`) พร้อมใช้สำหรับ PostCard/PostDetailModal — ดู `docs/handoff/for-poh.md`
+
 ตั้งชื่อห้องซ้ำกับที่มีอยู่ → `409` พร้อม header `X-Existing-Room` ชี้ห้องเดิมให้เข้าร่วมแทน
 
 ### 6.3 โพสต์ — มี 5 ชนิด
@@ -1050,6 +1063,8 @@ DELETE /community/courses/{id}                     (เจ้าของ = เ�
 GET    /community/courses/{id}/members             (ผู้สอน/TA/ผู้ดูแล)
 GET    /community/library/{id}/download            (ไฟล์ของเอกสาร; inline สำหรับ pdf/รูป/วิดีโอ; รับ ?token=)
 GET    /community/search?q=&kind=all|posts|courses|documents|users&course_id=&category_id=&type=&author=&tag=&since=&until=&order=&before_id=&limit=
+POST   /community/reports {target_type, target_id, reason, detail?}   · GET /community/reports/mine?target_type=&ids=
+GET    /community/courses/{id}/reports?status=   · POST /community/courses/{id}/reports/{rid} {status, action, note}   (ผู้สอน/TA; เจ้าของห้องดำเนินการ)
 PATCH  /community/courses/{id}/members/{uid} {role: member|ta} · DELETE …/members/{uid}   (เจ้าของ/ผู้ดูแล)
 ```
 
@@ -1072,6 +1087,8 @@ GET    /admin/points/log           · POST   /admin/import/courses   (คอล�
 POST   /admin/import/users
 GET    /admin/categories           · POST   /admin/categories
 PATCH  /admin/categories/{id}      · DELETE /admin/categories/{id}  (ห้องในหมวดกลายเป็นไม่ระบุหมวด)
+GET    /admin/reports?status=&target_type=&room_id=   · POST /admin/reports/{id} {status, action, note, suspend_reason, suspended_until}
+GET    /admin/audit?action=&actor_id=   (บันทึกผู้ดูแล)   · PATCH /admin/users/{id} รับ suspend_reason, suspended_until เพิ่ม
 ```
 
 ---
@@ -1085,11 +1102,13 @@ PATCH  /admin/categories/{id}      · DELETE /admin/categories/{id}  (ห้อ�
 
 | ตาราง | เก็บอะไร |
 |---|---|
-| `users` | บัญชี, บทบาท, อีเมล, `google_sub`, รหัสนักศึกษา, ยอดแต้ม, `disabled`, `library_notebook_id` |
+| `users` | บัญชี, บทบาท, อีเมล, `google_sub`, รหัสนักศึกษา, ยอดแต้ม, `disabled` + `suspend_reason`/`suspended_until`, `library_notebook_id` |
 | `point_transactions` | ทุกการเคลื่อนไหวของแต้ม + `balance_after` |
 | `rooms` (เดิม `courses`) | ห้องวิชา/ห้องพูดคุย (`kind`) + `library_notebook_id`, `category_id`, `term`, `join_code`, `status`/`archived_at`, `is_private` |
 | `room_members` (เดิม `course_members`) | ใครอยู่ห้องไหน + `role` (`member`/`ta`) |
 | `categories` | หมวดหมู่รายวิชา (`slug`, ชื่อไทย/อังกฤษ, `sort_order`) |
+| `content_reports` | รายงานเนื้อหา: ผู้รายงาน เป้าหมาย (post/comment/user/document) ห้อง เหตุผล สถานะ การดำเนินการ ผู้ตรวจ |
+| `admin_audit_log` | บันทึกการกระทำของผู้ดูแล/เจ้าของห้อง: ใคร action เป้าหมาย detail JSON |
 | `posts` | โพสต์ทั้งหมด + ตัวนับ + `content_hash` + ข้อมูลไฟล์แนบ + `visibility` (public/course/private) |
 | `post_reactions` | like / helpful (PK: post + user + kind) |
 | `post_shares` | การแชร์ (PK: post + user) |

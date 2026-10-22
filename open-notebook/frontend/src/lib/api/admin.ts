@@ -17,6 +17,8 @@ export interface AdminUser {
   avatar_url?: string | null
   points_balance: number
   disabled: boolean
+  suspend_reason?: string | null
+  suspended_until?: string | null
   created_at?: string | null
   last_login_at?: string | null
 }
@@ -170,6 +172,9 @@ export interface UserUpdateInput {
   display_name?: string
   student_id?: string
   disabled?: boolean
+  /** With disabled: true — why, and the day (YYYY-MM-DD) the suspension lifts itself. */
+  suspend_reason?: string
+  suspended_until?: string
 }
 
 /** A roadmap as the admin console sees it: who, when, how grounded - never its nodes. */

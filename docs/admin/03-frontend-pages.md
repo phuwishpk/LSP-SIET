@@ -123,6 +123,7 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
 | `comments` ความคิดเห็น | `community/CommentsPanel` | `GET /admin/comments`, `DELETE /admin/comments/{id}` |
 | `rooms` ห้อง | `RoomsPanel` (แก้ 22 ต.ค.) | `GET /admin/courses`, `DELETE /community/courses/{id}` (admin = ลบถาวร) |
 | `categories` หมวดหมู่ | `community/CategoriesPanel` (ใหม่ 22 ต.ค.) | `GET/POST /admin/categories`, `PATCH/DELETE /admin/categories/{id}` |
+| `reports` รายงาน | `community/ReportsPanel` (ใหม่ 22 ต.ค.) | `GET /admin/reports`, `POST /admin/reports/{id}` — สถิติ 4 ใบ, Segmented สถานะ, dialog จัดการ (ปัดตก/ซ่อน/กู้คืน/ลบคอมเมนต์/ลบเอกสาร/ระงับเจ้าของพร้อมเหตุผล+วันปล่อย); hooks ใน `use-moderation.ts`, API ใน `lib/api/moderation.ts` |
 
 ### 2.1 `CommunityStatsPanel` — `components/admin/community/CommunityStatsPanel.tsx`
 
@@ -162,6 +163,15 @@ teacher), student_id → `useCreateUser`; reset ฟอร์มเมื่อ�
   — backend ลบเอกสาร/Source/embeddings/notebook แล้วปลดโพสต์กลับฟีดรวม; อาจารย์ที่กด DELETE เดียวกันจะได้
   "เก็บถาวร" แทน (ดู `docs/SYSTEM-GUIDE.md` §6.2.1)
 - โน้ตเรื่องห้องไม่มีเจ้าของเป็นกล่อง `bg-muted` (เดิมเหลือง)
+
+### 2.6 `ReportsPanel` / `AuditPanel` (ใหม่ 22 ต.ค. 2026)
+
+- `community/ReportsPanel.tsx`: `useAdminReports({status, offset, limit})` → ตารางรายการ (ป้ายชนิด, ชื่อเป้าหมาย, ป้าย "ซ่อน/ลบแล้ว"
+  เมื่อ `target_gone`), เหตุผล, ผู้รายงาน, `report_count`, สถานะ; ปุ่ม "จัดการ" → `ResolveDialog` เลือก action ตามชนิดเป้าหมาย
+  (`ACTIONS_FOR`) → `useResolveReport()`; invalidate posts/comments/users/rag/audit
+- `AuditPanel.tsx` (แท็บ "บันทึกผู้ดูแล" ใน `/admin`): `useAuditLog({action, offset})` กรอง prefix (debounce 300 ms),
+  แปล action เป็นไทยด้วย `ACTION_LABELS`, แสดง detail JSON ย่อ
+- `UserDialog` ใน `/admin`: ฟอร์มเหตุผล + วันปล่อยก่อนกด "ระงับบัญชี"; เมื่อระงับอยู่แสดงเหตุผล/วันปล่อย
 
 ### 2.5 `CategoriesPanel` — `components/admin/community/CategoriesPanel.tsx` (ใหม่ 22 ต.ค. 2026)
 

@@ -2237,7 +2237,7 @@ async def list_comments(post_id: int, limit: int = 100) -> List[Dict[str, Any]]:
         result = await session.execute(
             text(
                 """
-                SELECT c.id, c.post_id, c.content, c.created_at,
+                SELECT c.id, c.post_id, c.parent_id, c.content, c.created_at,
                        u.id AS author_id, u.username AS author_username,
                        u.display_name AS author_display_name, u.avatar_url AS author_avatar_url,
                        u.role AS author_role

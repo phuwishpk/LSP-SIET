@@ -34,7 +34,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy.exc import IntegrityError
 
 from api.auth_jwt import get_current_user
-from open_notebook.community import library, points, ratelimit, throttle
+from open_notebook.community import library, moderation, points, ratelimit, throttle
 from open_notebook.community import repository as repo
 from open_notebook.cache.service import cache_service
 from open_notebook.community.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
@@ -195,6 +195,21 @@ class CourseJoin(BaseModel):
 
 class MemberRoleUpdate(BaseModel):
     role: Literal["member", "ta"]
+
+
+class ReportCreate(BaseModel):
+    target_type: Literal["post", "comment", "user", "document"]
+    target_id: int = Field(..., ge=1)
+    reason: Literal["spam", "harassment", "inappropriate", "copyright", "other"]
+    detail: Optional[str] = Field(default=None, max_length=500)
+
+
+class RoomReportResolve(BaseModel):
+    """What a room owner may do about a report in their room."""
+
+    status: Literal["dismissed", "actioned"]
+    action: Literal["none", "hide_post", "delete_comment"] = "none"
+    note: Optional[str] = Field(default=None, max_length=255)
 
 
 class SavedCollectionCreate(BaseModel):
@@ -574,6 +589,10 @@ async def delete_course(course_id: int, user: User = Depends(get_current_user)) 
         return {"ok": True, "id": course_id, "archived": True, "deleted": None}
     purged = await library.purge_course_library(course)
     await repo.delete_course(course_id)
+    await moderation.log_action(
+        _uid(user), "room.purge", target_type="room", target_id=course_id,
+        detail={"code": course.get("code"), "name": course.get("name"), "purged": purged},
+    )
     return {"ok": True, "id": course_id, "archived": False, "deleted": course_id, "purged": purged}
 
 
@@ -661,6 +680,93 @@ async def remove_member(
         raise HTTPException(status_code=404, detail="คนนี้ไม่ได้อยู่ในห้อง")
     await repo.set_course_membership(course_id, member_id, False)
     return {"ok": True, "user_id": member_id, "removed": True}
+
+
+# ---------------------------------------------------------------------------
+# Reports (รายงานเนื้อหา)
+# ---------------------------------------------------------------------------
+
+
+@router.post("/reports", status_code=201)
+async def create_report(body: ReportCreate, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Flag a post, comment, person or document. One report per person per
+    target; nothing is hidden until a moderator looks. The room's teacher sees
+    reports about their own room, admins see everything.
+    """
+    uid = _uid(user)
+    if body.target_type == "post":
+        await _visible_post_or_404(body.target_id, user)   # you can only report what you can see
+    try:
+        created = await moderation.create_report(uid, body.target_type, body.target_id, body.reason, body.detail)
+    except moderation.DuplicateReport as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    except moderation.ReportError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return {"ok": True, "report_id": created["id"], "message": "ส่งรายงานแล้ว ผู้ดูแลจะตรวจสอบโดยเร็ว"}
+
+
+@router.get("/reports/mine")
+async def my_reports(
+    target_type: Literal["post", "comment", "user", "document"] = "post",
+    ids: str = Query(default="", max_length=2000, description="comma separated target ids"),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Which of these targets the caller already reported (to grey out the button)."""
+    wanted = [int(x) for x in ids.split(",") if x.strip().isdigit()]
+    reported = await moderation.reported_targets(_uid(user), target_type, wanted)
+    return {"target_type": target_type, "reported": sorted(reported)}
+
+
+@router.get("/courses/{course_id}/reports")
+async def room_reports(
+    course_id: int,
+    status: Literal["open", "dismissed", "actioned", "all"] = "open",
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Reports about content in this room, for the people who run it."""
+    await _managed_room_or_403(course_id, user)
+    return await moderation.list_reports(status=status, room_id=course_id, limit=limit, offset=offset)
+
+
+@router.post("/courses/{course_id}/reports/{report_id}")
+async def resolve_room_report(
+    course_id: int, report_id: int, body: RoomReportResolve, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """
+    The room owner settles a report in their room: dismiss it, hide the post,
+    or remove the comment. Anything about people (suspending) stays with the
+    admins. Every action is written to the audit log.
+    """
+    await _room_or_403(course_id, user)
+    report = await moderation.get_report(report_id)
+    if not report or int(report.get("room_id") or 0) != course_id:
+        raise HTTPException(status_code=404, detail="ไม่พบรายงานนี้ในห้อง")
+    if report["status"] != "open":
+        raise HTTPException(status_code=400, detail="รายงานนี้ถูกจัดการไปแล้ว")
+    uid = _uid(user)
+    if body.action == "hide_post":
+        if report["target_type"] != "post":
+            raise HTTPException(status_code=400, detail="รายงานนี้ไม่ใช่โพสต์")
+        await repo.soft_delete_post(int(report["target_id"]))
+    elif body.action == "delete_comment":
+        if report["target_type"] != "comment":
+            raise HTTPException(status_code=400, detail="รายงานนี้ไม่ใช่ความคิดเห็น")
+        comment = await repo.get_comment(int(report["target_id"]))
+        if comment:
+            await repo.delete_comment(int(comment["id"]), int(comment["post_id"]))
+    await moderation.resolve_report(report_id, status=body.status, action=body.action, reviewer_id=uid, note=body.note)
+    if body.status == "actioned":
+        await moderation.resolve_sibling_reports(
+            report["target_type"], int(report["target_id"]), status="actioned", action=body.action, reviewer_id=uid
+        )
+    await moderation.log_action(
+        uid, f"room.report.{body.action}", target_type=report["target_type"], target_id=report["target_id"],
+        detail={"report_id": report_id, "room_id": course_id, "status": body.status, "note": body.note},
+    )
+    return {"ok": True, "report": await moderation.get_report(report_id)}
 
 
 # ---------------------------------------------------------------------------

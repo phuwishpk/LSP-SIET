@@ -17,13 +17,13 @@ from typing import Any, Dict, List, Literal, Optional
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from sqlalchemy import text
 import os
-from datetime import datetime, timedelta, timezone
+from datetime import date, datetime, timedelta, timezone
 from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.auth_jwt import get_current_user
 from api.login_guard import clear_login_failures
-from open_notebook.community import library, points, pricing, ratelimit, throttle
+from open_notebook.community import library, moderation, points, pricing, ratelimit, throttle
 from open_notebook.community import repository as repo
 from open_notebook.domain.user import (
     USER_ROLE_ADMIN,
@@ -57,6 +57,17 @@ class UserUpdate(BaseModel):
     display_name: Optional[str] = Field(default=None, max_length=128)
     student_id: Optional[str] = Field(default=None, max_length=32)
     disabled: Optional[bool] = None
+    # With disabled=True: why, and (optionally) the day the suspension lifts itself.
+    suspend_reason: Optional[str] = Field(default=None, max_length=255)
+    suspended_until: Optional[date] = None
+
+
+class ReportResolve(BaseModel):
+    status: Literal["dismissed", "actioned"]
+    action: Literal["none", "hide_post", "restore_post", "delete_comment", "suspend_user", "delete_document"] = "none"
+    note: Optional[str] = Field(default=None, max_length=255)
+    suspend_reason: Optional[str] = Field(default=None, max_length=255)
+    suspended_until: Optional[date] = None
 
 
 class UserCreate(BaseModel):
@@ -173,9 +184,35 @@ def _public(target: User) -> Dict[str, Any]:
         "avatar_url": target.avatar_url,
         "points_balance": int(target.points_balance or 0),
         "disabled": bool(target.disabled),
+        "suspend_reason": target.suspend_reason,
+        "suspended_until": target.suspended_until,
         "created_at": target.created_at,
         "last_login_at": target.last_login_at,
     }
+
+
+async def _audit(user: User, action: str, *, target_type: Optional[str] = None,
+                 target_id: Optional[Any] = None, **detail: Any) -> None:
+    """One line in admin_audit_log for every change an admin makes."""
+    await moderation.log_action(
+        int(user.id or 0), action, target_type=target_type, target_id=target_id,
+        detail={k: v for k, v in detail.items() if v is not None} or None,
+    )
+
+
+def _suspension_until(day: Optional[date]) -> Optional[datetime]:
+    """A suspension that ends on a day lifts at the start of that day (UTC)."""
+    return datetime.combine(day, datetime.min.time()) if day else None
+
+
+async def _suspend(target: User, admin: User, *, reason: Optional[str], until: Optional[date]) -> None:
+    await set_disabled(int(target.id or 0), True, reason=reason, until=_suspension_until(until))
+    when = f" จนถึง {until.isoformat()}" if until else ""
+    why = f" เหตุผล: {reason}" if reason else ""
+    await repo.add_notification(
+        int(target.id or 0), "moderation",
+        f"บัญชีของคุณถูกระงับการใช้งาน{when}{why} — ติดต่อผู้ดูแลระบบหากมีข้อสงสัย",
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -236,12 +273,21 @@ async def update_user(
             display_name=body.display_name,
             student_id=body.student_id,
         )
-    if body.disabled is not None:
-        await set_disabled(user_id, body.disabled)
+    if body.disabled is True:
+        await _suspend(target, user, reason=body.suspend_reason, until=body.suspended_until)
+    elif body.disabled is False:
+        await set_disabled(user_id, False)
+        await repo.add_notification(user_id, "moderation", "บัญชีของคุณกลับมาใช้งานได้แล้ว")
 
     logger.info(
         f"admin {user.username} updated user {target.username}: "
         f"role={body.role} disabled={body.disabled}"
+    )
+    await _audit(
+        user, "user.update", target_type="user", target_id=user_id,
+        username=target.username, role=body.role, display_name=body.display_name,
+        student_id=body.student_id, disabled=body.disabled,
+        suspend_reason=body.suspend_reason, suspended_until=body.suspended_until,
     )
     return {"user": _public(await _target_or_404(user_id))}
 
@@ -281,6 +327,7 @@ async def adjust_points(
         balance = charge.balance_after or 0
 
     logger.info(f"admin {user.username} adjusted points of {target.username} by {body.delta}")
+    await _audit(user, "user.points", target_type="user", target_id=user_id, username=target.username, delta=body.delta, note=note)
     return {"user": _public(await _target_or_404(user_id)), "balance": balance}
 
 
@@ -300,6 +347,7 @@ async def reset_password(
     # password from an admin is exactly that moment.
     await clear_login_failures(target.username)
     logger.info(f"admin {user.username} reset the password of {target.username}")
+    await _audit(user, "user.reset_password", target_type="user", target_id=user_id, username=target.username)
     return {"ok": True, "unlocked": True}
 
 
@@ -334,6 +382,7 @@ async def create_account(body: UserCreate, user: User = Depends(get_current_user
         await points.ensure_welcome(created)
         created = await get_by_id(int(created.id))
     logger.info(f"admin {user.username} created account {body.username} ({body.role})")
+    await _audit(user, "user.create", target_type="user", target_id=created.id, username=body.username, role=body.role)
     return {"user": _public(created)} if created else {}
 
 
@@ -344,6 +393,7 @@ async def delete_account(user_id: int, user: User = Depends(get_current_user)) -
     target = await _target_or_404(user_id)
     _guard_delete(target, admin_id)
     removed = await admin_delete_user(user_id)
+    await _audit(user, "user.delete", target_type="user", target_id=user_id, username=target.username, removed=removed)
     return {"ok": True, "deleted": user_id, "removed": removed}
 
 
@@ -368,6 +418,7 @@ async def bulk_delete_accounts(
         await admin_delete_user(uid)
         deleted.append(uid)
     logger.info(f"admin {user.username} bulk-deleted {len(deleted)} accounts")
+    await _audit(user, "user.bulk_delete", target_type="user", count=len(deleted), ids=deleted)
     return {"deleted": deleted, "skipped": skipped}
 
 
@@ -406,6 +457,7 @@ async def moderate_delete_post(post_id: int, user: User = Depends(get_current_us
     if not await repo.post_exists(post_id):
         raise HTTPException(status_code=404, detail="ไม่พบโพสต์นี้")
     await repo.soft_delete_post(post_id)
+    await _audit(user, "post.hide", target_type="post", target_id=post_id)
     return {"ok": True, "deleted": post_id}
 
 
@@ -416,6 +468,7 @@ async def moderate_restore_post(post_id: int, user: User = Depends(get_current_u
     if not await repo.post_exists(post_id):
         raise HTTPException(status_code=404, detail="ไม่พบโพสต์นี้")
     await repo.restore_post(post_id)
+    await _audit(user, "post.restore", target_type="post", target_id=post_id)
     return {"ok": True, "restored": post_id}
 
 
@@ -548,6 +601,7 @@ async def delete_any_roadmap(session_id: str, user: User = Depends(get_current_u
         raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้")
     await session.delete()
     logger.info(f"admin {user.username} deleted roadmap {session_id} of owner {session.owner_id}")
+    await _audit(user, "roadmap.delete", target_type="roadmap", target_id=session_id, owner_id=session.owner_id)
     return {"ok": True, "deleted": session_id}
 
 
@@ -686,6 +740,7 @@ async def delete_any_quiz(session_id: str, user: User = Depends(get_current_user
         raise HTTPException(status_code=404, detail="ไม่พบ Quiz นี้")
     await session.delete()
     logger.info(f"admin {user.username} deleted quiz {session_id} of owner {session.owner_id}")
+    await _audit(user, "quiz.delete", target_type="quiz", target_id=session_id, owner_id=session.owner_id)
     return {"ok": True, "deleted": session_id}
 
 
@@ -790,6 +845,7 @@ async def moderate_delete_comment(comment_id: int, user: User = Depends(get_curr
         raise HTTPException(status_code=404, detail="ไม่พบความคิดเห็นนี้")
     await repo.delete_comment(comment_id, int(comment["post_id"]))
     logger.info(f"admin {user.username} deleted comment {comment_id} on post {comment['post_id']}")
+    await _audit(user, "comment.delete", target_type="comment", target_id=comment_id, post_id=comment["post_id"])
     return {"ok": True, "deleted": comment_id}
 
 
@@ -864,6 +920,7 @@ async def retry_any_document(
     await library.update_document(doc_id, status="processing", error=None)
     background.add_task(library.ingest_document, doc_id, None)
     logger.info(f"admin {user.username} re-indexed library document {doc_id}")
+    await _audit(user, "document.retry", target_type="document", target_id=doc_id)
     return {"ok": True}
 
 
@@ -874,7 +931,96 @@ async def delete_any_document(doc_id: int, user: User = Depends(get_current_user
     doc = await _document_or_404(doc_id)
     await library.delete_document(doc)
     logger.info(f"admin {user.username} deleted library document {doc_id} of owner {doc.get('owner_id')}")
+    await _audit(user, "document.delete", target_type="document", target_id=doc_id, owner_id=doc.get("owner_id"), title=doc.get("title"))
     return {"ok": True, "deleted": doc_id}
+
+
+# ---------------------------------------------------------------------------
+# Reports (รายงานเนื้อหา) + audit log
+# ---------------------------------------------------------------------------
+
+
+@router.get("/reports")
+async def list_reports(
+    status: Literal["open", "dismissed", "actioned", "all"] = "open",
+    target_type: Optional[Literal["post", "comment", "user", "document"]] = None,
+    room_id: Optional[int] = Query(default=None, ge=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """The moderation queue: every report with what it points at and how many people agree."""
+    _require_admin(user)
+    out = await moderation.list_reports(status=status, target_type=target_type, room_id=room_id, limit=limit, offset=offset)
+    out["stats"] = await moderation.report_stats()
+    return out
+
+
+@router.post("/reports/{report_id}")
+async def resolve_report(report_id: int, body: ReportResolve, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    Settle a report, optionally acting on its target in the same step: hide or
+    restore the post, delete the comment, suspend the person, delete the
+    document. Other open reports about the same target close with it, and the
+    whole thing is written to the audit log.
+    """
+    admin_id = _require_admin(user)
+    report = await moderation.get_report(report_id)
+    if not report:
+        raise HTTPException(status_code=404, detail="ไม่พบรายงานนี้")
+    if report["status"] != "open":
+        raise HTTPException(status_code=400, detail="รายงานนี้ถูกจัดการไปแล้ว")
+    ttype, tid = report["target_type"], int(report["target_id"])
+    expects = {"hide_post": "post", "restore_post": "post", "delete_comment": "comment", "delete_document": "document"}
+    if body.action in expects and ttype != expects[body.action]:
+        raise HTTPException(status_code=400, detail=f"การดำเนินการ {body.action} ใช้กับ {expects[body.action]} เท่านั้น")
+
+    if body.action == "hide_post":
+        await repo.soft_delete_post(tid)
+    elif body.action == "restore_post":
+        await repo.restore_post(tid)
+    elif body.action == "delete_comment":
+        comment = await repo.get_comment(tid)
+        if comment:
+            await repo.delete_comment(int(comment["id"]), int(comment["post_id"]))
+    elif body.action == "delete_document":
+        doc = await library.get_document(tid)
+        if doc:
+            await library.delete_document(doc)
+    elif body.action == "suspend_user":
+        owner_id = int(report.get("target_owner_id") or 0)
+        if not owner_id:
+            raise HTTPException(status_code=400, detail="ไม่พบเจ้าของเนื้อหาที่จะระงับ")
+        if owner_id == admin_id:
+            raise HTTPException(status_code=400, detail="ระงับบัญชีตัวเองไม่ได้")
+        target = await _target_or_404(owner_id)
+        if target.role == USER_ROLE_ADMIN and await count_admins(exclude_user_id=owner_id) == 0:
+            raise HTTPException(status_code=400, detail="ต้องเหลือผู้ดูแลระบบอย่างน้อยหนึ่งคน")
+        await _suspend(target, user, reason=body.suspend_reason or report.get("reason_label"), until=body.suspended_until)
+
+    await moderation.resolve_report(report_id, status=body.status, action=body.action, reviewer_id=admin_id, note=body.note)
+    siblings = 0
+    if body.status == "actioned":
+        siblings = await moderation.resolve_sibling_reports(ttype, tid, status="actioned", action=body.action, reviewer_id=admin_id)
+    await _audit(
+        user, f"report.{body.action}", target_type=ttype, target_id=tid,
+        report_id=report_id, status=body.status, note=body.note, siblings_closed=siblings,
+        suspend_reason=body.suspend_reason, suspended_until=body.suspended_until,
+    )
+    return {"ok": True, "report": await moderation.get_report(report_id), "siblings_closed": siblings}
+
+
+@router.get("/audit")
+async def audit_log(
+    action: Optional[str] = Query(default=None, max_length=64),
+    actor_id: Optional[int] = Query(default=None, ge=1),
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Who changed what, newest first. ``action`` matches a prefix such as ``user.`` or ``report.``."""
+    _require_admin(user)
+    return await moderation.list_audit(action=action, actor_id=actor_id, limit=limit, offset=offset)
 
 
 # ---------------------------------------------------------------------------
@@ -906,6 +1052,7 @@ async def create_category(body: CategoryCreate, user: User = Depends(get_current
         raise HTTPException(status_code=409, detail=f"มีหมวดหมู่ที่ใช้รหัส {slug} อยู่แล้ว")
     category = await repo.create_category(slug, body.name, body.name_en, body.sort_order)
     logger.info(f"admin {user.username} created category {slug}")
+    await _audit(user, "category.create", target_type="category", target_id=category["id"], slug=slug, name=body.name)
     return category
 
 
@@ -930,6 +1077,7 @@ async def delete_category(category_id: int, user: User = Depends(get_current_use
         raise HTTPException(status_code=404, detail="ไม่พบหมวดหมู่นี้")
     moved = await repo.delete_category(category_id)
     logger.info(f"admin {user.username} deleted category {category_id} ({moved} rooms uncategorised)")
+    await _audit(user, "category.delete", target_type="category", target_id=category_id, rooms_uncategorised=moved)
     return {"ok": True, "deleted": category_id, "rooms_uncategorised": moved}
 
 

@@ -41,6 +41,8 @@
 | `ModerationPanel.tsx` | แก้ | โพสต์ทั้งระบบ; `postTypeLabel`, `PostCounts`, ปุ่มซ่อนสีเทา | 03 §2.2 |
 | `RoomsPanel.tsx` | แก้ | ห้องทั้งหมด; ไอคอนเทา, โน้ตพื้น `bg-muted`; คอลัมน์หมวด/เทอม, ป้ายเก็บถาวร, ลบถาวรผ่าน `usePurgeCourse` (22 ต.ค.) | 03 §2.4 |
 | `community/CategoriesPanel.tsx` | ใหม่ (22 ต.ค.) | หมวดหมู่รายวิชา: เพิ่ม/แก้ในแถว/ลบ | 03 §2.5 |
+| `community/ReportsPanel.tsx`, `AuditPanel.tsx` | ใหม่ (22 ต.ค.) | คิวรายงานเนื้อหา + บันทึกผู้ดูแล | 03 §2.6 |
+| `lib/api/moderation.ts`, `lib/hooks/use-moderation.ts`, `components/common/ReportButton.tsx` | ใหม่ (22 ต.ค.) | API/hooks ของรายงานและ audit; ปุ่ม "รายงาน" สำเร็จรูป | 03 §2.6, SYSTEM-GUIDE §6.2.5 |
 | `lib/api/courses.ts`, `lib/hooks/use-courses.ts` | ใหม่ (22 ต.ค.) | API + hooks ของห้องวิชา (รายละเอียด, เก็บถาวร, ลบถาวร, สมาชิก, TA) และ `adminCategoriesApi` | 03 §2.5, SYSTEM-GUIDE §6.2.1 |
 
 ### Panel ของ Community / RAG / Roadmap / Quiz

@@ -20,6 +20,7 @@ import {
   BookOpen,
   Copy,
   ExternalLink,
+  Flag,
   GraduationCap,
   Hash,
   KeyRound,
@@ -60,6 +61,8 @@ import {
 } from '@/lib/hooks/use-courses'
 import { suggestJoinCode, type CourseDetail, type CourseMember } from '@/lib/api/courses'
 import { displayName, timeAgo } from '@/lib/utils/community-format'
+import { useResolveRoomReport, useRoomReports } from '@/lib/hooks/use-moderation'
+import { REPORT_TARGET_LABELS, type Report } from '@/lib/api/moderation'
 import { cn } from '@/lib/utils'
 
 export default function TeacherCoursePage({ params }: { params: Promise<{ id: string }> }) {
@@ -122,6 +125,7 @@ export default function TeacherCoursePage({ params }: { params: Promise<{ id: st
                 <div className="space-y-5">
                   <JoinCard course={course} />
                   <LifecycleCard course={course} isAdmin={user?.role === 'admin'} />
+                  <RoomReportsCard course={course} />
                 </div>
               </div>
             </>
@@ -621,6 +625,67 @@ function LifecycleCard({ course, isAdmin }: { course: CourseDetail; isAdmin: boo
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+    </Card>
+  )
+}
+
+
+// ---------------------------------------------------------------------------
+
+function RoomReportsCard({ course }: { course: CourseDetail }) {
+  const reports = useRoomReports(course.id)
+  const resolve = useResolveRoomReport(course.id)
+  const items = reports.data?.items ?? []
+
+  const act = (r: Report, status: 'dismissed' | 'actioned', action: 'none' | 'hide_post' | 'delete_comment' = 'none') =>
+    resolve.mutate({ reportId: r.id, status, action })
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Flag className="h-4 w-4" /> รายงานในห้อง
+          {items.length > 0 && <Badge variant="destructive">{items.length}</Badge>}
+        </CardTitle>
+        <CardDescription>
+          สิ่งที่สมาชิกรายงานเกี่ยวกับเนื้อหาในห้องนี้ — {course.is_owner ? 'ซ่อนโพสต์ ลบความคิดเห็น หรือปัดตกได้เอง' : 'ผู้สร้างห้องเป็นผู้ตัดสิน'}; เรื่องบัญชีผู้ใช้ส่งต่อผู้ดูแลระบบ
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2">
+        {reports.isLoading && <Skeleton className="h-16 w-full" />}
+        {!reports.isLoading && items.length === 0 && (
+          <p className="py-2 text-center text-sm text-muted-foreground">ไม่มีรายงานค้าง</p>
+        )}
+        {items.map((r) => (
+          <div key={r.id} className="rounded-lg border p-2.5 text-sm">
+            <div className="flex flex-wrap items-center gap-1.5">
+              <Badge variant="outline" className="h-5 text-[10px]">{REPORT_TARGET_LABELS[r.target_type]}</Badge>
+              <span className="line-clamp-1 font-medium">{r.target_title || `#${r.target_id}`}</span>
+              {r.report_count > 1 && <Badge variant="secondary" className="h-5 text-[10px]">{r.report_count} คน</Badge>}
+            </div>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {r.reason_label}{r.detail ? ` · “${r.detail}”` : ''} · {timeAgo(r.created_at)}
+            </p>
+            {course.is_owner && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {r.target_type === 'post' && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled={resolve.isPending || r.target_gone} onClick={() => act(r, 'actioned', 'hide_post')}>
+                    ซ่อนโพสต์
+                  </Button>
+                )}
+                {r.target_type === 'comment' && (
+                  <Button size="sm" variant="outline" className="h-7 text-xs" disabled={resolve.isPending || r.target_gone} onClick={() => act(r, 'actioned', 'delete_comment')}>
+                    ลบความคิดเห็น
+                  </Button>
+                )}
+                <Button size="sm" variant="ghost" className="h-7 text-xs" disabled={resolve.isPending} onClick={() => act(r, 'dismissed')}>
+                  ปัดตก
+                </Button>
+              </div>
+            )}
+          </div>
+        ))}
+      </CardContent>
     </Card>
   )
 }
