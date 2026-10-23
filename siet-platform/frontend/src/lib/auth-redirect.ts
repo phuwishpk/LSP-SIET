@@ -15,8 +15,8 @@ export function rememberPostLoginPath(path: string) {
   }
 }
 
-export function peekPostLoginPath(role?: string | null): string {
-  if (role === 'pending') {
+export function peekPostLoginPath(role?: string | null, disabled?: boolean): string {
+  if (disabled || role === 'pending') {
     return '/pending'
   }
   if (role === 'admin') {

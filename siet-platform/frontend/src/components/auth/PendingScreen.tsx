@@ -49,19 +49,19 @@ export function PendingScreen() {
   // ตรวจสอบสิทธิ์อัตโนมัติเมื่อผู้ใช้สลับหน้าต่างกลับมาที่หน้านี้
   useEffect(() => {
     const handleFocus = async () => {
-      if (isPending) {
+      if (isPending || isRejected) {
         const updated = await refreshUser()
         if (updated && updated.role && updated.role !== 'pending' && !updated.disabled) {
-          toast.success('ได้รับการอนุมัติสิทธิ์เรียบร้อยแล้ว ยินดีต้อนรับสู่ระบบ')
+          toast.success('บัญชีของคุณได้รับการอนุมัติ / คืนสิทธิ์เรียบร้อยแล้ว ยินดีต้อนรับสู่ระบบ')
           router.replace(peekPostLoginPath(updated.role))
         }
       }
     }
     window.addEventListener('focus', handleFocus)
     return () => window.removeEventListener('focus', handleFocus)
-  }, [isPending, refreshUser, router])
+  }, [isPending, isRejected, refreshUser, router])
 
-  // กดปุ่มเข้าสู่ระบบ
+  // กดปุ่มเข้าสู่ระบบ / ตรวจสอบสิทธิ์
   const handleLoginAction = async () => {
     if (isApproved && user?.role) {
       router.replace(peekPostLoginPath(user.role))
@@ -72,10 +72,10 @@ export function PendingScreen() {
     try {
       const updated = await refreshUser()
       if (updated && updated.role && updated.role !== 'pending' && !updated.disabled) {
-        toast.success('ได้รับการอนุมัติสิทธิ์เรียบร้อยแล้ว ยินดีต้อนรับสู่ระบบ')
+        toast.success('บัญชีของคุณได้รับการอนุมัติ / คืนสิทธิ์เรียบร้อยแล้ว ยินดีต้อนรับสู่ระบบ')
         router.replace(peekPostLoginPath(updated.role))
       } else if (updated?.disabled) {
-        toast.error('คำขอเข้าใช้งานไม่ได้รับการอนุมัติ กรุณาติดต่อผู้ดูแลระบบ')
+        toast.error('บัญชียังคงอยู่ในสถานะถูกระงับการใช้งาน กรุณาติดต่อผู้ดูแลระบบ')
       } else {
         toast.info('บัญชีของท่านยังอยู่ระหว่างรอการอนุมัติสิทธิ์จากผู้ดูแลระบบ')
       }
@@ -146,10 +146,10 @@ export function PendingScreen() {
                   <XCircle className="w-8 h-8 stroke-[2.2]" />
                 </div>
                 <CardTitle className="text-2xl font-bold tracking-tight text-foreground pt-1">
-                  ไม่ได้รับการอนุมัติให้เข้าใช้งานระบบ
+                  บัญชีของคุณถูกระงับการใช้งาน
                 </CardTitle>
                 <div className="inline-flex items-center rounded-full px-3.5 py-1 text-xs font-semibold text-rose-700 bg-rose-500/10 border border-rose-500/20 dark:text-rose-400">
-                  สถานะ ไม่ได้รับการอนุมัติสิทธิ์
+                  สถานะ บัญชีถูกระงับการใช้งาน
                 </div>
               </>
             ) : isApproved ? (
@@ -208,14 +208,14 @@ export function PendingScreen() {
             <div className="rounded-2xl border border-rose-500/20 bg-rose-500/5 p-4 space-y-2.5 text-xs text-foreground leading-relaxed">
               <div className="flex items-center gap-2 font-semibold text-rose-600 dark:text-rose-400">
                 <ShieldAlert className="w-4 h-4 flex-shrink-0" />
-                <span>เหตุผลในการปฏิเสธคำขอเข้าใช้งาน</span>
+                <span>เหตุผลในการระงับการใช้งาน</span>
               </div>
               <p className="text-muted-foreground leading-relaxed pl-6">
-                {user?.suspend_reason || 'บัญชีนี้ไม่อยู่ในเงื่อนไขการเข้าใช้งานของคณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี (SIET 030) หรือถูกระงับสิทธิ์โดยผู้ดูแลระบบ'}
+                {user?.suspend_reason || 'บัญชีนี้ถูกระงับสิทธิ์การใช้งานชั่วคราวโดยผู้ดูแลระบบ'}
               </p>
               <div className="pt-1 flex items-start gap-2 text-[11.5px] text-muted-foreground border-t border-rose-500/10">
                 <HelpCircle className="w-4 h-4 text-rose-500/80 flex-shrink-0 mt-0.5" />
-                <span>หากท่านมีข้อสงสัยหรือมีความประสงค์ขอใช้งานเป็นกรณีพิเศษ กรุณาติดต่อผู้ดูแลระบบเพื่อพิจารณาเพิ่มเติม</span>
+                <span>หากท่านมีข้อสงสัย กรุณาติดต่อผู้ดูแลระบบ</span>
               </div>
             </div>
           ) : (
@@ -247,7 +247,6 @@ export function PendingScreen() {
 
           {/* ปุ่มการกระทำ */}
           <div className="space-y-2.5 pt-2">
-            {/* ปุ่มเข้าสู่ระบบ (แสดงเฉพาะเมื่อไม่อยู่ในสถานะถูกปฏิเสธ) */}
             {!isRejected && (
               <Button
                 type="button"

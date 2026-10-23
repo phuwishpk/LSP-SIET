@@ -1,14 +1,14 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   BookOpen,
   Coins,
   FileText,
-  KeyRound,
   Search,
   ShieldCheck,
   Trash2,
+  UserCheck,
   UserCog,
   UserPlus,
   UserX,
@@ -45,9 +45,7 @@ import {
   useAdminOverview,
   useAdminUser,
   useAdminUsers,
-  useBulkDeleteUsers,
   useDeleteUser,
-  useResetPassword,
   useUpdateUser,
 } from '@siet/platform/lib/hooks/use-admin'
 import type { AdminUser, UserRole } from '@siet/platform/lib/api/admin'
@@ -64,6 +62,7 @@ const ROLE_STYLE: Record<UserRole, string> = {
   admin: 'bg-foreground text-background',
   teacher: 'border bg-card text-foreground',
   student: 'bg-muted text-muted-foreground',
+  pending: 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
 }
 
 export default function AdminPage() {
@@ -72,9 +71,9 @@ export default function AdminPage() {
   const [role, setRole] = useState('')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<AdminUser | null>(null)
+  const [userToDelete, setUserToDelete] = useState<AdminUser | null>(null)
   const [createOpen, setCreateOpen] = useState(false)
-  const [picked, setPicked] = useState<number[]>([])
-  const bulkDelete = useBulkDeleteUsers()
+  const deleteUser = useDeleteUser()
 
   const { data: overview } = useAdminOverview()
   const { data, isLoading } = useAdminUsers({
@@ -129,9 +128,10 @@ export default function AdminPage() {
               <CardTitle className="text-base">รายชื่อผู้ใช้</CardTitle>
               <CardDescription>
                 {data ? `${data.total} บัญชี · ` : ''}
-                {(['admin', 'teacher', 'student'] as UserRole[])
+                {(['admin', 'teacher', 'student', 'pending'] as UserRole[])
                   .map((r) => `${roleLabel(r)} ${data?.by_role?.[r] ?? 0}`)
                   .join(' · ')}
+                {data?.by_role?.suspended ? ` · ระงับอยู่ ${data.by_role.suspended}` : ''}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
@@ -160,6 +160,8 @@ export default function AdminPage() {
                   <option value="student">นักศึกษา</option>
                   <option value="teacher">อาจารย์</option>
                   <option value="admin">ผู้ดูแล</option>
+                  <option value="pending">รออนุมัติ</option>
+                  <option value="suspended">บัญชีที่ถูกระงับ</option>
                 </select>
               </div>
 
@@ -175,94 +177,71 @@ export default function AdminPage() {
                 </p>
               )}
 
-              {picked.length > 0 && (
-                <div className="flex flex-wrap items-center gap-2 rounded-lg border border-destructive/40 bg-destructive/5 p-2.5 text-sm">
-                  <span>เลือกไว้ {picked.length} บัญชี</span>
-                  <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={() => setPicked([])}>
-                    ล้างการเลือก
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    size="sm"
-                    className="ml-auto h-7 gap-1 text-xs"
-                    disabled={bulkDelete.isPending}
-                    onClick={() => {
-                      if (
-                        window.confirm(
-                          `ลบ ${picked.length} บัญชีถาวร?\nโพสต์ของพวกเขาจะถูกซ่อน แต้มและการแจ้งเตือนจะถูกลบ และห้องที่เปิดไว้จะยังอยู่แต่ไม่มีเจ้าของ\nการลบย้อนกลับไม่ได้`
-                        )
-                      ) {
-                        bulkDelete.mutate(picked, { onSuccess: () => setPicked([]) })
-                      }
-                    }}
-                  >
-                    <Trash2 className="h-3.5 w-3.5" /> ลบบัญชีที่เลือก
-                  </Button>
-                </div>
-              )}
-
               <div className="divide-y rounded-lg border">
                 {data?.items.map((u) => (
                   <div
                     key={u.id}
-                    className={cn(
-                      'flex w-full items-center gap-3 p-3 transition hover:bg-accent',
-                      picked.includes(u.id) && 'bg-destructive/5'
-                    )}
+                    className="group flex w-full items-center gap-3 p-3 text-left transition hover:bg-accent/60"
                   >
-                    <input
-                      type="checkbox"
-                      className="h-4 w-4 shrink-0 accent-primary"
-                      checked={picked.includes(u.id)}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => setSelected(u)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setSelected(u)
+                        }
+                      }}
+                      className="flex min-w-0 flex-1 items-center gap-3 cursor-pointer"
+                    >
+                      <Avatar size="sm" src={u.avatar_url} name={displayName(u)} className={AVATAR_STYLE} />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className={cn('truncate font-medium', u.disabled && 'line-through opacity-60')}>
+                            {displayName(u)}
+                          </span>
+                          <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', ROLE_STYLE[u.role])}>
+                            {roleLabel(u.role)}
+                          </span>
+                          {u.disabled && (
+                            <Badge variant="destructive" className="text-[10px]">
+                              ระงับอยู่
+                            </Badge>
+                          )}
+                          {u.id === data.me && <Badge variant="outline" className="text-[10px]">คุณ</Badge>}
+                        </div>
+                        <p className="truncate text-xs text-muted-foreground">
+                          @{u.username}
+                          {u.email ? ` · ${u.email}` : ''}
+                          {u.student_id ? ` · รหัส ${u.student_id}` : ''}
+                          {u.last_login_at ? ` · เข้าล่าสุด ${timeAgo(u.last_login_at)}` : ' · ยังไม่เคยเข้าใช้'}
+                        </p>
+                      </div>
+                      <span className="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums text-ai">
+                        <Coins className="h-3.5 w-3.5" />
+                        {u.points_balance}
+                      </span>
+                      <UserCog className="h-4 w-4 shrink-0 text-muted-foreground opacity-60 group-hover:opacity-100 transition-opacity" />
+                    </div>
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-md transition-colors"
                       disabled={u.id === data.me || u.role === 'admin'}
                       title={
                         u.id === data.me
-                          ? 'ลบบัญชีของตัวเองไม่ได้'
+                          ? 'ไม่สามารถลบบัญชีตัวเองได้'
                           : u.role === 'admin'
-                          ? 'ลดสิทธิ์ผู้ดูแลก่อนจึงจะลบได้'
-                          : 'เลือกเพื่อลบ'
+                          ? 'ลดสิทธิ์ผู้ดูแลคนนี้ก่อนจึงจะลบได้'
+                          : `ลบบัญชี ${displayName(u)} ถาวร`
                       }
-                      onChange={(e) =>
-                        setPicked((prev) =>
-                          e.target.checked ? [...prev, u.id] : prev.filter((id) => id !== u.id)
-                        )
-                      }
-                      aria-label={`เลือก ${u.username}`}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setSelected(u)}
-                      className="flex min-w-0 flex-1 items-center gap-3 text-left"
+                      onClick={() => setUserToDelete(u)}
                     >
-                    <Avatar size="sm" src={u.avatar_url} name={displayName(u)} className={AVATAR_STYLE} />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className={cn('truncate font-medium', u.disabled && 'line-through opacity-60')}>
-                          {displayName(u)}
-                        </span>
-                        <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', ROLE_STYLE[u.role])}>
-                          {roleLabel(u.role)}
-                        </span>
-                        {u.disabled && (
-                          <Badge variant="destructive" className="text-[10px]">
-                            ระงับอยู่
-                          </Badge>
-                        )}
-                        {u.id === data.me && <Badge variant="outline" className="text-[10px]">คุณ</Badge>}
-                      </div>
-                      <p className="truncate text-xs text-muted-foreground">
-                        @{u.username}
-                        {u.email ? ` · ${u.email}` : ''}
-                        {u.student_id ? ` · รหัส ${u.student_id}` : ''}
-                        {u.last_login_at ? ` · เข้าล่าสุด ${timeAgo(u.last_login_at)}` : ' · ยังไม่เคยเข้าใช้'}
-                      </p>
-                    </div>
-                    <span className="flex shrink-0 items-center gap-1 text-sm font-semibold tabular-nums text-ai">
-                      <Coins className="h-3.5 w-3.5" />
-                      {u.points_balance}
-                    </span>
-                    <UserCog className="h-4 w-4 shrink-0 text-subtle-foreground" />
-                    </button>
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -302,8 +281,57 @@ export default function AdminPage() {
 
       <CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
 
+      {userToDelete && (
+        <Dialog open onOpenChange={(open) => !open && setUserToDelete(null)}>
+          <DialogContent className="sm:max-w-md" showCloseButton={false}>
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-destructive">
+                <Trash2 className="h-5 w-5" /> ยืนยันการลบบัญชีถาวร
+              </DialogTitle>
+              <DialogDescription className="space-y-2 pt-2 text-left">
+                <span className="block text-foreground font-medium">
+                  คุณต้องการลบบัญชี &quot;{displayName(userToDelete)}&quot; (@{userToDelete.username}) หรือไม่?
+                </span>
+                <span className="block text-xs text-muted-foreground leading-relaxed">
+                  การกระทำนี้ไม่สามารถย้อนกลับได้ ข้อมูลแต้ม ประวัติการใช้งาน เอกสาร และการแจ้งเตือนทั้งหมดจะถูกลบออกจากระบบอย่างถาวร
+                </span>
+              </DialogDescription>
+            </DialogHeader>
+
+            <DialogFooter className="gap-2 sm:justify-end pt-3">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                disabled={deleteUser.isPending}
+                onClick={() => setUserToDelete(null)}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                variant="destructive"
+                size="sm"
+                disabled={deleteUser.isPending}
+                onClick={async () => {
+                  try {
+                    await deleteUser.mutateAsync(userToDelete.id)
+                    setUserToDelete(null)
+                  } catch {
+                    // error handled by mutation toast
+                  }
+                }}
+              >
+                {deleteUser.isPending ? 'กำลังลบ…' : 'ยืนยันลบบัญชี'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {selected && (
         <UserDialog
+          key={selected.id}
           user={selected}
           isSelf={selected.id === data?.me}
           onOpenChange={(open) => !open && setSelected(null)}
@@ -325,22 +353,88 @@ function UserDialog({
   const { data: detail } = useAdminUser(user.id)
   const update = useUpdateUser()
   const adjust = useAdjustPoints()
-  const resetPassword = useResetPassword()
-  const remove = useDeleteUser()
 
-  const current = detail?.user ?? user
+  const isSuspended = Boolean(detail?.user ? detail.user.disabled : user.disabled)
+  const current = {
+    ...user,
+    ...(detail?.user ?? {}),
+    disabled: isSuspended,
+  }
+
   const [role, setRole] = useState<UserRole>(current.role)
   const [delta, setDelta] = useState('')
   const [note, setNote] = useState('')
-  const [password, setPassword] = useState('')
   const [suspendReason, setSuspendReason] = useState('')
   const [suspendUntil, setSuspendUntil] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
-  const busy = update.isPending || adjust.isPending || resetPassword.isPending
+  useEffect(() => {
+    setRole(current.role)
+    setDelta('')
+    setNote('')
+    setSuspendReason(current.suspend_reason || '')
+    setSuspendUntil(current.suspended_until ? current.suspended_until.slice(0, 10) : '')
+  }, [current.id, current.role, current.disabled, current.suspend_reason, current.suspended_until])
+
+  const busy = update.isPending || adjust.isPending || isSaving
+
+  const handleRestore = async () => {
+    try {
+      await update.mutateAsync({ id: current.id, disabled: false })
+      onOpenChange(false)
+    } catch {
+      // toast shown by mutation
+    }
+  }
+
+  const handleSuspend = async () => {
+    try {
+      await update.mutateAsync({
+        id: current.id,
+        disabled: true,
+        suspend_reason: suspendReason.trim() || undefined,
+        suspended_until: suspendUntil || undefined,
+      })
+      onOpenChange(false)
+    } catch {
+      // toast shown by mutation
+    }
+  }
+
+  const handleSave = async () => {
+    setIsSaving(true)
+    const promises: Promise<any>[] = []
+
+    if (role !== current.role) {
+      promises.push(update.mutateAsync({ id: current.id, role }))
+    }
+
+    const numericDelta = Number(delta)
+    if (numericDelta) {
+      promises.push(
+        adjust.mutateAsync({
+          id: current.id,
+          delta: numericDelta,
+          note: note.trim() || undefined,
+        })
+      )
+    }
+
+    try {
+      if (promises.length > 0) {
+        await Promise.all(promises)
+      }
+      onOpenChange(false)
+    } catch {
+      // errors handled by mutation onError toasts
+    } finally {
+      setIsSaving(false)
+    }
+  }
 
   return (
     <Dialog open onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg" showCloseButton={false}>
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Avatar size="sm" src={current.avatar_url} name={displayName(current)} className={AVATAR_STYLE} />
@@ -356,9 +450,10 @@ function UserDialog({
           <div className="space-y-1.5">
             <Label>สิทธิ์การใช้งาน</Label>
             <div className="flex flex-wrap gap-2">
-              {(['student', 'teacher', 'admin'] as UserRole[]).map((r) => (
+              {(['student', 'teacher', 'admin', 'pending'] as UserRole[]).map((r) => (
                 <Button
                   key={r}
+                  type="button"
                   size="sm"
                   variant={role === r ? 'default' : 'outline'}
                   disabled={isSelf || busy}
@@ -367,19 +462,111 @@ function UserDialog({
                   {roleLabel(r)}
                 </Button>
               ))}
-              <Button
-                size="sm"
-                variant="secondary"
-                disabled={isSelf || busy || role === current.role}
-                onClick={() => update.mutate({ id: current.id, role })}
-              >
-                บันทึกสิทธิ์
-              </Button>
             </div>
             {isSelf && (
               <p className="text-xs text-muted-foreground">เปลี่ยนสิทธิ์หรือระงับบัญชีของตัวเองไม่ได้</p>
             )}
           </div>
+
+          {/* Suspension Box - จัดกลุ่มอยู่ใต้สิทธิ์การใช้งาน */}
+          {!isSelf && (
+            <div
+              className={cn(
+                'rounded-xl border p-3.5 space-y-3 transition-colors',
+                current.disabled
+                  ? 'border-destructive/30 bg-destructive/[0.04]'
+                  : 'border-border/80 bg-muted/20'
+              )}
+            >
+              <div className="flex items-center justify-between">
+                <Label
+                  className={cn(
+                    'font-semibold flex items-center gap-1.5 text-xs',
+                    current.disabled ? 'text-destructive' : 'text-foreground'
+                  )}
+                >
+                  <UserX className="h-4 w-4" />
+                  {current.disabled ? 'สถานะการระงับบัญชี' : 'ระงับบัญชีการใช้งาน'}
+                </Label>
+                {current.disabled ? (
+                  <Badge variant="destructive" className="text-[10px]">
+                    ระงับอยู่
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant="outline"
+                    className="text-[10px] text-emerald-600 border-emerald-500/30 bg-emerald-500/10 font-normal"
+                  >
+                    ใช้งานได้ปกติ
+                  </Badge>
+                )}
+              </div>
+
+              {current.disabled ? (
+                <div className="space-y-2.5">
+                  <p className="rounded-md bg-background/80 border p-2.5 text-xs text-muted-foreground">
+                    ระงับอยู่{current.suspend_reason ? ` · เหตุผล ${current.suspend_reason}` : ''}
+                    {current.suspended_until
+                      ? ` · ปล่อยอัตโนมัติ ${current.suspended_until.slice(0, 10)}`
+                      : ' · ไม่มีกำหนดเวลา'}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-foreground hover:bg-background border-emerald-500/30 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/10 font-medium"
+                    disabled={busy}
+                    onClick={handleRestore}
+                  >
+                    <UserCheck className="mr-1.5 h-4 w-4" />
+                    คืนสิทธิ์การใช้งาน (ปลดระงับ)
+                  </Button>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_140px]">
+                    <div className="space-y-1">
+                      <Label htmlFor="adm-suspend-reason" className="text-xs text-muted-foreground">
+                        เหตุผลที่ระงับ (แจ้งผู้ใช้)
+                      </Label>
+                      <Input
+                        id="adm-suspend-reason"
+                        value={suspendReason}
+                        onChange={(e) => setSuspendReason(e.target.value)}
+                        maxLength={255}
+                        placeholder="เช่น ทำผิดกฎระเบียบชุมชน"
+                        className="bg-background text-sm"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label htmlFor="adm-suspend-until" className="text-xs text-muted-foreground">
+                        ปล่อยอัตโนมัติวันที่
+                      </Label>
+                      <Input
+                        id="adm-suspend-until"
+                        type="date"
+                        value={suspendUntil}
+                        onChange={(e) => setSuspendUntil(e.target.value)}
+                        className="bg-background text-sm"
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    className="w-full shadow-sm"
+                    disabled={busy}
+                    onClick={handleSuspend}
+                  >
+                    <UserX className="mr-1.5 h-4 w-4" />
+                    ระงับบัญชี
+                  </Button>
+                </div>
+              )}
+            </div>
+          )}
 
           <div className="space-y-1.5">
             <Label htmlFor="adm-points">ปรับแต้ม (ใส่ค่าติดลบเพื่อหัก)</Label>
@@ -398,49 +585,7 @@ function UserDialog({
                 placeholder="เหตุผล เช่น รางวัลกิจกรรม"
                 className="min-w-[160px] flex-1"
               />
-              <Button
-                size="sm"
-                disabled={busy || !Number(delta)}
-                onClick={() =>
-                  adjust.mutate(
-                    { id: current.id, delta: Number(delta), note: note.trim() || undefined },
-                    { onSuccess: () => { setDelta(''); setNote('') } }
-                  )
-                }
-              >
-                ปรับแต้ม
-              </Button>
             </div>
-          </div>
-
-          <div className="space-y-1.5">
-            <Label htmlFor="adm-pw">ตั้งรหัสผ่านใหม่</Label>
-            <div className="flex gap-2">
-              <Input
-                id="adm-pw"
-                type="text"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="อย่างน้อย 6 ตัวอักษร"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                className="gap-1.5"
-                disabled={busy || password.trim().length < 6}
-                onClick={() =>
-                  resetPassword.mutate(
-                    { id: current.id, password: password.trim() },
-                    { onSuccess: () => setPassword('') }
-                  )
-                }
-              >
-                <KeyRound className="h-4 w-4" /> ตั้งรหัส
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              ใช้ได้เฉพาะบัญชีที่เข้าระบบด้วยชื่อผู้ใช้ บัญชีที่ผูก Google จะยังเข้าผ่าน Google ตามเดิม
-            </p>
           </div>
 
           {detail?.points_history && detail.points_history.length > 0 && (
@@ -464,82 +609,25 @@ function UserDialog({
               </div>
             </div>
           )}
-
-          {/* Suspension: say why, and optionally until when - the person is told both. */}
-          {current.disabled ? (
-            <p className="rounded-md bg-muted px-2.5 py-2 text-xs text-muted-foreground">
-              ระงับอยู่{current.suspend_reason ? ` · เหตุผล: ${current.suspend_reason}` : ''}
-              {current.suspended_until ? ` · ปล่อยอัตโนมัติ ${current.suspended_until.slice(0, 10)}` : ' · ไม่มีกำหนด'}
-            </p>
-          ) : (
-            !isSelf && (
-              <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_150px]">
-                <div className="space-y-1">
-                  <Label htmlFor="adm-suspend-reason">เหตุผลที่ระงับ (แจ้งผู้ใช้)</Label>
-                  <Input
-                    id="adm-suspend-reason"
-                    value={suspendReason}
-                    onChange={(e) => setSuspendReason(e.target.value)}
-                    maxLength={255}
-                    placeholder="เช่น โพสต์สแปมซ้ำหลังเตือน"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="adm-suspend-until">ปล่อยอัตโนมัติวันที่</Label>
-                  <Input id="adm-suspend-until" type="date" value={suspendUntil} onChange={(e) => setSuspendUntil(e.target.value)} />
-                </div>
-              </div>
-            )
-          )}
         </div>
 
-        <DialogFooter className="gap-2 sm:justify-between">
-          <div className="flex flex-wrap gap-2">
-            <Button
-              variant={current.disabled ? 'outline' : 'destructive'}
-              size="sm"
-              disabled={isSelf || busy}
-              onClick={() =>
-                update.mutate(
-                  current.disabled
-                    ? { id: current.id, disabled: false }
-                    : {
-                        id: current.id,
-                        disabled: true,
-                        suspend_reason: suspendReason.trim() || undefined,
-                        suspended_until: suspendUntil || undefined,
-                      }
-                )
-              }
-            >
-              <UserX className="mr-1.5 h-4 w-4" />
-              {current.disabled ? 'คืนสิทธิ์การใช้งาน' : 'ระงับบัญชี'}
-            </Button>
-            {/* Suspending hides an account; deleting is for ones that should
-                never have existed. Admins must be demoted first. */}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="text-destructive hover:text-destructive"
-              disabled={isSelf || busy || remove.isPending || current.role === 'admin'}
-              title={
-                current.role === 'admin' ? 'ลดสิทธิ์ผู้ดูแลคนนี้ก่อนจึงจะลบได้' : undefined
-              }
-              onClick={() => {
-                if (
-                  window.confirm(
-                    `ลบบัญชี "${current.username}" ถาวร?\nโพสต์จะถูกซ่อน · แต้ม ประวัติ และการแจ้งเตือนจะถูกลบ · ห้องที่เปิดไว้จะยังอยู่แต่ไม่มีเจ้าของ\nการลบย้อนกลับไม่ได้`
-                  )
-                ) {
-                  remove.mutate(current.id, { onSuccess: () => onOpenChange(false) })
-                }
-              }}
-            >
-              <Trash2 className="mr-1.5 h-4 w-4" /> ลบบัญชีถาวร
-            </Button>
-          </div>
-          <Button variant="ghost" size="sm" onClick={() => onOpenChange(false)}>
-            ปิด
+        <DialogFooter className="gap-2 sm:justify-end pt-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => onOpenChange(false)}
+          >
+            ยกเลิก
+          </Button>
+          <Button
+            type="button"
+            size="sm"
+            disabled={busy || (isSelf && role !== current.role)}
+            onClick={handleSave}
+          >
+            {busy ? 'กำลังบันทึก…' : 'บันทึกข้อมูล'}
           </Button>
         </DialogFooter>
       </DialogContent>

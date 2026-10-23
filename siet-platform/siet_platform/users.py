@@ -520,7 +520,9 @@ async def admin_list_users(
             "(username LIKE :q OR display_name LIKE :q OR email LIKE :q OR student_code LIKE :q)"
         )
         params["q"] = f"%{query.strip()}%"
-    if role in USER_ROLES:
+    if role == "suspended":
+        where.append("disabled = 1")
+    elif role in USER_ROLES:
         where.append("role = :role")
         params["role"] = role
     clause = f"WHERE {' AND '.join(where)}" if where else ""
@@ -549,9 +551,15 @@ async def admin_list_users(
         counts = (
             await session.execute(_text("SELECT role, COUNT(*) AS n FROM users GROUP BY role"))
         ).all()
+        suspended_count = (
+            await session.execute(_text("SELECT COUNT(*) FROM users WHERE disabled = 1"))
+        ).scalar()
 
     def _iso(value: Any) -> Optional[str]:
         return value.isoformat() if isinstance(value, datetime) else value
+
+    by_role_dict = {r.role: int(r.n) for r in counts}
+    by_role_dict["suspended"] = int(suspended_count or 0)
 
     return {
         "items": [
@@ -565,13 +573,15 @@ async def admin_list_users(
                 "avatar_url": r.avatar_url,
                 "points_balance": int(r.points_balance or 0),
                 "disabled": bool(r.disabled),
+                "suspend_reason": r.suspend_reason,
+                "suspended_until": _iso(r.suspended_until),
                 "created_at": _iso(r.created_at),
                 "last_login_at": _iso(r.last_login_at),
             }
             for r in rows
         ],
         "total": int(total or 0),
-        "by_role": {r.role: int(r.n) for r in counts},
+        "by_role": by_role_dict,
     }
 
 

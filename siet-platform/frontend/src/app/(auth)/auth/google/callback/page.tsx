@@ -58,7 +58,7 @@ function GoogleCallback() {
         const apiUrl = await getApiUrl()
         const data = await authApi.googleExchange(apiUrl, { code, state })
         useAuthStore.getState().setSession(data.access_token, data.user)
-        if (data.user?.role === 'pending') {
+        if (data.user?.disabled || data.user?.role === 'pending') {
           router.replace('/pending')
           return
         }

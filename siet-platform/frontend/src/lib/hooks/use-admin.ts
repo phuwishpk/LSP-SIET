@@ -80,16 +80,21 @@ function useInvalidate() {
   const queryClient = useQueryClient()
   return () => {
     queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.usersRoot })
+    queryClient.invalidateQueries({ queryKey: ['admin', 'user'] })
     queryClient.invalidateQueries({ queryKey: ADMIN_KEYS.overview })
   }
 }
 
 export function useUpdateUser() {
   const invalidate = useInvalidate()
+  const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, ...body }: UserUpdateInput & { id: number }) =>
       adminApi.updateUser(id, body),
-    onSuccess: (data) => {
+    onSuccess: (data, vars) => {
+      queryClient.setQueryData(ADMIN_KEYS.user(vars.id), (old: any) =>
+        old ? { ...old, user: { ...old.user, ...data.user } } : { user: data.user }
+      )
       invalidate()
       toast.success(`บันทึกการเปลี่ยนแปลงของ ${data.user.username} แล้ว`)
     },

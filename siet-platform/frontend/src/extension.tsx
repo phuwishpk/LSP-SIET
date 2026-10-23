@@ -43,12 +43,19 @@ const extension: FrontendExtension = {
 
   useRouteGate(pathname) {
     const role = useRole()
+    const user = useAuthStore((s) => s.user)
     const signedIn = useAuthStore((s) => s.isAuthenticated)
     // Reached a page while signed in: the remembered post-login target is used up.
     useEffect(() => {
-      if (signedIn && role && role !== 'pending') clearPostLoginPath()
-    }, [signedIn, role])
-    if (role === 'pending') return { ready: true, redirect: '/pending' }
+      if (signedIn && role && role !== 'pending' && !user?.disabled) clearPostLoginPath()
+    }, [signedIn, role, user?.disabled])
+
+    // Suspended accounts or pending role accounts must only see /pending
+    if (user?.disabled || role === 'pending') {
+      if (pathname !== '/pending') return { ready: true, redirect: '/pending' }
+      return { ready: true }
+    }
+
     // The API refuses these routes for students; send them back to the community
     // instead of rendering a page full of 403s.
     if (!canAccessRoute(role, pathname)) return { ready: true, redirect: '/community' }

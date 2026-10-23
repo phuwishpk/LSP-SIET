@@ -81,6 +81,7 @@ class UserResponse(BaseModel):
     points_exempt: bool = False
     disabled: bool = False
     suspend_reason: Optional[str] = None
+    suspended_until: Optional[str] = None
     created_at: Optional[str] = None
     last_login_at: Optional[str] = None
     pdpa_consented_at: Optional[str] = None
@@ -121,6 +122,7 @@ def _to_response(user: User) -> UserResponse:
         points_exempt=user.is_points_exempt,
         disabled=bool(user.disabled or 0),
         suspend_reason=user.suspend_reason,
+        suspended_until=user.suspended_until,
         created_at=user.created_at,
         last_login_at=user.last_login_at,
         pdpa_consented_at=user.pdpa_consented_at,
