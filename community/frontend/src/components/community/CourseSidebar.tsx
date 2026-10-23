@@ -461,39 +461,66 @@ function CreateRoomDialog({
         }
       }}
     >
-      <DialogContent className="community-theme">
-        <DialogHeader>
-          <DialogTitle>{isClub ? 'เปิดห้องพูดคุยใหม่' : 'สร้างห้องวิชาใหม่'}</DialogTitle>
-          <DialogDescription>
+      <DialogContent className="community-theme w-full max-w-lg sm:max-w-lg rounded-2xl p-6 shadow-xl border border-slate-200/90 dark:border-border">
+        <DialogHeader className="space-y-1.5 pb-1">
+          <DialogTitle className="text-lg font-bold tracking-tight">
+            {isClub ? 'เปิดห้องพูดคุยใหม่' : 'สร้างห้องวิชาใหม่'}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
             {isClub
               ? 'ห้องพูดคุยเปิดได้ทุกคน เพื่อน ๆ จะเห็นในแถบซ้ายและเข้าร่วมได้ทันที (ไม่มีคลังความรู้ของห้อง)'
               : 'นักศึกษาจะเห็นห้องนี้ในแถบด้านซ้ายและเข้าร่วมได้ทันที'}
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-3">
+        <div className="space-y-3.5 py-2">
           {!isClub && (
-            <div className="space-y-1">
-              <Label htmlFor="room-code">รหัสวิชา</Label>
-              <Input id="room-code" value={code} onChange={(e) => setCode(e.target.value)} placeholder="เช่น CS401" />
+            <div className="space-y-1.5">
+              <Label htmlFor="room-code" className="text-xs font-semibold">รหัสวิชา</Label>
+              <Input
+                id="room-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="เช่น CS401"
+                className="h-10 rounded-xl"
+              />
             </div>
           )}
-          <div className="space-y-1">
-            <Label htmlFor="room-name">{isClub ? 'ชื่อห้อง' : 'ชื่อวิชา'}</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="room-name" className="text-xs font-semibold">{isClub ? 'ชื่อห้อง' : 'ชื่อวิชา'}</Label>
             <Input
               id="room-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={isClub ? 'เช่น ติวเลข 1 ก่อนสอบ' : 'เช่น Software Engineering'}
+              className="h-10 rounded-xl"
             />
           </div>
-          <div className="space-y-1">
-            <Label htmlFor="room-desc">คำอธิบาย (ไม่บังคับ)</Label>
-            <Input id="room-desc" value={description} onChange={(e) => setDescription(e.target.value)} />
+          <div className="space-y-1.5">
+            <Label htmlFor="room-desc" className="text-xs font-semibold">คำอธิบาย (ไม่บังคับ)</Label>
+            <Input
+              id="room-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="คำอธิบายสั้น ๆ เกี่ยวกับห้องนี้"
+              className="h-10 rounded-xl"
+            />
           </div>
         </div>
-        <DialogFooter>
+        <DialogFooter className="pt-2 sm:justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => {
+              reset()
+              onClose()
+            }}
+          >
+            ยกเลิก
+          </Button>
           <Button
             disabled={disabled}
+            className="rounded-xl bg-pink-600 text-white hover:bg-pink-700"
             onClick={() =>
               create.mutate(
                 {
