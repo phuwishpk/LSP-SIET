@@ -1121,24 +1121,26 @@ def storage_path(filename: str) -> str:
 
 async def _extract_text(doc: Dict[str, Any]) -> tuple[str, str]:
     """Return ``(title, text)`` extracted from the document's payload."""
-    from content_core import extract_content
+    from content_core import ContentCoreError, extract_content
 
     kind = doc.get("kind")
     if kind == "text":
         # Pasted text is handed to ingest_document() directly via raw_text.
         raise LibraryError("เนื้อหาว่างเปล่า")
 
-    state: Dict[str, Any] = {"output_format": "markdown"}
-    if kind == "url":
-        state["url"] = doc["file_path"]
-    else:
-        state["file_path"] = doc["file_path"]
-        state["document_engine"] = "auto"
-
-    processed = await extract_content(state)
+    # content-core 2.x: keyword-only arguments, and failures raise instead of
+    # returning a title="Error" result.
+    try:
+        if kind == "url":
+            processed = await extract_content(url=doc["file_path"])
+        else:
+            processed = await extract_content(file_path=doc["file_path"])
+    except ContentCoreError as exc:
+        logger.warning(f"library: extraction failed for document {doc.get('id')}: {exc}")
+        raise LibraryError(
+            "อ่านเนื้อหาจากไฟล์/ลิงก์นี้ไม่ได้ ลองไฟล์อื่นหรือแปลงเป็น PDF ที่มีข้อความ"
+        ) from exc
     content = (processed.content or "").strip()
-    if processed.title == "Error" and content.startswith("Failed to extract content:"):
-        raise LibraryError("อ่านเนื้อหาจากไฟล์/ลิงก์นี้ไม่ได้ ลองไฟล์อื่นหรือแปลงเป็น PDF ที่มีข้อความ")
     if not content:
         raise LibraryError(
             "ไม่พบข้อความในเอกสารนี้ (ถ้าเป็น PDF สแกนต้องทำ OCR ก่อน)"
