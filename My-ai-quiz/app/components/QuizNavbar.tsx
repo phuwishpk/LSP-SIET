@@ -1,46 +1,22 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { getWorkspaceUrl } from '../lib/workspace';
-
-interface UserProfile {
-  username?: string;
-  display_name?: string;
-  email?: string;
-  avatar_url?: string;
-  role?: string;
-  points_balance?: number;
-}
+import { useWorkspace } from '../lib/useWorkspace';
 
 export function QuizNavbar() {
   const [draft, setDraft] = useState('');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
   const [walletOpen, setWalletOpen] = useState(false);
-  const [user, setUser] = useState<UserProfile>({
-    username: 'test1',
-    display_name: 'test1',
-    role: 'student',
-    points_balance: 22,
-  });
+  const { status, me } = useWorkspace();
+  const user = me?.user;
 
   const workspaceUrl = getWorkspaceUrl();
 
-  useEffect(() => {
-    try {
-      const storedAuth = localStorage.getItem('auth-storage');
-      if (storedAuth) {
-        const parsed = JSON.parse(storedAuth);
-        if (parsed?.state?.user) {
-          setUser(parsed.state.user);
-        }
-      }
-    } catch {
-      // ignore parsing error
-    }
-  }, []);
-
-  const displayName = user.display_name || user.username || 'User';
-  const displayInitial = (displayName[0] || 'T').toUpperCase();
+  const displayName =
+    user?.display_name || user?.username || (status === 'signed-out' ? 'ยังไม่ได้เข้าสู่ระบบ' : '…');
+  const displayInitial = (user ? displayName[0] : '?').toUpperCase();
+  const balance = me ? me.balance : '—';
 
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,7 +88,7 @@ export function QuizNavbar() {
                 <circle cx="8" cy="8" r="6" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M18 12a6 6 0 10-6 6" />
               </svg>
-              <span className="tabular-nums font-bold">{user.points_balance ?? 22}</span>
+              <span className="tabular-nums font-bold">{balance}</span>
               <span className="max-sm:hidden">PT</span>
             </button>
 
@@ -120,11 +96,11 @@ export function QuizNavbar() {
               <div className="absolute right-0 mt-2 w-80 rounded-2xl border border-slate-200 bg-white p-4 shadow-xl z-50 text-slate-800">
                 <p className="text-xs font-bold uppercase tracking-wider text-slate-400">Points Wallet</p>
                 <div className="mt-2 flex items-baseline justify-between border-b border-slate-100 pb-3">
-                  <span className="text-3xl font-extrabold text-slate-900 tabular-nums">{user.points_balance ?? 22}</span>
+                  <span className="text-3xl font-extrabold text-slate-900 tabular-nums">{balance}</span>
                   <span className="text-xs text-amber-600 font-semibold bg-amber-50 px-2 py-0.5 rounded-full">SIET Points</span>
                 </div>
                 <div className="mt-3 space-y-2 text-xs text-slate-600">
-                  <p>• ใช้สำหรับสร้างควิซ AI และฟีเจอร์ขั้นสูง</p>
+                  <p>• ใช้สำหรับสร้างควิซ AI และฟีเจอร์ขั้นสูง{me?.exempt ? ' (อาจารย์/ผู้ดูแลไม่ถูกตัดแต้ม)' : ''}</p>
                   <p>• รับแต้มเพิ่มได้จากการร่วมตอบคำถามในคอมมูนิตี้</p>
                 </div>
               </div>
@@ -174,7 +150,7 @@ export function QuizNavbar() {
                       {displayName}
                     </p>
                     <p className="mt-0.5 truncate text-xs text-slate-500">
-                      {user.email || `@${user.username || 'test1'}`}
+                      {user ? user.email || `@${user.username}` : 'เปิดแอปนี้จาก SIET Space เพื่อเข้าสู่ระบบ'}
                     </p>
                   </div>
                 </div>

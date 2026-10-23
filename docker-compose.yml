@@ -203,7 +203,6 @@ services:
       - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
       - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
       - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
-      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY:-}
       - NODE_ENV=production
     networks:
       - kmitlai_default

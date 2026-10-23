@@ -4,6 +4,19 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { QuizNavbar } from './QuizNavbar';
+import { api, ApiError, getWorkspaceUrl } from '../lib/workspace';
+import { refreshWorkspace, setBalance, useWorkspace } from '../lib/useWorkspace';
+import {
+  AUTO,
+  FILES,
+  MAX_PICKED_FILES,
+  NONE,
+  PERSONAL,
+  loadKnowledgeOptions,
+  scopeFields,
+  type KnowledgeFile,
+  type KnowledgeGroup,
+} from '../lib/knowledge';
 import {
   IconGraduationCap,
   IconSparkles,
@@ -23,11 +36,16 @@ export function SoloQuizSetup() {
   const searchParams = useSearchParams();
   const isQuick = searchParams.get('quick') === 'true';
 
+  const { status: workspaceStatus, me } = useWorkspace();
+
   // Solo Config States
-  const [subject, setSubject] = useState('[CS101] สถาปัตยกรรมระบบปฏิบัติการ (Operating Systems)');
-  const [selectedTopic, setSelectedTopic] = useState('Synchronization & Mutex (แนะนำ)');
-  const [customTopic, setCustomTopic] = useState('');
-  const [isCustomTopicOpen, setIsCustomTopicOpen] = useState(false);
+  // Knowledge source: the same picker as the AI Roadmap app (see lib/knowledge.ts).
+  const [source, setSource] = useState(AUTO);
+  const [groups, setGroups] = useState<KnowledgeGroup[]>([]);
+  const [files, setFiles] = useState<KnowledgeFile[]>([]);
+  const [picked, setPicked] = useState<string[]>([]);
+  const [fileFilter, setFileFilter] = useState('');
+  const [topic, setTopic] = useState('');
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [timerMode, setTimerMode] = useState<'standard' | 'speed' | 'zen'>('standard');
@@ -39,67 +57,95 @@ export function SoloQuizSetup() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    const qSubject = searchParams.get('subject');
+    // "ทบทวนจุดอ่อน" links back here with the topic of an earlier set.
     const qTopic = searchParams.get('topic');
-
-    if (qSubject) {
-      setSubject(decodeURIComponent(qSubject));
-    }
     if (qTopic) {
-      setSelectedTopic(decodeURIComponent(qTopic));
-    } else if (isQuick) {
-      setSubject('[CS101] สถาปัตยกรรมระบบปฏิบัติการ (Operating Systems)');
-      setSelectedTopic('Synchronization & Mutex (แนะนำ)');
+      setTopic(qTopic);
+    }
+    if (isQuick) {
       setDifficulty('medium');
       setQuestionCount(5);
     }
   }, [isQuick, searchParams]);
 
-  const getCreditCost = (count: number) => {
-    switch (count) {
-      case 3:
-        return 3;
-      case 5:
-        return 4;
-      case 10:
-        return 8;
-      case 15:
-        return 12;
-      default:
-        return 4;
+  useEffect(() => {
+    if (workspaceStatus !== 'ready') return;
+    let alive = true;
+    loadKnowledgeOptions().then((loaded) => {
+      if (!alive) return;
+      setGroups(loaded.groups);
+      setFiles(loaded.files);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [workspaceStatus]);
+
+  // The system's price and the user's points (staff are not charged).
+  const cost = Number(me?.costs?.quiz_generate ?? 8);
+  const exempt = Boolean(me?.exempt);
+  const balance = me?.balance ?? 0;
+  const missing = exempt ? 0 : Math.max(0, cost - balance);
+  const signedOut = workspaceStatus === 'signed-out';
+
+  const sourceLabel = (() => {
+    if (source === NONE) return 'ไม่ใช้คลังความรู้';
+    if (source === AUTO) return 'ทุกคลังที่ฉันเห็นได้';
+    if (source === PERSONAL) return 'ไฟล์ของฉันทั้งหมด';
+    if (source === FILES) return picked.length ? `ไฟล์ที่เลือก ${picked.length} ไฟล์` : 'ไฟล์ที่เลือก';
+    for (const group of groups) {
+      const found = group.options.find((option) => option.value === source);
+      if (found) return found.label;
     }
-  };
+    return 'คลังความรู้';
+  })();
+  const specificSource = source !== NONE && source !== AUTO;
+  const overviewTopic = `ภาพรวมเนื้อหาทั้งหมดใน${sourceLabel}`;
+
+  const pickLimit = MAX_PICKED_FILES;
+  const shownFiles = fileFilter.trim()
+    ? files.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(fileFilter.trim().toLowerCase()))
+    : files;
+  const togglePicked = (value: string) =>
+    setPicked((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : current.length >= pickLimit
+        ? current
+        : [...current, value]
+    );
+
+  const canStart =
+    !loading &&
+    !signedOut &&
+    workspaceStatus === 'ready' &&
+    topic.trim().length > 0 &&
+    missing === 0 &&
+    !(source === FILES && picked.length === 0);
 
   const handleStartQuiz = async () => {
+    if (!canStart) return;
     setLoading(true);
     setErrorMessage(null);
 
-    const targetTopic = isCustomTopicOpen && customTopic.trim() ? customTopic.trim() : selectedTopic;
+    const targetTopic = topic.trim();
+    const subject = sourceLabel;
 
     try {
-      const res = await fetch('/quiz/api/generate-quiz', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          subject,
-          topic: targetTopic,
-          difficulty,
-          count: questionCount,
-          questionCount,
-          timerMode,
-          questionType,
-          adaptiveAi,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP error! status: ${res.status}`);
-      }
-
-      const data = await res.json();
+      const data = await api<{ session_id?: string; balance?: number; questions?: unknown[]; quiz?: unknown[] }>(
+        'generate-quiz',
+        {
+          method: 'POST',
+          json: {
+            topic: targetTopic,
+            difficulty,
+            count: questionCount,
+            questionType,
+            ...scopeFields(source, picked),
+          },
+        }
+      );
+      setBalance(data?.balance);
       const questionsList = data?.questions || data?.quiz;
 
       if (Array.isArray(questionsList) && questionsList.length > 0) {
@@ -129,6 +175,8 @@ export function SoloQuizSetup() {
         });
 
         const sessionPayload = {
+          // The set saved in SIET Space (its quiz sessions).
+          sessionId: data?.session_id ?? null,
           subject,
           topic: targetTopic,
           difficulty,
@@ -149,8 +197,15 @@ export function SoloQuizSetup() {
       }
     } catch (err: unknown) {
       console.error('Quiz Generation Error:', err);
-      const message = err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI';
-      setErrorMessage(message);
+      if (err instanceof ApiError && err.status === 402) {
+        void refreshWorkspace();
+        setErrorMessage(`แต้มไม่พอ ต้องใช้ ${err.headers?.get('x-points-required') ?? cost} แต้ม (มี ${err.headers?.get('x-points-balance') ?? balance} แต้ม)`);
+      } else if (err instanceof ApiError && err.status === 401) {
+        void refreshWorkspace();
+        setErrorMessage(err.message);
+      } else {
+        setErrorMessage(err instanceof Error ? err.message : 'เกิดข้อผิดพลาดในการเชื่อมต่อกับ AI');
+      }
     } finally {
       setLoading(false);
     }
@@ -192,6 +247,25 @@ export function SoloQuizSetup() {
             </Link>
           </div>
 
+          {/* Not signed in: this app works with the SIET Space account */}
+          {signedOut && (
+            <div className="mx-6 sm:mx-8 mt-6 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 text-xs sm:text-sm flex items-start gap-3">
+              <div className="p-1 rounded-full bg-amber-100 text-amber-700 mt-0.5">
+                <IconShieldCheck className="w-3.5 h-3.5" />
+              </div>
+              <div>
+                <p className="font-bold">ยังไม่ได้เข้าสู่ระบบ</p>
+                <p className="mt-0.5">
+                  เปิดแอปนี้จากเมนู “แอป AI Quiz” ใน{' '}
+                  <a href={`${getWorkspaceUrl()}/community`} className="font-bold underline">
+                    SIET Space
+                  </a>{' '}
+                  เพื่อใช้แต้มและคลังความรู้ของบัญชีคุณ
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Error Banner */}
           {errorMessage && (
             <div className="mx-6 sm:mx-8 mt-6 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-xs sm:text-sm flex items-start gap-3">
@@ -207,33 +281,34 @@ export function SoloQuizSetup() {
 
           {/* Form Section */}
           <div className="p-6 sm:p-8 space-y-8">
-            {/* 1. เลือกวิชาหลัก */}
+            {/* 1. แหล่งความรู้ (the same picker as the AI Roadmap app) */}
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <label htmlFor="quiz-source" className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">1</span>
-                <span>เลือกวิชาหลัก</span>
+                <span>แหล่งความรู้</span>
+                <span className="font-normal text-slate-400">(ไม่บังคับ)</span>
               </label>
               <div className="relative">
                 <select
-                  value={subject}
-                  onChange={(e) => setSubject(e.target.value)}
+                  id="quiz-source"
+                  value={source}
+                  onChange={(e) => setSource(e.target.value)}
+                  disabled={loading}
                   className="w-full appearance-none rounded-2xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 px-4 py-3.5 text-sm font-semibold text-slate-800 outline-none transition-all focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/15 cursor-pointer shadow-2xs"
                 >
-                  <option value="[CS101] สถาปัตยกรรมระบบปฏิบัติการ (Operating Systems)">
-                    [CS101] สถาปัตยกรรมระบบปฏิบัติการ (Operating Systems)
-                  </option>
-                  <option value="[CS102] โครงสร้างข้อมูลและอัลกอริทึม (Data Structures & Algorithms)">
-                    [CS102] โครงสร้างข้อมูลและอัลกอริทึม (Data Structures & Algorithms)
-                  </option>
-                  <option value="[CS103] เครือข่ายคอมพิวเตอร์ (Computer Networks)">
-                    [CS103] เครือข่ายคอมพิวเตอร์ (Computer Networks)
-                  </option>
-                  <option value="[CS104] ปัญญาประดิษฐ์เบื้องต้น (Introduction to AI)">
-                    [CS104] ปัญญาประดิษฐ์เบื้องต้น (Introduction to AI)
-                  </option>
-                  <option value="[SWE] วิศวกรรมซอฟต์แวร์และการออกแบบระบบ (Software Engineering)">
-                    [SWE] วิศวกรรมซอฟต์แวร์และการออกแบบระบบ (Software Engineering)
-                  </option>
+                  <option value={NONE}>ไม่ใช้คลังความรู้ (ใช้ความรู้ของ AI)</option>
+                  <option value={AUTO}>อัตโนมัติ (ทุกคลังที่ฉันเห็นได้)</option>
+                  <option value={PERSONAL}>ไฟล์ของฉันทั้งหมด</option>
+                  {files.length > 0 && <option value={FILES}>เลือกไฟล์เอง (เลือกได้หลายไฟล์)</option>}
+                  {groups.map((group) => (
+                    <optgroup key={group.label} label={group.label}>
+                      {group.options.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-slate-400">
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -241,62 +316,88 @@ export function SoloQuizSetup() {
                   </svg>
                 </div>
               </div>
+              <p className="text-xs text-slate-500">
+                {source === NONE
+                  ? 'AI สร้างโจทย์จากความรู้ทั่วไปของตัวเอง'
+                  : 'AI อ่านเนื้อหาที่ตรงกับหัวข้อจากคลังที่เลือก แล้วสร้างโจทย์จากเนื้อหานั้น'}
+              </p>
+
+              {source === FILES && (
+                <div className="space-y-2">
+                  {files.length > 8 && (
+                    <input
+                      type="text"
+                      placeholder="ค้นหาไฟล์…"
+                      value={fileFilter}
+                      onChange={(e) => setFileFilter(e.target.value)}
+                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-2.5 text-sm text-slate-800 outline-none focus:border-rose-500 focus:ring-2 focus:ring-rose-500/15"
+                    />
+                  )}
+                  <ul className="max-h-64 overflow-y-auto rounded-2xl border border-slate-200 bg-white p-1.5">
+                    {shownFiles.map((item) => {
+                      const checked = picked.includes(item.value);
+                      return (
+                        <li key={item.value}>
+                          <label
+                            className={`flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 text-sm transition-colors ${
+                              checked ? 'bg-rose-50/60' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => togglePicked(item.value)}
+                              disabled={loading || (!checked && picked.length >= pickLimit)}
+                              className="h-4 w-4 accent-rose-600"
+                            />
+                            <span className="min-w-0 flex-1 truncate font-medium text-slate-800">{item.label}</span>
+                            <span className="shrink-0 text-xs text-slate-400">{item.meta}</span>
+                          </label>
+                        </li>
+                      );
+                    })}
+                    {shownFiles.length === 0 && <li className="px-3 py-2 text-xs text-slate-400">ไม่พบไฟล์ที่ตรงกับคำค้น</li>}
+                  </ul>
+                  <p className="text-xs text-slate-500">
+                    {picked.length > 0
+                      ? `เลือกแล้ว ${picked.length} ไฟล์${picked.length >= pickLimit ? ` (สูงสุด ${pickLimit} ไฟล์)` : ''}`
+                      : 'เลือกอย่างน้อย 1 ไฟล์'}
+                  </p>
+                </div>
+              )}
             </div>
 
             {/* 2. หัวข้อเฉพาะเจาะจง */}
             <div className="space-y-2.5">
-              <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+              <label htmlFor="quiz-topic" className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">2</span>
                 <span>หัวข้อเฉพาะเจาะจง</span>
               </label>
-              <div className="flex flex-wrap gap-2.5">
-                {[
-                  'ทั้งหมดในวิชา',
-                  'Process & Thread',
-                  'Synchronization & Mutex (แนะนำ)',
-                  'Memory Management',
-                ].map((topic) => {
-                  const isSelected = !isCustomTopicOpen && selectedTopic === topic;
-                  return (
-                    <button
-                      key={topic}
-                      type="button"
-                      onClick={() => {
-                        setIsCustomTopicOpen(false);
-                        setSelectedTopic(topic);
-                      }}
-                      className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer active:scale-95 ${
-                        isSelected
-                          ? 'bg-rose-600 text-white shadow-xs'
-                          : 'bg-white text-slate-600 border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50'
-                      }`}
-                    >
-                      {topic}
-                    </button>
-                  );
-                })}
-
-                <button
-                  type="button"
-                  onClick={() => setIsCustomTopicOpen(!isCustomTopicOpen)}
-                  className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold border transition-all cursor-pointer active:scale-95 ${
-                    isCustomTopicOpen
-                      ? 'border-rose-500 bg-rose-50 text-rose-700'
-                      : 'border-dashed border-slate-300 text-slate-600 hover:border-rose-400 hover:text-rose-600'
-                  }`}
-                >
-                  พิมพ์หัวข้อเอง +
-                </button>
-              </div>
-
-              {isCustomTopicOpen && (
-                <input
-                  type="text"
-                  placeholder="พิมพ์หัวข้อย่อยที่คุณต้องการให้ AI เจาะจง..."
-                  value={customTopic}
-                  onChange={(e) => setCustomTopic(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-rose-300 bg-rose-50/20 px-4 py-3 text-sm font-medium text-slate-800 outline-none transition focus:border-rose-500 focus:bg-white focus:ring-2 focus:ring-rose-500/15 animate-in fade-in"
-                />
+              <input
+                id="quiz-topic"
+                type="text"
+                maxLength={500}
+                placeholder="เช่น Synchronization & Mutex, Normalization, แบบจำลอง OSI"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                disabled={loading}
+                className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-800 outline-none transition focus:border-rose-500 focus:ring-2 focus:ring-rose-500/15"
+              />
+              {specificSource && (
+                <div className="flex flex-wrap gap-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setTopic(overviewTopic)}
+                    disabled={loading}
+                    className={`px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-150 cursor-pointer active:scale-95 ${
+                      topic === overviewTopic
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'bg-white text-slate-600 border border-slate-200/90 hover:border-slate-300 hover:bg-slate-50'
+                    }`}
+                  >
+                    ทั้งหมดในแหล่งที่เลือก
+                  </button>
+                </div>
               )}
             </div>
 
@@ -444,9 +545,9 @@ export function SoloQuizSetup() {
               </label>
               <div className="grid grid-cols-3 gap-3">
                 {[
-                  { count: 3, label: '3 ข้อ', sub: 'ซ้อมด่วน · 3 แต้ม' },
-                  { count: 5, label: '5 ข้อ', sub: 'แนะนำ · 4 แต้ม' },
-                  { count: 10, label: '10 ข้อ', sub: 'เต็มชุด · 8 แต้ม' },
+                  { count: 3, label: '3 ข้อ', sub: 'ซ้อมด่วน' },
+                  { count: 5, label: '5 ข้อ', sub: 'แนะนำ' },
+                  { count: 10, label: '10 ข้อ', sub: 'เต็มชุด' },
                 ].map((item) => {
                   const isSelected = questionCount === item.count;
                   return (
@@ -470,7 +571,21 @@ export function SoloQuizSetup() {
               <div className="flex items-center gap-2 rounded-xl bg-amber-50/80 border border-amber-200/80 px-3.5 py-2.5 text-xs text-amber-900 font-medium shadow-2xs">
                 <IconZap className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>
-                  การสร้างควิซชุดนี้จะใช้ <strong>{getCreditCost(questionCount)} แต้ม</strong> (คุณมีแต้มคงเหลือ 22 แต้ม)
+                  {exempt ? (
+                    <>สร้างควิซได้โดยไม่ตัดแต้ม (อาจารย์/ผู้ดูแล)</>
+                  ) : (
+                    <>
+                      การสร้างควิซชุดนี้จะใช้ <strong>{cost} แต้ม</strong> ไม่ว่าจะกี่ข้อ (คุณมีแต้มคงเหลือ {me ? balance : '—'} แต้ม)
+                      {missing > 0 && (
+                        <>
+                          {' '}· ขาดอีก {missing} แต้ม รับแต้มเพิ่มได้จากการโพสต์และช่วยตอบใน{' '}
+                          <a href={`${getWorkspaceUrl()}/community`} className="font-bold underline">
+                            SIET Space
+                          </a>
+                        </>
+                      )}
+                    </>
+                  )}
                 </span>
               </div>
             </div>
@@ -504,7 +619,7 @@ export function SoloQuizSetup() {
             {/* Start Quiz Button */}
             <button
               type="button"
-              disabled={loading}
+              disabled={!canStart}
               onClick={handleStartQuiz}
               className="w-full sm:w-auto px-8 py-3.5 rounded-2xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-400 text-white font-extrabold text-sm tracking-wide transition-all shadow-md shadow-rose-600/25 active:scale-95 cursor-pointer text-center flex items-center justify-center gap-2 group"
             >
@@ -514,11 +629,11 @@ export function SoloQuizSetup() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
                   </svg>
-                  <span>AI กำลังสร้างโจทย์...</span>
+                  <span>AI กำลังอ่านแหล่งความรู้และสร้างโจทย์...</span>
                 </>
               ) : (
                 <>
-                  <span>เริ่มทำแบบทดสอบ · {getCreditCost(questionCount)} แต้ม</span>
+                  <span>{exempt ? 'เริ่มทำแบบทดสอบ' : `เริ่มทำแบบทดสอบ · ${cost} แต้ม`}</span>
                   <IconArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </>
               )}
