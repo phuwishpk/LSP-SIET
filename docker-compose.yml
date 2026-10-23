@@ -190,11 +190,11 @@ services:
       - "traefik.enable=false"
 
   # ---------------------------------------------------------------------------
-  # My-ai-quiz (Next.js) – talks to open_notebook_api for AI features
+  # my-ai-quiz (Next.js) – talks to open_notebook_api for AI features
   # ---------------------------------------------------------------------------
   my_ai_quiz:
     build:
-      context: ./My-ai-quiz
+      context: ./my-ai-quiz
       dockerfile: Dockerfile
     image: kmitlai/my-ai-quiz:local
     container_name: kmitl_my_ai_quiz

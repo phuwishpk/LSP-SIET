@@ -13,6 +13,9 @@ import {
   IconArrowRight,
   IconCheckCircle2,
   IconShieldCheck,
+  IconListFilter,
+  IconPenLine,
+  IconLink2,
 } from './ui/Icons';
 
 export function SoloQuizSetup() {
@@ -28,6 +31,7 @@ export function SoloQuizSetup() {
   const [difficulty, setDifficulty] = useState<'easy' | 'medium' | 'hard'>('medium');
   const [questionCount, setQuestionCount] = useState<number>(5);
   const [timerMode, setTimerMode] = useState<'standard' | 'speed' | 'zen'>('standard');
+  const [questionType, setQuestionType] = useState<'mixed' | 'mcq' | 'fill' | 'matching'>('mixed');
   const [adaptiveAi, setAdaptiveAi] = useState(true);
 
   // Loading & Error States
@@ -35,13 +39,21 @@ export function SoloQuizSetup() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (isQuick) {
+    const qSubject = searchParams.get('subject');
+    const qTopic = searchParams.get('topic');
+
+    if (qSubject) {
+      setSubject(decodeURIComponent(qSubject));
+    }
+    if (qTopic) {
+      setSelectedTopic(decodeURIComponent(qTopic));
+    } else if (isQuick) {
       setSubject('[CS101] สถาปัตยกรรมระบบปฏิบัติการ (Operating Systems)');
       setSelectedTopic('Synchronization & Mutex (แนะนำ)');
       setDifficulty('medium');
       setQuestionCount(5);
     }
-  }, [isQuick]);
+  }, [isQuick, searchParams]);
 
   const getCreditCost = (count: number) => {
     switch (count) {
@@ -65,7 +77,7 @@ export function SoloQuizSetup() {
     const targetTopic = isCustomTopicOpen && customTopic.trim() ? customTopic.trim() : selectedTopic;
 
     try {
-      const res = await fetch('/api/generate-quiz', {
+      const res = await fetch('/quiz/api/generate-quiz', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,8 +86,10 @@ export function SoloQuizSetup() {
           subject,
           topic: targetTopic,
           difficulty,
+          count: questionCount,
           questionCount,
           timerMode,
+          questionType,
           adaptiveAi,
         }),
       });
@@ -86,14 +100,40 @@ export function SoloQuizSetup() {
       }
 
       const data = await res.json();
+      const questionsList = data?.questions || data?.quiz;
 
-      if (data && data.questions && Array.isArray(data.questions)) {
+      if (Array.isArray(questionsList) && questionsList.length > 0) {
+        const formattedQuestions = questionsList.map((q: any, qIdx: number) => {
+          const type = q.type || (q.matchingPairs ? 'matching' : q.options ? 'mcq' : 'fill');
+          
+          let correctIdx = 0;
+          if (type === 'mcq' && q.options) {
+            if (typeof q.correctAnswer === 'number') {
+              correctIdx = q.correctAnswer;
+            } else if (typeof q.correctAnswer === 'string') {
+              const foundIdx = q.options.findIndex((opt: string) => opt.trim() === q.correctAnswer.trim());
+              correctIdx = foundIdx !== -1 ? foundIdx : 0;
+            }
+          }
+
+          return {
+            id: q.id || qIdx + 1,
+            type: type,
+            question: q.question,
+            options: q.options || [],
+            correctAnswer: type === 'mcq' ? correctIdx : q.correctAnswer,
+            acceptableAnswers: q.acceptableAnswers || (q.correctAnswer ? [String(q.correctAnswer)] : []),
+            matchingPairs: q.matchingPairs || [],
+            explanation: q.explanation || 'คำตอบที่ถูกต้องตามหลักวิชาการ',
+          };
+        });
+
         const sessionPayload = {
           subject,
           topic: targetTopic,
           difficulty,
           timerMode,
-          questions: data.questions,
+          questions: formattedQuestions,
           currentIndex: 0,
           score: 0,
           startTime: Date.now(),
@@ -133,13 +173,13 @@ export function SoloQuizSetup() {
               <div>
                 <div className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 mb-1">
                   <IconSparkles className="w-3 h-3 text-rose-600" />
-                  <span>AI Adaptive Quiz</span>
+                  <span>AI Multi-format Quiz Engine</span>
                 </div>
                 <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
                   ตั้งค่าชุดข้อสอบจำลอง
                 </h1>
                 <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-                  ปรับแต่งเนื้อหา ระดับความท้าทาย และระบบจับเวลาตามที่คุณต้องการ
+                  ปรับแต่งรูปแบบข้อสอบ (ปรนัย, เติมคำ, จับคู่) ระดับความท้าทาย และระบบจับเวลา
                 </p>
               </div>
             </div>
@@ -260,10 +300,56 @@ export function SoloQuizSetup() {
               )}
             </div>
 
-            {/* 3. ระดับความยาก */}
+            {/* NEW 3: รูปแบบข้อสอบ (Question Types) */}
             <div className="space-y-2.5">
               <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">3</span>
+                <span>รูปแบบข้อสอบที่ต้องการ</span>
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  { id: 'mixed', label: 'ผสมผสาน (แนะนำ)', sub: 'รวมทุกรูปแบบ', icon: IconSparkles },
+                  { id: 'mcq', label: 'ปรนัย (4 ตัวเลือก)', sub: 'แบบเลือกตอบ A B C D', icon: IconListFilter },
+                  { id: 'fill', label: 'เติมคำในช่องว่าง', sub: 'พิมพ์คำตอบสั้นๆ', icon: IconPenLine },
+                  { id: 'matching', label: 'จับคู่คำศัพท์', sub: 'จับคู่ความหมาย/คุณสมบัติ', icon: IconLink2 },
+                ].map((item) => {
+                  const isSelected = questionType === item.id;
+                  const Icon = item.icon;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => setQuestionType(item.id as any)}
+                      className={`p-3.5 rounded-2xl border text-left transition-all duration-150 flex flex-col justify-between gap-1.5 cursor-pointer active:scale-95 ${
+                        isSelected
+                          ? 'border-2 border-rose-500 bg-rose-50/60 shadow-xs'
+                          : 'border-slate-200/90 bg-white hover:border-slate-300 hover:bg-slate-50/70'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className={`p-1.5 rounded-lg ${isSelected ? 'bg-rose-100 text-rose-700' : 'bg-slate-100 text-slate-600'}`}>
+                          <Icon className="w-4 h-4" />
+                        </div>
+                        {item.id === 'mixed' && (
+                          <span className="text-[10px] font-extrabold uppercase px-1.5 py-0.5 rounded-md bg-rose-100 text-rose-700">HOT</span>
+                        )}
+                      </div>
+                      <div>
+                        <p className={`text-xs font-bold leading-tight ${isSelected ? 'text-rose-900' : 'text-slate-800'}`}>
+                          {item.label}
+                        </p>
+                        <p className="text-[11px] text-slate-400 mt-0.5 leading-snug">{item.sub}</p>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 4. ระดับความยาก */}
+            <div className="space-y-2.5">
+              <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">4</span>
                 <span>ระดับความยาก</span>
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
@@ -318,10 +404,10 @@ export function SoloQuizSetup() {
               </div>
             </div>
 
-            {/* 4. โหมดจับเวลา (Timer Mode) */}
+            {/* 5. โหมดจับเวลา (Timer Mode) */}
             <div className="space-y-2.5">
               <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">4</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">5</span>
                 <span>โหมดเวลา (Timer Mode)</span>
               </label>
               <div className="grid grid-cols-3 gap-3">
@@ -350,10 +436,10 @@ export function SoloQuizSetup() {
               </div>
             </div>
 
-            {/* 5. จำนวนคำถาม & แต้ม */}
+            {/* 6. จำนวนคำถาม & แต้ม */}
             <div className="space-y-2.5">
               <label className="flex items-center gap-2 text-sm font-bold text-slate-800">
-                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">5</span>
+                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-900 text-[11px] font-bold text-white">6</span>
                 <span>จำนวนข้อสอบ & แต้ม</span>
               </label>
               <div className="grid grid-cols-3 gap-3">

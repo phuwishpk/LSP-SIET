@@ -32,7 +32,6 @@ import { OwlMascot } from '@siet/kmitl-rag/components/common/OwlMascot'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { AnswerReferences } from '@siet/kmitl-rag/components/community/AnswerReferences'
 import { AskHistoryPanel } from '@siet/kmitl-rag/components/community/AskHistoryPanel'
-import { CommunityHeader } from '@siet/platform/components/community/CommunityHeader'
 import { UploadCard } from '@siet/platform/components/community/LibraryPanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
@@ -104,7 +103,7 @@ export default function AskPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex min-h-screen items-center justify-center">
+        <div className="flex min-h-full items-center justify-center">
           <LoadingSpinner />
         </div>
       }
@@ -348,12 +347,6 @@ function AskContent() {
 
   return (
     <div className="theme-adventure min-h-screen bg-canvas">
-      <CommunityHeader
-        query=""
-        onSearch={(q) => router.push(q ? `/community?q=${encodeURIComponent(q)}` : '/community')}
-        onOpenPost={(id) => router.push(`/community?post=${id}`)}
-        onHome={() => router.push('/community')}
-      />
 
       <div className="mx-auto max-w-[1200px] px-3 py-4 sm:px-4">
         <div className="mb-3 flex flex-wrap items-center gap-2">

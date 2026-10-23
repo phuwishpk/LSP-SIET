@@ -110,9 +110,9 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showCloseButton={false}
-        className="community-theme max-h-[min(92dvh,900px)] w-[calc(100%-1.25rem)] max-w-[520px] gap-0 overflow-hidden rounded-2xl border-pink-100 bg-white p-0 shadow-md dark:bg-card sm:w-[calc(100%-2rem)]"
+        className="community-theme max-h-[92vh] w-full max-w-lg sm:max-w-xl gap-0 overflow-hidden rounded-2xl border border-pink-100 bg-white p-0 shadow-xl dark:bg-card"
       >
-        <header className="relative flex items-center justify-center border-b border-pink-100 px-12 py-4">
+        <header className="relative flex items-center justify-center border-b border-pink-100 px-6 py-3">
           <DialogTitle className="text-base font-semibold">แชร์โพสต์</DialogTitle>
           <Button
             type="button"
@@ -120,13 +120,13 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
             size="icon"
             aria-label="ปิดหน้าต่างแชร์โพสต์"
             onClick={() => onOpenChange(false)}
-            className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-pink-100 text-pink-600 hover:bg-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:hover:bg-pink-900/50"
+            className="absolute right-3 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full bg-pink-100 text-pink-600 hover:bg-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:hover:bg-pink-900/50"
           >
             <X className="h-4 w-4" />
           </Button>
         </header>
 
-        <div className="no-scrollbar max-h-[calc(min(92dvh,900px)-140px)] space-y-3 overflow-x-hidden overflow-y-auto px-4 py-4 sm:px-5">
+        <div className="no-scrollbar max-h-[calc(92vh-60px)] space-y-2.5 overflow-x-hidden overflow-y-auto px-4 py-3 sm:px-5">
           <div className="flex items-center gap-3">
             <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
             <div className="min-w-0 flex-1">
@@ -202,14 +202,14 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
             placeholder="พูดอะไรเกี่ยวกับโพสต์นี้..."
             rows={2}
             maxLength={2000}
-            className="min-h-20 resize-none rounded-xl border-pink-100 bg-[#F7F7F9] text-sm shadow-none focus-visible:ring-pink-300 dark:border-border dark:bg-zinc-800/60"
+            className="min-h-16 resize-none rounded-xl border-pink-100 bg-[#F7F7F9] px-3 py-2 text-xs sm:text-sm shadow-none focus-visible:ring-pink-300 dark:border-border dark:bg-zinc-800/60"
           />
 
           <OriginalPostPreview post={post} />
 
-          <div className="space-y-2">
-            <h3 className="text-xs font-medium text-muted-foreground">ตัวเลือกแชร์เร็ว</h3>
-            <div className="grid grid-cols-2 gap-2">
+          <div className="space-y-1.5">
+            <h3 className="text-[11px] font-medium text-muted-foreground">ตัวเลือกแชร์เร็ว</h3>
+            <div className="grid grid-cols-2 gap-1.5">
               <QuickAction
                 icon={<Sparkles className="h-4 w-4" />}
                 active={audience === 'public'}
@@ -253,7 +253,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
             type="button"
             disabled={share.isPending}
             onClick={submitShare}
-            className="h-10 w-full rounded-xl bg-pink-500 text-sm font-semibold text-white hover:bg-pink-600"
+            className="h-9 w-full rounded-xl bg-pink-500 text-xs sm:text-sm font-semibold text-white hover:bg-pink-600"
           >
             <Send className="mr-2 h-4 w-4" />
             {share.isPending ? 'กำลังแชร์…' : 'แชร์เลย'}
@@ -288,7 +288,7 @@ function AudienceButton({
       aria-selected={active}
       onClick={onClick}
       className={cn(
-        'flex min-h-9 items-center justify-center gap-1 rounded-lg px-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-1.5 sm:px-2 sm:text-xs',
+        'flex min-h-8 items-center justify-center gap-1 rounded-lg px-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-1.5 sm:px-2 sm:text-xs',
         active
           ? 'bg-pink-200 text-pink-800 shadow-sm dark:bg-pink-900/50 dark:text-pink-100'
           : 'text-muted-foreground hover:bg-white/80 hover:text-foreground dark:hover:bg-zinc-800/60'
@@ -316,7 +316,7 @@ function QuickAction({
       type="button"
       onClick={onClick}
       className={cn(
-        'flex min-h-10 items-center gap-2 rounded-xl border border-pink-100 px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
+        'flex min-h-8 items-center gap-2 rounded-xl border border-pink-100 px-2.5 py-1 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
           ? 'bg-pink-200 text-pink-800 hover:bg-pink-300 dark:bg-pink-900/50 dark:text-pink-100 dark:hover:bg-pink-900/70'
           : 'bg-pink-50/60 text-foreground hover:bg-pink-100 dark:bg-pink-950/20 dark:hover:bg-pink-950/40'
@@ -330,7 +330,7 @@ function QuickAction({
 
 function OriginalPostPreview({ post }: { post: CommunityPost }) {
   return (
-    <article className="space-y-3 rounded-2xl border border-pink-100 bg-[#FFF7F9] p-3 dark:border-pink-900/40 dark:bg-pink-950/20">
+    <article className="space-y-2 rounded-xl border border-pink-100 bg-[#FFF7F9] p-2.5 dark:border-pink-900/40 dark:bg-pink-950/20">
       <div className="flex items-start gap-2.5">
         <Avatar size="sm" src={post.author.avatar_url} name={displayName(post.author)} />
         <div className="min-w-0 flex-1">

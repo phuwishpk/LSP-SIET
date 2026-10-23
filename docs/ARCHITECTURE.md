@@ -14,7 +14,7 @@ kmitlAI/
 ├── siet-platform/     ← ชั้นล่างสุดของ SIET: บัญชี JWT สิทธิ์ แต้ม throttle cache คลังเอกสาร ควิซ/roadmap
 ├── kmitl-rag/         ← KMITL RAG AI: quick-ask, ประวัติแชต, notebook ask, global chat, ตัวกรองคำตอบ
 ├── community/         ← SIET Space: ห้องวิชา ฟีด คอมเมนต์ moderation คอนโซลอาจารย์/ผู้ดูแล
-├── My-ai-quiz/  ai-roadmap-generator/   ← แอปแยก (เหมือนเดิม)
+├── my-ai-quiz/  ai-roadmap-generator/   ← แอปแยก (เหมือนเดิม)
 └── docs/ scripts/ docker/ Makefile
 ```
 

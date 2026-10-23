@@ -28,7 +28,6 @@ import {
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@siet/platform/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { CommunityHeader } from '@siet/platform/components/community/CommunityHeader'
 import { PostCard } from '@siet/community/components/community/PostCard'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useCommunityMe, useFeed } from '@siet/platform/lib/hooks/use-community'
@@ -184,13 +183,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="community-theme min-h-screen bg-[#FDF7F8] text-foreground dark:bg-background">
-      <CommunityHeader
-        query=""
-        onSearch={(query) => router.push(query ? `/community?q=${encodeURIComponent(query)}` : '/community')}
-        onOpenPost={(postId) => router.push(`/community?post=${postId}`)}
-        onHome={() => router.push('/community')}
-      />
+    <div className="community-theme min-h-full w-full overflow-y-auto bg-[#FDF7F8] text-foreground dark:bg-background">
 
       <main className="mx-auto w-full max-w-[1040px] space-y-5 px-3 py-5 sm:px-6 sm:py-8">
         <Card className="overflow-hidden border-pink-100/80 shadow-sm dark:border-border">
