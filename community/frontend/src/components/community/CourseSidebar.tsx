@@ -9,12 +9,20 @@ import {
   Library,
   MessagesSquare,
   Newspaper,
+  LogOut,
+  MoreVertical,
   Plus,
   ShieldCheck,
   Trash2,
   Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -77,6 +85,7 @@ export function CourseSidebar({
   const remove = useDeleteCourse()
   const [createKind, setCreateKind] = useState<RoomKind | null>(null)
   const [pendingDelete, setPendingDelete] = useState<Course | null>(null)
+  const [pendingLeave, setPendingLeave] = useState<Course | null>(null)
 
   // Official course rooms are run by staff; discussion rooms are opened by
   // whoever wants to talk about something. They share one table, so split here.
@@ -95,25 +104,28 @@ export function CourseSidebar({
     label,
     onClick,
     badge,
+    className,
   }: {
     active: boolean
     icon: React.ComponentType<{ className?: string }>
     label: string
     onClick: () => void
     badge?: React.ReactNode
+    className?: string
   }) => (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        'flex min-h-11 w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
+        'flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
         active
           ? 'bg-rose-50/80 font-bold text-rose-700 shadow-2xs border-l-4 border-rose-600 pl-2.5 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-500'
-          : 'text-foreground hover:bg-accent'
+          : 'text-foreground hover:bg-accent',
+        className
       )}
     >
       <Icon className="h-4 w-4 shrink-0" />
-      <span className="flex-1 truncate text-left">{label}</span>
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
       {badge}
     </button>
   )
@@ -138,20 +150,45 @@ export function CourseSidebar({
         {joined.length > 0 && (
           <div className="space-y-0.5">
             {joined.map((c) => (
-              <NavButton
-                key={c.id}
-                active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
-                icon={icon}
-                label={label(c)}
-                onClick={() => open(c)}
-                badge={
-                  c.post_count > 0 ? (
-                    <span className="text-[10px] text-muted-foreground">
-                      {view === 'mine' ? `${c.post_count} โพสต์` : c.post_count}
-                    </span>
-                  ) : null
-                }
-              />
+              <div key={c.id} className="group/item flex items-center justify-between gap-1.5">
+                <NavButton
+                  active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
+                  icon={icon}
+                  label={label(c)}
+                  onClick={() => open(c)}
+                  className="flex-1 min-w-0"
+                  badge={
+                    c.post_count > 0 ? (
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {view === 'mine' ? `${c.post_count} โพสต์` : c.post_count}
+                      </span>
+                    ) : null
+                  }
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 min-w-7 flex-shrink-0 shrink-0 rounded-lg p-0 text-muted-foreground opacity-60 hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-rose-500 transition-opacity"
+                      aria-label={`ตัวเลือกสำหรับห้อง ${label(c)}`}
+                      title={`ตัวเลือกสำหรับห้อง ${label(c)}`}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="community-theme w-48 p-1">
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      disabled={join.isPending}
+                      onClick={() => setPendingLeave(c)}
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>ออกจาก{c.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
             ))}
           </div>
         )}
@@ -159,21 +196,24 @@ export function CourseSidebar({
           <div className="mt-2 space-y-0.5">
             <p className="px-3 text-xs text-muted-foreground">ห้องอื่น ๆ (กด + เพื่อเข้าร่วม)</p>
             {others.map((c) => (
-              <div key={c.id} className="flex items-center gap-1 pr-1">
+              <div key={c.id} className="flex items-center justify-between gap-2">
                 <NavButton
                   active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
                   icon={icon}
                   label={label(c)}
                   onClick={() => open(c)}
+                  className="flex-1 min-w-0"
                 />
                 <Button
                   variant="outline"
                   size="sm"
-                  className="h-11 min-w-11 px-2 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+                  className="h-7 w-7 min-w-7 flex-shrink-0 shrink-0 rounded-lg p-0 text-muted-foreground hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 dark:hover:border-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
                   disabled={join.isPending}
                   onClick={() => join.mutate({ courseId: c.id, join: true })}
+                  aria-label={`เข้าร่วมห้อง ${label(c)}`}
+                  title={`เข้าร่วมห้อง ${label(c)}`}
                 >
-                  <Plus className="h-3 w-3" />
+                  <Plus className="h-4 w-4" />
                 </Button>
               </div>
             ))}
@@ -295,7 +335,7 @@ export function CourseSidebar({
               variant="ghost"
               size="sm"
               className="h-11 w-full justify-start px-3 text-xs text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
-              onClick={() => join.mutate({ courseId: selected.id, join: false })}
+              onClick={() => setPendingLeave(selected)}
             >
               ออกจาก{selected.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'}นี้
             </Button>
@@ -320,6 +360,42 @@ export function CourseSidebar({
           onSelectCourse(room.id)
         }}
       />
+      <AlertDialog open={pendingLeave !== null} onOpenChange={(o) => !o && setPendingLeave(null)}>
+        <AlertDialogContent className="community-theme">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              ออกจาก{pendingLeave?.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'} “{pendingLeave ? (pendingLeave.kind === 'club' ? pendingLeave.name : `${pendingLeave.code} ${pendingLeave.name}`) : ''}” ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingLeave?.code ? `วิชา ${pendingLeave.code} ${pendingLeave.name}` : pendingLeave?.name} จะถูกย้ายกลับไปอยู่ในหมวด "ห้องอื่น ๆ" คุณสามารถกลับมาเข้าร่วมได้ตลอดเวลา
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={join.isPending}
+              onClick={() => {
+                if (!pendingLeave) return
+                const courseToLeave = pendingLeave
+                setPendingLeave(null)
+                join.mutate(
+                  { courseId: courseToLeave.id, join: false },
+                  {
+                    onSuccess: () => {
+                      if (courseId === courseToLeave.id) {
+                        onSelectCourse(null)
+                      }
+                    },
+                  }
+                )
+              }}
+            >
+              ออกจากห้อง
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
         <AlertDialogContent className="community-theme">
           <AlertDialogHeader>
