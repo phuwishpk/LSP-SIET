@@ -189,15 +189,103 @@ def test_web_sections_are_split_per_node_with_their_pages():
     }
 
 
-def test_web_topics_follow_the_mode():
+def test_every_node_is_looked_up_unless_the_web_is_off():
     nodes = [
         {"id": "n1", "parent": None, "sources": [{"kind": "library"}]},
         {"id": "n2", "parent": None, "sources": []},
         {"id": "n3", "parent": "n1", "sources": []},
+        {"id": "n4", "parent": "n1", "sources": [{"kind": "library"}]},
     ]
     assert roadmap_plan.web_topics(nodes, grounding.WEB_OFF) == []
-    assert [n["id"] for n in roadmap_plan.web_topics(nodes, grounding.WEB_AUTO)] == ["n2", "n3"]
-    assert [n["id"] for n in roadmap_plan.web_topics(nodes, grounding.WEB_ALWAYS)] == ["n2", "n3", "n1"]
+    # uncovered first, so a runaway plan keeps them when the list is capped
+    for mode in (grounding.WEB_AUTO, grounding.WEB_ALWAYS):
+        assert [n["id"] for n in roadmap_plan.web_topics(nodes, mode)] == ["n2", "n3", "n1", "n4"]
+    # the web's text goes only where the library has nothing (auto), or everywhere (always)
+    assert roadmap_plan.web_note_ids(nodes, grounding.WEB_OFF) == set()
+    assert roadmap_plan.web_note_ids(nodes, grounding.WEB_AUTO) == {"n2", "n3"}
+    assert roadmap_plan.web_note_ids(nodes, grounding.WEB_ALWAYS) == {"n1", "n2", "n3", "n4"}
+
+
+def test_a_covered_node_gets_the_pages_but_keeps_its_description():
+    lib = {"kind": "library", "title": "บทที่ 1"}
+    page = {"kind": "web", "title": "Docs", "url": "https://example.org"}
+    nodes = [
+        {"id": "n1", "description": "จากคลัง", "sources": [lib]},
+        {"id": "n2", "description": "", "sources": []},
+    ]
+    notes = {"n1": ("จากเว็บ", [page]), "n2": ("จากเว็บ", [page])}
+    assert roadmap_plan.merge_research(nodes, {"notes": notes, "sources": [page]}, note_ids={"n2"}) is True
+    assert nodes[0] == {"id": "n1", "description": "จากคลัง", "sources": [lib, page]}
+    assert nodes[1]["description"] == "จากเว็บ" and nodes[1]["sources"] == [page]
+
+
+def test_a_node_keeps_at_most_five_web_pages():
+    pages = [{"kind": "web", "title": f"p{i}", "url": f"https://example.org/{i}"} for i in range(8)]
+    lib = {"kind": "library", "title": "บทที่ 1"}
+    node = {"id": "n1", "description": "", "sources": [lib, pages[0]]}
+    roadmap_plan.apply_web_notes([node], {"n1": ("ข้อความ", pages)})
+    web = [s for s in node["sources"] if s["kind"] == "web"]
+    assert node["sources"][0] == lib
+    assert web == pages[:5]  # the page it already had counts, and is not repeated
+
+
+def test_redirect_links_become_the_page_without_contacting_it():
+    import httpx
+
+    def handler(request):
+        if request.url.host == "redirect.example":
+            return httpx.Response(302, headers={"location": f"https://site.example{request.url.path}"})
+        if request.url.host == "broken-redirect.example":
+            raise httpx.ConnectTimeout("no answer", request=request)
+        if request.url.host == "site.example" and request.url.path == "/plain":
+            return httpx.Response(200)
+        raise AssertionError(f"the page itself was contacted: {request.url}")
+
+    sources = [
+        {"url": "https://redirect.example/slow-site"},
+        {"url": "https://redirect.example/ok"},
+        {"url": "https://broken-redirect.example/x"},  # the redirect cannot be read: left alone
+        {"url": "https://site.example/plain"},  # not a redirect: left alone
+    ]
+    asyncio.run(roadmap_plan.resolve_web_links(sources, transport=httpx.MockTransport(handler)))
+    assert [s["url"] for s in sources] == [
+        "https://site.example/slow-site",
+        "https://site.example/ok",
+        "https://broken-redirect.example/x",
+        "https://site.example/plain",
+    ]
+
+
+def test_web_research_runs_in_small_batches_a_few_at_a_time(monkeypatch):
+    monkeypatch.setenv("ROADMAP_WEB_BATCH_SIZE", "3")
+    monkeypatch.setenv("ROADMAP_WEB_CONCURRENCY", "2")
+    batches, in_flight, peak = [], [0], [0]
+
+    async def fake_batch(*, title, language, topics, owner_id):
+        batches.append([t["id"] for t in topics])
+        in_flight[0] += 1
+        peak[0] = max(peak[0], in_flight[0])
+        await asyncio.sleep(0.01)
+        in_flight[0] -= 1
+        shared = {"kind": "web", "title": "Shared", "url": "https://example.org/shared"}
+        own = {"kind": "web", "title": topics[0]["id"], "url": f"https://example.org/{topics[0]['id']}"}
+        return {
+            "available": topics[0]["id"] != "n1",  # one batch could not search; the others could
+            "notes": {t["id"]: ("ข้อความ", [own, shared]) for t in topics},
+            "sources": [own, shared],
+        }
+
+    monkeypatch.setattr(roadmap_plan, "_research_batch", fake_batch)
+    topics = [{"id": f"n{i}", "label": f"หัวข้อ {i}"} for i in range(1, 8)]
+    result = asyncio.run(roadmap_plan.research_on_web(title="แผน", language="th", topics=topics, owner_id="u1"))
+
+    assert sorted(batches) == [["n1", "n2", "n3"], ["n4", "n5", "n6"], ["n7"]]
+    assert peak[0] == 2
+    assert result["available"] is True
+    assert set(result["notes"]) == {f"n{i}" for i in range(1, 8)}
+    # pages are listed once for the whole plan
+    assert [p["url"] for p in result["sources"]].count("https://example.org/shared") == 1
+    assert len(result["sources"]) == 4
 
 
 def test_merge_research_needs_a_page_unless_none_could_be_pinned():

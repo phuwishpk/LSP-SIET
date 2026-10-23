@@ -130,7 +130,7 @@ export function RoadmapListPanel() {
                       )}
                     </div>
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      {ownerLabel(roadmap)} · {roadmap.node_count} ด่าน
+                      {ownerLabel(roadmap)} · {roadmap.node_count} หัวข้อ
                       {roadmap.grounding_label ? ` · ${roadmap.grounding_label}` : ''}
                       {roadmap.created_at ? ` · ${timeAgo(roadmap.created_at)}` : ''}
                     </p>

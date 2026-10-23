@@ -44,3 +44,6 @@ deploy/*.sql
 
 # make migrate-split copies of surreal_data
 backups/
+
+# Report screenshots for chapter 3 (docs/report/tools/shots-*.mjs), pasted into the thesis by hand
+docs/report/images/fig-3.*.png

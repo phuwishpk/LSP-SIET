@@ -135,7 +135,7 @@ export function CommunityHeader({
                   size="sm"
                   src={user?.avatar_url}
                   name={displayName(user)}
-                  className="bg-pink-200 text-pink-800"
+                  className="bg-pink-200 text-pink-800 dark:bg-pink-900/50 dark:text-pink-100"
                 />
                 <span className="hidden max-w-[120px] truncate text-sm md:inline">
                   {displayName(user)}
@@ -154,7 +154,7 @@ export function CommunityHeader({
                     size="lg"
                     src={user?.avatar_url}
                     name={displayName(user)}
-                    className="bg-pink-200 text-pink-800"
+                    className="bg-pink-200 text-pink-800 dark:bg-pink-900/50 dark:text-pink-100"
                   />
                   <div className="min-w-0">
                     <p className="truncate text-sm font-semibold text-slate-800 dark:text-zinc-100">
@@ -163,7 +163,7 @@ export function CommunityHeader({
                     <p className="mt-0.5 truncate text-xs font-normal text-slate-500 dark:text-zinc-300">
                       {user?.email || `@${user?.username}`}
                     </p>
-                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-[10px] font-medium text-pink-800">
+                    <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-1 text-[10px] font-medium text-pink-800 dark:bg-pink-950/50 dark:text-pink-200">
                       <CircleCheck className="h-3 w-3" />
                       สมาชิก SIET Space · {roleLabel(user?.role)}
                     </span>

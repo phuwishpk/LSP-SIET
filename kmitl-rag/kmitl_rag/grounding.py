@@ -49,12 +49,15 @@ def supports_search(runnable: Any) -> bool:
     return type(runnable).__name__ == "ChatGoogleGenerativeAI"
 
 
-def web_sources(metadata: Optional[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]], Dict[int, int]]:
+def web_sources(
+    metadata: Optional[Dict[str, Any]], *, limit: int = MAX_WEB_SOURCES
+) -> Tuple[List[Dict[str, Any]], Dict[int, int]]:
     """
     ``grounding_chunks`` → ``([{index, title, url}], {chunk_position: index})``.
 
     The same page is often returned for several chunks; it gets one reference
-    number, and the map lets text segments point at it.
+    number, and the map lets text segments point at it. At most ``limit``
+    distinct pages are kept.
     """
     sources: List[Dict[str, Any]] = []
     by_url: Dict[str, int] = {}
@@ -65,7 +68,7 @@ def web_sources(metadata: Optional[Dict[str, Any]]) -> Tuple[List[Dict[str, Any]
         if not url.startswith(("http://", "https://")):
             continue
         if url not in by_url:
-            if len(sources) >= MAX_WEB_SOURCES:
+            if len(sources) >= limit:
                 continue
             by_url[url] = len(sources) + 1
             title = str((web or {}).get("title") or (web or {}).get("domain") or "").strip()

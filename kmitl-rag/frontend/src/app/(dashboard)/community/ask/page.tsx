@@ -46,7 +46,6 @@ import {
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useKnowledge, useLibrary } from '@siet/platform/lib/hooks/use-library'
-import { useForcedLightTheme } from '@siet/platform/lib/hooks/use-forced-light-theme'
 import {
   describeApiError,
   type AskCitation,
@@ -117,7 +116,6 @@ export default function AskPage() {
 
 function AskContent() {
   const router = useRouter()
-  useForcedLightTheme() // SIET Pink page: light only, whatever the app-wide toggle says
   const params = useSearchParams()
   const ask = useAsk()
   const { data: wallet } = useWallet()

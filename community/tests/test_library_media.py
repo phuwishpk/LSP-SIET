@@ -104,6 +104,25 @@ async def test_media_is_stored_not_embedded(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_extraction_uses_content_core_keyword_api(monkeypatch):
+    # content-core 2.x takes keyword-only arguments and raises on failure.
+    import content_core
+    from content_core.common import ExtractionOutput
+
+    extract = AsyncMock(return_value=ExtractionOutput(content="บทที่ 4 ฟังก์ชัน", title="t"))
+    monkeypatch.setattr(content_core, "extract_content", extract)
+    assert await library._extract_text(_doc(file_path="/tmp/a.pdf")) == ("slides", "บทที่ 4 ฟังก์ชัน")
+    extract.assert_awaited_once_with(file_path="/tmp/a.pdf")
+
+    await library._extract_text(_doc(kind="url", file_path="https://example.com/a"))
+    assert extract.await_args.kwargs == {"url": "https://example.com/a"}
+
+    extract.side_effect = content_core.ContentCoreError("unreadable")
+    with pytest.raises(library.LibraryError):
+        await library._extract_text(_doc())
+
+
+@pytest.mark.asyncio
 async def test_retry_discards_the_previous_source_first(monkeypatch):
     monkeypatch.setattr(library, "get_document", AsyncMock(return_value=_doc(source_id="source:old")))
     discard = AsyncMock()

@@ -120,7 +120,7 @@ export function LoginForm() {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-start gap-2 text-red-600 text-sm">
+            <div className="flex items-start gap-2 text-red-600 text-sm dark:text-red-300">
               <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
               <div className="flex-1">
                 กรุณาตรวจสอบว่าเซิร์ฟเวอร์ Backend กำลังทำงานอยู่
@@ -157,47 +157,47 @@ export function LoginForm() {
   }
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#faf7f9] selection:bg-pink-100 selection:text-pink-600">
+    <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#faf7f9] selection:bg-pink-100 selection:text-pink-600 dark:bg-zinc-950">
       {/* Background Decorative Grid Pattern */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-40"
+        className="absolute inset-0 pointer-events-none opacity-40 [--grid-line:#f2cdd9] dark:[--grid-line:#3a2a33]"
         style={{
           backgroundImage: `
-            linear-gradient(to right, #f2cdd9 1px, transparent 1px),
-            linear-gradient(to bottom, #f2cdd9 1px, transparent 1px)
+            linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px)
           `,
           backgroundSize: '36px 36px',
         }}
       />
 
       {/* Decorative Glow Blobs */}
-      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-pink-200/40 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-rose-200/40 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-pink-200/40 rounded-full blur-3xl pointer-events-none dark:bg-pink-900/20" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-rose-200/40 rounded-full blur-3xl pointer-events-none dark:bg-rose-900/20" />
 
       {/* Main Login Card */}
-      <Card className="relative z-10 w-full max-w-[480px] rounded-3xl border border-pink-100/90 bg-white/95 p-3 sm:p-5 shadow-[0_20px_60px_rgba(236,72,153,0.10)] backdrop-blur-md transition-all">
+      <Card className="relative z-10 w-full max-w-[480px] rounded-3xl border border-pink-100/90 bg-white/95 p-3 sm:p-5 shadow-[0_20px_60px_rgba(236,72,153,0.10)] backdrop-blur-md transition-all dark:border-[#4b3441] dark:bg-[#2b2026]/95">
         <CardHeader className="text-center space-y-3 pb-3">
           {/* Logo & Brand */}
           <div className="flex items-center justify-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200/70 shadow-sm text-pink-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200/70 shadow-sm text-pink-600 dark:from-pink-950/60 dark:to-pink-900/40 dark:border-pink-800/50 dark:text-pink-300">
               <GraduationCap className="w-6 h-6 stroke-[2]" />
             </div>
-            <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-800">
+            <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-800 dark:text-zinc-100">
               StudyTogether
             </span>
           </div>
 
           {/* Badge */}
           <div className="flex justify-center">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-xs font-semibold text-pink-600 border border-pink-200/60 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-xs font-semibold text-pink-600 border border-pink-200/60 shadow-xs dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-800/50">
+              <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse dark:text-pink-400" />
               <span>พื้นที่ชุมชนการเรียนรู้ SIET · KMITL</span>
             </div>
           </div>
 
           {/* Welcome Text */}
           <div className="pt-1">
-            <CardTitle className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900">
+            <CardTitle className="text-2xl sm:text-[26px] font-black tracking-tight text-slate-900 dark:text-zinc-50">
               เข้าสู่ระบบการเรียนรู้
             </CardTitle>
           </div>
@@ -211,17 +211,17 @@ export function LoginForm() {
               type="button"
               onClick={handleGoogle}
               disabled={googleBusy}
-              className="group relative flex w-full items-center justify-center gap-3.5 rounded-2xl border-2 border-slate-200/90 bg-white px-5 py-4 text-left shadow-sm transition-all duration-200 hover:border-pink-300 hover:shadow-md hover:bg-slate-50/80 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+              className="group relative flex w-full items-center justify-center gap-3.5 rounded-2xl border-2 border-slate-200/90 bg-white px-5 py-4 text-left shadow-sm transition-all duration-200 hover:border-pink-300 hover:shadow-md hover:bg-slate-50/80 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed dark:border-zinc-700 dark:bg-zinc-900 dark:hover:border-pink-500/60 dark:hover:bg-zinc-800/80"
             >
-              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 shadow-2xs transition-transform group-hover:scale-105">
+              <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-slate-50 border border-slate-100 shadow-2xs transition-transform group-hover:scale-105 dark:bg-zinc-800/60 dark:border-zinc-700">
                 <GoogleMultiColorIcon className="w-5 h-5" />
               </div>
 
               <div className="flex-1 min-w-0">
-                <div className="text-base font-bold text-slate-800 group-hover:text-pink-600 transition-colors">
+                <div className="text-base font-bold text-slate-800 group-hover:text-pink-600 transition-colors dark:text-zinc-100 dark:group-hover:text-pink-300">
                   Sign in with Google
                 </div>
-                <div className="text-xs text-slate-500 truncate">
+                <div className="text-xs text-slate-500 truncate dark:text-zinc-400">
                   เข้าสู่ระบบด้วยบัญชีสถาบัน (@kmitl.ac.th)
                 </div>
               </div>
@@ -229,7 +229,7 @@ export function LoginForm() {
               {googleBusy ? (
                 <LoadingSpinner size="sm" />
               ) : (
-                <div className="text-slate-300 group-hover:text-pink-500 transition-colors">
+                <div className="text-slate-300 group-hover:text-pink-500 transition-colors dark:text-zinc-600">
                   <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                   </svg>
@@ -239,7 +239,7 @@ export function LoginForm() {
 
             {/* Google OAuth Error Alert */}
             {googleError && (
-              <div className="flex items-start gap-2.5 rounded-2xl bg-red-50 p-3 text-xs text-red-600 border border-red-200/80 shadow-xs animate-in fade-in">
+              <div className="flex items-start gap-2.5 rounded-2xl bg-red-50 p-3 text-xs text-red-600 border border-red-200/80 shadow-xs animate-in fade-in dark:bg-red-950/40 dark:text-red-300 dark:border-red-900/60">
                 <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
                 <div className="flex-1 leading-relaxed">{googleError}</div>
               </div>

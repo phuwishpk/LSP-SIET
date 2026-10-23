@@ -42,7 +42,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
         </Badge>
         <p className="font-semibold">{embed.title || post.title}</p>
         <span className="text-xs text-muted-foreground">
-          {ordered.length} ด่าน{subCount > 0 ? ` · ${subCount} ด่านย่อย` : ''} · มีคนเดินตาม {post.counts.follow} คน
+          {ordered.length} หัวข้อ{subCount > 0 ? ` · ${subCount} หัวข้อย่อย` : ''} · มีคนเดินตาม {post.counts.follow} คน
         </span>
         {embed.grounding?.label && (
           <Badge variant="outline" className="font-normal">
@@ -73,7 +73,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
               onClick={() => setExpanded(true)}
               className="rounded-full border border-dashed px-3 py-1 text-xs text-muted-foreground hover:bg-accent"
             >
-              +{remaining} ด่าน…
+              +{remaining} หัวข้อ…
             </button>
           )}
         </div>
@@ -119,7 +119,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
         )}
         {(followedSession || post.viewer.saved) && (
           <span className="flex items-center gap-1 text-xs text-muted-foreground">
-            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ใน “Roadmap ของฉัน” แล้ว ขยายด่านต่อได้ในแอป AI Roadmap
+            <Sparkles className="h-4 w-4 text-orange-500" /> บันทึกไว้ใน “Roadmap ของฉัน” แล้ว ขยายหัวข้อต่อได้ในแอป AI Roadmap
           </span>
         )}
       </div>

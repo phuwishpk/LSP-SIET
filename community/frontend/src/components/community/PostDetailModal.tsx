@@ -198,14 +198,14 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
                 <div className="flex flex-wrap items-center gap-2">
                   <span className="text-sm font-semibold">{displayName(post.author)}</span>
                   {post.course && (
-                    <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-medium text-pink-800">
+                    <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-medium text-pink-800 dark:bg-pink-950/50 dark:text-pink-200">
                       {post.course.code
                         ? `${post.course.code} · ${post.course.name ?? ''}`
                         : post.course.name}
                     </span>
                   )}
                   {!post.course && post.author.role && post.author.role !== 'student' && (
-                    <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-medium text-pink-800">
+                    <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-medium text-pink-800 dark:bg-pink-950/50 dark:text-pink-200">
                       {roleLabel(post.author.role)}
                     </span>
                   )}
@@ -237,7 +237,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
 
             {post.attachment && (
               isVideo ? (
-                <div className="overflow-hidden rounded-xl border border-pink-100 bg-[#FFF5F8]">
+                <div className="overflow-hidden rounded-xl border border-pink-100 bg-[#FFF5F8] dark:border-pink-900/40 dark:bg-pink-950/20">
                   <div className="relative flex aspect-video items-center justify-center bg-slate-900">
                     {videoUrl && !videoError ? (
                       <video
@@ -276,7 +276,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
               ) : (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-pink-100 bg-[#FFF5F8] p-3 text-left transition-colors hover:bg-pink-50"
+                  className="flex w-full items-center gap-3 rounded-xl border border-pink-100 bg-[#FFF5F8] p-3 text-left transition-colors hover:bg-pink-50 dark:border-pink-900/40 dark:bg-pink-950/20 dark:hover:bg-pink-950/40"
                   onClick={() => void communityApi.downloadAttachment(post.id).then(
                     (blob) => {
                       const url = URL.createObjectURL(blob)
@@ -289,7 +289,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
                     () => toast.error('ดาวน์โหลดไฟล์ไม่สำเร็จ')
                   )}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-pink-500">
+                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-pink-500 dark:bg-pink-950/50 dark:text-pink-300">
                     <FileText className="h-5 w-5" />
                   </span>
                   <span className="min-w-0 flex-1">

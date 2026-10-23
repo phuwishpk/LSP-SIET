@@ -283,7 +283,7 @@ function CommunityContent() {
             <Button
               type="button"
               variant="outline"
-              className="h-11 w-full justify-start gap-2 rounded-xl border-pink-100 bg-white text-left shadow-sm hover:bg-pink-50"
+              className="h-11 w-full justify-start gap-2 rounded-xl border-pink-100 bg-white text-left shadow-sm hover:bg-pink-50 dark:border-border dark:bg-zinc-800/60 dark:hover:bg-pink-950/30"
               onClick={() => setAiOpen(true)}
             >
               <Bot className="h-4 w-4 text-primary" />
@@ -660,7 +660,7 @@ function CommunityContent() {
                       <div className="divide-y divide-pink-100">
                         {instructors.map((instructor) => (
                           <div key={instructor.id} className="flex items-start gap-2.5 py-3 first:pt-0 last:pb-0">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-100 text-[10px] font-semibold text-pink-700">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-pink-100 text-[10px] font-semibold text-pink-700 dark:bg-pink-950/50 dark:text-pink-300">
                               {instructor.name.slice(0, 2)}
                             </div>
                             <div className="min-w-0 flex-1">
@@ -679,7 +679,7 @@ function CommunityContent() {
                         ))}
                       </div>
                     ) : (
-                      <p className="rounded-xl bg-pink-50 p-3 text-xs text-muted-foreground">
+                      <p className="rounded-xl bg-pink-50 p-3 text-xs text-muted-foreground dark:bg-pink-950/20">
                         ยังไม่มีข้อมูลผู้สอนสำหรับวิชานี้
                       </p>
                     )
@@ -795,7 +795,7 @@ function CommunityContent() {
                             ผู้สอน: {course.instructor_name || 'ไม่ระบุ'} · {course.member_count} สมาชิก
                           </span>
                         </span>
-                        <span className="shrink-0 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-medium text-pink-700">
+                        <span className="shrink-0 rounded-full bg-pink-50 px-2 py-0.5 text-[10px] font-medium text-pink-700 dark:bg-pink-950/40 dark:text-pink-300">
                           ลงเรียนแล้ว
                         </span>
                       </button>

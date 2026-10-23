@@ -150,6 +150,40 @@ or message.
 }
 ```
 
+### Dark mode
+
+Every screen follows the light / dark choice made in SIET Space (the
+theme button in Community's profile menu), including the standalone AI
+Roadmap and AI Quiz apps. Dark mode keeps the same roles on Community's
+dark surfaces:
+
+``` css
+:root[data-theme='dark'] {
+  color-scheme: dark;
+
+  --color-primary: #F472B6;
+  --color-primary-hover: #EC4899;
+  --color-primary-pressed: #DB2777;
+  --color-primary-soft: #4A2B3C;
+
+  --color-ink: #F9EDF2;
+  --color-body: #E8D9E0;
+  --color-muted: #C4AEB9;
+  --color-canvas: #09090B;
+  --color-surface: #2B2026;
+  --color-border: #4B3441;
+
+  --color-info: #7CCDF7;
+  --color-success: #74C48A;
+  --color-error: #FF8A8A;
+}
+```
+
+-   Text on the primary pink is dark plum (`#381126`), not white.
+-   Pale fills (pink/rose/amber 50--200) become dark tints of the same
+    hue. A light fill must never keep text that turns light in dark
+    mode.
+
 ## Typography
 
 Use **Nunito** as the preferred open-source font. Quicksand is an

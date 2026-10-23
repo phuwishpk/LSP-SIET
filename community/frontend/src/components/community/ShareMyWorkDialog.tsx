@@ -100,7 +100,7 @@ export function ShareMyWorkDialog({
         kind: 'roadmap',
         id: r.id,
         title: r.title,
-        subtitle: `${r.node_count} ด่าน${r.created_at ? ` · ${timeAgo(r.created_at)}` : ''}`,
+        subtitle: `${r.node_count} หัวข้อ${r.created_at ? ` · ${timeAgo(r.created_at)}` : ''}`,
         content: r.description,
       }))
     }

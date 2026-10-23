@@ -89,8 +89,8 @@ export function SharedRoadmapsPanel() {
                     {post.room ? ` · ${post.room.code || post.room.name}` : ''}
                   </p>
                   <p className="mt-0.5 text-[11px] text-muted-foreground">
-                    {post.node_count} ด่าน
-                    {post.sub_node_count > 0 ? ` (ด่านย่อย ${post.sub_node_count})` : ''}
+                    {post.node_count} หัวข้อ
+                    {post.sub_node_count > 0 ? ` (หัวข้อย่อย ${post.sub_node_count})` : ''}
                     {post.grounding_label ? ` · ${post.grounding_label}` : ''}
                     {' · '}
                     <PostCounts counts={post.counts} />

@@ -3,8 +3,10 @@
  *
  * The main app sends the user here with `?token=<JWT>` plus optional
  * `return` (where the back button goes), `course` and `doc` (the room or
- * library document the user came from). They are stored and stripped from the
- * address bar straight away so the token never lingers in history.
+ * library document the user came from) and `theme` (light / dark / system,
+ * read by the inline script in _document.js, see lib/theme.js). They are
+ * stored and stripped from the address bar straight away so the token never
+ * lingers in history.
  */
 
 export const BASE_PATH = '/roadmap'
@@ -52,7 +54,7 @@ function sameHost(url) {
 }
 
 /** Hand-off parameters; removed from the address bar once stored. */
-export const LAUNCH_PARAMS = ['token', 'return', 'course', 'doc']
+export const LAUNCH_PARAMS = ['token', 'return', 'course', 'doc', 'theme']
 
 /**
  * Read the hand-off parameters and store them. The address bar is cleaned by
@@ -65,6 +67,7 @@ export function captureLaunchParams() {
 
   const token = params.get('token')
   if (token) write(window.localStorage, TOKEN_KEY, token)
+
 
   const back = params.get('return')
   if (back !== null && sameHost(back)) {

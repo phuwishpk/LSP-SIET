@@ -70,8 +70,8 @@ export default function RoadmapPage() {
   const expandCost = Number(costs.roadmap_expand ?? 2)
   let expandBlocked = null
   if (selected) {
-    if (depthOf(nodes, selected) >= MAX_DEPTH) expandBlocked = 'ด่านนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากด่านหลัก)'
-    else if (nodes.length >= MAX_NODES) expandBlocked = `Roadmap นี้มีครบ ${MAX_NODES} ด่านแล้ว`
+    if (depthOf(nodes, selected) >= MAX_DEPTH) expandBlocked = 'หัวข้อนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากหัวข้อหลัก)'
+    else if (nodes.length >= MAX_NODES) expandBlocked = `Roadmap นี้มีครบ ${MAX_NODES} หัวข้อแล้ว`
     else if (!exempt && balance < expandCost) expandBlocked = `ขาดอีก ${expandCost - balance} แต้ม`
   }
 
@@ -83,9 +83,9 @@ export default function RoadmapPage() {
         json: { node_id: selected.id },
       })
       setRoadmap(result)
-      toast.success(result.synced_post_id ? `เพิ่ม ${result.added.length} ด่านย่อยแล้ว และอัปเดตโพสต์ในฟีดให้แล้ว` : `เพิ่ม ${result.added.length} ด่านย่อยแล้ว`)
+      toast.success(result.synced_post_id ? `เพิ่ม ${result.added.length} หัวข้อย่อยแล้ว และอัปเดตโพสต์ในฟีดให้แล้ว` : `เพิ่ม ${result.added.length} หัวข้อย่อยแล้ว`)
     } catch (err) {
-      toast.error(err?.message || 'ขยายด่านไม่สำเร็จ')
+      toast.error(err?.message || 'ขยายหัวข้อไม่สำเร็จ')
     } finally {
       refresh().catch(() => {})
       setExpanding(false)
@@ -108,7 +108,9 @@ export default function RoadmapPage() {
   const download = async () => {
     try {
       const { toPng } = await import('html-to-image')
-      const url = await toPng(graphRef.current, { backgroundColor: '#FFFFFF', pixelRatio: 2 })
+      // The picture keeps the page's background, light or dark.
+      const background = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#FFFFFF'
+      const url = await toPng(graphRef.current, { backgroundColor: background, pixelRatio: 2 })
       const link = document.createElement('a')
       link.href = url
       link.download = `${roadmap.title || 'roadmap'}.png`
@@ -157,7 +159,7 @@ export default function RoadmapPage() {
           <div className="viewer-title-text">
             <h1 className="h2">{roadmap.title}</h1>
             <div className="chips">
-              <span className="chip">{nodes.length} ด่าน</span>
+              <span className="chip">{nodes.length} หัวข้อ</span>
               {label && <span className={`chip ${roadmap.grounding?.library || roadmap.grounding?.web ? 'chip-green' : ''}`}>{label}</span>}
               {roadmap.origin === 'followed' && <span className="chip chip-violet">เดินตามจากฟีด</span>}
             </div>

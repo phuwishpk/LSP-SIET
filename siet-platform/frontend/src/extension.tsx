@@ -12,6 +12,7 @@ import { PointsWalletLink } from '@siet/platform/components/layout/PointsWalletL
 import { clearPostLoginPath } from '@siet/platform/lib/auth-redirect'
 import { getWorkspaceNavigation } from '@siet/platform/lib/navigation'
 import { canAccessRoute, isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
+import { useShareThemeWithApps } from '@siet/platform/lib/theme-cookie'
 import { translations } from '@siet/platform/lib/translations'
 
 const useRole = () => useAuthStore((s) => s.user?.role) as Role
@@ -44,6 +45,8 @@ const extension: FrontendExtension = {
   useRouteGate(pathname) {
     const role = useRole()
     const signedIn = useAuthStore((s) => s.isAuthenticated)
+    // Runs on every dashboard page: the AI Roadmap app reads the theme from here.
+    useShareThemeWithApps()
     // Reached a page while signed in: the remembered post-login target is used up.
     useEffect(() => {
       if (signedIn && role && role !== 'pending') clearPostLoginPath()

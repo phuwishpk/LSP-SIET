@@ -7,8 +7,17 @@ import { ws } from './api'
 
 export const AUTO = 'auto'
 export const PERSONAL = 'personal'
+export const NONE = 'none'
+// "Pick files myself": several documents are ticked in a list instead of one <select> choice.
+export const FILES = 'files'
+// The backend takes at most 20 documents and 20 notebook sources per request.
+export const MAX_PICKED_FILES = 20
 
-/** Load every group of choices; a group that fails to load is simply empty. */
+/**
+ * Load every choice; a group that fails to load is simply empty.
+ * ``groups`` go in the <select> (whole rooms and notebooks); ``files`` are the
+ * single documents offered as a checklist under "เลือกไฟล์เอง".
+ */
 export async function loadKnowledgeOptions() {
   const [rooms, library, knowledge] = await Promise.all([
     ws('community/courses').catch(() => []),
@@ -31,32 +40,35 @@ export async function loadKnowledgeOptions() {
           .map((room) => ({ value: `course:${room.id}`, label: `คลังวิชา ${room.code} ${room.name}` })),
       },
       {
-        label: 'เอกสารในคลังความรู้',
-        options: documents.map((doc) => ({
-          value: `doc:${doc.id}`,
-          label: `${doc.title}${doc.course?.code ? ` · ${doc.course.code}` : doc.scope === 'personal' ? ' · ไฟล์ของฉัน' : ''}`,
-        })),
-      },
-      {
         label: 'Notebook ที่อาจารย์แชร์',
-        options: notebooks.flatMap((nb) => [
-          { value: `nb:${nb.id}`, label: `${nb.name} (ทั้ง notebook)` },
-          ...(nb.sources || []).map((source) => ({ value: `src:${source.id}`, label: `— ${source.title}` })),
-        ]),
+        options: notebooks.map((nb) => ({ value: `nb:${nb.id}`, label: `${nb.name} (ทั้ง notebook)` })),
       },
     ].filter((group) => group.options.length > 0),
+    files: [
+      ...documents.map((doc) => ({
+        value: `doc:${doc.id}`,
+        label: doc.title,
+        meta: doc.course?.code ? `คลังวิชา ${doc.course.code}` : doc.scope === 'personal' ? 'ไฟล์ของฉัน' : 'คลังความรู้',
+      })),
+      ...notebooks.flatMap((nb) =>
+        (nb.sources || []).map((source) => ({ value: `src:${source.id}`, label: source.title, meta: nb.name })),
+      ),
+    ],
   }
 }
 
-/** Choice -> the scope fields of POST /community/study/roadmap. */
-export function scopeFields(choice) {
+/** Choice (+ the ticked files for FILES) -> the scope fields of POST /community/study/roadmap. */
+export function scopeFields(choice, picked = []) {
+  if (choice === FILES) {
+    const ids = (prefix) => picked.filter((value) => value.startsWith(prefix)).map((value) => value.slice(prefix.length))
+    return { scope: 'document', document_ids: ids('doc:').map(Number), source_ids: ids('src:') }
+  }
   const [kind, ...rest] = String(choice || AUTO).split(':')
   const id = rest.join(':')
   if (kind === 'course') return { scope: 'course', course_id: Number(id) }
-  if (kind === 'doc') return { scope: 'document', document_ids: [Number(id)] }
   if (kind === 'nb') return { scope: 'notebook', notebook_ids: [id] }
-  if (kind === 'src') return { scope: 'document', source_ids: [id] }
   if (kind === PERSONAL) return { scope: 'personal' }
+  if (kind === NONE) return { scope: 'none' }
   return { scope: 'auto' }
 }
 

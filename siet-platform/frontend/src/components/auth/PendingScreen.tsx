@@ -68,53 +68,53 @@ export function PendingScreen() {
   }
 
   return (
-    <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#faf7f9] selection:bg-pink-100 selection:text-pink-600">
+    <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-[#faf7f9] selection:bg-pink-100 selection:text-pink-600 dark:bg-zinc-950">
       {/* Background Decorative Grid Pattern */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-40"
+        className="absolute inset-0 pointer-events-none opacity-40 [--grid-line:#f2cdd9] dark:[--grid-line:#3a2a33]"
         style={{
           backgroundImage: `
-            linear-gradient(to right, #f2cdd9 1px, transparent 1px),
-            linear-gradient(to bottom, #f2cdd9 1px, transparent 1px)
+            linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+            linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px)
           `,
           backgroundSize: '36px 36px',
         }}
       />
 
       {/* Decorative Glow Blobs */}
-      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-amber-200/30 rounded-full blur-3xl pointer-events-none" />
-      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-rose-200/30 rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-1/4 -left-20 w-72 h-72 bg-amber-200/30 rounded-full blur-3xl pointer-events-none dark:bg-amber-900/20" />
+      <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-rose-200/30 rounded-full blur-3xl pointer-events-none dark:bg-rose-900/20" />
 
       {/* Main Pending Card */}
-      <Card className="relative z-10 w-full max-w-[500px] rounded-3xl border border-amber-200/70 bg-white/95 p-4 sm:p-6 shadow-[0_20px_60px_rgba(245,158,11,0.08)] backdrop-blur-md transition-all">
+      <Card className="relative z-10 w-full max-w-[500px] rounded-3xl border border-amber-200/70 bg-white/95 p-4 sm:p-6 shadow-[0_20px_60px_rgba(245,158,11,0.08)] backdrop-blur-md transition-all dark:border-amber-800/50 dark:bg-[#2b2026]/95">
         <CardHeader className="text-center space-y-3 pb-2">
           {/* Logo & Brand */}
           <div className="flex items-center justify-center gap-2.5">
-            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200/70 shadow-sm text-pink-600">
+            <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-gradient-to-br from-pink-50 to-pink-100 border border-pink-200/70 shadow-sm text-pink-600 dark:from-pink-950/60 dark:to-pink-900/40 dark:border-pink-800/50 dark:text-pink-300">
               <GraduationCap className="w-6 h-6 stroke-[2]" />
             </div>
-            <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-800">
+            <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-800 dark:text-zinc-100">
               StudyTogether
             </span>
           </div>
 
           {/* Badge */}
           <div className="flex justify-center">
-            <div className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-xs font-semibold text-pink-600 border border-pink-200/60 shadow-xs">
-              <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse" />
+            <div className="inline-flex items-center gap-1.5 rounded-full bg-pink-50 px-3.5 py-1 text-xs font-semibold text-pink-600 border border-pink-200/60 shadow-xs dark:bg-pink-950/40 dark:text-pink-300 dark:border-pink-800/50">
+              <Sparkles className="w-3.5 h-3.5 text-pink-500 animate-pulse dark:text-pink-400" />
               <span>พื้นที่ชุมชนการเรียนรู้ SIET · KMITL</span>
             </div>
           </div>
 
           {/* Pending Icon Header */}
           <div className="pt-2 flex flex-col items-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 border border-amber-200 text-amber-600 shadow-sm animate-pulse">
+            <div className="flex h-16 w-16 items-center justify-center rounded-3xl bg-amber-50 border border-amber-200 text-amber-600 shadow-sm animate-pulse dark:bg-amber-950/40 dark:border-amber-800/50 dark:text-amber-400">
               <Clock className="w-8 h-8 stroke-[2.2]" />
             </div>
-            <CardTitle className="text-2xl font-black tracking-tight text-slate-900 pt-3">
+            <CardTitle className="text-2xl font-black tracking-tight text-slate-900 pt-3 dark:text-zinc-50">
               อยู่ระหว่างรอการอนุมัติสิทธิ์
             </CardTitle>
-            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 bg-amber-100/70 px-3 py-1 rounded-full mt-1.5 border border-amber-200/60">
+            <p className="text-xs font-semibold uppercase tracking-wider text-amber-700 bg-amber-100/70 px-3 py-1 rounded-full mt-1.5 border border-amber-200/60 dark:text-amber-300 dark:bg-amber-900/40 dark:border-amber-800/50">
               สถานะ: PENDING
             </p>
           </div>
@@ -122,41 +122,41 @@ export function PendingScreen() {
 
         <CardContent className="space-y-4 px-2 sm:px-4 pt-1">
           {/* User Profile Summary */}
-          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-1.5 text-xs text-slate-600">
+          <div className="rounded-2xl border border-slate-200/80 bg-slate-50/70 p-3.5 space-y-1.5 text-xs text-slate-600 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-300">
             <div className="flex items-center justify-between">
-              <span className="text-slate-400">เข้าสู่ระบบด้วย:</span>
-              <span className="font-semibold text-slate-800 font-mono">
+              <span className="text-slate-400 dark:text-zinc-500">เข้าสู่ระบบด้วย:</span>
+              <span className="font-semibold text-slate-800 font-mono dark:text-zinc-100">
                 {user?.email || user?.username || 'บัญชี Google'}
               </span>
             </div>
             {user?.display_name && (
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">ชื่อผู้ใช้:</span>
-                <span className="font-medium text-slate-700">{user.display_name}</span>
+                <span className="text-slate-400 dark:text-zinc-500">ชื่อผู้ใช้:</span>
+                <span className="font-medium text-slate-700 dark:text-zinc-200">{user.display_name}</span>
               </div>
             )}
             {user?.student_id && (
               <div className="flex items-center justify-between">
-                <span className="text-slate-400">รหัสนักศึกษา:</span>
-                <span className="font-medium text-slate-700 font-mono">{user.student_id}</span>
+                <span className="text-slate-400 dark:text-zinc-500">รหัสนักศึกษา:</span>
+                <span className="font-medium text-slate-700 font-mono dark:text-zinc-200">{user.student_id}</span>
               </div>
             )}
           </div>
 
           {/* Reason & Explanation Box */}
-          <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 p-4 space-y-3 text-xs text-slate-700 leading-relaxed shadow-2xs">
-            <div className="flex items-center gap-2 font-bold text-amber-800">
-              <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0" />
+          <div className="rounded-2xl border border-amber-200/80 bg-gradient-to-br from-amber-50/80 via-white to-orange-50/40 p-4 space-y-3 text-xs text-slate-700 leading-relaxed shadow-2xs dark:border-amber-800/50 dark:from-amber-950/40 dark:via-zinc-900 dark:to-orange-950/20 dark:text-zinc-200">
+            <div className="flex items-center gap-2 font-bold text-amber-800 dark:text-amber-200">
+              <ShieldAlert className="w-4 h-4 text-amber-600 flex-shrink-0 dark:text-amber-400" />
               <span>เงื่อนไขการเข้าใช้งานพื้นที่การเรียนรู้</span>
             </div>
 
-            <div className="space-y-2 text-slate-600 text-[12.5px]">
+            <div className="space-y-2 text-slate-600 text-[12.5px] dark:text-zinc-300">
               <div className="flex items-start gap-2">
-                <span className="text-amber-600 font-bold">•</span>
+                <span className="text-amber-600 font-bold dark:text-amber-400">•</span>
                 <div>
-                  <strong className="text-slate-800">นักศึกษาคณะครุศาสตร์อุตสาหกรรมฯ (SIET):</strong>{' '}
+                  <strong className="text-slate-800 dark:text-zinc-100">นักศึกษาคณะครุศาสตร์อุตสาหกรรมฯ (SIET):</strong>{' '}
                   ระบบจะอนุมัติสิทธิ์เข้าใช้งานอัตโนมัติเฉพาะนักศึกษาที่มีรหัสขึ้นต้นด้วย{' '}
-                  <code className="px-1.5 py-0.5 bg-amber-100 text-amber-900 rounded font-mono font-bold text-xs">
+                  <code className="px-1.5 py-0.5 bg-amber-100 text-amber-900 rounded font-mono font-bold text-xs dark:bg-amber-900/40 dark:text-amber-100">
                     030
                   </code>{' '}
                   (เช่น 65030xxx)
@@ -164,9 +164,9 @@ export function PendingScreen() {
               </div>
 
               <div className="flex items-start gap-2">
-                <span className="text-amber-600 font-bold">•</span>
+                <span className="text-amber-600 font-bold dark:text-amber-400">•</span>
                 <div>
-                  <strong className="text-slate-800">นักศึกษาคณะอื่นๆ หรือผู้ใช้นอกสถาบัน:</strong>{' '}
+                  <strong className="text-slate-800 dark:text-zinc-100">นักศึกษาคณะอื่นๆ หรือผู้ใช้นอกสถาบัน:</strong>{' '}
                   หากท่านใช้อีเมลนอกคณะหรือ Gmail ทั่วไป บัญชีของท่านได้รับการบันทึกเข้าสู่ระบบแล้ว และจะต้องรอให้ผู้ดูแลระบบ (Admin) ตรวจสอบและอนุมัติสิทธิ์ก่อนจึงจะสามารถเข้าใช้งานได้
                 </div>
               </div>
@@ -175,8 +175,8 @@ export function PendingScreen() {
 
           {/* Feedback message if refreshed */}
           {feedbackMessage && (
-            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-2.5 text-xs text-slate-600 border border-slate-200">
-              <Info className="h-4 w-4 text-slate-500 flex-shrink-0" />
+            <div className="flex items-center gap-2 rounded-xl bg-slate-100 p-2.5 text-xs text-slate-600 border border-slate-200 dark:bg-zinc-800 dark:text-zinc-300 dark:border-zinc-700">
+              <Info className="h-4 w-4 text-slate-500 flex-shrink-0 dark:text-zinc-400" />
               <span>{feedbackMessage}</span>
             </div>
           )}
@@ -209,7 +209,7 @@ export function PendingScreen() {
               variant="outline"
               onClick={handleLogout}
               disabled={isRefreshing || isLoggingOut}
-              className="w-full rounded-2xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold py-5 text-sm transition-colors"
+              className="w-full rounded-2xl border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-semibold py-5 text-sm transition-colors dark:border-zinc-700 dark:bg-zinc-900 dark:hover:bg-zinc-800/80 dark:text-zinc-200"
             >
               {isLoggingOut ? (
                 <div className="flex items-center justify-center gap-2">
@@ -218,7 +218,7 @@ export function PendingScreen() {
                 </div>
               ) : (
                 <div className="flex items-center justify-center gap-2">
-                  <LogOut className="w-4 h-4 text-slate-500" />
+                  <LogOut className="w-4 h-4 text-slate-500 dark:text-zinc-400" />
                   <span>ออกจากระบบ (กลับไปหน้า Login)</span>
                 </div>
               )}
@@ -226,7 +226,7 @@ export function PendingScreen() {
           </div>
 
           {/* Contact note */}
-          <p className="text-center text-[11px] text-slate-400 pt-1">
+          <p className="text-center text-[11px] text-slate-400 pt-1 dark:text-zinc-500">
             ติดต่อผู้ดูแลระบบ: คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี สจล. (KMITL)
           </p>
         </CardContent>

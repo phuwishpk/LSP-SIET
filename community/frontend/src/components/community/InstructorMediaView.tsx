@@ -181,7 +181,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
               {(post.author.role === 'teacher' || post.author.role === 'admin') && (
                 <span
                   aria-label="ผู้สอนที่ยืนยันแล้ว"
-                  className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-700"
+                  className="inline-flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full bg-pink-100 text-pink-700 dark:bg-pink-950/50 dark:text-pink-300"
                 >
                   <Check className="h-2.5 w-2.5" />
                 </span>
@@ -196,7 +196,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
             </p>
           </div>
           {post.course && (
-            <span className="max-w-[45%] truncate rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-800">
+            <span className="max-w-[45%] truncate rounded-full bg-pink-100 px-2 py-1 text-xs font-medium text-pink-800 dark:bg-pink-950/50 dark:text-pink-200">
               {`${post.course.code ?? ''} ${post.course.name ?? ''}`.trim()}
             </span>
           )}
@@ -245,7 +245,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
           </div>
         ) : post.attachment ? (
           <div className="flex items-center gap-3 rounded-xl bg-pink-50 p-3 dark:bg-pink-950/20">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-pink-600">
+            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-pink-600 dark:bg-pink-950/50 dark:text-pink-300">
               <FileText className="h-5 w-5" />
             </span>
             <span className="min-w-0 flex-1">

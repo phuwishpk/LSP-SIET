@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
+import { ThemeWatcher } from "./components/ThemeWatcher";
+import { themeBootScript } from "./lib/theme";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,9 +27,18 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      data-theme="light"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      <head>
+        {/* SIET Space's light / dark choice, set before the first paint (see lib/theme.ts). */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
+      </head>
+      <body className="min-h-full flex flex-col">
+        <ThemeWatcher />
+        {children}
+      </body>
     </html>
   );
 }

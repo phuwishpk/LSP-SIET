@@ -79,19 +79,33 @@ async def _resolve_pick(
     Explicit dropdown picks → ``(notebook_ids, source_ids, label)``, else None.
 
     A single document means *that document*: the search is narrowed to its
-    source instead of the whole notebook that happens to hold it.
+    source instead of the whole notebook that happens to hold it. Library
+    documents and notebook sources may be picked together; the search then
+    covers all of them.
     """
     try:
+        pick = None
         if source_ids or notebook_ids:
             pick = await library.resolve_knowledge_pick(
                 user, notebook_ids=notebook_ids, source_ids=source_ids
             )
-            return pick["notebook_ids"], pick["source_ids"], pick["label"]
-        if document_ids:
-            docs = await library.scope_for_documents(user, document_ids)
-            return docs["notebook_ids"], docs["source_ids"], "เอกสารที่เลือก"
+        docs = await library.scope_for_documents(user, document_ids) if document_ids else None
     except library.LibraryError as exc:
         raise _library_error(exc)
+    if pick and docs and docs["notebook_ids"]:
+        notebooks = list(dict.fromkeys(pick["notebook_ids"] + docs["notebook_ids"]))
+        if pick["source_ids"] is None or docs["source_ids"] is None:
+            # A whole notebook (or a legacy document without a source) is in the
+            # pick, so the search cannot be narrowed to sources.
+            return notebooks, None, "เอกสารที่เลือก"
+        sources = list(dict.fromkeys(pick["source_ids"] + docs["source_ids"]))
+        return notebooks, sources, f"เอกสารที่เลือก {len(sources)} ฉบับ"
+    if pick:
+        return pick["notebook_ids"], pick["source_ids"], pick["label"]
+    if docs:
+        count = len(docs["source_ids"] or [])
+        label = f"เอกสารที่เลือก {count} ฉบับ" if count > 1 else "เอกสารที่เลือก"
+        return docs["notebook_ids"], docs["source_ids"], label
     return None
 
 

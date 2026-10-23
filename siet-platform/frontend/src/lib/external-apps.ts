@@ -12,10 +12,12 @@
  * so work created there is stored under the same account.
  *
  * The roadmap app opens in the SAME tab and is told where the user came from
- * (`return`), so its "back to Community" button lands on that exact page; the
- * quiz app still opens in a new tab.
+ * (`return`), so its "back to Community" button lands on that exact page, and
+ * which theme is picked here (`theme`), so it shows the same light / dark; the
+ * quiz app still opens in a new tab, and gets `theme` too.
  */
 import { buildCrossAppLink } from '@siet/platform/lib/cross-app'
+import { useThemeStore } from '@/lib/stores/theme-store'
 
 const FALLBACK_QUIZ_URL =
   process.env.NEXT_PUBLIC_MY_AI_QUIZ_URL || 'http://localhost:3001/quiz'
@@ -54,7 +56,11 @@ export async function openExternalApp(href: string) {
 
 export async function openQuizApp() {
   const { quizUrl } = await resolveUrls()
-  return openExternalApp(quizUrl)
+  // Same theme as here, like the roadmap app (the `siet-theme` cookie covers
+  // later changes; this covers a quiz app on another host).
+  const target = new URL(quizUrl, window.location.origin)
+  target.searchParams.set('theme', useThemeStore.getState().theme)
+  return openExternalApp(target.toString())
 }
 
 export interface RoadmapLaunch {
@@ -75,6 +81,8 @@ export async function openRoadmapApp(launch: RoadmapLaunch = {}) {
   const path = launch.path && launch.path.startsWith('/') && launch.path !== '/' ? launch.path : ''
   const target = new URL(roadmapUrl.replace(/\/$/, '') + path, window.location.origin)
   target.searchParams.set('return', launch.returnTo || window.location.href)
+  // The choice itself ('system' included), so the app keeps following the OS.
+  target.searchParams.set('theme', useThemeStore.getState().theme)
   if (launch.course) target.searchParams.set('course', String(launch.course))
   if (launch.doc) target.searchParams.set('doc', String(launch.doc))
   const link = await buildCrossAppLink({ href: target.toString() })

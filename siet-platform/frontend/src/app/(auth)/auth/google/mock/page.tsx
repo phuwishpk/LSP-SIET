@@ -71,7 +71,7 @@ function GoogleMock() {
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300">
             <FlaskConical className="h-6 w-6" />
           </div>
           <CardTitle>Google Sign-in (โหมดจำลอง)</CardTitle>
@@ -82,7 +82,7 @@ function GoogleMock() {
         </CardHeader>
         <CardContent>
           {!state && (
-            <p className="mb-3 text-sm text-red-600">ไม่มี state กรุณาเริ่มจากหน้าเข้าสู่ระบบ</p>
+            <p className="mb-3 text-sm text-red-600 dark:text-red-300">ไม่มี state กรุณาเริ่มจากหน้าเข้าสู่ระบบ</p>
           )}
           <div className="mb-4 flex flex-wrap gap-2">
             {PRESETS.map((p) => (
@@ -118,7 +118,7 @@ function GoogleMock() {
               <Input id="mock-name" value={name} onChange={(e) => setName(e.target.value)} />
             </div>
             {error && (
-              <div className="flex items-center gap-2 text-sm text-red-600">
+              <div className="flex items-center gap-2 text-sm text-red-600 dark:text-red-300">
                 <AlertCircle className="h-4 w-4" /> {error}
               </div>
             )}

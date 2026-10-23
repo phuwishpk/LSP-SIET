@@ -64,7 +64,7 @@ export default function ShareDialog({ roadmap, onClose, onShared }) {
   }
 
   return (
-    <Dialog title="แชร์ Roadmap ลง Community" subtitle={`${roadmap.title} · ${roadmap.node_count} ด่าน`} onClose={onClose}>
+    <Dialog title="แชร์ Roadmap ลง Community" subtitle={`${roadmap.title} · ${roadmap.node_count} หัวข้อ`} onClose={onClose}>
       <form className="form" onSubmit={submit}>
         <div className="field">
           <label htmlFor="share-caption">ข้อความ</label>
@@ -99,7 +99,7 @@ export default function ShareDialog({ roadmap, onClose, onShared }) {
           />
         </div>
         <p className="hint">
-          เพื่อนจะเห็นด่านทั้งหมด ที่มาจากคลังวิชาและเว็บ ส่วนที่มาจากไฟล์ส่วนตัวจะแสดงเป็น “ไฟล์ส่วนตัวของผู้สร้าง” โดยไม่มีชื่อไฟล์
+          เพื่อนจะเห็นหัวข้อทั้งหมด ที่มาจากคลังวิชาและเว็บ ส่วนที่มาจากไฟล์ส่วนตัวจะแสดงเป็น “ไฟล์ส่วนตัวของผู้สร้าง” โดยไม่มีชื่อไฟล์
         </p>
         <div className="dialog-footer">
           <button type="button" className="btn" onClick={onClose} disabled={busy}>

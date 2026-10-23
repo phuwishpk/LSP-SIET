@@ -231,13 +231,16 @@ class StudyRoadmapBody(BaseModel):
     # None = the model decides how big the plan is.
     node_count: Optional[int] = Field(default=None, ge=3, le=200)
     language: str = "th"
-    # Same knowledge picker as POST /ask.
-    scope: Literal["auto", "course", "personal", "document", "notebook"] = "auto"
+    # Same knowledge picker as POST /ask, plus "none": no library, only the web
+    # (per ``web``) and the model's own knowledge.
+    scope: Literal["auto", "course", "personal", "document", "notebook", "none"] = "auto"
     course_id: Optional[int] = None
-    document_ids: List[int] = Field(default_factory=list)
+    # Several documents may be picked at once, together with notebook sources.
+    document_ids: List[int] = Field(default_factory=list, max_length=20)
     notebook_ids: List[str] = Field(default_factory=list, max_length=20)
     source_ids: List[str] = Field(default_factory=list, max_length=20)
-    # Web support: "auto" = only for what the library does not cover.
+    # Web support: "auto" = web text only where the library has nothing (every node
+    # still gets reading links), "always" = web text everywhere, "off" = no web.
     web: Literal["auto", "always", "off"] = "auto"
 
 
@@ -2147,6 +2150,8 @@ async def study_quiz(
 
 async def _roadmap_scope(user: User, body: StudyRoadmapBody) -> tuple[List[str], Optional[List[str]], str]:
     """The knowledge a roadmap request may read: ``(notebook_ids, source_ids, label)``."""
+    if body.scope == "none":
+        return [], None, "ไม่ใช้คลังความรู้"
     if body.scope in ("document", "notebook") and not (
         body.document_ids or body.notebook_ids or body.source_ids
     ):

@@ -42,7 +42,7 @@ export function CommunityRulesContent() {
     <div className="space-y-4">
       <header className="space-y-2">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-100 text-pink-600">
+          <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-pink-100 text-pink-600 dark:bg-pink-950/50 dark:text-pink-300">
             <ShieldCheck className="h-5 w-5" />
           </span>
           <div>
@@ -62,7 +62,7 @@ export function CommunityRulesContent() {
             className="rounded-2xl border-pink-100/80 bg-white shadow-none transition-shadow hover:shadow-sm dark:bg-card"
           >
             <CardContent className="flex items-start gap-3 p-4 sm:p-5">
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-100 text-pink-600">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pink-100 text-pink-600 dark:bg-pink-950/50 dark:text-pink-300">
                 <Icon className="h-4 w-4" aria-hidden="true" />
               </span>
               <div className="space-y-2">
@@ -74,8 +74,8 @@ export function CommunityRulesContent() {
         ))}
       </div>
 
-      <div className="flex items-center gap-3 rounded-xl border border-pink-100 bg-pink-50 px-4 py-4 text-foreground">
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-pink-200 text-pink-700">
+      <div className="flex items-center gap-3 rounded-xl border border-pink-100 bg-pink-50 px-4 py-4 text-foreground dark:border-pink-900/40 dark:bg-pink-950/20">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-pink-200 text-pink-700 dark:border-pink-800/60 dark:text-pink-300">
           <Check className="h-4 w-4" aria-hidden="true" />
         </span>
         <p className="text-xs font-medium leading-relaxed">
@@ -103,7 +103,7 @@ export function CommunityCreditsPanel({ className }: { className?: string }) {
           </div>
           <div>
             <p className="mb-2 text-[11px] text-muted-foreground">ยอดเครดิตปัจจุบัน</p>
-            <span className="inline-flex items-center gap-2 rounded-full bg-pink-100 px-3 py-1.5 text-sm font-semibold text-pink-800">
+            <span className="inline-flex items-center gap-2 rounded-full bg-pink-100 px-3 py-1.5 text-sm font-semibold text-pink-800 dark:bg-pink-950/50 dark:text-pink-200">
               <Coins className="h-3.5 w-3.5" aria-hidden="true" />
               {isLoading && balance === undefined
                 ? 'กำลังโหลด…'
