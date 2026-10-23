@@ -264,9 +264,11 @@ def test_owner_delete_archives_admin_delete_purges(client, sign_in, monkeypatch)
     status = AsyncMock()
     purge = AsyncMock(return_value={"documents": 2, "notebooks": 1})
     delete = AsyncMock()
+    log = AsyncMock()  # else the test writes a "room.purge" row into the real audit log
     monkeypatch.setattr(repo, "set_course_status", status)
     monkeypatch.setattr(repo, "delete_course", delete)
     monkeypatch.setattr(router.library, "purge_course_library", purge)
+    monkeypatch.setattr(router.audit, "log_action", log)
 
     sign_in(_user(7, "teacher"))
     res = client.delete("/api/community/courses/5")
@@ -282,6 +284,7 @@ def test_owner_delete_archives_admin_delete_purges(client, sign_in, monkeypatch)
     assert res.json()["purged"] == {"documents": 2, "notebooks": 1}
     purge.assert_awaited_once()
     delete.assert_awaited_once_with(5)
+    assert log.await_args.args[1] == "room.purge" and log.await_args.kwargs["target_id"] == 5
 
 
 def test_only_owner_edits_but_a_ta_sees_the_roster(client, sign_in, monkeypatch):
