@@ -1295,6 +1295,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   --border: #4b3441;
   --input: #59404e;
   --ring: #f472b6;
+}
 
 .field > label .muted {
   font-weight: 400;
