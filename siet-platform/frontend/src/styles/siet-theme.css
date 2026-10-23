@@ -60,6 +60,10 @@
   --sidebar-accent-foreground: #831843;
   --sidebar-border: #fef3f5;
   --sidebar-ring: #db2777;
+  /* open-notebook's own action hue (active nav spine, default badge) */
+  --fern: #db2777;
+  --fern-deep: #be185d;
+  --fern-tint: #fce7f3;
   font-family: var(--font-inter), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
@@ -129,6 +133,9 @@
   --sidebar-accent-foreground: #fce7f3;
   --sidebar-border: #4b3441;
   --sidebar-ring: #f472b6;
+  --fern: #f472b6;
+  --fern-deep: #f9a8d4;
+  --fern-tint: #4a2b3c;
 }
 
 /*
