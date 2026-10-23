@@ -12,7 +12,10 @@
   --text-strong: #202124;
   --muted: #777777;
   --accent: #ed4988;
+  --accent-hover: #d83a78;
+  --accent-pressed: #c92f6b;
   --accent-soft: #fce7f0;
+  --accent-light: #f7b7d0;
   --accent-text: #c92f6b;
   --siet: #ed4988;
   --danger: #ff4b4b;
@@ -25,7 +28,9 @@
   --violet-line: #dcc5ff;
   --violet-text: #7a3fd1;
   --gold: #9a6b00;
-  --topbar-h: 60px;
+  --shadow-button: 0 4px 0 #c92f6b;
+  --shadow-card: 0 2px 4px rgba(32, 33, 36, 0.04), 0 1px 2px rgba(32, 33, 36, 0.02);
+  --topbar-h: 64px;
 }
 
 * {
@@ -286,11 +291,20 @@ textarea {
   background: var(--accent);
   border-color: var(--accent);
   color: #ffffff;
-  font-weight: 600;
+  font-weight: 700;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--accent-pressed);
+  transition: all 0.14s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #d83a78;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--accent-pressed);
 }
 
 .btn-outline-accent {
@@ -1090,4 +1104,47 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
 @media (min-width: 768px) {
   .md\:px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
   .md\:mx-6 { margin-left: 1.5rem; margin-right: 1.5rem; }
+}
+
+
+/* ---- Community Theme & Popovers (Matches Community 3500) ---- */
+.community-theme {
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #263142;
+  --card: #ffffff;
+  --card-foreground: #263142;
+  --popover: #ffffff;
+  --popover-foreground: #263142;
+  --primary: #ed4988;
+  --primary-foreground: #ffffff;
+  --secondary: #fff1f5;
+  --secondary-foreground: #263142;
+  --muted: #f8fafc;
+  --muted-foreground: #707b8e;
+  --accent: #fce7f0;
+  --accent-foreground: #c92f6b;
+  --border: #f1f5f9;
+  --input: #f1f5f9;
+  --ring: #ed4988;
+}
+
+.dark .community-theme {
+  --background: #21181d;
+  --foreground: #f9edf2;
+  --card: #2b2026;
+  --card-foreground: #f9edf2;
+  --popover: #2b2026;
+  --popover-foreground: #f9edf2;
+  --primary: #f472b6;
+  --primary-foreground: #381126;
+  --secondary: #382630;
+  --secondary-foreground: #f9edf2;
+  --muted: #382630;
+  --muted-foreground: #c4aeb9;
+  --accent: #4a2b3c;
+  --accent-foreground: #fce7f3;
+  --border: #4b3441;
+  --input: #59404e;
+  --ring: #f472b6;
 }
