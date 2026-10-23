@@ -1,0 +1,29 @@
+$ docker exec kmitl_mariadb healthcheck.sh --connect && echo "healthcheck: OK"
+healthcheck: OK
+$ docker exec -e MYSQL_PWD="$MARIADB_PASSWORD" kmitl_mariadb mariadb -uworkspace workspace -e "SELECT VERSION(); \
+    SELECT table_name, engine, table_collation FROM information_schema.tables WHERE table_schema='workspace' ORDER BY table_name;"
+VERSION()
+11.8.9-MariaDB-ubu2404
+table_name	engine	table_collation
+admin_audit_log	InnoDB	utf8mb4_unicode_ci
+allowed_teachers	InnoDB	utf8mb4_unicode_ci
+categories	InnoDB	utf8mb4_unicode_ci
+content_reports	InnoDB	utf8mb4_unicode_ci
+library_documents	InnoDB	utf8mb4_unicode_ci
+llm_usage	InnoDB	utf8mb4_unicode_ci
+notifications	InnoDB	utf8mb4_unicode_ci
+point_transactions	InnoDB	utf8mb4_unicode_ci
+posts	InnoDB	utf8mb4_unicode_ci
+post_comments	InnoDB	utf8mb4_unicode_ci
+post_reactions	InnoDB	utf8mb4_unicode_ci
+post_shares	InnoDB	utf8mb4_unicode_ci
+quiz_attempts	InnoDB	utf8mb4_unicode_ci
+rag_conversations	InnoDB	utf8mb4_unicode_ci
+rag_credit_sessions	InnoDB	utf8mb4_unicode_ci
+rag_messages	InnoDB	utf8mb4_unicode_ci
+rooms	InnoDB	utf8mb4_unicode_ci
+room_members	InnoDB	utf8mb4_unicode_ci
+saved_collections	InnoDB	utf8mb4_unicode_ci
+saved_collection_posts	InnoDB	utf8mb4_unicode_ci
+saved_posts	InnoDB	utf8mb4_unicode_ci
+users	InnoDB	utf8mb4_unicode_ci
