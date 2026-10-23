@@ -108,7 +108,9 @@ export default function RoadmapPage() {
   const download = async () => {
     try {
       const { toPng } = await import('html-to-image')
-      const url = await toPng(graphRef.current, { backgroundColor: '#FFFFFF', pixelRatio: 2 })
+      // The picture keeps the page's background, light or dark.
+      const background = getComputedStyle(document.documentElement).getPropertyValue('--bg').trim() || '#FFFFFF'
+      const url = await toPng(graphRef.current, { backgroundColor: background, pixelRatio: 2 })
       const link = document.createElement('a')
       link.href = url
       link.download = `${roadmap.title || 'roadmap'}.png`

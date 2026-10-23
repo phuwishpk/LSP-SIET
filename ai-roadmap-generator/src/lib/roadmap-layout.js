@@ -17,16 +17,17 @@ const EDGE_PAD = 16
 /**
  * The five learning stages get fixed colours; anything else cycles.
  * Text-safe shades of the SIET Pink accents (root DESIGN.md: blue, green,
- * orange, purple, pink, gold) so a 12px lane label still reads on white.
+ * orange, purple, pink, gold); the values live in app.css (--stage-1..6) so
+ * the dark theme can lighten them.
  */
 const STAGE_COLORS = {
-  พื้นฐาน: '#1686BD',
-  แนวคิดหลัก: '#3E8A50',
-  ฝึกปฏิบัติ: '#C66F00',
-  ประยุกต์: '#9A4FE0',
-  'ทบทวน/ประเมิน': '#C92F6B',
+  พื้นฐาน: 'var(--stage-1)',
+  แนวคิดหลัก: 'var(--stage-2)',
+  ฝึกปฏิบัติ: 'var(--stage-3)',
+  ประยุกต์: 'var(--stage-4)',
+  'ทบทวน/ประเมิน': 'var(--stage-5)',
 }
-const FALLBACK_COLORS = ['#1686BD', '#3E8A50', '#C66F00', '#9A4FE0', '#C92F6B', '#9A6B00']
+const FALLBACK_COLORS = [1, 2, 3, 4, 5, 6].map((n) => `var(--stage-${n})`)
 
 export function categoryColor(category, index = 0) {
   const key = String(category || '').replace(/\s+/g, '')

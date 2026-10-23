@@ -1,20 +1,31 @@
 :root {
+  color-scheme: light;
   --bg: #ffffff;
   --surface: #ffffff;
+  --raised: #ffffff;
   --card: #fafafa;
   --field: #ffffff;
+  --hover: #f7f7f8;
   --line: #e5e5e5;
   --line-strong: #cfcfcf;
   --text: #3c3c3c;
   --text-strong: #202124;
   --muted: #777777;
+  --link: #1cb0f6;
   --accent: #ed4988;
+  --accent-hover: #d83a78;
+  --accent-press: #c92f6b;
   --accent-soft: #fce7f0;
   --accent-text: #c92f6b;
+  --on-accent: #ffffff;
   --siet: #ed4988;
   --danger: #ff4b4b;
   --danger-line: #ffb8b8;
   --danger-solid: #ff4b4b;
+  --danger-hover: #e03b3b;
+  --warn-bg: #fff6df;
+  --warn-line: #f5d08a;
+  --warn-text: #7a5a00;
   --green-bg: #e8f5ec;
   --green-line: #b7e0c4;
   --green-text: #2f7a4a;
@@ -22,7 +33,76 @@
   --violet-line: #dcc5ff;
   --violet-text: #7a3fd1;
   --gold: #9a6b00;
+  --track: #eeeeee;
+  --lane: #fafafa;
+  --lane-alt: #fdf7f9;
+  --lane-line: #eeeeee;
+  --node-detail: #fafafa;
+  --node-detail-text: #555555;
+  --edge: #afafaf;
+  --backdrop: rgba(32, 33, 36, 0.45);
+  /* Stage colours (lib/roadmap-layout.js): text-safe on the light lanes. */
+  --stage-1: #1686bd;
+  --stage-2: #3e8a50;
+  --stage-3: #c66f00;
+  --stage-4: #9a4fe0;
+  --stage-5: #c92f6b;
+  --stage-6: #9a6b00;
   --topbar-h: 60px;
+}
+
+/*
+ * Dark: the Community dark palette (siet-theme.css, .dark .community-theme).
+ * The theme follows SIET Space - see lib/theme.js and the script in _document.js.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #21181d;
+  --surface: #21181d;
+  --raised: #2b2026;
+  --card: #2b2026;
+  --field: #2b2026;
+  --hover: #382630;
+  --line: #4b3441;
+  --line-strong: #59404e;
+  --text: #e8d9e0;
+  --text-strong: #f9edf2;
+  --muted: #c4aeb9;
+  --link: #7ccdf7;
+  --accent: #f472b6;
+  --accent-hover: #ec4899;
+  --accent-press: #db2777;
+  --accent-soft: #4a2b3c;
+  --accent-text: #f9a8d4;
+  --on-accent: #381126;
+  --danger: #ff8a8a;
+  --danger-line: #7a3a40;
+  --danger-solid: #e5484d;
+  --danger-hover: #d13a3f;
+  --warn-bg: #3a2c12;
+  --warn-line: #7a5a1a;
+  --warn-text: #f5d08a;
+  --green-bg: #1d3326;
+  --green-line: #2f5a3e;
+  --green-text: #8fd6a6;
+  --violet-bg: #2e2342;
+  --violet-line: #4d3a70;
+  --violet-text: #c9a8ff;
+  --gold: #e0b84a;
+  --track: #382630;
+  --lane: #261c22;
+  --lane-alt: #2d1f27;
+  --lane-line: #3a2a33;
+  --node-detail: #261c22;
+  --node-detail-text: #c4aeb9;
+  --edge: #7d6874;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --stage-1: #5cb8e6;
+  --stage-2: #74c48a;
+  --stage-3: #f0a24a;
+  --stage-4: #c08cf5;
+  --stage-5: #f472b6;
+  --stage-6: #e0b84a;
 }
 
 * {
@@ -40,7 +120,7 @@ body {
 }
 
 a {
-  color: #1cb0f6;
+  color: var(--link);
 }
 
 a:hover {
@@ -56,7 +136,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid #1cb0f6;
+  outline: 2px solid var(--link);
   outline-offset: 2px;
 }
 
@@ -86,7 +166,7 @@ textarea {
 
 .body {
   margin: 0;
-  color: #3c3c3c;
+  color: var(--text);
   text-wrap: pretty;
   white-space: pre-line;
 }
@@ -153,16 +233,16 @@ textarea {
   padding: 0 16px 0 8px;
   border: 1px solid var(--line-strong);
   border-radius: 22px;
-  color: #202124;
+  color: var(--text-strong);
   text-decoration: none;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .back-button:hover {
-  color: #202124;
-  border-color: #cfcfcf;
-  background: #f7f7f8;
+  color: var(--text-strong);
+  border-color: var(--line-strong);
+  background: var(--hover);
 }
 
 .siet-mark {
@@ -180,7 +260,7 @@ textarea {
 .topbar-divider {
   width: 1px;
   height: 24px;
-  background: #e5e5e5;
+  background: var(--line);
 }
 
 .app-name {
@@ -193,19 +273,19 @@ textarea {
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #777777;
+  color: var(--muted);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .app-name:hover {
-  background: #f7f7f8;
-  color: #202124;
+  background: var(--hover);
+  color: var(--text-strong);
 }
 
 /* Already on the roadmap home: a label, not a way to get there. */
 .app-name[aria-current='page'] {
-  color: #202124;
+  color: var(--text-strong);
   pointer-events: none;
 }
 
@@ -215,7 +295,7 @@ textarea {
   gap: 8px;
   height: 36px;
   padding: 0 14px;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--line);
   border-radius: 18px;
   color: var(--gold);
   font-weight: 600;
@@ -234,8 +314,8 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 16px;
-  background: #fce7f0;
-  color: #c92f6b;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,7 +324,7 @@ textarea {
 }
 
 .who-name {
-  color: #3c3c3c;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -270,8 +350,8 @@ textarea {
 }
 
 .btn:hover:not(:disabled) {
-  background: #f7f7f8;
-  color: #202124;
+  background: var(--hover);
+  color: var(--text-strong);
 }
 
 .btn:disabled {
@@ -282,12 +362,12 @@ textarea {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #d83a78;
+  background: var(--accent-hover);
 }
 
 .btn-outline-accent {
@@ -309,7 +389,7 @@ textarea {
 }
 
 .btn-danger-solid:hover:not(:disabled) {
-  background: #e03b3b;
+  background: var(--danger-hover);
 }
 
 .btn-lg {
@@ -326,7 +406,7 @@ textarea {
   padding: 0;
   background: none;
   border: none;
-  color: #1cb0f6;
+  color: var(--link);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -341,9 +421,9 @@ textarea {
 .chip {
   padding: 2px 10px;
   border-radius: 10px;
-  background: #f7f7f8;
-  border: 1px solid #e5e5e5;
-  color: #3c3c3c;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  color: var(--text);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -380,7 +460,7 @@ textarea {
 .field > legend {
   padding: 0;
   font-weight: 600;
-  color: #3c3c3c;
+  color: var(--text);
 }
 
 .field > legend {
@@ -393,9 +473,9 @@ textarea {
   width: 100%;
   padding: 10px 12px;
   background: var(--field);
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #202124;
+  color: var(--text-strong);
 }
 
 .field select,
@@ -415,7 +495,7 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   background: var(--field);
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow-wrap: anywhere;
 }
@@ -497,9 +577,9 @@ textarea {
   min-height: 44px;
   padding: 0 16px;
   background: transparent;
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #3c3c3c;
+  color: var(--text);
   cursor: pointer;
 }
 
@@ -526,14 +606,14 @@ textarea {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #e5e5e5;
-  background: #fafafa;
+  border: 1px solid var(--line);
+  background: var(--card);
 }
 
 .notice-warn {
-  border-color: #f5d08a;
-  background: #fff6df;
-  color: #7a5a00;
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-text);
 }
 
 .progress {
@@ -545,7 +625,7 @@ textarea {
 .progress-bar {
   height: 4px;
   border-radius: 2px;
-  background: #eeeeee;
+  background: var(--track);
   overflow: hidden;
   position: relative;
 }
@@ -590,7 +670,7 @@ textarea {
 .home-list {
   padding: 32px;
   background: var(--surface);
-  border-left: 1px solid #e5e5e5;
+  border-left: 1px solid var(--line);
 }
 
 .mine {
@@ -605,7 +685,7 @@ textarea {
   flex-direction: column;
   gap: 12px;
   background: var(--card);
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--line);
   border-radius: 10px;
 }
 
@@ -613,7 +693,7 @@ textarea {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #202124;
+  color: var(--text-strong);
 }
 
 .card-actions {
@@ -637,7 +717,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid #e5e5e5;
+  border-bottom: 1px solid var(--line);
 }
 
 .viewer-head .h2 {
@@ -671,7 +751,7 @@ textarea {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: #3c3c3c;
+  color: var(--text);
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
@@ -682,9 +762,9 @@ textarea {
 }
 
 .home-back:hover {
-  background: #f7f7f8;
-  border-color: #cfcfcf;
-  color: #202124;
+  background: var(--hover);
+  border-color: var(--line-strong);
+  color: var(--text-strong);
 }
 
 .home-back:hover svg {
@@ -721,16 +801,16 @@ textarea {
   position: absolute;
   left: 0;
   right: 0;
-  background: #fafafa;
-  border-top: 1px solid #eeeeee;
+  background: var(--lane);
+  border-top: 1px solid var(--lane-line);
 }
 
 .lane:last-of-type {
-  border-bottom: 1px solid #eeeeee;
+  border-bottom: 1px solid var(--lane-line);
 }
 
 .lane-alt {
-  background: #fdf7f9;
+  background: var(--lane-alt);
 }
 
 .lane-label {
@@ -742,8 +822,8 @@ textarea {
   font-size: 13px;
   line-height: 17px;
   font-weight: 800;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
+  background: var(--raised);
+  border: 1px solid var(--line);
   border-radius: 999px;
 }
 
@@ -756,13 +836,21 @@ textarea {
 }
 
 .line-solid {
-  stroke: #afafaf;
+  stroke: var(--edge);
   stroke-width: 2;
   stroke-linecap: round;
 }
 
+.arrow-solid {
+  fill: var(--edge);
+}
+
+.arrow-dashed {
+  fill: var(--accent);
+}
+
 .line-dashed {
-  stroke: #ed4988;
+  stroke: var(--accent);
   stroke-width: 2;
   stroke-dasharray: 6 6;
   stroke-linecap: round;
@@ -775,17 +863,17 @@ textarea {
   align-items: center;
   justify-content: center;
   text-align: center;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
+  background: var(--raised);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  color: #202124;
+  color: var(--text-strong);
   cursor: pointer;
   font-size: 15px;
   font-weight: 600;
 }
 
 .node:hover {
-  border-color: #cfcfcf;
+  border-color: var(--line-strong);
 }
 
 .node-label {
@@ -798,25 +886,25 @@ textarea {
 
 .node-sub,
 .node-detail {
-  background: #ffffff;
-  border-color: #e5e5e5;
+  background: var(--raised);
+  border-color: var(--line);
   border-radius: 8px;
-  color: #3c3c3c;
+  color: var(--text);
   font-size: 14px;
   font-weight: 500;
 }
 
 .node-detail {
-  background: #fafafa;
-  border-color: #e5e5e5;
-  color: #555555;
+  background: var(--node-detail);
+  border-color: var(--line);
+  color: var(--node-detail-text);
 }
 
 .node-selected,
 .node-selected:hover {
   background: var(--accent-soft);
   border: 2px solid var(--accent);
-  color: #202124;
+  color: var(--text-strong);
   font-weight: 600;
 }
 
@@ -826,7 +914,7 @@ textarea {
   flex-direction: column;
   gap: 20px;
   background: var(--surface);
-  border-left: 1px solid #e5e5e5;
+  border-left: 1px solid var(--line);
 }
 
 .panel-section {
@@ -856,14 +944,14 @@ textarea {
   justify-content: space-between;
   gap: 10px;
   background: var(--card);
-  border: 1px solid #e5e5e5;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #3c3c3c;
+  color: var(--text);
 }
 
 .source-link {
   text-decoration: none;
-  color: #1cb0f6;
+  color: var(--link);
 }
 
 .source-meta {
@@ -877,14 +965,14 @@ textarea {
 .dialog {
   width: min(560px, calc(100vw - 32px));
   padding: 0;
-  background: #ffffff;
-  border: 1px solid #e5e5e5;
+  background: var(--raised);
+  border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--text);
 }
 
 .dialog::backdrop {
-  background: rgba(32, 33, 36, 0.45);
+  background: var(--backdrop);
 }
 
 .dialog-body {
@@ -916,7 +1004,7 @@ textarea {
 
   .panel {
     border-left: none;
-    border-top: 1px solid #e5e5e5;
+    border-top: 1px solid var(--line);
   }
 }
 
@@ -933,7 +1021,7 @@ textarea {
   .home-list {
     padding: 24px 16px;
     border-left: none;
-    border-top: 1px solid #e5e5e5;
+    border-top: 1px solid var(--line);
   }
 
   .viewer-head {
@@ -983,7 +1071,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
 /* Primary action: 16px radius with a flat 4px lip in the pressed colour. */
 .btn-primary {
   border-radius: 16px;
-  box-shadow: 0 4px 0 #c92f6b;
+  box-shadow: 0 4px 0 var(--accent-press);
   transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
 }
 .btn-primary:disabled {
@@ -994,7 +1082,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   box-shadow: none;
 }
 .btn-primary:focus-visible {
-  outline: 3px solid #1cb0f6;
+  outline: 3px solid var(--link);
   outline-offset: 3px;
 }
 
@@ -1004,13 +1092,13 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   border-width: 2px;
 }
 .node-selected {
-  background: #ed4988;
-  border-color: #c92f6b;
-  color: #ffffff;
+  background: var(--accent);
+  border-color: var(--accent-press);
+  color: var(--on-accent);
 }
 .node-selected:hover {
-  background: #d83a78;
-  color: #ffffff;
+  background: var(--accent-hover);
+  color: var(--on-accent);
 }
 
 @media (prefers-reduced-motion: reduce) {

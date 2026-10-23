@@ -1,4 +1,5 @@
 import { Html, Head, Main, NextScript } from 'next/document'
+import { themeBootScript } from '@/lib/theme'
 
 export default function Document() {
   return (
@@ -15,6 +16,8 @@ export default function Document() {
         />
       </Head>
       <body>
+        {/* Light / dark before the first paint, so a dark-theme visit does not flash white. */}
+        <script dangerouslySetInnerHTML={{ __html: themeBootScript }} />
         <Main />
         <NextScript />
       </body>
