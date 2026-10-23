@@ -5,6 +5,7 @@ import {
   BookOpen,
   Coins,
   FileText,
+  Flag,
   Search,
   ShieldCheck,
   Trash2,
@@ -14,6 +15,7 @@ import {
   UserX,
   Users,
 } from 'lucide-react'
+import Link from 'next/link'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { UsagePanel } from '@siet/platform/components/admin/UsagePanel'
@@ -94,9 +96,16 @@ export default function AdminPage() {
             title="จัดการระบบ"
             description="บัญชีผู้ใช้ แต้ม การใช้ AI และสถานะระบบ — เรื่องที่ใช้ร่วมกันทั้ง Community, AI และ Quiz"
           >
-            <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
-              <UserPlus className="h-4 w-4" /> สร้างบัญชี
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" asChild className="gap-1.5 border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-300">
+                <Link href="/admin/community">
+                  <Flag className="h-4 w-4" /> ดูรายงานเนื้อหา Community
+                </Link>
+              </Button>
+              <Button size="sm" className="gap-1.5" onClick={() => setCreateOpen(true)}>
+                <UserPlus className="h-4 w-4" /> สร้างบัญชี
+              </Button>
+            </div>
           </AdminPageHeader>
 
           <Tabs defaultValue="overview">
@@ -106,7 +115,12 @@ export default function AdminPage() {
               <TabsTrigger value="points">แต้ม</TabsTrigger>
               <TabsTrigger value="usage">การใช้ AI</TabsTrigger>
               <TabsTrigger value="import">นำเข้า CSV</TabsTrigger>
-              <TabsTrigger value="audit">บันทึกผู้ดูแล</TabsTrigger>
+              <TabsTrigger value="audit">บันทึกประวัติระบบ</TabsTrigger>
+              <TabsTrigger value="reports_link" asChild>
+                <Link href="/admin/community" className="gap-1 text-amber-700 hover:text-amber-800 dark:text-amber-400">
+                  <Flag className="h-3.5 w-3.5" /> รายงานเนื้อหา ↗
+                </Link>
+              </TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="mt-4 space-y-4">

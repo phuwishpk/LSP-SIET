@@ -6,6 +6,7 @@ import {
   CircleCheck,
   ChevronDown,
   CircleHelp,
+  Flag,
   GraduationCap,
   LogOut,
   Menu,
@@ -191,6 +192,17 @@ export function CommunityHeader({
                   <span>คลังความรู้และไฟล์ของฉัน</span>
                 </Link>
               </DropdownMenuItem>
+              {user?.role === 'admin' && (
+                <DropdownMenuItem
+                  asChild
+                  className="mb-1 min-h-12 rounded-xl border border-amber-200 bg-amber-50/70 px-3 py-2.5 text-sm text-amber-900 transition-colors hover:border-amber-300 hover:bg-amber-100 focus:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/60 dark:text-amber-200"
+                >
+                  <Link href="/admin/community">
+                    <Flag className="h-4 w-4 text-amber-600" />
+                    <span>จัดการ Community และรายงานเนื้อหา</span>
+                  </Link>
+                </DropdownMenuItem>
+              )}
               {user?.role === 'teacher' || user?.role === 'admin' ? (
                 <DropdownMenuItem
                   asChild

@@ -442,6 +442,25 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
         if await suspension_lifted(fresh):
             fresh = await get_by_id(fresh.id or 0) or fresh
 
+    from siet_platform.audit import log_action
+
+    if fresh.disabled:
+        await log_action(
+            actor_id=int(fresh.id or 0),
+            action="auth.login_failed",
+            target_type="user",
+            target_id=fresh.id,
+            detail={"method": "google", "reason": "account_suspended"},
+        )
+    else:
+        await log_action(
+            actor_id=int(fresh.id or 0),
+            action="auth.login",
+            target_type="user",
+            target_id=fresh.id,
+            detail={"method": "google", "email": profile.email, "is_new": is_new},
+        )
+
     access_token, expires_at = issue_access_token(fresh)
     if fresh.disabled:
         target_next = "/pending"

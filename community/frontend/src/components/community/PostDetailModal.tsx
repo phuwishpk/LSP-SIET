@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   FileText,
+  Flag,
   MessageCircle,
   MoreHorizontal,
   Play,
@@ -20,6 +21,13 @@ import {
   DialogContent,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { ReportButton } from '../common/ReportButton'
 import {
   Select,
   SelectContent,
@@ -65,6 +73,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
   const [videoUrl, setVideoUrl] = useState<string | null>(null)
   const [videoError, setVideoError] = useState(false)
   const [videoPlaying, setVideoPlaying] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const videoRef = useRef<HTMLVideoElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const canDelete = (comment: PostComment) =>
@@ -212,15 +221,37 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
                 </div>
                 <p className="mt-0.5 text-xs text-muted-foreground">{timeAgo(post.created_at)}</p>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 rounded-full text-muted-foreground"
-                aria-label="คัดลอกลิงก์โพสต์"
-                onClick={copyLink}
-              >
-                <MoreHorizontal className="h-4 w-4" />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 rounded-full text-muted-foreground"
+                    aria-label="ตัวเลือกโพสต์"
+                  >
+                    <MoreHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="community-theme">
+                  <DropdownMenuItem onClick={copyLink}>
+                    <Share2 className="mr-2 h-4 w-4" /> คัดลอกลิงก์โพสต์
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    className="text-amber-600 focus:text-amber-600"
+                    onClick={() => setReportOpen(true)}
+                  >
+                    <Flag className="mr-2 h-4 w-4" /> รายงานโพสต์
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              <ReportButton
+                targetType="post"
+                targetId={post.id}
+                targetLabel={post.title || post.content?.slice(0, 50) || 'โพสต์'}
+                open={reportOpen}
+                onOpenChange={setReportOpen}
+                hideTrigger
+              />
             </div>
 
             {post.title && <h2 className="text-sm font-semibold">{post.title}</h2>}

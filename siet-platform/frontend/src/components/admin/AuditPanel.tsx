@@ -19,6 +19,9 @@ import { timeAgo } from '@siet/platform/lib/utils/community-format'
 const PAGE = 50
 
 const ACTION_LABELS: Record<string, string> = {
+  'auth.login': 'เข้าสู่ระบบสำเร็จ',
+  'auth.login_failed': 'เข้าสู่ระบบไม่สำเร็จ',
+  'document.upload': 'อัปโหลดเอกสารใหม่',
   'user.update': 'แก้ไขบัญชี / ระงับ',
   'user.points': 'ปรับแต้ม',
   'user.reset_password': 'รีเซ็ตรหัสผ่าน',
@@ -54,10 +57,10 @@ export function AuditPanel() {
     <Card>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
-          <ScrollText className="h-4 w-4" /> บันทึกการกระทำของผู้ดูแล
+          <ScrollText className="h-4 w-4" /> บันทึกประวัติการใช้งานและกิจกรรมระบบ
         </CardTitle>
         <CardDescription>
-          ทุกการเปลี่ยนแปลงผ่านส่วนผู้ดูแล (และการจัดการรายงานโดยเจ้าของห้อง) ถูกบันทึกถาวร — ใช้ตอบว่า “ใครลบ/ระงับสิ่งนี้ เมื่อไหร่ เพราะอะไร”
+          บันทึกประวัติเหตุการณ์สำคัญ เช่น การเข้าสู่ระบบ การอัปโหลดเอกสาร และการกระทำเชิงบริหารของผู้ดูแลระบบอย่างถาวร — ใช้ตรวจสอบความปลอดภัยและร่องรอยการใช้งานย้อนหลัง
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -69,7 +72,7 @@ export function AuditPanel() {
               setFilter(e.target.value)
               setOffset(0)
             }}
-            placeholder="กรองด้วย action เช่น user. หรือ report."
+            placeholder="กรองด้วย action เช่น auth. หรือ user. หรือ document."
             className="pl-8"
           />
         </div>
@@ -92,7 +95,7 @@ export function AuditPanel() {
                   <tr key={e.id}>
                     <td className="py-2 pr-3 text-xs text-muted-foreground whitespace-nowrap">{timeAgo(e.created_at)}</td>
                     <td className="py-2 pr-3 text-xs">
-                      {e.actor_display_name || e.actor_username || e.actor_id}
+                      {e.actor_display_name || e.actor_username || (e.actor_id ? e.actor_id : 'ผู้ใช้ภายนอก')}
                       {e.actor_role && e.actor_role !== 'admin' && (
                         <Badge variant="outline" className="ml-1 h-4 text-[10px]">{e.actor_role}</Badge>
                       )}

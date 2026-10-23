@@ -231,6 +231,15 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
         from siet_platform.users import suspension_lifted, suspension_text
 
         if not await suspension_lifted(user):
+            from siet_platform.audit import log_action
+
+            await log_action(
+                actor_id=int(user.id or 0),
+                action="auth.login_failed",
+                target_type="user",
+                target_id=user.id,
+                detail={"reason": "account_suspended", "ip": request.client.host if request.client else None},
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=suspension_text(user),
@@ -239,6 +248,19 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
         # Run verify_password against a dummy hash to keep timing constant
         verify_password(payload.password, "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv")
         await record_login_failure(payload.username, request)
+        from siet_platform.audit import log_action
+
+        await log_action(
+            actor_id=int(user.id) if user and user.id else 0,
+            action="auth.login_failed",
+            target_type="user",
+            target_id=user.id if user else None,
+            detail={
+                "reason": "invalid_credentials" if user else "user_not_found",
+                "username": payload.username,
+                "ip": request.client.host if request.client else None,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -248,6 +270,15 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
     user = await _with_welcome(user)
     access_token, expires_at = issue_access_token(user)
     await touch_last_login(user.id or "")
+    from siet_platform.audit import log_action
+
+    await log_action(
+        actor_id=int(user.id or 0),
+        action="auth.login",
+        target_type="user",
+        target_id=user.id,
+        detail={"method": "password", "ip": request.client.host if request.client else None},
+    )
     return TokenResponse(access_token=access_token, expires_at=expires_at, user=_to_response(user))
 
 
