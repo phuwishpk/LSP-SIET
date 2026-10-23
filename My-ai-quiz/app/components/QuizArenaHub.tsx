@@ -18,7 +18,7 @@ import {
   IconCheckCircle2,
   IconShieldCheck,
 } from './ui/Icons';
-import { PinkOwlMascot } from './PinkOwlMascot';
+import { PinkOwlMascot } from './mascot';
 import {
   getDailyQuests,
   getWeakestTopic,
