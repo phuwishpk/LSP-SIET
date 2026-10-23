@@ -229,7 +229,7 @@ export default function UserProfilePage() {
                   <Avatar
                     src={displayedAvatar}
                     name={displayedName}
-                    className="h-20 w-20 border-4 border-card bg-pink-200 text-xl font-semibold text-slate-700 sm:h-24 sm:w-24"
+                    className="h-20 w-20 border-4 border-card bg-pink-200 text-xl font-semibold text-slate-700 dark:bg-pink-900/50 dark:text-pink-100 sm:h-24 sm:w-24"
                   />
                   <span className="absolute inset-1 flex items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-[1px] transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100">
                     <Camera className="h-5 w-5" aria-hidden="true" />
@@ -239,7 +239,7 @@ export default function UserProfilePage() {
                 <Avatar
                   src={profileUser?.avatar_url}
                   name={displayName(profileUser)}
-                  className="h-20 w-20 border-4 border-card bg-pink-200 text-xl font-semibold text-slate-700 sm:h-24 sm:w-24"
+                  className="h-20 w-20 border-4 border-card bg-pink-200 text-xl font-semibold text-slate-700 dark:bg-pink-900/50 dark:text-pink-100 sm:h-24 sm:w-24"
                 />
               )}
             </div>
@@ -442,7 +442,7 @@ export default function UserProfilePage() {
                     <Avatar
                       src={draft.avatarUrl || undefined}
                       name={draft.displayName || displayedName}
-                      className="h-16 w-16 border border-border bg-pink-100 text-lg"
+                      className="h-16 w-16 border border-border bg-pink-100 text-lg dark:bg-pink-950/50 dark:text-pink-200"
                     />
                     <div className="space-y-1">
                       <p className="text-sm font-medium">รูปโปรไฟล์</p>

@@ -120,7 +120,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
             size="icon"
             aria-label="ปิดหน้าต่างแชร์โพสต์"
             onClick={() => onOpenChange(false)}
-            className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-pink-100 text-pink-600 hover:bg-pink-200"
+            className="absolute right-3 top-1/2 h-9 w-9 -translate-y-1/2 rounded-full bg-pink-100 text-pink-600 hover:bg-pink-200 dark:bg-pink-950/50 dark:text-pink-300 dark:hover:bg-pink-900/50"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -134,7 +134,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
               <p className="text-[11px] text-muted-foreground">กำลังแชร์โพสต์</p>
             </div>
             <Select value={audience} onValueChange={(value) => setAudience(value as ShareAudience)}>
-              <SelectTrigger className="h-8 w-auto gap-1.5 rounded-full border-pink-200 bg-pink-50 px-3 text-xs text-pink-700 shadow-none hover:bg-pink-100">
+              <SelectTrigger className="h-8 w-auto gap-1.5 rounded-full border-pink-200 bg-pink-50 px-3 text-xs text-pink-700 shadow-none hover:bg-pink-100 dark:border-pink-800/60 dark:bg-pink-950/40 dark:text-pink-300 dark:hover:bg-pink-950/60">
                 <SelectValue>{audienceLabel(audience)}</SelectValue>
               </SelectTrigger>
               <SelectContent className="community-theme">
@@ -148,7 +148,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
           <div
             role="tablist"
             aria-label="เลือกกลุ่มเป้าหมาย"
-            className="grid grid-cols-3 rounded-xl border border-pink-100 bg-pink-50/70 p-1"
+            className="grid grid-cols-3 rounded-xl border border-pink-100 bg-pink-50/70 p-1 dark:border-pink-900/40 dark:bg-pink-950/20"
           >
             <AudienceButton
               active={audience === 'public'}
@@ -178,7 +178,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
               aria-label="เลือกชั้นเรียนหรือวิชา"
               value={courseId}
               onChange={(event) => setCourseId(event.target.value)}
-              className="h-9 w-full rounded-xl border border-pink-100 bg-white px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              className="h-9 w-full rounded-xl border border-pink-100 bg-white px-3 text-xs text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:border-border dark:bg-zinc-800/60"
             >
               <option value="">เลือกชั้นเรียนหรือวิชา</option>
               {joinedCourses.map((course) => (
@@ -202,7 +202,7 @@ export function SharePostModal({ post, open, onOpenChange }: SharePostModalProps
             placeholder="พูดอะไรเกี่ยวกับโพสต์นี้..."
             rows={2}
             maxLength={2000}
-            className="min-h-20 resize-none rounded-xl border-pink-100 bg-[#F7F7F9] text-sm shadow-none focus-visible:ring-pink-300"
+            className="min-h-20 resize-none rounded-xl border-pink-100 bg-[#F7F7F9] text-sm shadow-none focus-visible:ring-pink-300 dark:border-border dark:bg-zinc-800/60"
           />
 
           <OriginalPostPreview post={post} />
@@ -290,8 +290,8 @@ function AudienceButton({
       className={cn(
         'flex min-h-9 items-center justify-center gap-1 rounded-lg px-1.5 text-[10px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-1.5 sm:px-2 sm:text-xs',
         active
-          ? 'bg-pink-200 text-pink-800 shadow-sm'
-          : 'text-muted-foreground hover:bg-white/80 hover:text-foreground'
+          ? 'bg-pink-200 text-pink-800 shadow-sm dark:bg-pink-900/50 dark:text-pink-100'
+          : 'text-muted-foreground hover:bg-white/80 hover:text-foreground dark:hover:bg-zinc-800/60'
       )}
     >
       {active ? <Check className="h-3 w-3 shrink-0" /> : icon}
@@ -318,8 +318,8 @@ function QuickAction({
       className={cn(
         'flex min-h-10 items-center gap-2 rounded-xl border border-pink-100 px-3 text-left text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
         active
-          ? 'bg-pink-200 text-pink-800 hover:bg-pink-300'
-          : 'bg-pink-50/60 text-foreground hover:bg-pink-100'
+          ? 'bg-pink-200 text-pink-800 hover:bg-pink-300 dark:bg-pink-900/50 dark:text-pink-100 dark:hover:bg-pink-900/70'
+          : 'bg-pink-50/60 text-foreground hover:bg-pink-100 dark:bg-pink-950/20 dark:hover:bg-pink-950/40'
       )}
     >
       <span className="shrink-0 text-pink-600">{icon}</span>
@@ -330,19 +330,19 @@ function QuickAction({
 
 function OriginalPostPreview({ post }: { post: CommunityPost }) {
   return (
-    <article className="space-y-3 rounded-2xl border border-pink-100 bg-[#FFF7F9] p-3">
+    <article className="space-y-3 rounded-2xl border border-pink-100 bg-[#FFF7F9] p-3 dark:border-pink-900/40 dark:bg-pink-950/20">
       <div className="flex items-start gap-2.5">
         <Avatar size="sm" src={post.author.avatar_url} name={displayName(post.author)} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5">
             <p className="text-xs font-semibold">{displayName(post.author)}</p>
             {post.author.role && post.author.role !== 'student' && (
-              <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[9px] text-pink-800">
+              <span className="rounded-full bg-pink-100 px-2 py-0.5 text-[9px] text-pink-800 dark:bg-pink-950/50 dark:text-pink-200">
                 {roleLabel(post.author.role)}
               </span>
             )}
             {post.course && (
-              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] text-violet-800">
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[9px] text-violet-800 dark:bg-violet-950/50 dark:text-violet-200">
                 {post.course.code || post.course.name}
               </span>
             )}
@@ -357,8 +357,8 @@ function OriginalPostPreview({ post }: { post: CommunityPost }) {
         </p>
       )}
       {post.attachment && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-pink-100 bg-white p-2.5">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-100 text-pink-600">
+        <div className="flex items-center gap-2.5 rounded-xl border border-pink-100 bg-white p-2.5 dark:border-border dark:bg-zinc-800/60">
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-100 text-pink-600 dark:bg-pink-950/50 dark:text-pink-300">
             {post.attachment.mime?.startsWith('video/') ? (
               <Play className="h-4 w-4" aria-hidden="true" />
             ) : (
@@ -374,12 +374,12 @@ function OriginalPostPreview({ post }: { post: CommunityPost }) {
         </div>
       )}
       {post.embed?.type === 'quiz' && (
-        <p className="rounded-lg border border-pink-100 bg-white px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-pink-100 bg-white px-3 py-2 text-xs text-muted-foreground dark:border-border dark:bg-zinc-800/60">
           แบบทดสอบ · {post.embed.question_count} ข้อ
         </p>
       )}
       {post.embed?.type === 'roadmap' && (
-        <p className="rounded-lg border border-pink-100 bg-white px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded-lg border border-pink-100 bg-white px-3 py-2 text-xs text-muted-foreground dark:border-border dark:bg-zinc-800/60">
           {post.embed.title || 'แผนการเรียน'} · {post.embed.nodes.length} หัวข้อ
         </p>
       )}

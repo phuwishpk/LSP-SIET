@@ -273,7 +273,7 @@ export function PostCard({
           <p
             className={cn(
               'whitespace-pre-wrap text-sm leading-relaxed',
-              savedView && 'rounded-xl border border-pink-100 bg-pink-50/40 p-3'
+              savedView && 'rounded-xl border border-pink-100 bg-pink-50/40 p-3 dark:border-pink-900/40 dark:bg-pink-950/20'
             )}
           >
             {shownContent}

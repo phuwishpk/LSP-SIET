@@ -125,7 +125,7 @@ export function SavedSummariesView({
               ? `${selectedCollection.item_count} โพสต์ใน “${selectedCollection.name}”`
               : `${savedCount} โพสต์ที่บันทึกไว้`}
           </p>
-          <span className="rounded-full border border-pink-100 bg-white px-3 py-1 text-xs text-muted-foreground">
+          <span className="rounded-full border border-pink-100 bg-white px-3 py-1 text-xs text-muted-foreground dark:border-border dark:bg-zinc-800/60">
             ล่าสุดที่บันทึก
           </span>
         </div>
@@ -259,7 +259,7 @@ export function SavedSummaryTools({
             </p>
           </div>
           {collections.length === 0 ? (
-            <p className="rounded-xl bg-pink-50 p-3 text-xs text-muted-foreground">
+            <p className="rounded-xl bg-pink-50 p-3 text-xs text-muted-foreground dark:bg-pink-950/20">
               สร้างคลังเพื่อจัดกลุ่มโพสต์ที่บันทึกไว้
             </p>
           ) : (
@@ -271,8 +271,8 @@ export function SavedSummaryTools({
                   onClick={() => onSelectCollection(collection.id)}
                   className={`flex w-full items-center gap-2 rounded-xl border p-2.5 text-left transition-colors ${
                     collection.id === collectionId
-                      ? 'border-pink-200 bg-pink-50'
-                      : 'border-transparent bg-pink-50/70 hover:border-pink-100'
+                      ? 'border-pink-200 bg-pink-50 dark:border-pink-800/60 dark:bg-pink-950/40'
+                      : 'border-transparent bg-pink-50/70 hover:border-pink-100 dark:bg-pink-950/20 dark:hover:border-pink-900/40'
                   }`}
                 >
                   <Folder className="h-4 w-4 shrink-0 text-pink-600" />
