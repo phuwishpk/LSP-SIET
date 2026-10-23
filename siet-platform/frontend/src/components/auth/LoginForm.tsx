@@ -180,7 +180,7 @@ export function LoginForm() {
         {/* Left Column: Mascot */}
         <div className="flex flex-col items-center justify-center shrink-0">
           <div className="w-40 sm:w-48 md:w-64 lg:w-72 aspect-[300/340] drop-shadow-[0_15px_30px_rgba(236,72,153,0.18)] transition-transform hover:scale-105 duration-300">
-            <PinkOwlMascot mood="wave" size="100%" />
+            <PinkOwlMascot mood="study" size="100%" />
           </div>
         </div>
 
