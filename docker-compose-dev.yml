@@ -207,7 +207,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # My-ai-quiz (Next.js) — external app linked from the dashboard "AI Quiz" card
+  # my-ai-quiz (Next.js) — external app linked from the dashboard "AI Quiz" card
   # Reuses the production-built image; connects to the dev API on the shared
   # bridge network via the container hostname `kmitlai_dev_open_notebook_api`.
   # ---------------------------------------------------------------------------
