@@ -51,6 +51,23 @@ interface AuthState {
   acceptPdpaConsent: () => Promise<boolean>
 }
 
+/**
+ * The AI Quiz / AI Roadmap apps keep the token they were handed under this
+ * key. Behind the proxy they share this app's origin, so signing in as someone
+ * else or signing out here reaches them too. Only localStorage: a cookie would
+ * be sent to every port of the host, i.e. to other SIET Space copies as well.
+ */
+const APPS_TOKEN_KEY = 'kmitlai-workspace-token'
+
+function shareTokenWithApps(token: string | null) {
+  try {
+    if (token) localStorage.setItem(APPS_TOKEN_KEY, token)
+    else localStorage.removeItem(APPS_TOKEN_KEY)
+  } catch {
+    // Private mode: the apps still get the token through the hand-off link.
+  }
+}
+
 export const useAuthStore = create<AuthState>()(
   persist(
     (set, get) => ({
@@ -73,6 +90,7 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setSession: (token: string, user: AuthUser) => {
+        shareTokenWithApps(token)
         set({
           isAuthenticated: true,
           token,
@@ -131,6 +149,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           const apiUrl = await getApiUrl()
           const data = await authApi.login(apiUrl, { username, password })
+          shareTokenWithApps(data.access_token)
           set({
             isAuthenticated: true,
             token: data.access_token,
@@ -162,6 +181,7 @@ export const useAuthStore = create<AuthState>()(
             password,
             display_name: displayName,
           })
+          shareTokenWithApps(data.access_token)
           set({
             isAuthenticated: true,
             token: data.access_token,
@@ -187,6 +207,7 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const apiUrl = await getApiUrl().catch(() => null)
         const token = get().token
+        shareTokenWithApps(null)
         if (apiUrl && token && token !== 'not-required') {
           try {
             await authApi.logout(apiUrl, token)

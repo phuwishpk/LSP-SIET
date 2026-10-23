@@ -69,8 +69,11 @@ export default function DashboardLayout({
       <CreateDialogsProvider>
         {Navbar ? (
           <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-            <Navbar />
-            <div className="flex-1 min-h-0 overflow-y-auto">
+            {/* The navbar's menus open over the page; the page scrolls under it. */}
+            <div className="relative z-[100] shrink-0">
+              <Navbar />
+            </div>
+            <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
               {children}
             </div>
           </div>

@@ -27,6 +27,8 @@ export default defineConfig({
     alias: {
       '@': path.resolve(__dirname, './src'),
       ...sietAliases,
+      // shared/ (navbar, mascot) - same as `@shared/*` in tsconfig.json
+      '@shared': path.resolve(__dirname, '../../shared'),
     },
     include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)', ...sietTests],
     coverage: {

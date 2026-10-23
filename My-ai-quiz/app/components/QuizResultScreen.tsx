@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { QuizNavbar } from './QuizNavbar';
 import { PinkOwlMascot } from './PinkOwlMascot';
 import {
   IconCheckCircle2,
@@ -110,10 +109,8 @@ export function QuizResultScreen() {
   const strokeDashoffset = circumference - (animatedProgress / 100) * circumference;
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-[#202124] font-sans flex flex-col justify-between">
-      {/* 1. Header / Navbar matching Community */}
-      <QuizNavbar />
-
+    <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#fafbfc] text-[#202124] font-sans flex flex-col justify-between">
+      
       {/* 2. Main Content Body */}
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 flex-1 space-y-7 animate-in fade-in duration-300">
         {/* Breadcrumb & Title */}

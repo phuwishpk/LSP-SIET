@@ -36,8 +36,16 @@ function write(storage, key, value) {
   }
 }
 
+/** The token SIET Space handed over, else its own when both apps share one origin behind the proxy. */
 export function getToken() {
-  return isBrowser() ? read(window.localStorage, TOKEN_KEY) : null
+  if (!isBrowser()) return null
+  const handed = read(window.localStorage, TOKEN_KEY)
+  if (handed) return handed
+  try {
+    return JSON.parse(read(window.localStorage, 'auth-storage') || 'null')?.state?.token || null
+  } catch {
+    return null
+  }
 }
 
 export function clearToken() {

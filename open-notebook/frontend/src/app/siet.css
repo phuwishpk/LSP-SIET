@@ -5,5 +5,7 @@
 @source "../../../../siet-platform/frontend/src";
 @source "../../../../kmitl-rag/frontend/src";
 @source "../../../../community/frontend/src";
+/* shared/: the navbar and mascot used by SIET Space and the AI apps */
+@source "../../../../shared";
 
 @import "../../../../siet-platform/frontend/src/styles/siet-theme.css";

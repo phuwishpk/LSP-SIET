@@ -1,7 +1,58 @@
 @import "tailwindcss";
+@config "../tailwind.config.js";
+@source "../../shared/**/*.{js,ts,jsx,tsx}";
+@source "../**/*.{js,ts,jsx,tsx}";
+
+/* `dark:` follows the dark class that lib/theme.ts sets from SIET Space's choice
+   (the shared Navbar is written for it), not the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================================
+   SIET PINK DESIGN SYSTEM — AI Quiz Arena
+   Based on DESIGN.md: SIET KMITL-inspired educational design
+   ========================================================================== */
 
 :root {
   color-scheme: light;
+
+  /* SIET Brand Palette */
+  --color-primary: #ED4988;
+  --color-primary-hover: #D83A78;
+  --color-primary-pressed: #C92F6B;
+  --color-primary-soft: #FCE7F0;
+  --color-primary-light: #F7B7D0;
+
+  /* Surfaces & Typography */
+  --color-ink: #202124;
+  --color-body: #3C3C3C;
+  --color-muted: #777777;
+  --color-soft: #AFAFAF;
+  --color-canvas: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E5E5;
+
+  /* Gamification & Status Colors */
+  --color-info: #1CB0F6;
+  --color-success: #58A66A;
+  --color-error: #FF4B4B;
+  --color-streak: #FF9600;
+  --color-xp: #FFC800;
+  --color-reward: #CE82FF;
+
+  /* Typography */
+  --font-display: 'Nunito', 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-body: 'Nunito', 'IBM Plex Sans Thai', system-ui, sans-serif;
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* Tactile Shadows */
+  --shadow-button: 0 4px 0 var(--color-primary-pressed);
+  --shadow-card: 0 2px 4px rgba(32, 33, 36, 0.04), 0 1px 2px rgba(32, 33, 36, 0.02);
+
   --background: #f8fafc;
   --foreground: #0f172a;
 }
@@ -17,8 +68,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-siet: #ED4988;
+  --color-siet-hover: #D83A78;
+  --color-siet-pressed: #C92F6B;
+  --color-siet-soft: #FCE7F0;
+  --color-siet-light: #F7B7D0;
+  --font-sans: 'Nunito', 'IBM Plex Sans Thai', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * {
@@ -27,6 +82,7 @@
 
 html {
   scroll-behavior: smooth;
+  height: 100%;
 }
 
 body {
@@ -34,12 +90,93 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Nunito', 'IBM Plex Sans Thai', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+/* ---- Community Theme & Popovers (Matches Community 3500) ---- */
+.community-theme {
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #263142;
+  --card: #ffffff;
+  --card-foreground: #263142;
+  --popover: #ffffff;
+  --popover-foreground: #263142;
+  --primary: #ED4988;
+  --primary-foreground: #ffffff;
+  --secondary: #fff1f5;
+  --secondary-foreground: #263142;
+  --muted: #f8fafc;
+  --muted-foreground: #707b8e;
+  --accent: #fce7f0;
+  --accent-foreground: #c92f6b;
+  --border: #f1f5f9;
+  --input: #f1f5f9;
+  --ring: #ED4988;
+}
+
+.dark .community-theme {
+  --background: #21181d;
+  --foreground: #f9edf2;
+  --card: #2b2026;
+  --card-foreground: #f9edf2;
+  --popover: #2b2026;
+  --popover-foreground: #f9edf2;
+  --primary: #f472b6;
+  --primary-foreground: #381126;
+  --secondary: #382630;
+  --secondary-foreground: #f9edf2;
+  --muted: #382630;
+  --muted-foreground: #c4aeb9;
+  --accent: #4a2b3c;
+  --accent-foreground: #fce7f3;
+  --border: #4b3441;
+  --input: #59404e;
+  --ring: #f472b6;
+}
+
+/* ---- Tactile Primary Buttons (DESIGN.md) ---- */
+.button-primary,
+.btn-primary-tactile {
+  min-height: 48px;
+  padding: 13px 20px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.button-primary:hover,
+.btn-primary-tactile:hover {
+  background: var(--color-primary-hover);
+}
+
+.button-primary:active,
+.btn-primary-tactile:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.button-primary:focus-visible,
+.btn-primary-tactile:focus-visible {
+  outline: 3px solid var(--color-info);
+  outline-offset: 3px;
 }
 
 /*
@@ -50,7 +187,6 @@ input {
  * These rules are unlayered, so they win over Tailwind's utilities layer.
  * A new light colour class needs a line here too.
  */
-:root[data-theme='dark'] .bg-\[\#0f172a\] { background-color: #3f3f46; }
 :root[data-theme='dark'] .bg-\[\#f8fafc\] { background-color: #09090b; }
 :root[data-theme='dark'] .bg-\[\#fafbfc\] { background-color: #0f0f12; }
 :root[data-theme='dark'] .bg-\[\#fffdf7\] { background-color: #1c1917; }
@@ -65,7 +201,6 @@ input {
 :root[data-theme='dark'] .bg-emerald-50\/80 { background-color: rgb(2 44 34 / 0.36); }
 :root[data-theme='dark'] .bg-indigo-50 { background-color: rgb(30 27 75 / 0.45); }
 :root[data-theme='dark'] .bg-pink-100 { background-color: rgb(80 7 36 / 0.65); }
-:root[data-theme='dark'] .bg-pink-200 { background-color: rgb(131 24 67 / 0.6); }
 :root[data-theme='dark'] .bg-pink-50\/70 { background-color: rgb(80 7 36 / 0.315); }
 :root[data-theme='dark'] .bg-rose-100 { background-color: rgb(76 5 25 / 0.65); }
 :root[data-theme='dark'] .bg-rose-100\/70 { background-color: rgb(76 5 25 / 0.455); }
@@ -78,7 +213,6 @@ input {
 :root[data-theme='dark'] .bg-rose-50\/70 { background-color: rgb(76 5 25 / 0.315); }
 :root[data-theme='dark'] .bg-rose-50\/80 { background-color: rgb(76 5 25 / 0.36); }
 :root[data-theme='dark'] .bg-slate-100 { background-color: #27272a; }
-:root[data-theme='dark'] .bg-slate-100\/80 { background-color: rgb(39 39 42 / 0.8); }
 :root[data-theme='dark'] .bg-slate-200 { background-color: #3f3f46; }
 :root[data-theme='dark'] .bg-slate-200\/50 { background-color: rgb(63 63 70 / 0.5); }
 :root[data-theme='dark'] .bg-slate-200\/60 { background-color: rgb(63 63 70 / 0.6); }
@@ -96,7 +230,6 @@ input {
 :root[data-theme='dark'] .bg-white\/80 { background-color: rgb(24 24 27 / 0.8); }
 :root[data-theme='dark'] .border-amber-200 { border-color: rgb(120 53 15 / 0.6); }
 :root[data-theme='dark'] .border-amber-200\/80 { border-color: rgb(120 53 15 / 0.48); }
-:root[data-theme='dark'] .border-amber-300\/80 { border-color: rgb(120 53 15 / 0.72); }
 :root[data-theme='dark'] .border-emerald-100 { border-color: rgb(6 78 59 / 0.45); }
 :root[data-theme='dark'] .border-emerald-200 { border-color: rgb(6 78 59 / 0.6); }
 :root[data-theme='dark'] .border-emerald-200\/80 { border-color: rgb(6 78 59 / 0.48); }
@@ -123,23 +256,17 @@ input {
 :root[data-theme='dark'] .disabled\:bg-slate-400:disabled { background-color: #52525b; }
 :root[data-theme='dark'] .focus\:bg-white:focus { background-color: #18181b; }
 :root[data-theme='dark'] .focus\:ring-rose-200:focus { --tw-ring-color: rgb(136 19 55 / 0.6); }
-:root[data-theme='dark'] .focus\:ring-rose-200\/50:focus { --tw-ring-color: rgb(136 19 55 / 0.3); }
 :root[data-theme='dark'] .from-rose-50\/80 { --tw-gradient-from: rgb(76 5 25 / 0.36); }
 :root[data-theme='dark'] .from-rose-50\/90 { --tw-gradient-from: rgb(76 5 25 / 0.405); }
 :root[data-theme='dark'] .group:hover .group-hover\:text-indigo-600 { color: #818cf8; }
 :root[data-theme='dark'] .group:hover .group-hover\:text-rose-600 { color: #fb7185; }
-:root[data-theme='dark'] .hover\:bg-amber-100:hover { background-color: rgb(69 26 3 / 0.65); }
-:root[data-theme='dark'] .hover\:bg-pink-50\/50:hover { background-color: rgb(80 7 36 / 0.225); }
 :root[data-theme='dark'] .hover\:bg-rose-100:hover { background-color: rgb(76 5 25 / 0.65); }
 :root[data-theme='dark'] .hover\:bg-rose-50:hover { background-color: rgb(76 5 25 / 0.45); }
-:root[data-theme='dark'] .hover\:bg-slate-100:hover { background-color: #27272a; }
 :root[data-theme='dark'] .hover\:bg-slate-50:hover { background-color: #1c1c20; }
 :root[data-theme='dark'] .hover\:bg-slate-50\/70:hover { background-color: rgb(28 28 32 / 0.7); }
 :root[data-theme='dark'] .hover\:bg-slate-800:hover { background-color: #52525b; }
 :root[data-theme='dark'] .hover\:border-slate-300:hover { border-color: #52525b; }
-:root[data-theme='dark'] .hover\:text-slate-700:hover { color: #e4e4e7; }
 :root[data-theme='dark'] .hover\:text-slate-800:hover { color: #f4f4f5; }
-:root[data-theme='dark'] .placeholder\:text-slate-400::placeholder { color: #8a8a93; }
 :root[data-theme='dark'] .text-\[\#0f172a\] { color: #fafafa; }
 :root[data-theme='dark'] .text-\[\#1e293b\] { color: #f4f4f5; }
 :root[data-theme='dark'] .text-\[\#f43f5e\] { color: #fb7185; }
@@ -148,7 +275,6 @@ input {
 :root[data-theme='dark'] .text-amber-700 { color: #fcd34d; }
 :root[data-theme='dark'] .text-amber-800 { color: #fde68a; }
 :root[data-theme='dark'] .text-amber-900 { color: #fde68a; }
-:root[data-theme='dark'] .text-amber-950 { color: #fde68a; }
 :root[data-theme='dark'] .text-emerald-500 { color: #34d399; }
 :root[data-theme='dark'] .text-emerald-600 { color: #34d399; }
 :root[data-theme='dark'] .text-emerald-700 { color: #6ee7b7; }
@@ -163,7 +289,6 @@ input {
 :root[data-theme='dark'] .text-pink-500 { color: #f472b6; }
 :root[data-theme='dark'] .text-pink-600 { color: #f472b6; }
 :root[data-theme='dark'] .text-pink-700 { color: #f9a8d4; }
-:root[data-theme='dark'] .text-pink-800 { color: #fbcfe8; }
 :root[data-theme='dark'] .text-rose-500 { color: #fb7185; }
 :root[data-theme='dark'] .text-rose-600 { color: #fb7185; }
 :root[data-theme='dark'] .text-rose-700 { color: #fda4af; }

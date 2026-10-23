@@ -194,8 +194,8 @@ services:
   # ---------------------------------------------------------------------------
   my_ai_quiz:
     build:
-      context: ./my-ai-quiz
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./My-ai-quiz/Dockerfile
     image: kmitlai/my-ai-quiz:local
     container_name: kmitl_my_ai_quiz
     environment:
@@ -249,8 +249,8 @@ services:
   # ---------------------------------------------------------------------------
   ai_roadmap_generator:
     build:
-      context: ./ai-roadmap-generator
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: ./ai-roadmap-generator/Dockerfile
     image: kmitlai/ai-roadmap-generator:local
     container_name: kmitl_ai_roadmap_generator
     environment:

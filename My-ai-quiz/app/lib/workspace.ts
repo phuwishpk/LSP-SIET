@@ -11,24 +11,40 @@
 /**
  * Browser-facing URL of the KMITL workspace (open-notebook Next.js app).
  *
- * `NEXT_PUBLIC_WORKSPACE_URL` wins when it was baked into the build. Otherwise
- * we infer it: when this app is served on its own port (3001) the workspace is
- * on port 3000 of the same host; when it is served behind Traefik under
- * `/quiz`, the workspace is the site root.
+ * `NEXT_PUBLIC_WORKSPACE_URL` wins when it was baked into the build, then the
+ * SIET Space this app was opened from (WORKSPACE_ORIGIN_KEY). Otherwise we infer
+ * it: when this app is served on its own port (3001) the workspace is on port
+ * 3000 of the same host; when it is served behind Traefik under `/quiz`, the
+ * workspace is the site root.
  */
 export function getWorkspaceUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, '');
   if (typeof window === 'undefined') return 'http://localhost:3000';
   const { protocol, hostname, port, origin } = window.location;
+  try {
+    const learned = window.localStorage.getItem(WORKSPACE_ORIGIN_KEY);
+    if (learned && new URL(learned).hostname === hostname) return learned;
+  } catch {}
   if (port === '3001') return `${protocol}//${hostname}:3000`;
   return origin;
 }
 
+/**
+ * The SIET Space this app was last opened from (its `return` link, kept by
+ * LaunchParams; same key as the AI Roadmap app and the shared navbar). Several
+ * copies can share this app - prod :3000 and the test stack :18502 both use :3001.
+ */
+export const WORKSPACE_ORIGIN_KEY = 'kmitlai-workspace-origin';
+
 export const TOKEN_STORAGE_KEY = 'kmitlai-workspace-token';
 const BASE_PATH = '/quiz';
 
-/** The hand-off token: from the address bar on arrival, else the one kept. */
+/**
+ * The token SIET Space handed over: from the address bar on arrival (then kept),
+ * else the one kept, else SIET Space's own when both apps share one origin
+ * behind the proxy.
+ */
 export function getWorkspaceToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
@@ -37,7 +53,11 @@ export function getWorkspaceToken(): string | null {
       window.localStorage.setItem(TOKEN_STORAGE_KEY, fromLink);
       return fromLink;
     }
-    return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    return (
+      window.localStorage.getItem(TOKEN_STORAGE_KEY) ||
+      JSON.parse(window.localStorage.getItem('auth-storage') || 'null')?.state?.token ||
+      null
+    );
   } catch {
     return null;
   }

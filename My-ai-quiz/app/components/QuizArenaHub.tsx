@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { QuizNavbar } from './QuizNavbar';
 import {
   IconGraduationCap,
   IconUsers,
@@ -73,10 +72,8 @@ export function QuizArenaHub() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
-      {/* 1. Header / Navbar matching Community Header */}
-      <QuizNavbar />
-
+    <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
+      
       {/* 2. Main Content Body */}
       <main className="max-w-6xl w-full mx-auto px-4 sm:px-8 py-8 flex-1 space-y-8 animate-in fade-in duration-200">
         {/* Banner Section - Cockpit Hero */}
