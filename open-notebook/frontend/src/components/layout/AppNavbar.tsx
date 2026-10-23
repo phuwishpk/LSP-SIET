@@ -199,7 +199,7 @@ export function AppNavbar({ onOpenMenu, className }: AppNavbarProps) {
               nungsue
             </span>
             <span className="text-[10px] font-medium text-pink-200/90">
-              KMITL learning community
+              SIET learning community
             </span>
           </span>
         </Link>
