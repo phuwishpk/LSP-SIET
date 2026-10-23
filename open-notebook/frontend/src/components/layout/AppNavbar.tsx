@@ -1,6 +1,7 @@
 'use client'
 
 import { Suspense, useEffect, useState } from 'react'
+import Image from 'next/image'
 import Link from 'next/link'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import {
@@ -181,14 +182,21 @@ export function AppNavbar({ onOpenMenu, className }: AppNavbarProps) {
         {/* Brand logo & tagline */}
         <Link
           href="/community"
-          className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-white/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-pink-300"
+          className="flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-pink-300"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-[#E91E63] via-rose-500 to-amber-300 text-sm font-black text-white shadow-sm ring-1 ring-white/30">
-            S
-          </span>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 p-1 ring-1 ring-white/25 shadow-xs backdrop-blur-xs">
+            <Image
+              src="/mascot/owl-idle.png"
+              alt="nungsue logo"
+              width={32}
+              height={32}
+              className="h-7 w-7 object-contain drop-shadow-xs select-none"
+              priority
+            />
+          </div>
           <span className="hidden flex-col leading-none sm:flex">
-            <span className="text-sm font-bold tracking-tight text-white drop-shadow-xs">
-              SIET Space
+            <span className="text-base font-bold tracking-tight text-white drop-shadow-xs">
+              nungsue
             </span>
             <span className="text-[10px] font-medium text-pink-200/90">
               KMITL learning community

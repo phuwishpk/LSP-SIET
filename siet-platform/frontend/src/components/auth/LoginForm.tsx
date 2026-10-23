@@ -193,7 +193,7 @@ export function LoginForm() {
               <GraduationCap className="w-6 h-6 stroke-[2]" />
             </div>
             <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-slate-800">
-              StudyTogether
+              nungsue
             </span>
           </div>
 
