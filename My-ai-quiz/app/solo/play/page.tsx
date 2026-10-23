@@ -38,6 +38,7 @@ interface QuizSession {
   subject: string;
   topic: string;
   difficulty: string;
+  timerMode?: 'standard' | 'speed' | 'zen' | string;
   questions: Question[];
   currentIndex: number;
   score: number;

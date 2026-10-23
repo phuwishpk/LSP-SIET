@@ -1,6 +1,6 @@
 'use client';
 
-export type OwlMood = 'idle' | 'wave' | 'study';
+export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate';
 
 interface PinkOwlMascotProps {
   mood?: OwlMood;
@@ -57,7 +57,8 @@ export function PinkOwlMascot({
         /* ========================================================
            1. ACTION: โบกมือทักทาย (Wave & Wink) - FIXED
            ======================================================== */
-        .action-wave .owl-whole {
+        .action-wave .owl-whole,
+        .action-celebrate .owl-whole {
           animation: waveTilt 1.8s ease-in-out infinite alternate;
         }
         @keyframes waveTilt {
@@ -66,12 +67,16 @@ export function PinkOwlMascot({
         }
 
         /* ซ่อนลูกตาขวา แล้วเปิดเส้นตายิ้ม (Wink) ไม่หลุดเบ้าแว่น */
-        .action-wave #rightEyePupil { display: none; }
-        .action-wave #rightEyeWink { display: inline; }
+        .action-wave #rightEyePupil,
+        .action-celebrate #rightEyePupil { display: none; }
+        .action-wave #rightEyeWink,
+        .action-celebrate #rightEyeWink { display: inline; }
 
         /* ปีกขวายกขึ้นมาโบกสะบัด */
-        .action-wave #rightWingDefault { display: none; }
-        .action-wave #rightWingWave {
+        .action-wave #rightWingDefault,
+        .action-celebrate #rightWingDefault { display: none; }
+        .action-wave #rightWingWave,
+        .action-celebrate #rightWingWave {
           display: inline !important;
           transform-origin: 228px 185px;
           animation: wingWaveMotion 0.45s ease-in-out infinite alternate;
