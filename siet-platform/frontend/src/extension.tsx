@@ -8,6 +8,8 @@ import type { FrontendExtension } from '@/lib/extensions'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
+import { PdpaConsentDialog } from '@siet/platform/components/auth/PdpaConsentDialog'
+import { AppNavbar } from '@siet/platform/components/layout/AppNavbar'
 import { PointsWalletLink } from '@siet/platform/components/layout/PointsWalletLink'
 import { clearPostLoginPath } from '@siet/platform/lib/auth-redirect'
 import { getWorkspaceNavigation } from '@siet/platform/lib/navigation'
@@ -37,6 +39,9 @@ const extension: FrontendExtension = {
 
   slots: {
     'sidebar.footer': PointsWalletLink,
+    // The top navbar over every dashboard page, and the PDPA consent dialog.
+    'dashboard.navbar': AppNavbar,
+    'dashboard.overlay': PdpaConsentDialog,
   },
 
   // App name "LSP-SIET" in every language, AI-feature strings in en-US

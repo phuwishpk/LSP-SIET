@@ -143,6 +143,8 @@ export default object ชนิด `FrontendExtension` จาก `<pkg>/frontend
 |---|---|---|
 | `useNavigationExtensions` | `AppSidebar` | platform → เมนูของ workspace (ตามบทบาท) |
 | `getSlot('sidebar.footer')` | `AppSidebar` | platform → ปุ่มกระเป๋าแต้ม |
+| `getSlot('dashboard.navbar')` | `(dashboard)/layout.tsx` | platform → แถบนำทางด้านบนของทุกหน้า (`AppNavbar`) |
+| `getSlot('dashboard.overlay')` | `(dashboard)/layout.tsx` | platform → กล่องขอความยินยอม PDPA (`PdpaConsentDialog`) |
 | `useRouteGate` | `(dashboard)/layout.tsx` | platform → pending → `/pending`, หน้าที่บทบาทเข้าไม่ได้ → `/community` |
 | `useGate(...)` | layout, `AppShell`, `AppSidebar`, `use-create-dialogs` | platform → `command-palette`, `create-dialogs` (staff), `setup-banner` (admin), `version-check` (ปิด), `podcasts` (ปิด เว้น `NEXT_PUBLIC_SIET_ENABLE_PODCASTS=1`) |
 | `getSlot('search.page')` | `search/page.tsx` | rag → หน้า `/search` แบบ global chat |

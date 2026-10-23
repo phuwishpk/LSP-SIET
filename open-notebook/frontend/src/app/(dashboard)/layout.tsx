@@ -9,9 +9,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
-import { AppNavbar } from '@/components/layout/AppNavbar'
-import { useGate, useRouteGate } from '@/lib/extensions'
-import { PdpaConsentDialog } from '@/components/auth/PdpaConsentDialog'
+import { getSlot, useGate, useRouteGate } from '@/lib/extensions'
 
 export default function DashboardLayout({
   children,
@@ -24,6 +22,9 @@ export default function DashboardLayout({
   // KMITL hooks: extensions may keep a user out of a page or hide features
   const routeGate = useRouteGate(usePathname() ?? '/')
   const showCommandPalette = useGate('command-palette')
+  // KMITL hooks: a top bar above every page, and an overlay such as a consent dialog
+  const Navbar = getSlot('dashboard.navbar')
+  const Overlay = getSlot('dashboard.overlay')
 
   // Check for version updates once per session
   useVersionCheck(useGate('version-check'))
@@ -66,14 +67,18 @@ export default function DashboardLayout({
   return (
     <ErrorBoundary>
       <CreateDialogsProvider>
-        <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-          <AppNavbar />
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            {children}
+        {Navbar ? (
+          <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+            <Navbar />
+            <div className="flex-1 min-h-0 overflow-y-auto">
+              {children}
+            </div>
           </div>
-        </div>
+        ) : (
+          children
+        )}
         <ModalProvider />
-        <PdpaConsentDialog />
+        {Overlay && <Overlay />}
         {showCommandPalette && <CommandPalette />}
       </CreateDialogsProvider>
     </ErrorBoundary>
