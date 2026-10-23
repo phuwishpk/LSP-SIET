@@ -20,6 +20,7 @@ import {
   Sparkles,
 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
+import { PinkOwlMascot } from '@shared/mascot'
 
 function GoogleMultiColorIcon({ className = 'w-5 h-5' }: { className?: string }) {
   return (
@@ -174,8 +175,17 @@ export function LoginForm() {
       <div className="absolute top-1/4 -left-20 w-72 h-72 bg-pink-200/40 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-rose-200/40 rounded-full blur-3xl pointer-events-none" />
 
-      {/* Main Login Card */}
-      <Card className="relative z-10 w-full max-w-[480px] rounded-3xl border border-pink-100/90 bg-white/95 p-3 sm:p-5 shadow-[0_20px_60px_rgba(236,72,153,0.10)] backdrop-blur-md transition-all">
+      {/* Center Side-by-Side Container */}
+      <div className="relative z-10 flex flex-col md:flex-row items-center justify-center gap-6 sm:gap-8 md:gap-12 lg:gap-16 w-full max-w-5xl">
+        {/* Left Column: Mascot */}
+        <div className="flex flex-col items-center justify-center shrink-0">
+          <div className="w-40 sm:w-48 md:w-64 lg:w-72 aspect-[300/340] drop-shadow-[0_15px_30px_rgba(236,72,153,0.18)] transition-transform hover:scale-105 duration-300">
+            <PinkOwlMascot mood="wave" size="100%" />
+          </div>
+        </div>
+
+        {/* Right Column: Original Login Card */}
+        <Card className="w-full max-w-[440px] sm:max-w-[480px] rounded-3xl border border-pink-100/90 bg-white/95 p-3 sm:p-5 shadow-[0_20px_60px_rgba(236,72,153,0.10)] backdrop-blur-md transition-all">
         <CardHeader className="text-center space-y-3 pb-3">
           {/* Logo & Brand */}
           <div className="flex items-center justify-center gap-2.5">
@@ -247,6 +257,7 @@ export function LoginForm() {
           </div>
         </CardContent>
       </Card>
+      </div>
     </div>
   )
 }

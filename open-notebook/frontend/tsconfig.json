@@ -34,6 +34,20 @@
       ],
       "@siet/community/*": [
         "../../community/frontend/src/*"
+      ],
+      "@shared/*": [
+        "../../shared/*"
+      ],
+      "react": [
+        "./node_modules/@types/react",
+        "./node_modules/react"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*",
+        "./node_modules/react/*"
+      ],
+      "react/jsx-runtime": [
+        "./node_modules/@types/react/jsx-runtime"
       ]
     }
   },
