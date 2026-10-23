@@ -1,0 +1,435 @@
+{
+ "rows": [
+  {
+   "query": "เกณฑ์การให้คะแนนวิชาพัฒนาเว็บ",
+   "expected": "syllabus",
+   "status": 200,
+   "seconds": 0.537,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.7841463383922522,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.7245915570719164,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.6595925075919499,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.6497106082114963,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.5177899119750972,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "แผนการสอนรายสัปดาห์ React และ FastAPI",
+   "expected": "syllabus",
+   "status": 200,
+   "seconds": 0.482,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.8049047138493323,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.6282012207200045,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.6281518309535062,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.5990137526384097,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.580059801665337,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "นโยบายการส่งงานล่าช้า",
+   "expected": "syllabus",
+   "status": 200,
+   "seconds": 0.497,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.7607287872760434,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.6354894021963912,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.6055035113609211,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.5730866933932511,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.5228286479219912,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "ชั่วโมงให้คำปรึกษาของอาจารย์",
+   "expected": "syllabus",
+   "status": 200,
+   "seconds": 0.49,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.6343532745407578,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.6173548728922245,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.605896983574097,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.5547348488030688,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.5057866369510531,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "คุณสมบัติของนักศึกษาที่มีสิทธิ์ฝึกงาน",
+   "expected": "intern",
+   "status": 200,
+   "seconds": 0.483,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.7784446870379008,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.6813905137475595,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.5846008590732304,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.563184346480785,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.48699358727416436,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "แบบฟอร์มที่ต้องยื่นก่อนเริ่มฝึกงาน",
+   "expected": "intern",
+   "status": 200,
+   "seconds": 0.473,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.7732649287174578,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.6062386770414199,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.5836088326574613,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.5370103410205327,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.4682655078787684,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "การประเมินผลฝึกงานแบบผ่านไม่ผ่าน",
+   "expected": "intern",
+   "status": 200,
+   "seconds": 0.493,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.78747198944053,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.6720061736311608,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.6715490792128225,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.6066788592454291,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.5039791485375409,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "internship evaluation by the company mentor",
+   "expected": "intern",
+   "status": 200,
+   "seconds": 0.49,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.6671202035772925,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.5317992213011371,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.5221454329741457,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.508140703499557,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.46649538810049973,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "LIFO data structure push and pop",
+   "expected": "ds",
+   "status": 200,
+   "seconds": 0.48,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.6925011774443846,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.5235578708764065,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.5167481575168802,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.49789725283546893,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.49415141452202194,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "โครงสร้างข้อมูลคิววงกลม",
+   "expected": "ds",
+   "status": 200,
+   "seconds": 0.502,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.6797661926801628,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.604556568113937,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.5864239217096446,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.5807393733644554,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.5442584435250475,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "ความซับซ้อนของ priority queue แบบ binary heap",
+   "expected": "ds",
+   "status": 200,
+   "seconds": 0.016,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.6631913758356777,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.5560399415575128,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.5552067709407652,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.548754527085329,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.5370380045724932,
+     "match": "semantic"
+    }
+   ]
+  },
+  {
+   "query": "งานแล็บสร้างสแตกจากสองคิว",
+   "expected": "ds",
+   "status": 200,
+   "seconds": 0.016,
+   "results": 5,
+   "rank": 1,
+   "top": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "similarity": 0.7607222176937899,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "similarity": 0.5969188960752714,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "similarity": 0.5837431321788392,
+     "match": "semantic"
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "similarity": 0.5732688274617395,
+     "match": "semantic"
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "similarity": 0.5659418635059593,
+     "match": "semantic"
+    }
+   ]
+  }
+ ],
+ "summary": {
+  "queries": 12,
+  "errors": 0,
+  "hit@1": 1.0,
+  "hit@3": 1.0,
+  "hit@10": 1.0,
+  "mrr": 1.0,
+  "results_mean": 5,
+  "seconds_mean": 0.413,
+  "seconds_max": 0.537
+ }
+}

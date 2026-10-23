@@ -1,0 +1,449 @@
+{
+ "rows": [
+  {
+   "topic": "เกณฑ์คะแนน ข้อกำหนด และแผนการสอนของวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน",
+   "doc": "syllabus",
+   "status": 200,
+   "seconds": 4.37,
+   "cached": false,
+   "grounded": true,
+   "scope_label": "เอกสารที่เลือก",
+   "check": {
+    "asked": 5,
+    "returned": 5,
+    "count_ok": true,
+    "duplicate_questions": 0,
+    "issues": [],
+    "structurally_valid": 5,
+    "thai_ratio": 1.0
+   },
+   "questions": [
+    {
+     "correct_answer": "โครงงานกลุ่ม (30%)",
+     "explanation": "โครงงานกลุ่มมีสัดส่วนคะแนนสูงสุดในรายวิชาคือ 30% ตามเกณฑ์การให้คะแนนในประมวลรายวิชา",
+     "id": 1,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "งานปฏิบัติการรายสัปดาห์ (20%)"
+      },
+      {
+       "is_correct": true,
+       "text": "โครงงานกลุ่ม (30%)"
+      },
+      {
+       "is_correct": false,
+       "text": "สอบกลางภาค (20%)"
+      },
+      {
+       "is_correct": false,
+       "text": "สอบปลายภาค (25%)"
+      }
+     ],
+     "question": "ในวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน องค์ประกอบใดที่มีสัดส่วนคะแนนสูงที่สุด?"
+    },
+    {
+     "correct_answer": "ร้อยละ 80",
+     "explanation": "ข้อกำหนดของรายวิชาระบุว่านักศึกษาต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมดจึงจะมีสิทธิ์สอบปลายภาค",
+     "id": 2,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "ร้อยละ 50"
+      },
+      {
+       "is_correct": false,
+       "text": "ร้อยละ 60"
+      },
+      {
+       "is_correct": false,
+       "text": "ร้อยละ 75"
+      },
+      {
+       "is_correct": true,
+       "text": "ร้อยละ 80"
+      }
+     ],
+     "question": "นักศึกษาจะต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละเท่าใดของเวลาเรียนทั้งหมด จึงจะมีสิทธิ์เข้าสอบปลายภาค?"
+    },
+    {
+     "correct_answer": "Next.js และ FastAPI, สัปดาห์ที่ 15",
+     "explanation": "โครงงานกลุ่มทำกลุ่มละ 3-4 คน พัฒนาเว็บแอปพลิเคชันด้วย Next.js และ FastAPI และนำเสนอในสัปดาห์ที่ 15",
+     "id": 3,
+     "options": [
+      {
+       "is_correct": true,
+       "text": "Next.js และ FastAPI, สัปดาห์ที่ 15"
+      },
+      {
+       "is_correct": false,
+       "text": "React และ Node.js, สัปดาห์ที่ 16"
+      },
+      {
+       "is_correct": false,
+       "text": "Python และ Django, สัปดาห์ที่ 15"
+      },
+      {
+       "is_correct": false,
+       "text": "HTML, CSS และ JavaScript, สัปดาห์ที่ 14"
+      }
+     ],
+     "question": "โครงงานกลุ่มในวิชา IT46-201 พัฒนาเว็บแอปพลิเคชันด้วยเทคโนโลยีใด และต้องนำเสนอในสัปดาห์ที่เท่าใด?"
+    },
+    {
+     "correct_answer": "B",
+     "explanation": "เกณฑ์ระดับคะแนนระบุว่า B อยู่ในช่วง 70-74 คะแนน ดังนั้น 72 คะแนนจึงได้เกรด B",
+     "id": 4,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "A"
+      },
+      {
+       "is_correct": false,
+       "text": "B+"
+      },
+      {
+       "is_correct": true,
+       "text": "B"
+      },
+      {
+       "is_correct": false,
+       "text": "C+"
+      }
+     ],
+     "question": "ตามเกณฑ์ระดับคะแนนของวิชา IT46-201 หากนักศึกษาได้คะแนนรวม 72 คะแนน จะได้รับเกรดใด?"
+    },
+    {
+     "correct_answer": "สร้าง REST API ด้วย FastAPI",
+     "explanation": "ตามแผนการสอน สัปดาห์ที่ 9 คือการสร้าง REST API ด้วย FastAPI (สัปดาห์ที่ 8 คือสอบกลางภาค)",
+     "id": 5,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "การกำหนดเส้นทางใน Next.js"
+      },
+      {
+       "is_correct": false,
+       "text": "การเรียก API ด้วย fetch"
+      },
+      {
+       "is_correct": true,
+       "text": "สร้าง REST API ด้วย FastAPI"
+      },
+      {
+       "is_correct": false,
+       "text": "ฐานข้อมูลด้วย SQLAlchemy"
+      }
+     ],
+     "question": "เนื้อหาในสัปดาห์ที่ 9 ของแผนการสอนวิชา IT46-201 คือเรื่องใด?"
+    }
+   ]
+  },
+  {
+   "topic": "ขั้นตอน เอกสาร และการประเมินผลการฝึกงานภาคฤดูร้อน",
+   "doc": "intern",
+   "status": 200,
+   "seconds": 4.91,
+   "cached": false,
+   "grounded": true,
+   "scope_label": "เอกสารที่เลือก",
+   "check": {
+    "asked": 5,
+    "returned": 5,
+    "count_ok": true,
+    "duplicate_questions": 0,
+    "issues": [],
+    "structurally_valid": 5,
+    "thai_ratio": 1.0
+   },
+   "questions": [
+    {
+     "correct_answer": "นักศึกษาชั้นปีที่ 3 ที่สอบผ่านรายวิชาสะสมไม่น้อยกว่า 90 หน่วยกิต และมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00",
+     "explanation": "ตามคู่มือการฝึกงานระบุว่าผู้ฝึกงานต้องเป็นนักศึกษาชั้นปีที่ 3 ที่สอบผ่านรายวิชาสะสมไม่น้อยกว่า 90 หน่วยกิต และมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00",
+     "id": 1,
+     "options": [
+      {
+       "is_correct": true,
+       "text": "นักศึกษาชั้นปีที่ 3 ที่สอบผ่านรายวิชาสะสมไม่น้อยกว่า 90 หน่วยกิต และมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00"
+      },
+      {
+       "is_correct": false,
+       "text": "นักศึกษาชั้นปีที่ 2 ที่สอบผ่านรายวิชาสะสมไม่น้อยกว่า 60 หน่วยกิต และมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.50"
+      },
+      {
+       "is_correct": false,
+       "text": "นักศึกษาชั้นปีที่ 4 ที่สอบผ่านรายวิชาสะสมไม่น้อยกว่า 120 หน่วยกิต และมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00"
+      },
+      {
+       "is_correct": false,
+       "text": "นักศึกษาชั้นปีที่ 3 ทุกคนโดยไม่มีเงื่อนไขหน่วยกิตและเกรดเฉลี่ย"
+      }
+     ],
+     "question": "คุณสมบัติเบื้องต้นของนักศึกษาที่จะขอฝึกงานภาคฤดูร้อนคือข้อใด?"
+    },
+    {
+     "correct_answer": "ก่อนเริ่มฝึกงาน 2 สัปดาห์",
+     "explanation": "จากตารางกำหนดการส่งเอกสาร เอกสาร IT46-F02 หนังสือตอบรับจากสถานประกอบการ ต้องส่งก่อนเริ่มฝึกงาน 2 สัปดาห์",
+     "id": 2,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "พร้อมคำร้อง"
+      },
+      {
+       "is_correct": true,
+       "text": "ก่อนเริ่มฝึกงาน 2 สัปดาห์"
+      },
+      {
+       "is_correct": false,
+       "text": "ทุกวันศุกร์ก่อนเวลา 18:00 น."
+      },
+      {
+       "is_correct": false,
+       "text": "ภายใน 2 สัปดาห์หลังสิ้นสุดการฝึกงาน"
+      }
+     ],
+     "question": "นักศึกษาจะต้องส่งเอกสาร 'หนังสือตอบรับจากสถานประกอบการ' (IT46-F02) เมื่อใด?"
+    },
+    {
+     "correct_answer": "60%",
+     "explanation": "คะแนนการประเมินผลการฝึกงานประกอบด้วย การประเมินจากพี่เลี้ยงในสถานประกอบการ 60%, รายงานฉบับสมบูรณ์ 25% และการนำเสนอผลการฝึกงาน 15%",
+     "id": 3,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "15%"
+      },
+      {
+       "is_correct": false,
+       "text": "25%"
+      },
+      {
+       "is_correct": true,
+       "text": "60%"
+      },
+      {
+       "is_correct": false,
+       "text": "100%"
+      }
+     ],
+     "question": "สัดส่วนคะแนนการประเมินผลการฝึกงานจากพี่เลี้ยงในสถานประกอบการคิดเป็นร้อยละเท่าใด?"
+    },
+    {
+     "correct_answer": "ตั้งแต่ 60 คะแนนขึ้นไป",
+     "explanation": "คู่มือการฝึกงานระบุว่าผู้ที่ได้คะแนนรวมตั้งแต่ 60 คะแนนขึ้นไปได้ผลการเรียน S (ผ่าน) และต่ำกว่านั้นได้ U (ไม่ผ่าน)",
+     "id": 4,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "ตั้งแต่ 50 คะแนนขึ้นไป"
+      },
+      {
+       "is_correct": true,
+       "text": "ตั้งแต่ 60 คะแนนขึ้นไป"
+      },
+      {
+       "is_correct": false,
+       "text": "ตั้งแต่ 70 คะแนนขึ้นไป"
+      },
+      {
+       "is_correct": false,
+       "text": "ตั้งแต่ 80 คะแนนขึ้นไป"
+      }
+     ],
+     "question": "เกณฑ์คะแนนรวมขั้นต่ำเท่าใดจึงจะได้ผลการเรียน S (ผ่าน) สำหรับการฝึกงาน?"
+    },
+    {
+     "correct_answer": "ภายใน 2 สัปดาห์",
+     "explanation": "ตามข้อกำหนดในคู่มือการฝึกงาน นักศึกษาต้องส่งรายงานฉบับสมบูรณ์ภายใน 2 สัปดาห์หลังสิ้นสุดการฝึกงาน",
+     "id": 5,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "ภายใน 1 สัปดาห์"
+      },
+      {
+       "is_correct": true,
+       "text": "ภายใน 2 สัปดาห์"
+      },
+      {
+       "is_correct": false,
+       "text": "ภายใน 1 เดือน"
+      },
+      {
+       "is_correct": false,
+       "text": "ในวันสุดท้ายของการฝึกงานทันที"
+      }
+     ],
+     "question": "นักศึกษาจะต้องส่งรายงานฉบับสมบูรณ์ของการฝึกงานภายในระยะเวลาเท่าใดหลังสิ้นสุดการฝึกงาน?"
+    }
+   ]
+  },
+  {
+   "topic": "Stack, Queue, circular queue และ priority queue",
+   "doc": "ds",
+   "status": 200,
+   "seconds": 4.82,
+   "cached": false,
+   "grounded": true,
+   "scope_label": "เอกสารที่เลือก",
+   "check": {
+    "asked": 5,
+    "returned": 5,
+    "count_ok": true,
+    "duplicate_questions": 0,
+    "issues": [],
+    "structurally_valid": 5,
+    "thai_ratio": 1.0
+   },
+   "questions": [
+    {
+     "correct_answer": "เข้าทีหลังออกก่อน (Last-In, First-Out)",
+     "explanation": "Stack เป็นโครงสร้างข้อมูลแบบ LIFO (last-in, first-out) โดยการทำงานเช่น push, pop และ peek จะใช้เวลา O(1)",
+     "id": 1,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "เข้าก่อนออกก่อน (First-In, First-Out)"
+      },
+      {
+       "is_correct": true,
+       "text": "เข้าทีหลังออกก่อน (Last-In, First-Out)"
+      },
+      {
+       "is_correct": false,
+       "text": "เข้าก่อนออกทีหลังตามลำดับความสำคัญ"
+      },
+      {
+       "is_correct": false,
+       "text": "เข้าและออกได้จากทั้งสองด้านพร้อมกัน"
+      }
+     ],
+     "question": "โครงสร้างข้อมูลแบบ Stack มีหลักการทำงานอย่างไร?"
+    },
+    {
+     "correct_answer": "เว้นว่างไว้ 1 ช่อง",
+     "explanation": "ตามเอกสารระบุว่า circular queue มีความจุ 8 ช่อง และต้องเว้นว่างไว้ 1 ช่องเสมอ เพื่อแยกแยะระหว่างคิวเต็มกับคิวว่าง ทำให้เก็บข้อมูลได้สูงสุด 7 ชิ้น",
+     "id": 2,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "เว้นว่างไว้ 0 ช่อง"
+      },
+      {
+       "is_correct": true,
+       "text": "เว้นว่างไว้ 1 ช่อง"
+      },
+      {
+       "is_correct": false,
+       "text": "เว้นว่างไว้ 2 ช่อง"
+      },
+      {
+       "is_correct": false,
+       "text": "เว้นว่างไว้ 4 ช่อง"
+      }
+     ],
+     "question": "ในห้องปฏิบัติการที่มี Circular Queue ความจุ 8 ช่อง จะต้องเว้นว่างไว้อย่างน้อยกี่ช่องเพื่อใช้แยกแยะระหว่างคิวเต็มกับคิวว่าง?"
+    },
+    {
+     "correct_answer": "(rear + 1) % capacity == front",
+     "explanation": "ตามเอกสารระบุว่าคิวจะเต็มเมื่อเงื่อนไข (rear + 1) % capacity == front เป็นจริง",
+     "id": 3,
+     "options": [
+      {
+       "is_correct": true,
+       "text": "(rear + 1) % capacity == front"
+      },
+      {
+       "is_correct": false,
+       "text": "rear == front"
+      },
+      {
+       "is_correct": false,
+       "text": "front == capacity - 1"
+      },
+      {
+       "is_correct": false,
+       "text": "rear == capacity"
+      }
+     ],
+     "question": "เงื่อนไขใดที่บ่งบอกว่า Circular Queue เต็ม?"
+    },
+    {
+     "correct_answer": "O(log n) และ O(log n) ตามลำดับ",
+     "explanation": "Priority queue ที่สร้างบน binary heap จะทำการแทรกใน O(log n) และลบค่าต่ำสุดใน O(log n)",
+     "id": 4,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "O(1) ทั้งคู่"
+      },
+      {
+       "is_correct": false,
+       "text": "O(n) ทั้งคู่"
+      },
+      {
+       "is_correct": true,
+       "text": "O(log n) และ O(log n) ตามลำดับ"
+      },
+      {
+       "is_correct": false,
+       "text": "O(log n) และ O(1) ตามลำดับ"
+      }
+     ],
+     "question": "Priority Queue ที่สร้างขึ้นบน Binary Heap มีเวลาการทำงานในการแทรกข้อมูล (insert) และการลบค่าต่ำสุด (remove minimum) เป็นเท่าใด?"
+    },
+    {
+     "correct_answer": "Deque (Double-ended queue)",
+     "explanation": "Deque หรือ double-ended queue คือโครงสร้างข้อมูลที่ช่วยให้สามารถเพิ่มและลบข้อมูลได้จากทั้งสองด้าน",
+     "id": 5,
+     "options": [
+      {
+       "is_correct": false,
+       "text": "Stack"
+      },
+      {
+       "is_correct": false,
+       "text": "Queue"
+      },
+      {
+       "is_correct": false,
+       "text": "Priority Queue"
+      },
+      {
+       "is_correct": true,
+       "text": "Deque (Double-ended queue)"
+      }
+     ],
+     "question": "โครงสร้างข้อมูลประเภทใดที่อนุญาตให้ทำการเพิ่มและลบข้อมูลได้จากทั้งสองด้าน?"
+    }
+   ]
+  }
+ ],
+ "usage": {
+  "quiz/chat": {
+   "calls": 3,
+   "input_tokens": 7085,
+   "output_tokens": 3159,
+   "search_queries": 0,
+   "cost_usd": 0.010024
+  },
+  "quiz/embedding": {
+   "calls": 3,
+   "input_tokens": 65,
+   "output_tokens": 0,
+   "search_queries": 0,
+   "cost_usd": 9e-06
+  }
+ },
+ "summary": {
+  "requests": 3,
+  "errors": 0,
+  "questions": 15,
+  "structurally_valid": 15,
+  "count_matches_request": 3,
+  "seconds_mean": 4.7,
+  "seconds_max": 4.91
+ }
+}
