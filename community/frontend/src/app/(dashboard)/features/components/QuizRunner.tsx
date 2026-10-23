@@ -11,7 +11,14 @@ interface QuizRunnerProps {
   questions: QuizQuestionPayload[]
 }
 
-export function QuizRunner({ questions }: QuizRunnerProps) {
+export function QuizRunner({ questions: allQuestions }: QuizRunnerProps) {
+  // Only multiple choice is played here; fill-in-the-blank and matching
+  // questions (made in the AI Quiz app) are played there.
+  const questions = useMemo(
+    () => allQuestions.filter((q) => (q.type ?? 'mcq') === 'mcq' && q.options.length > 0),
+    [allQuestions]
+  )
+  const skipped = allQuestions.length - questions.length
   const [selectedAnswers, setSelectedAnswers] = useState<Record<number, string>>({})
   const [submitted, setSubmitted] = useState(false)
 
@@ -25,16 +32,22 @@ export function QuizRunner({ questions }: QuizRunnerProps) {
   const answeredCount = Object.keys(selectedAnswers).length
   const allAnswered = answeredCount === questions.length
 
+  const skippedNote =
+    skipped > 0
+      ? `${skipped} fill-in-the-blank or matching question${skipped === 1 ? '' : 's'} can be played in the AI Quiz app.`
+      : null
+
   if (questions.length === 0) {
     return (
       <p className="text-sm text-muted-foreground">
-        No questions were generated.
+        {skippedNote ?? 'No questions were generated.'}
       </p>
     )
   }
 
   return (
     <div className="space-y-4">
+      {skippedNote && <p className="text-xs text-muted-foreground">{skippedNote}</p>}
       {questions.map((question, index) => (
         <Card key={question.id}>
           <CardContent className="p-4 space-y-3">
