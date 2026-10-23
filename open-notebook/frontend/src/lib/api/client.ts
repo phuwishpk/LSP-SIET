@@ -71,6 +71,10 @@ apiClient.interceptors.response.use(
       // Clear auth and redirect to login
       if (typeof window !== 'undefined') {
         localStorage.removeItem('auth-storage')
+        localStorage.removeItem('kmitlai-workspace-token')
+        try {
+          document.cookie = 'kmitl_session_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax'
+        } catch {}
         window.location.href = '/login'
       }
     }

@@ -1,7 +1,58 @@
 @import "tailwindcss";
+@config "../tailwind.config.js";
+@source "../../shared/**/*.{js,ts,jsx,tsx}";
+@source "../**/*.{js,ts,jsx,tsx}";
+
+/* `dark:` follows the dark class that lib/theme.ts sets from SIET Space's choice
+   (the shared Navbar is written for it), not the OS setting. */
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================================
+   SIET PINK DESIGN SYSTEM — AI Quiz Arena
+   Based on DESIGN.md: SIET KMITL-inspired educational design
+   ========================================================================== */
 
 :root {
   color-scheme: light;
+
+  /* SIET Brand Palette */
+  --color-primary: #ED4988;
+  --color-primary-hover: #D83A78;
+  --color-primary-pressed: #C92F6B;
+  --color-primary-soft: #FCE7F0;
+  --color-primary-light: #F7B7D0;
+
+  /* Surfaces & Typography */
+  --color-ink: #202124;
+  --color-body: #3C3C3C;
+  --color-muted: #777777;
+  --color-soft: #AFAFAF;
+  --color-canvas: #FFFFFF;
+  --color-surface: #FFFFFF;
+  --color-border: #E5E5E5;
+
+  /* Gamification & Status Colors */
+  --color-info: #1CB0F6;
+  --color-success: #58A66A;
+  --color-error: #FF4B4B;
+  --color-streak: #FF9600;
+  --color-xp: #FFC800;
+  --color-reward: #CE82FF;
+
+  /* Typography */
+  --font-display: 'Nunito', 'IBM Plex Sans Thai', system-ui, sans-serif;
+  --font-body: 'Nunito', 'IBM Plex Sans Thai', system-ui, sans-serif;
+
+  /* Radii */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-pill: 9999px;
+
+  /* Tactile Shadows */
+  --shadow-button: 0 4px 0 var(--color-primary-pressed);
+  --shadow-card: 0 2px 4px rgba(32, 33, 36, 0.04), 0 1px 2px rgba(32, 33, 36, 0.02);
+
   --background: #f8fafc;
   --foreground: #0f172a;
 }
@@ -17,8 +68,12 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-siet: #ED4988;
+  --color-siet-hover: #D83A78;
+  --color-siet-pressed: #C92F6B;
+  --color-siet-soft: #FCE7F0;
+  --color-siet-light: #F7B7D0;
+  --font-sans: 'Nunito', 'IBM Plex Sans Thai', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * {
@@ -27,6 +82,7 @@
 
 html {
   scroll-behavior: smooth;
+  height: 100%;
 }
 
 body {
@@ -34,12 +90,93 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Nunito', 'IBM Plex Sans Thai', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 button,
-input {
+input,
+select,
+textarea {
   font: inherit;
+}
+
+/* ---- Community Theme & Popovers (Matches Community 3500) ---- */
+.community-theme {
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #263142;
+  --card: #ffffff;
+  --card-foreground: #263142;
+  --popover: #ffffff;
+  --popover-foreground: #263142;
+  --primary: #ED4988;
+  --primary-foreground: #ffffff;
+  --secondary: #fff1f5;
+  --secondary-foreground: #263142;
+  --muted: #f8fafc;
+  --muted-foreground: #707b8e;
+  --accent: #fce7f0;
+  --accent-foreground: #c92f6b;
+  --border: #f1f5f9;
+  --input: #f1f5f9;
+  --ring: #ED4988;
+}
+
+.dark .community-theme {
+  --background: #21181d;
+  --foreground: #f9edf2;
+  --card: #2b2026;
+  --card-foreground: #f9edf2;
+  --popover: #2b2026;
+  --popover-foreground: #f9edf2;
+  --primary: #f472b6;
+  --primary-foreground: #381126;
+  --secondary: #382630;
+  --secondary-foreground: #f9edf2;
+  --muted: #382630;
+  --muted-foreground: #c4aeb9;
+  --accent: #4a2b3c;
+  --accent-foreground: #fce7f3;
+  --border: #4b3441;
+  --input: #59404e;
+  --ring: #f472b6;
+}
+
+/* ---- Tactile Primary Buttons (DESIGN.md) ---- */
+.button-primary,
+.btn-primary-tactile {
+  min-height: 48px;
+  padding: 13px 20px;
+  border: 0;
+  border-radius: var(--radius-lg);
+  background: var(--color-primary);
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 15px;
+  line-height: 1.2;
+  letter-spacing: 0.5px;
+  box-shadow: var(--shadow-button);
+  cursor: pointer;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.button-primary:hover,
+.btn-primary-tactile:hover {
+  background: var(--color-primary-hover);
+}
+
+.button-primary:active,
+.btn-primary-tactile:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.button-primary:focus-visible,
+.btn-primary-tactile:focus-visible {
+  outline: 3px solid var(--color-info);
+  outline-offset: 3px;
 }
 
 /*

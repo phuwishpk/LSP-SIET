@@ -170,7 +170,7 @@ export function QuizPlayScreen() {
   };
 
   return (
-    <div className="min-h-screen bg-[#fafbfc] text-[#1e293b] font-sans flex flex-col justify-between">
+    <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#fafbfc] text-[#1e293b] font-sans flex flex-col justify-between">
       {/* 1. Gameplay Header Bar */}
       <header className="w-full bg-white border-b border-slate-200/80 px-4 sm:px-8 py-3 sticky top-0 z-30 shadow-xs">
         <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
