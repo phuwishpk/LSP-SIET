@@ -1,3 +1,6 @@
+/* With preflight off (tailwind.config.js) `base` is only the --tw-* variables that
+   rings, shadows, filters and transforms are built from. */
+@tailwind base;
 @tailwind components;
 @tailwind utilities;
 
@@ -124,8 +127,13 @@ body {
   background: var(--bg);
   color: var(--text);
   font-family: 'Nunito', 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
-  font-size: 14px;
   line-height: 1.55;
+}
+
+/* 14px text, but 1rem stays the browser's 16px as in SIET Space and AI Quiz:
+   the shared navbar's Tailwind sizes are in rem. */
+body {
+  font-size: 14px;
 }
 
 a {
@@ -1299,4 +1307,42 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
 
 .field > label .muted {
   font-weight: 400;
+}
+
+/* ==========================================================================
+   Shared navbar (shared/components/Navbar.tsx). It is written for Tailwind's
+   preflight, which this app turns off (tailwind.config.js), so it gets the same
+   base here - only inside the navbar. `:where()` keeps these below any utility
+   class; they come last to win over this file's element rules (a, button).
+   ========================================================================== */
+:where(.siet-navbar) * {
+  border: 0 solid;
+}
+
+:where(.siet-navbar) :where(p, ul, ol) {
+  margin: 0;
+}
+
+:where(.siet-navbar) :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+:where(.siet-navbar) :where(button, input) {
+  margin: 0;
+  padding: 0;
+  line-height: inherit;
+  background-color: transparent;
+  background-image: none;
+}
+
+:where(.siet-navbar) :where(img, svg) {
+  display: block;
+  vertical-align: middle;
+}
+
+:where(.siet-navbar) a,
+:where(.siet-navbar) a:hover {
+  color: inherit;
+  text-decoration: inherit;
 }

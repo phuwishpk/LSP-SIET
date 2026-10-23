@@ -106,6 +106,15 @@ export interface NavbarProps {
 }
 
 // --- Formatters & Helpers ---
+/**
+ * The navbar looks the same in every app, whatever the app's own base styles:
+ * its font (DESIGN.md: Nunito, Thai through IBM Plex Sans Thai - SIET Space has
+ * them as next/font variables, the AI apps load them from Google Fonts), its
+ * 16px base, and px radii (SIET Space's theme makes `rounded-xl` 6px).
+ */
+const NAVBAR_FONT =
+  "var(--font-nunito, 'Nunito'), var(--font-ibm-plex-thai, 'IBM Plex Sans Thai'), var(--font-noto-thai, 'Noto Sans Thai'), system-ui, sans-serif"
+
 /** Where the AI Quiz / AI Roadmap apps keep the token SIET Space handed them. */
 const HANDOFF_TOKEN_KEY = 'kmitlai-workspace-token'
 
@@ -566,11 +575,14 @@ export function Navbar({
         color: '#ffffff',
         minHeight: '64px',
         height: '64px',
+        fontFamily: NAVBAR_FONT,
+        fontSize: '16px',
+        lineHeight: 1.5,
       }}
-      className={`sticky top-0 z-[100] w-full bg-gradient-to-r from-[#420A2B] via-[#6B0F3F] to-[#8C1453] text-white shadow-md shadow-black/10 select-none ${className}`}
+      className={`siet-navbar sticky top-0 z-[100] w-full bg-gradient-to-r from-[#420A2B] via-[#6B0F3F] to-[#8C1453] text-white shadow-md shadow-black/10 select-none ${className}`}
     >
       {/* Geometric Overlay Pattern (Journal of Industrial Education / JIE inspired) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-18">
+      <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ opacity: 0.18 }}>
         <svg
           className="absolute inset-0 h-full w-full"
           xmlns="http://www.w3.org/2000/svg"
@@ -622,7 +634,7 @@ export function Navbar({
         {onOpenMenu && (
           <button
             type="button"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg p-0 text-white hover:bg-white/15 hover:text-white lg:hidden transition-colors cursor-pointer bg-transparent border-0"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] p-0 text-white hover:bg-white/15 hover:text-white lg:hidden transition-colors cursor-pointer bg-transparent border-0"
             style={{ background: 'transparent', border: 'none' }}
             onClick={handleOpenMenu}
             aria-label="เปิดเมนู"
@@ -635,10 +647,10 @@ export function Navbar({
         <a
           href={buildCrossUrl(homeUrl || `${workspaceUrl}/community`)}
           title={homeUrl ? 'กลับไปหน้าที่เปิดมาใน SIET Space' : undefined}
-          className="flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/10 no-underline"
+          className="flex shrink-0 items-center gap-2.5 rounded-[12px] px-1.5 py-1 text-left transition-colors hover:bg-white/10 no-underline"
           style={{ textDecoration: 'none' }}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 p-1 ring-1 ring-white/25 shadow-xs backdrop-blur-xs">
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white/15 p-1 ring-1 ring-white/25 shadow-xs backdrop-blur-xs">
             {logoSrc ? (
               <img
                 src={logoSrc}
@@ -772,7 +784,7 @@ export function Navbar({
 
               {/* Full Points Wallet Popover */}
               {isWalletOpen && (
-                <div className="community-theme absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200/80 bg-white p-0 text-slate-800 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="community-theme absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-[16px] border border-slate-200/80 bg-white p-0 text-slate-800 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150" style={{ fontFamily: NAVBAR_FONT }}>
                   {/* Top Stats */}
                   <div className="border-b border-slate-100 dark:border-zinc-800 p-4">
                     <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-zinc-500 font-semibold">
@@ -869,8 +881,8 @@ export function Navbar({
                     <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">ประวัติแต้ม</p>
                     {isWalletLoading ? (
                       <div className="space-y-2 py-2">
-                        <div className="h-6 w-full animate-pulse rounded-md bg-slate-100 dark:bg-zinc-800" />
-                        <div className="h-6 w-full animate-pulse rounded-md bg-slate-100 dark:bg-zinc-800" />
+                        <div className="h-6 w-full animate-pulse rounded-[6px] bg-slate-100 dark:bg-zinc-800" />
+                        <div className="h-6 w-full animate-pulse rounded-[6px] bg-slate-100 dark:bg-zinc-800" />
                       </div>
                     ) : !walletData?.history || walletData.history.length === 0 ? (
                       <p className="text-xs text-slate-400 dark:text-zinc-500 py-1">ยังไม่มีรายการ</p>
@@ -908,7 +920,7 @@ export function Navbar({
                     <button
                       type="button"
                       onClick={() => setIsWalletOpen(false)}
-                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white rounded-lg hover:bg-slate-200/60 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white rounded-[8px] hover:bg-slate-200/60 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
                     >
                       ปิด
                     </button>
@@ -946,7 +958,7 @@ export function Navbar({
             </button>
 
             {isNotificationsOpen && (
-              <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-slate-200/80 bg-white p-0 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+              <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-[16px] border border-slate-200/80 bg-white p-0 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150" style={{ fontFamily: NAVBAR_FONT }}>
                 <div className="border-b border-slate-100 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
                   <p className="text-sm font-semibold">การแจ้งเตือน</p>
                   <a
@@ -1031,7 +1043,7 @@ export function Navbar({
 
               {/* Profile Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="community-theme absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="community-theme absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-1rem)] rounded-[16px] border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] animate-in fade-in-0 zoom-in-95 duration-150" style={{ fontFamily: NAVBAR_FONT }}>
                   {/* User Profile Header */}
                   <div className="px-2.5 pb-3 pt-2">
                     <div className="flex items-center gap-3">
@@ -1067,7 +1079,7 @@ export function Navbar({
                   <a
                     href={profileHref}
                     onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenProfile) }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <UserRound className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
                     <span>ดูโปรไฟล์เต็ม</span>
@@ -1076,7 +1088,7 @@ export function Navbar({
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=library`)}
                     onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenLibrary) }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <BookOpen className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
                     <span>คลังความรู้และไฟล์ของฉัน</span>
@@ -1086,7 +1098,7 @@ export function Navbar({
                     <a
                       href={buildCrossUrl(`${workspaceUrl}/settings`)}
                       onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenSettings) }}
-                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                     >
                       <Settings className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
                       <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
@@ -1094,7 +1106,7 @@ export function Navbar({
                   ) : (
                     <div
                       title="การตั้งค่าบัญชีสำหรับนักศึกษายังไม่พร้อมใช้งาน"
-                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500 cursor-not-allowed opacity-60"
+                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500 cursor-not-allowed opacity-60"
                     >
                       <Settings className="h-4 w-4 shrink-0" />
                       <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
@@ -1104,7 +1116,7 @@ export function Navbar({
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=rules`)}
                     onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenRules) }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <CircleHelp className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
                     <span>ช่วยเหลือและกฎชุมชน</span>
@@ -1116,7 +1128,7 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenQuiz() }}
-                    className="w-full flex items-center gap-2 rounded-xl border-0 bg-transparent px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    className="w-full flex items-center gap-2 rounded-[12px] border-0 bg-transparent px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
                   >
                     <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
                     <span>แอป AI Quiz ↗</span>
@@ -1125,7 +1137,7 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenRoadmap() }}
-                    className="w-full flex items-center gap-2 rounded-xl border-0 bg-transparent px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    className="w-full flex items-center gap-2 rounded-[12px] border-0 bg-transparent px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
                   >
                     <MapIcon className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
                     <span>แอป AI Roadmap</span>
@@ -1135,7 +1147,7 @@ export function Navbar({
 
                   {/* Theme Toggle (only where the host app owns the theme) */}
                   {onToggleTheme && (
-                    <div className="rounded-xl border border-pink-100 bg-slate-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60">
+                    <div className="rounded-[12px] border border-pink-100 bg-slate-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60">
                       <button
                         type="button"
                         onClick={onToggleTheme}
@@ -1154,7 +1166,7 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="mt-2 w-full min-h-11 flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60 cursor-pointer"
+                    className="mt-2 w-full min-h-11 flex items-center gap-2 rounded-[12px] border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60 cursor-pointer"
                   >
                     <LogOut className="h-4 w-4 shrink-0" />
                     <span>ออกจากระบบ</span>
