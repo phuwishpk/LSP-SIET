@@ -15,6 +15,7 @@ import {
   Search,
   Settings,
   UserRound,
+  X,
 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -76,21 +77,21 @@ function NavbarSearch() {
       className="relative mx-1 min-w-[48px] w-auto max-w-xl flex-1 sm:mx-auto"
       role="search"
     >
-      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/65 transition-colors" />
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pink-200/90 transition-colors" />
       <Input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
-        className="h-9 w-full cursor-text rounded-full border border-white/20 bg-white/10 pl-9 pr-14 text-xs text-white placeholder:text-white/60 backdrop-blur-xs transition-all duration-200 hover:border-white/35 hover:bg-white/15 focus:border-[#E91E63] focus:bg-white/20 focus:ring-2 focus:ring-[#E91E63]/60 focus-visible:border-[#E91E63] focus-visible:ring-2 focus-visible:ring-[#E91E63]/60 sm:text-sm"
+        className="h-9 w-full cursor-text rounded-full border border-white/20 bg-white/10 pl-9 pr-10 text-xs text-white placeholder:text-pink-100/60 backdrop-blur-xs transition-all duration-200 hover:border-white/35 hover:bg-white/15 focus:border-[#E91E63] focus:bg-white/20 focus:ring-2 focus:ring-[#E91E63]/60 focus-visible:border-[#E91E63] focus-visible:ring-2 focus-visible:ring-[#E91E63]/60 sm:text-sm"
       />
       {draft && (
         <button
           type="button"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-white/70 transition-colors hover:text-white"
+          className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-pink-100 transition-all hover:bg-white/35 hover:text-white focus:outline-hidden focus:ring-1 focus:ring-pink-300"
           onClick={handleClear}
           aria-label="ล้างการค้นหา"
         >
-          ล้าง
+          <X className="h-3 w-3" />
         </button>
       )}
     </form>
