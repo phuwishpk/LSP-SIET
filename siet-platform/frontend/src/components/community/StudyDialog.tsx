@@ -124,7 +124,7 @@ export function StudyDialog({
           </div>
           <div className="flex items-end gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="study-count">{isQuiz ? 'จำนวนข้อ' : 'จำนวนด่าน'}</Label>
+              <Label htmlFor="study-count">{isQuiz ? 'จำนวนข้อ' : 'จำนวนหัวข้อ'}</Label>
               <Input
                 id="study-count"
                 type="number"

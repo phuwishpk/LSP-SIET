@@ -97,7 +97,7 @@ function NodeRow({ node, number, childrenOf }: NodeRowProps) {
         <span className="min-w-0 flex-1 font-medium">{node.label}</span>
         {kids.length > 0 && (
           <span className="shrink-0 rounded-full border border-dashed px-2 py-0.5 text-xs text-muted-foreground">
-            +{kids.length} ด่านย่อย
+            +{kids.length} หัวข้อย่อย
           </span>
         )}
         {hasMore &&
@@ -130,7 +130,11 @@ function NodeRow({ node, number, childrenOf }: NodeRowProps) {
  * A shared roadmap as a readable plan: main nodes grouped by learning stage,
  * with sub-nodes folded under the node they explain.
  */
+// Every node lists its own pages; the plan-wide list is a summary, so it starts short.
+const PLAN_PAGES_PREVIEW = 8
+
 export function RoadmapPlanView({ nodes, grounding }: RoadmapPlanViewProps) {
+  const [showAllPages, setShowAllPages] = useState(false)
   const { lanes, childrenOf } = useMemo(() => {
     const ids = new Set(nodes.map((node) => node.id))
     const childrenOf = new Map<string, RoadmapNodePayload[]>()
@@ -155,7 +159,7 @@ export function RoadmapPlanView({ nodes, grounding }: RoadmapPlanViewProps) {
   }, [nodes])
 
   if (nodes.length === 0) {
-    return <p className="text-sm text-muted-foreground">Roadmap นี้ยังไม่มีด่าน</p>
+    return <p className="text-sm text-muted-foreground">Roadmap นี้ยังไม่มีหัวข้อ</p>
   }
 
   const pages = grounding?.web_sources ?? []
@@ -176,7 +180,21 @@ export function RoadmapPlanView({ nodes, grounding }: RoadmapPlanViewProps) {
       {pages.length > 0 && (
         <section className="border-t pt-3">
           <h4 className="text-xs font-semibold text-muted-foreground">หน้าเว็บที่ใช้อ้างอิง</h4>
-          <SourceList sources={pages.map((page) => ({ kind: 'web' as const, ...page }))} />
+          <SourceList
+            sources={(showAllPages ? pages : pages.slice(0, PLAN_PAGES_PREVIEW)).map((page) => ({
+              kind: 'web' as const,
+              ...page,
+            }))}
+          />
+          {pages.length > PLAN_PAGES_PREVIEW && (
+            <button
+              type="button"
+              onClick={() => setShowAllPages((value) => !value)}
+              className="mt-1 text-xs font-medium text-primary hover:underline"
+            >
+              {showAllPages ? 'ย่อรายการ' : `ดูหน้าเว็บทั้งหมด ${pages.length} หน้า`}
+            </button>
+          )}
           <p className="mt-2 text-xs text-muted-foreground">ข้อมูลจากเว็บ ควรตรวจสอบก่อนนำไปใช้</p>
         </section>
       )}

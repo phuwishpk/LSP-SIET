@@ -53,6 +53,12 @@ def test_web_sources_dedupes_pages_and_drops_unsafe_links():
     assert grounding.web_sources(None) == ([], {})
 
 
+def test_web_sources_keep_at_most_limit_pages():
+    sources, chunk_map = grounding.web_sources(META, limit=1)
+    assert [s["url"] for s in sources] == ["https://example.org/a"]
+    assert chunk_map == {0: 1, 2: 1}  # chunks of the dropped page point nowhere
+
+
 def test_markers_follow_the_supported_sentence_in_thai_text():
     _, chunk_map = grounding.web_sources(META)
     text = "สจล. ตั้งอยู่ที่ลาดกระบัง และ ก่อตั้งปี พ.ศ. 2503 ครับ"

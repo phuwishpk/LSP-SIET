@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { categoryColor } from '@/lib/roadmap-layout'
 import { External, Plus } from './icons'
 
@@ -37,10 +38,15 @@ function Sources({ sources }) {
   )
 }
 
+// Every node lists its own pages; the plan-wide list is a summary, so it starts short.
+const PLAN_PAGES_PREVIEW = 8
+
 /** What the whole plan was built from, shown before any node is selected. */
 function PlanGrounding({ grounding }) {
+  const [showAll, setShowAll] = useState(false)
   if (!grounding) return null
   const pages = (grounding.web_sources || []).map((page) => ({ kind: 'web', ...page }))
+  const shown = showAll ? pages : pages.slice(0, PLAN_PAGES_PREVIEW)
   return (
     <>
       <section className="panel-section">
@@ -56,7 +62,12 @@ function PlanGrounding({ grounding }) {
         )}
         {grounding.web_empty && <p className="hint">ค้นเว็บแล้ว แต่ไม่พบหน้าที่ใช้อ้างอิงได้</p>}
       </section>
-      <Sources sources={pages} />
+      <Sources sources={shown} />
+      {pages.length > PLAN_PAGES_PREVIEW && (
+        <button type="button" className="link-button" onClick={() => setShowAll((value) => !value)}>
+          {showAll ? 'ย่อรายการ' : `ดูหน้าเว็บทั้งหมด ${pages.length} หน้า`}
+        </button>
+      )}
     </>
   )
 }
@@ -71,7 +82,7 @@ function hostOf(url) {
 
 /**
  * Details of the selected node. `expand` is optional: when present the panel
- * offers "ขยายด่านนี้" ({ cost, exempt, disabledReason, busy, onExpand }).
+ * offers "ขยายหัวข้อนี้" ({ cost, exempt, disabledReason, busy, onExpand }).
  */
 export default function NodePanel({ roadmap, node, mainIndex, childCount, expand }) {
   if (!node) {
@@ -82,7 +93,7 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
           {roadmap?.description && <p className="body">{roadmap.description}</p>}
         </section>
         <PlanGrounding grounding={roadmap?.grounding} />
-        <p className="hint">กดที่ด่านในแผนเพื่อดูคำอธิบายและที่มา</p>
+        <p className="hint">กดที่หัวข้อในแผนเพื่อดูคำอธิบายและที่มา</p>
       </aside>
     )
   }
@@ -97,15 +108,15 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
               {node.category}
             </span>
           )}
-          <span className="chip">{mainIndex ? `ด่านที่ ${mainIndex}` : 'ด่านย่อย'}</span>
+          <span className="chip">{mainIndex ? `หัวข้อที่ ${mainIndex}` : 'หัวข้อย่อย'}</span>
         </div>
         <h2 className="h3">{node.label}</h2>
-        {node.description ? <p className="body">{node.description}</p> : <p className="hint">ด่านนี้ยังไม่มีคำอธิบาย</p>}
+        {node.description ? <p className="body">{node.description}</p> : <p className="hint">หัวข้อนี้ยังไม่มีคำอธิบาย</p>}
       </section>
 
       <Sources sources={node.sources} />
 
-      {childCount > 0 && <p className="hint">มีด่านย่อย {childCount} ด่านแตกออกจากด่านนี้</p>}
+      {childCount > 0 && <p className="hint">มีหัวข้อย่อย {childCount} หัวข้อแตกออกจากหัวข้อนี้</p>}
 
       {expand && (
         <section className="panel-footer">
@@ -116,12 +127,12 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
             onClick={expand.onExpand}
           >
             <Plus />
-            {expand.busy ? 'กำลังขยาย…' : expand.exempt ? 'ขยายด่านนี้' : `ขยายด่านนี้ · ${expand.cost} แต้ม`}
+            {expand.busy ? 'กำลังขยาย…' : expand.exempt ? 'ขยายหัวข้อนี้' : `ขยายหัวข้อนี้ · ${expand.cost} แต้ม`}
           </button>
           <p className="hint center">
             {expand.busy
-              ? 'AI กำลังค้นแหล่งความรู้และแตกด่านย่อย ใช้เวลาประมาณครึ่งนาที'
-              : expand.disabledReason || 'AI แตกด่านนี้เป็นด่านย่อยเท่าที่เนื้อหาต้องใช้ โดยใช้แหล่งความรู้ชุดเดิม'}
+              ? 'AI กำลังค้นแหล่งความรู้และแตกหัวข้อย่อย ใช้เวลาประมาณครึ่งนาที'
+              : expand.disabledReason || 'AI แตกหัวข้อนี้เป็นหัวข้อย่อยเท่าที่เนื้อหาต้องใช้ โดยใช้แหล่งความรู้ชุดเดิม'}
           </p>
         </section>
       )}

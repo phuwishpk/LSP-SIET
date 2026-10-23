@@ -13,6 +13,8 @@ Where the content comes from, in this order:
 3. the model's own knowledge - and the plan is labelled as such.
 
 Every node carries ``sources`` so the reader can see which of the three it was.
+Unless the web is off, every node also gets up to five web pages to read
+further, including the nodes the library already covers.
 """
 
 from __future__ import annotations
@@ -20,7 +22,7 @@ from __future__ import annotations
 import asyncio
 import os
 import re
-from typing import Any, Dict, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Set, Tuple
 
 from loguru import logger
 
@@ -40,7 +42,9 @@ MAX_NODES = 200
 MIN_MAIN_NODES = 3
 MAX_LABEL_CHARS = 80
 MAX_DESCRIPTION_CHARS = 900
-MAX_WEB_TOPICS = 12
+# Every node is looked up on the web; this is a guard against a runaway plan.
+MAX_WEB_TOPICS = 60
+MAX_WEB_LINKS_PER_NODE = 5
 PASSAGE_CHARS = 1200
 
 
@@ -66,6 +70,26 @@ def _min_similarity() -> float:
         return float(os.getenv("ROADMAP_MIN_SIMILARITY", "0.65"))
     except ValueError:
         return 0.65
+
+
+def _env_int(name: str, default: int, low: int, high: int) -> int:
+    try:
+        return max(low, min(high, int(os.getenv(name, str(default)))))
+    except ValueError:
+        return default
+
+
+def _web_batch_size() -> int:
+    """
+    Topics per search call. One call returns a handful of pages in total, so a
+    few topics per call is what lets each of them get several pages of its own.
+    """
+    return _env_int("ROADMAP_WEB_BATCH_SIZE", 3, 1, 12)
+
+
+def _web_concurrency() -> int:
+    """Search calls in flight for one plan; they share the chat lane with everyone."""
+    return _env_int("ROADMAP_WEB_CONCURRENCY", 4, 1, 10)
 
 _WEB_MARKER_RE = re.compile(r"\s*\[W(\d{1,2})\]")
 _SECTION_RE = re.compile(r"^#{2,4}\s*`?([A-Za-z0-9_-]+)`?[^\n]*$", re.MULTILINE)
@@ -387,8 +411,10 @@ def _web_prompt(title: str, language: str, topics: Sequence[Dict[str, Any]]) -> 
     listing = "\n".join(f"- {t['id']}: {t['label']} — {t.get('description') or ''}"[:400] for t in topics)
     return (
         f'A student is following the learning plan "{title}". For each topic below, search the '
-        f"web and write 2-3 sentences in language code {language}: concrete facts that help "
-        "learn it, and one good free resource by name. Use exactly this format, one block per "
+        f"web and write 3-5 sentences in language code {language}: concrete facts that help "
+        "learn it, and good free resources by name. Base the sentences on different pages - "
+        f"official documentation, tutorials, courses - so each topic draws on up to "
+        f"{MAX_WEB_LINKS_PER_NODE} distinct pages. Use exactly this format, one block per "
         "topic, and no other text:\n### <topic id>\n<your sentences>\n\nTopics:\n" + listing
     )
 
@@ -398,27 +424,31 @@ def _web_prompt(title: str, language: str, topics: Sequence[Dict[str, Any]]) -> 
 # ---------------------------------------------------------------------------
 
 
-async def resolve_web_links(sources: List[Dict[str, Any]]) -> None:
+async def resolve_web_links(sources: List[Dict[str, Any]], *, transport: Any = None) -> None:
     """
     Swap the search tool's temporary redirect links for the pages they lead to.
 
     A roadmap is kept and shared, so it needs the real address; a link that
-    cannot be followed in time simply stays as it was.
+    cannot be read in time simply stays as it was. Only the redirect itself is
+    read: the page is never contacted, since many sites are slow, refuse HEAD
+    or refuse servers, and still show the page to a reader.
     """
     import httpx
 
     async def follow(client: "httpx.AsyncClient", source: Dict[str, Any]) -> None:
         try:
             response = await client.head(source["url"])
-            final = str(response.url)
-            if response.status_code < 400 and final.startswith(("http://", "https://")):
-                source["url"] = final
+            location = response.headers.get("location")
+            if response.is_redirect and location:
+                final = str(response.url.join(location))
+                if final.startswith(("http://", "https://")):
+                    source["url"] = final
         except Exception as exc:
             logger.debug(f"roadmap: could not resolve {source.get('title')}: {exc}")
 
     if not sources:
         return
-    async with httpx.AsyncClient(follow_redirects=True, timeout=6) as client:
+    async with httpx.AsyncClient(follow_redirects=False, timeout=6, transport=transport) as client:
         await asyncio.gather(*(follow(client, source) for source in sources))
 
 
@@ -437,26 +467,18 @@ def relevant_passages(passages: Sequence[Dict[str, Any]], *, picked: bool) -> Li
     return [{**p, "index": i} for i, p in enumerate(kept, start=1)]
 
 
-async def research_on_web(
+async def _research_batch(
     *, title: str, language: str, topics: Sequence[Dict[str, Any]], owner_id: str
 ) -> Dict[str, Any]:
-    """
-    One search-grounded call covering ``topics``.
-
-    Returns ``{"available": bool, "notes": {node id: (text, [source])}, "sources": [...]}``.
-    ``available`` is False when the configured model cannot search; that is
-    reported to the user, never an error.
-    """
-    if not topics:
-        return {"available": True, "notes": {}, "sources": []}
-    prompt = _web_prompt(title, language, topics[:MAX_WEB_TOPICS])
+    """One search-grounded call for a few topics; same result shape as :func:`research_on_web`."""
+    prompt = _web_prompt(title, language, topics)
     reply: Dict[str, Any] = {}
     sources: List[Dict[str, Any]] = []
     chunk_map: Dict[int, int] = {}
     # The model sometimes answers from memory without searching, and does so in
-    # streaks when calls come close together; wait a moment and ask again
-    # (twice at most) before giving up on web support.
-    for attempt in (1, 2, 3):
+    # streaks when calls come close together; wait a moment and ask once more
+    # before giving up on web support for these topics.
+    for attempt in (1, 2):
         if attempt > 1:
             await asyncio.sleep(2)
         try:
@@ -472,7 +494,9 @@ async def research_on_web(
             return {"available": False, "notes": {}, "sources": []}
         if not reply.get("search_available"):
             return {"available": False, "notes": {}, "sources": []}
-        sources, chunk_map = grounding.web_sources(reply.get("metadata"))
+        sources, chunk_map = grounding.web_sources(
+            reply.get("metadata"), limit=MAX_WEB_LINKS_PER_NODE * len(topics)
+        )
         if sources:
             break
         logger.info(f"roadmap: web research attempt {attempt} returned no pages")
@@ -483,8 +507,59 @@ async def research_on_web(
         node_id: (text, [by_index[i] for i in refs if i in by_index])
         for node_id, (text, refs) in parse_web_sections(marked).items()
     }
-    logger.info(f"roadmap: web research for {len(topics)} topics: {len(notes)} notes, {len(by_index)} pages")
     return {"available": True, "notes": notes, "sources": list(by_index.values())}
+
+
+async def research_on_web(
+    *, title: str, language: str, topics: Sequence[Dict[str, Any]], owner_id: str
+) -> Dict[str, Any]:
+    """
+    Search the web for ``topics``, a few per call, several calls at a time.
+
+    Returns ``{"available": bool, "notes": {node id: (text, [source])}, "sources": [...]}``.
+    ``available`` is False when the configured model cannot search; that is
+    reported to the user, never an error.
+    """
+    topics = list(topics[:MAX_WEB_TOPICS])
+    if not topics:
+        return {"available": True, "notes": {}, "sources": []}
+    size = _web_batch_size()
+    batches = [topics[i : i + size] for i in range(0, len(topics), size)]
+    gate = asyncio.Semaphore(_web_concurrency())
+
+    async def run(batch: Sequence[Dict[str, Any]]) -> Dict[str, Any]:
+        async with gate:
+            return await _research_batch(title=title, language=language, topics=batch, owner_id=owner_id)
+
+    results = await asyncio.gather(*(run(batch) for batch in batches))
+    notes: Dict[str, Tuple[str, List[Dict[str, Any]]]] = {}
+    pages: Dict[str, Dict[str, Any]] = {}
+    for result in results:
+        notes.update(result["notes"])
+        for page in result["sources"]:
+            pages.setdefault(page["url"], page)
+    logger.info(
+        f"roadmap: web research for {len(topics)} topics in {len(batches)} calls: "
+        f"{len(notes)} notes, {len(pages)} pages"
+    )
+    return {
+        "available": any(result["available"] for result in results),
+        "notes": notes,
+        "sources": list(pages.values()),
+    }
+
+
+def _add_web_pages(node: Dict[str, Any], pages: Sequence[Dict[str, Any]]) -> None:
+    """Add pages the node does not list yet, up to MAX_WEB_LINKS_PER_NODE web pages."""
+    current = list(node.get("sources") or [])
+    room = MAX_WEB_LINKS_PER_NODE - sum(1 for s in current if s.get("kind") == "web")
+    for page in pages:
+        if room <= 0:
+            break
+        if page not in current:
+            current.append(page)
+            room -= 1
+    node["sources"] = current
 
 
 def apply_web_notes(
@@ -492,11 +567,14 @@ def apply_web_notes(
     notes: Dict[str, Tuple[str, List[Dict[str, Any]]]],
     *,
     require_source: bool = True,
+    note_ids: Optional[Set[str]] = None,
 ) -> int:
     """
-    Append each web note to its node and return how many nodes were updated.
+    Add each web note's pages to its node and return how many nodes were updated.
 
-    With ``require_source`` a note is used only when it can be tied to a page.
+    The note's text goes into the description only for ``note_ids`` (all nodes
+    when None); the other nodes get the pages as further reading. With
+    ``require_source`` a note is used only when it can be tied to a page.
     """
     updated = 0
     for node in nodes:
@@ -506,13 +584,19 @@ def apply_web_notes(
         text, sources = note
         if require_source and not sources:
             continue
-        node["description"] = _clip(f"{node.get('description') or ''}\n\n{text}".strip(), MAX_DESCRIPTION_CHARS)
-        node["sources"] = (node.get("sources") or []) + [s for s in sources if s not in (node.get("sources") or [])]
+        with_text = note_ids is None or node["id"] in note_ids
+        if not with_text and not sources:
+            continue
+        if with_text:
+            node["description"] = _clip(f"{node.get('description') or ''}\n\n{text}".strip(), MAX_DESCRIPTION_CHARS)
+        _add_web_pages(node, sources)
         updated += 1
     return updated
 
 
-def merge_research(nodes: List[Dict[str, Any]], research: Dict[str, Any]) -> bool:
+def merge_research(
+    nodes: List[Dict[str, Any]], research: Dict[str, Any], *, note_ids: Optional[Set[str]] = None
+) -> bool:
     """
     Fold the web research into the nodes; True when the web was really used.
 
@@ -520,22 +604,37 @@ def merge_research(nodes: List[Dict[str, Any]], research: Dict[str, Any]) -> boo
     none could be pinned to a sentence, the notes are still kept and the pages
     are listed for the whole plan instead of per node.
     """
-    if apply_web_notes(nodes, research["notes"]) > 0:
+    if apply_web_notes(nodes, research["notes"], note_ids=note_ids) > 0:
         return True
     if research["sources"] and research["notes"]:
-        return apply_web_notes(nodes, research["notes"], require_source=False) > 0
+        return apply_web_notes(nodes, research["notes"], require_source=False, note_ids=note_ids) > 0
     return False
 
 
 def web_topics(nodes: Sequence[Dict[str, Any]], mode: str) -> List[Dict[str, Any]]:
-    """Which nodes to look up: everything not backed by the library, or (always) the main path too."""
+    """
+    Which nodes to look up: all of them unless the web is off.
+
+    Nodes the library does not cover come first, so they are the ones kept when
+    a runaway plan hits MAX_WEB_TOPICS.
+    """
     if mode == grounding.WEB_OFF:
         return []
     uncovered = [n for n in nodes if not n.get("sources")]
+    covered = [n for n in nodes if n.get("sources")]
+    return (uncovered + covered)[:MAX_WEB_TOPICS]
+
+
+def web_note_ids(nodes: Sequence[Dict[str, Any]], mode: str) -> Set[str]:
+    """
+    Whose description takes the web's text: (always) every node, (auto) only
+    those the library does not cover. The rest get the pages as further reading.
+    """
+    if mode == grounding.WEB_OFF:
+        return set()
     if mode == grounding.WEB_ALWAYS:
-        mains = [n for n in nodes if not n.get("parent") and n not in uncovered]
-        return (uncovered + mains)[:MAX_WEB_TOPICS]
-    return uncovered[:MAX_WEB_TOPICS]
+        return {n["id"] for n in nodes}
+    return {n["id"] for n in nodes if not n.get("sources")}
 
 
 async def generate_plan(
@@ -562,9 +661,9 @@ async def generate_plan(
 
     description = (description or "").strip()
     if not description:
-        raise InvalidInputError("กรุณาบอกหัวข้อหรือเป้าหมายที่อยากเรียน")
+        raise InvalidInputError("กรุณาบอกเรื่องหรือเป้าหมายที่อยากเรียน")
     if node_count is not None and (node_count < MIN_MAIN_NODES or node_count > MAX_NODES):
-        raise InvalidInputError(f"จำนวนด่านต้องอยู่ระหว่าง {MIN_MAIN_NODES} ถึง {MAX_NODES}")
+        raise InvalidInputError(f"จำนวนหัวข้อต้องอยู่ระหว่าง {MIN_MAIN_NODES} ถึง {MAX_NODES}")
     web_mode = grounding.effective_web_mode(web_mode)
 
     # The library is searched only inside the chosen scope - never the whole workspace.
@@ -577,7 +676,7 @@ async def generate_plan(
 
     prompt_hash = _hash_prompt(
         {
-            "kind": "learning-plan-v2",
+            "kind": "learning-plan-v3",
             "desc": description.lower(),
             "n": node_count or "auto",
             "lang": language,
@@ -608,13 +707,14 @@ async def generate_plan(
 
         web_used, web_available, web_sources = False, True, []
         topics = web_topics(nodes, web_mode)
+        note_ids = web_note_ids(nodes, web_mode)
         web_tried = bool(topics)
         if topics:
             research = await research_on_web(
                 title=plan["title"], language=language, topics=topics, owner_id=owner_id
             )
             web_available = research["available"]
-            web_used = merge_research(nodes, research)
+            web_used = merge_research(nodes, research, note_ids=note_ids)
             web_sources = research["sources"] if web_used else []
 
         payload = {
@@ -681,11 +781,11 @@ def depth_of(nodes: Sequence[Dict[str, Any]], node_id: str) -> int:
 def expansion_block(nodes: Sequence[Dict[str, Any]], node_id: str) -> Optional[str]:
     """Why this node cannot be expanded (shown to the user), or None when it can."""
     if not any(str(n["id"]) == str(node_id) for n in nodes):
-        return "ไม่พบด่านนี้ใน Roadmap"
+        return "ไม่พบหัวข้อนี้ใน Roadmap"
     if depth_of(nodes, node_id) >= MAX_DEPTH:
-        return "ด่านนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากด่านหลัก)"
+        return "หัวข้อนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากหัวข้อหลัก)"
     if len(nodes) >= MAX_NODES:
-        return f"Roadmap นี้มีครบ {MAX_NODES} ด่านแล้ว"
+        return f"Roadmap นี้มีครบ {MAX_NODES} หัวข้อแล้ว"
     return None
 
 
@@ -727,7 +827,7 @@ def build_children(
             }
         )
     if not picked:
-        raise ExternalServiceError("AI ขยายด่านนี้ไม่สำเร็จ ลองใหม่อีกครั้ง")
+        raise ExternalServiceError("AI ขยายหัวข้อนี้ไม่สำเร็จ ลองใหม่อีกครั้ง")
 
     level = depth_of(nodes, parent["id"]) + 1
     children = []
@@ -800,7 +900,7 @@ async def _draft_children(
             return build_children(await _extract_json(raw), nodes, parent, len(passages))
         except ExternalServiceError:
             logger.warning(f"roadmap: expansion of {parent['id']} gave no new step (try {attempt + 1})")
-    raise ExternalServiceError("AI ขยายด่านนี้ไม่สำเร็จ ลองใหม่อีกครั้ง")
+    raise ExternalServiceError("AI ขยายหัวข้อนี้ไม่สำเร็จ ลองใหม่อีกครั้ง")
 
 
 async def expand_node(
@@ -842,12 +942,13 @@ async def expand_node(
 
     web_used, web_available, pages = False, True, []
     topics = web_topics(children, web_mode)
+    note_ids = web_note_ids(children, web_mode)
     if topics:
         research = await research_on_web(
             title=session.title, language=session.language, topics=topics, owner_id=session.owner_id
         )
         web_available = research["available"]
-        web_used = merge_research(children, research)
+        web_used = merge_research(children, research, note_ids=note_ids)
         pages = research["sources"] if web_used else []
 
     info = dict(session.grounding or {})

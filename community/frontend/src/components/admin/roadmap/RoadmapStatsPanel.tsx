@@ -33,7 +33,7 @@ export function RoadmapStatsPanel() {
             <StatTile icon={Footprints} label={`เดินตามใน ${data.days} วัน`} value={data.followed} hint={`ยอดเดินตามสะสม ${data.follows.toLocaleString()}`} />
             <StatTile icon={Share2} label="โพสต์ Roadmap ในฟีด" value={data.shared_posts} />
             <StatTile icon={Coins} accent label={`แต้มที่ใช้ใน ${data.days} วัน`} value={data.points_spent} hint="หักคืนแต้มที่ refund แล้ว" />
-            <StatTile icon={GitBranch} label={`ขยายด่านใน ${data.days} วัน`} value={data.expansions} hint="นับจากรายการหักแต้ม (ไม่รวมอาจารย์/ผู้ดูแล)" />
+            <StatTile icon={GitBranch} label={`ขยายหัวข้อใน ${data.days} วัน`} value={data.expansions} hint="นับจากรายการหักแต้ม (ไม่รวมอาจารย์/ผู้ดูแล)" />
           </div>
 
           <Card>
@@ -90,7 +90,7 @@ export function RoadmapStatsPanel() {
                             {post.title || '(ไม่มีหัวข้อ)'}
                           </Link>
                           <span className="block text-xs text-muted-foreground">
-                            {displayName(post.author)} · {post.node_count} ด่าน
+                            {displayName(post.author)} · {post.node_count} หัวข้อ
                           </span>
                         </span>
                         <span className="shrink-0 tabular-nums">{post.counts.follow} คน</span>

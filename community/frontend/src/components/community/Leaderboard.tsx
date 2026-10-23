@@ -77,7 +77,7 @@ export function PopularRoadmaps({ onOpenPost }: { onOpenPost: (postId: number) =
               >
                 <p className="truncate font-medium">• {r.title || 'Roadmap'}</p>
                 <p className="text-[11px] text-muted-foreground">
-                  {r.node_count} ด่าน · {displayName(r.author)} · เดินตาม {r.counts.follow}
+                  {r.node_count} หัวข้อ · {displayName(r.author)} · เดินตาม {r.counts.follow}
                 </p>
               </button>
             </li>

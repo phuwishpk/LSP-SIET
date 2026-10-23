@@ -237,7 +237,8 @@ class StudyRoadmapBody(BaseModel):
     document_ids: List[int] = Field(default_factory=list)
     notebook_ids: List[str] = Field(default_factory=list, max_length=20)
     source_ids: List[str] = Field(default_factory=list, max_length=20)
-    # Web support: "auto" = only for what the library does not cover.
+    # Web support: "auto" = web text only where the library has nothing (every node
+    # still gets reading links), "always" = web text everywhere, "off" = no web.
     web: Literal["auto", "always", "off"] = "auto"
 
 

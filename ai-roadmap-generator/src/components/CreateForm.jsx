@@ -10,8 +10,8 @@ import { Share } from './icons'
 // null = the AI decides how big the plan is; a number asks for exactly that many.
 const NODE_COUNTS = [null, 8, 12, 15, 20]
 const WEB_MODES = [
-  { value: 'auto', label: 'อัตโนมัติ', hint: 'ใช้คลังความรู้ก่อน แล้วค้นเว็บเฉพาะหัวข้อที่คลังไม่มี' },
-  { value: 'always', label: 'ใช้เว็บเสริมเสมอ', hint: 'ค้นเว็บเสริมทุกด่านหลัก แม้คลังความรู้จะครอบคลุมแล้ว' },
+  { value: 'auto', label: 'อัตโนมัติ', hint: 'ใช้คลังความรู้ก่อน เสริมเนื้อหาจากเว็บเฉพาะหัวข้อที่คลังไม่มี และแนบลิงก์อ่านเพิ่มทุกหัวข้อ' },
+  { value: 'always', label: 'ใช้เว็บเสริมเสมอ', hint: 'เสริมเนื้อหาจากเว็บทุกหัวข้อ แม้คลังความรู้จะครอบคลุมแล้ว' },
   { value: 'off', label: 'ไม่ใช้เว็บ', hint: 'ใช้เฉพาะคลังความรู้ หัวข้อที่คลังไม่มีจะมาจากความรู้ทั่วไปของ AI' },
 ]
 const FILE_TYPES = '.pdf,.docx,.pptx,.xlsx,.csv,.md,.txt'
@@ -85,7 +85,7 @@ export default function CreateForm() {
       <h1 className="h1">สร้างแผนการเรียน</h1>
 
       <div className="field">
-        <label htmlFor="topic">หัวข้อหรือเป้าหมายที่อยากเรียน</label>
+        <label htmlFor="topic">เรื่องหรือเป้าหมายที่อยากเรียน</label>
         <textarea
           id="topic"
           rows={4}
@@ -162,7 +162,7 @@ export default function CreateForm() {
       </fieldset>
 
       <fieldset className="field">
-        <legend>จำนวนด่าน</legend>
+        <legend>จำนวนหัวข้อ</legend>
         <div className="segmented">
           {NODE_COUNTS.map((count) => (
             <button
@@ -179,8 +179,8 @@ export default function CreateForm() {
         </div>
         <p className="hint">
           {nodeCount
-            ? `ขอแผนขนาด ${nodeCount} ด่านพอดี`
-            : 'AI ดูจากหัวข้อและแหล่งความรู้ แล้วตัดสินใจเองว่าควรมีกี่ด่าน'}
+            ? `ขอแผนขนาด ${nodeCount} หัวข้อพอดี`
+            : 'AI ดูจากเป้าหมายและแหล่งความรู้ แล้วตัดสินใจเองว่าควรมีกี่หัวข้อ'}
         </p>
       </fieldset>
 
