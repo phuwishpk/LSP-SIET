@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/router'
 import { toast } from 'react-toastify'
 import { ws } from '@/lib/api'
-import { AUTO, loadKnowledgeOptions, PERSONAL, scopeFields, uploadToMyLibrary } from '@/lib/knowledge'
+import { AUTO, FILES, loadKnowledgeOptions, MAX_PICKED_FILES, NONE, PERSONAL, scopeFields, uploadToMyLibrary } from '@/lib/knowledge'
 import { clearLaunchContext, communityUrl, launchContext, sessionCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
 import { Share } from './icons'
@@ -25,6 +25,9 @@ export default function CreateForm() {
   const [nodeCount, setNodeCount] = useState(null)
   const [source, setSource] = useState(AUTO)
   const [groups, setGroups] = useState([])
+  const [files, setFiles] = useState([])
+  const [picked, setPicked] = useState([])
+  const [fileFilter, setFileFilter] = useState('')
   const [web, setWeb] = useState('auto')
   const [file, setFile] = useState(null)
   const [stage, setStage] = useState(null)
@@ -33,12 +36,17 @@ export default function CreateForm() {
   // Load the picker, then pre-select the room or document the user came from.
   useEffect(() => {
     let alive = true
-    loadKnowledgeOptions().then(({ rooms, groups: loaded }) => {
+    loadKnowledgeOptions().then(({ rooms, groups: loaded, files: loadedFiles }) => {
       if (!alive) return
+      setFiles(loadedFiles)
       const context = launchContext()
-      const wanted = context.doc ? `doc:${context.doc}` : context.course ? `course:${context.course}` : null
+      if (context.doc && loadedFiles.some((item) => item.value === `doc:${context.doc}`)) {
+        setSource(FILES)
+        setPicked([`doc:${context.doc}`])
+      }
+      const wanted = !context.doc && context.course ? `course:${context.course}` : null
       const known = loaded.some((group) => group.options.some((option) => option.value === wanted))
-      if (wanted && !known && context.course) {
+      if (wanted && !known) {
         // A course room the user has not joined can still be used as a source.
         const room = rooms.find((item) => item.id === context.course)
         if (room) loaded.unshift({ label: 'ห้องที่เปิดมา', options: [{ value: wanted, label: `คลังวิชา ${room.code} ${room.name}` }] })
@@ -53,17 +61,35 @@ export default function CreateForm() {
 
   const cost = Number(costs.roadmap_generate ?? 15)
   const missing = exempt ? 0 : Math.max(0, cost - balance)
-  const canSubmit = topic.trim().length >= 3 && !busy && missing === 0
+  const noFilesYet = source === FILES && picked.length === 0 && !file
+  const canSubmit = topic.trim().length >= 3 && !busy && missing === 0 && !noFilesYet
+  const pickedSet = new Set(picked)
+  // An attached file is sent as one more document, inside the same limit.
+  const pickLimit = MAX_PICKED_FILES - (file ? 1 : 0)
+  const query = fileFilter.trim().toLowerCase()
+  const shownFiles = query
+    ? files.filter((item) => `${item.label} ${item.meta}`.toLowerCase().includes(query))
+    : files
+
+  const togglePicked = (value) =>
+    setPicked((current) =>
+      current.includes(value)
+        ? current.filter((item) => item !== value)
+        : current.length >= pickLimit
+          ? current
+          : [...current, value],
+    )
 
   const submit = async (event) => {
     event.preventDefault()
     if (!canSubmit) return
     setStage('กำลังเตรียม…')
     try {
-      let scope = scopeFields(source)
+      const scope = scopeFields(source, picked)
       if (file) {
+        // The new file joins whatever was ticked (attaching one switches to FILES).
         const doc = await uploadToMyLibrary(file, { onStage: setStage })
-        scope = { scope: 'document', document_ids: [doc.id] }
+        scope.document_ids = [...(scope.document_ids || []), doc.id]
       }
       setStage('AI กำลังอ่านแหล่งความรู้และวางแผน ใช้เวลาประมาณครึ่งนาทีถึงหนึ่งนาที')
       const result = await ws('community/study/roadmap', {
@@ -98,8 +124,28 @@ export default function CreateForm() {
       </div>
 
       <div className="field">
-        <label htmlFor="source">แหล่งความรู้</label>
-        {file ? (
+        <label htmlFor="source">
+          แหล่งความรู้ <span className="muted">(ไม่บังคับ)</span>
+        </label>
+        <select id="source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy}>
+          <option value={NONE}>ไม่ใช้คลังความรู้ (ใช้เว็บและความรู้ของ AI)</option>
+          <option value={AUTO}>อัตโนมัติ (ทุกคลังที่ฉันเห็นได้)</option>
+          <option value={PERSONAL}>ไฟล์ของฉันทั้งหมด</option>
+          {(files.length > 0 || file) && <option value={FILES}>เลือกไฟล์เอง (เลือกได้หลายไฟล์)</option>}
+          {groups.map((group) => (
+            <optgroup key={group.label} label={group.label}>
+              {group.options.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        {source === NONE && (
+          <p className="hint">AI จะวางแผนจากเว็บ (ตามที่เลือกด้านล่าง) และความรู้ทั่วไปของตัวเอง</p>
+        )}
+        {file && (
           <div className="attached">
             <span>
               ไฟล์ที่แนบ: <strong>{file.name}</strong>
@@ -108,20 +154,47 @@ export default function CreateForm() {
               เอาไฟล์ออก
             </button>
           </div>
-        ) : (
-          <select id="source" value={source} onChange={(event) => setSource(event.target.value)} disabled={busy}>
-            <option value={AUTO}>อัตโนมัติ (ทุกคลังที่ฉันเห็นได้)</option>
-            <option value={PERSONAL}>ไฟล์ของฉันทั้งหมด</option>
-            {groups.map((group) => (
-              <optgroup key={group.label} label={group.label}>
-                {group.options.map((option) => (
-                  <option key={option.value} value={option.value}>
-                    {option.label}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
+        )}
+        {source === FILES && (
+          <div className="file-picker">
+            {files.length > 8 && (
+              <input
+                type="text"
+                className="file-filter"
+                placeholder="ค้นหาไฟล์…"
+                value={fileFilter}
+                onChange={(event) => setFileFilter(event.target.value)}
+                disabled={busy}
+              />
+            )}
+            <ul className="file-list">
+              {shownFiles.map((item) => {
+                const checked = pickedSet.has(item.value)
+                return (
+                  <li key={item.value}>
+                    <label className={`file-option ${checked ? 'file-option-on' : ''}`}>
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePicked(item.value)}
+                        disabled={busy || (!checked && picked.length >= pickLimit)}
+                      />
+                      <span className="file-name">{item.label}</span>
+                      <span className="source-meta">{item.meta}</span>
+                    </label>
+                  </li>
+                )
+              })}
+              {shownFiles.length === 0 && <li className="hint">ไม่พบไฟล์ที่ตรงกับคำค้น</li>}
+            </ul>
+            <p className="hint">
+              {picked.length > 0
+                ? `เลือกแล้ว ${picked.length} ไฟล์${picked.length >= pickLimit ? ` (รวมไฟล์ที่แนบได้สูงสุด ${MAX_PICKED_FILES} ไฟล์)` : ''}`
+                : file
+                  ? 'จะใช้ไฟล์ที่แนบ และเลือกไฟล์อื่นเพิ่มได้'
+                  : 'เลือกอย่างน้อย 1 ไฟล์ หรือแนบไฟล์ใหม่'}
+            </p>
+          </div>
         )}
         <div className="attach-row">
           <input
@@ -130,7 +203,10 @@ export default function CreateForm() {
             accept={FILE_TYPES}
             hidden
             onChange={(event) => {
-              setFile(event.target.files?.[0] || null)
+              const chosen = event.target.files?.[0] || null
+              setFile(chosen)
+              // An attached file is read together with any files ticked in the list.
+              if (chosen) setSource(FILES)
               event.target.value = ''
             }}
           />

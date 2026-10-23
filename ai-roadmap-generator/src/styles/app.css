@@ -420,6 +420,65 @@ textarea {
   overflow-wrap: anywhere;
 }
 
+.file-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-list {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.file-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.file-option:hover {
+  background: var(--card);
+}
+
+.file-option-on {
+  background: var(--accent-soft);
+}
+
+.file-option-on:hover {
+  background: var(--accent-soft);
+}
+
+.file-option input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.file-option .source-meta {
+  flex: none;
+  max-width: 40%;
+  text-align: right;
+}
+
 .attach-row {
   display: flex;
   flex-wrap: wrap;
@@ -956,4 +1015,8 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
 
 @media (prefers-reduced-motion: reduce) {
   .btn-primary { transition: none; }
+}
+
+.field > label .muted {
+  font-weight: 400;
 }
