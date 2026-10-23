@@ -2,10 +2,14 @@
  * Light / dark theme, following the one picked in SIET Space (Community).
  *
  * SIET Space keeps the choice ('light' | 'dark' | 'system') in localStorage
- * under `theme-storage`. Behind the proxy both apps share one origin and that
- * value is read directly, so a change in Community shows up here too. On its
- * own port (3002) the app cannot see it, so the hand-off link carries
- * `?theme=` and the choice is kept under THEME_KEY.
+ * under `theme-storage`, and mirrors it into the `siet-theme` cookie. In
+ * order, this app uses:
+ *   1. `theme-storage`, when both apps share one origin behind the proxy;
+ *   2. the cookie - cookies are not separated by port, so this works on 3002;
+ *   3. the `?theme=` of the last hand-off link, kept under THEME_KEY;
+ *   4. 'system'.
+ * The choice is read again whenever the tab comes back into view, so a change
+ * made in Community shows up without reopening the app.
  *
  * The same logic runs twice: as an inline script in _document.js, so the first
  * paint already has the right colours, and from WorkspaceProvider to follow
@@ -14,6 +18,7 @@
 
 export const THEME_KEY = 'roadmap-theme'
 const WORKSPACE_THEME_KEY = 'theme-storage'
+const THEME_COOKIE = 'siet-theme'
 const CHOICES = ['light', 'dark', 'system']
 
 /** Inline <script> for _document.js; it must not depend on anything else. */
@@ -24,6 +29,10 @@ export const themeBootScript = `(function () {
     if (choices.indexOf(fromLink) >= 0) localStorage.setItem('${THEME_KEY}', fromLink);
     var choice = null;
     try { choice = JSON.parse(localStorage.getItem('${WORKSPACE_THEME_KEY}') || 'null').state.theme; } catch (e) {}
+    if (choices.indexOf(choice) < 0) {
+      var cookie = document.cookie.match(/(?:^|; )${THEME_COOKIE}=([^;]*)/);
+      choice = cookie ? decodeURIComponent(cookie[1]) : null;
+    }
     if (choices.indexOf(choice) < 0) choice = localStorage.getItem('${THEME_KEY}');
     if (choices.indexOf(choice) < 0) choice = 'system';
     var dark = choice === 'dark' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
@@ -39,6 +48,15 @@ function read(key) {
   }
 }
 
+function readCookie(name) {
+  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
+  try {
+    return match ? decodeURIComponent(match[1]) : null
+  } catch {
+    return null
+  }
+}
+
 /** The theme picked in SIET Space: 'light' | 'dark' | 'system'. */
 export function themeChoice() {
   try {
@@ -47,6 +65,8 @@ export function themeChoice() {
   } catch {
     /* not on the main app's origin, or an unreadable value */
   }
+  const fromCookie = readCookie(THEME_COOKIE)
+  if (CHOICES.includes(fromCookie)) return fromCookie
   const kept = read(THEME_KEY)
   return CHOICES.includes(kept) ? kept : 'system'
 }
@@ -78,13 +98,21 @@ export function watchTheme() {
   const onStorage = (event) => {
     if (event.key === WORKSPACE_THEME_KEY || event.key === THEME_KEY) applyTheme()
   }
+  // A cookie set in Community fires no event here: look again whenever this
+  // tab is shown (switching tabs, the back button, focusing the window).
+  const onVisible = () => {
+    if (document.visibilityState === 'visible') applyTheme()
+  }
   media?.addEventListener?.('change', applyTheme)
   window.addEventListener('storage', onStorage)
-  // Coming back with the browser's back button can restore the page as it was.
   window.addEventListener('pageshow', applyTheme)
+  window.addEventListener('focus', applyTheme)
+  document.addEventListener('visibilitychange', onVisible)
   return () => {
     media?.removeEventListener?.('change', applyTheme)
     window.removeEventListener('storage', onStorage)
     window.removeEventListener('pageshow', applyTheme)
+    window.removeEventListener('focus', applyTheme)
+    document.removeEventListener('visibilitychange', onVisible)
   }
 }

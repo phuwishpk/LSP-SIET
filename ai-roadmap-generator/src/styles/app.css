@@ -52,13 +52,15 @@
 }
 
 /*
- * Dark: the Community dark palette (siet-theme.css, .dark .community-theme).
+ * Dark: as Community looks in dark mode - a zinc-950 page and zinc-900 bars
+ * (globals.css .dark) with the plum cards and pink of siet-theme.css
+ * (.dark .community-theme).
  * The theme follows SIET Space - see lib/theme.js and the script in _document.js.
  */
 :root[data-theme='dark'] {
   color-scheme: dark;
-  --bg: #21181d;
-  --surface: #21181d;
+  --bg: #09090b;
+  --surface: #18181b;
   --raised: #2b2026;
   --card: #2b2026;
   --field: #2b2026;
@@ -89,11 +91,11 @@
   --violet-line: #4d3a70;
   --violet-text: #c9a8ff;
   --gold: #e0b84a;
-  --track: #382630;
-  --lane: #261c22;
-  --lane-alt: #2d1f27;
-  --lane-line: #3a2a33;
-  --node-detail: #261c22;
+  --track: #2b2026;
+  --lane: #141113;
+  --lane-alt: #1c151a;
+  --lane-line: #2b2026;
+  --node-detail: #211a1e;
   --node-detail-text: #c4aeb9;
   --edge: #7d6874;
   --backdrop: rgba(0, 0, 0, 0.6);
