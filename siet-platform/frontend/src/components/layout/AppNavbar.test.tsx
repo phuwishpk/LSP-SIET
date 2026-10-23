@@ -143,6 +143,14 @@ describe('where the navbar links go', () => {
     expect(profileLink()).toBe('http://localhost:3000/community/profile/me')
   })
 
+  it('the logo can go back to the page the user came from (AI Roadmap)', () => {
+    render(<Navbar user={student} homeUrl="http://localhost:18502/community?course=7" />)
+
+    expect(screen.getByTitle('กลับไปหน้าที่เปิดมาใน SIET Space').getAttribute('href')).toBe(
+      'http://localhost:18502/community?course=7'
+    )
+  })
+
   it('SIET Space links to itself whatever an AI app learned', async () => {
     localStorage.setItem('kmitlai-workspace-origin', 'http://localhost:18502')
     visit('/community')

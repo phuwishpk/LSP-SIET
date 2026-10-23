@@ -149,7 +149,7 @@ export default function RoadmapPage() {
 
       <div className="viewer-head">
         <div className="viewer-title">
-          {/* Inside the app: back to the create form and "Roadmap ของฉัน". The pill in the top bar leaves the app. */}
+          {/* Inside the app: back to the create form and "Roadmap ของฉัน". The navbar logo leaves the app. */}
           <Link className="home-back" href="/" aria-label="กลับหน้าหลัก Roadmap">
             <ChevronLeft />
             <span>

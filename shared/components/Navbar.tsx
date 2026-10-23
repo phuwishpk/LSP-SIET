@@ -79,6 +79,8 @@ export interface NavbarProps {
   /** The host app's own notifications menu, shown in place of the bell (which has no data of its own). */
   notifications?: React.ReactNode
   communityUrl?: string
+  /** Where the logo goes (default: SIET Space's feed). AI Roadmap: back to the page the user came from. */
+  homeUrl?: string
   logoSrc?: string
   onSearch?: (query: string) => void
   searchDefaultValue?: string
@@ -291,6 +293,7 @@ export function Navbar({
   notificationsCount: initialNotificationsCount = 0,
   notifications,
   communityUrl,
+  homeUrl,
   logoSrc,
   onSearch,
   searchDefaultValue = '',
@@ -630,7 +633,8 @@ export function Navbar({
 
         {/* Brand logo & tagline */}
         <a
-          href={buildCrossUrl(`${workspaceUrl}/community`)}
+          href={buildCrossUrl(homeUrl || `${workspaceUrl}/community`)}
+          title={homeUrl ? 'กลับไปหน้าที่เปิดมาใน SIET Space' : undefined}
           className="flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/10 no-underline"
           style={{ textDecoration: 'none' }}
         >
