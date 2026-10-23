@@ -9,6 +9,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
+import { AppNavbar } from '@/components/layout/AppNavbar'
 import { useGate, useRouteGate } from '@/lib/extensions'
 
 export default function DashboardLayout({
@@ -64,7 +65,12 @@ export default function DashboardLayout({
   return (
     <ErrorBoundary>
       <CreateDialogsProvider>
-        {children}
+        <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+          <AppNavbar />
+          <div className="flex-1 min-h-0 overflow-y-auto lg:overflow-hidden">
+            {children}
+          </div>
+        </div>
         <ModalProvider />
         {showCommandPalette && <CommandPalette />}
       </CreateDialogsProvider>

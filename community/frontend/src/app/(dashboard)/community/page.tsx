@@ -1,6 +1,6 @@
 'use client'
 
-import { Suspense, useCallback, useMemo, useState } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
 import { useQuery } from '@tanstack/react-query'
 import {
@@ -34,7 +34,6 @@ import {
 } from '@siet/platform/lib/hooks/use-community'
 import { communityApi, type FeedFilters } from '@siet/platform/lib/api/community'
 import { roomLabel } from '@siet/platform/lib/utils/community-format'
-import { CommunityHeader } from '@siet/platform/components/community/CommunityHeader'
 import { CourseSidebar, type FeedView } from '@siet/community/components/community/CourseSidebar'
 import { Sheet, SheetContent } from '@siet/platform/components/ui/sheet'
 import { CreatorBox } from '@siet/community/components/community/CreatorBox'
@@ -105,6 +104,12 @@ function CommunityContent() {
   const joinCourse = useJoinCourse()
   const joinedCourses = (courses ?? []).filter((course) => course.joined && course.kind !== 'club')
   const availableCourses = (courses ?? []).filter((course) => !course.joined && course.kind !== 'club')
+
+  useEffect(() => {
+    const handleToggleMenu = () => setMenuOpen((prev) => !prev)
+    window.addEventListener('toggle-community-sidebar', handleToggleMenu)
+    return () => window.removeEventListener('toggle-community-sidebar', handleToggleMenu)
+  }, [])
 
   const setParams = useCallback(
     (patch: Record<string, string | number | null | undefined>) => {
@@ -179,18 +184,8 @@ function CommunityContent() {
 
   return (
     <div
-      className="community-theme flex h-screen flex-col overflow-x-hidden overflow-y-hidden bg-white text-foreground dark:bg-zinc-950"
+      className="community-theme flex h-full flex-1 min-h-0 flex-col overflow-x-hidden overflow-y-auto bg-white text-foreground lg:overflow-hidden dark:bg-zinc-950"
     >
-      <CommunityHeader
-        query={query}
-        onSearch={(q) => setParams({ q, post: null })}
-        onOpenPost={openPost}
-        onHome={goHome}
-        onOpenCommunityRules={() =>
-          setParams({ view: 'rules', course: null, post: null, q: null })
-        }
-        onOpenMenu={() => setMenuOpen(true)}
-      />
 
       {/* Same sidebar, in a drawer, for screens narrower than lg. */}
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
@@ -243,7 +238,7 @@ function CommunityContent() {
         </SheetContent>
       </Sheet>
 
-      <div className="no-scrollbar mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-x-hidden overflow-y-auto px-3 py-4 sm:px-4 md:px-6 lg:h-[calc(100vh-64px)] lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+      <div className="no-scrollbar mx-auto grid min-h-0 w-full max-w-[1440px] flex-1 grid-cols-1 gap-4 overflow-x-hidden px-3 py-4 sm:px-4 md:px-6 lg:h-full lg:grid-cols-[260px_minmax(0,1fr)_340px] lg:grid-rows-1 lg:gap-6 lg:overflow-hidden lg:px-6 lg:py-6" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
         {/* Left column */}
         <div
           className="no-scrollbar hidden min-h-0 space-y-4 overflow-x-hidden overflow-y-auto lg:block [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
