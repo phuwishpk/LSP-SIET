@@ -76,6 +76,8 @@ export interface NavbarProps {
   pointsBalance?: number
   showPointsWallet?: boolean
   notificationsCount?: number
+  /** The host app's own notifications menu, shown in place of the bell (which has no data of its own). */
+  notifications?: React.ReactNode
   communityUrl?: string
   logoSrc?: string
   onSearch?: (query: string) => void
@@ -128,6 +130,16 @@ function readHandOffToken(): string | null {
   } catch {
     return null
   }
+}
+
+/**
+ * A link the host app can open itself (onOpenProfile...): a plain click goes to
+ * the handler instead of loading the page again; cmd/ctrl-click still opens a tab.
+ */
+function openInHost(event: React.MouseEvent, handler?: () => void) {
+  if (!handler || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+  event.preventDefault()
+  handler()
 }
 
 export function roleLabel(role?: string | null): string {
@@ -277,6 +289,7 @@ export function Navbar({
   pointsBalance: initialPoints,
   showPointsWallet = true,
   notificationsCount: initialNotificationsCount = 0,
+  notifications,
   communityUrl,
   logoSrc,
   onSearch,
@@ -307,6 +320,8 @@ export function Navbar({
 
   // UI state
   const [draft, setDraft] = React.useState(searchDefaultValue)
+  // The host app's current search (e.g. ?q= on the feed) shows in the box.
+  React.useEffect(() => setDraft(searchDefaultValue), [searchDefaultValue])
   const [isDropdownOpen, setIsDropdownOpen] = React.useState(false)
   const [isWalletOpen, setIsWalletOpen] = React.useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false)
@@ -899,7 +914,12 @@ export function Navbar({
             </div>
           )}
 
-          {/* Notifications Button & Dropdown */}
+          {/* Notifications: the host app's menu, else the bell */}
+          {notifications ? (
+            <div className="relative z-[100] [&_button]:text-white [&_button]:hover:bg-white/15 [&_button]:hover:text-white">
+              {notifications}
+            </div>
+          ) : (
           <div className="relative z-[100]" ref={notifRef}>
             <button
               type="button"
@@ -938,6 +958,7 @@ export function Navbar({
               </div>
             )}
           </div>
+          )}
 
           {/* User Profile / Login */}
           {user ? (
@@ -1041,7 +1062,7 @@ export function Navbar({
                   {/* Links */}
                   <a
                     href={profileHref}
-                    onClick={() => { setIsDropdownOpen(false); if (onOpenProfile) onOpenProfile() }}
+                    onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenProfile) }}
                     className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <UserRound className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
@@ -1050,7 +1071,7 @@ export function Navbar({
 
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=library`)}
-                    onClick={() => { setIsDropdownOpen(false); if (onOpenLibrary) onOpenLibrary() }}
+                    onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenLibrary) }}
                     className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <BookOpen className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
@@ -1060,7 +1081,7 @@ export function Navbar({
                   {isPrivileged ? (
                     <a
                       href={buildCrossUrl(`${workspaceUrl}/settings`)}
-                      onClick={() => { setIsDropdownOpen(false); if (onOpenSettings) onOpenSettings() }}
+                      onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenSettings) }}
                       className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                     >
                       <Settings className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
@@ -1078,7 +1099,7 @@ export function Navbar({
 
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=rules`)}
-                    onClick={() => { setIsDropdownOpen(false); if (onOpenRules) onOpenRules() }}
+                    onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenRules) }}
                     className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
                     <CircleHelp className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
