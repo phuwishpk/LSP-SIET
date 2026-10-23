@@ -28,6 +28,14 @@ describe('openRoadmapApp', () => {
     assign.mockReset()
   })
 
+  it('hands the theme picked here to the quiz app', async () => {
+    const open = vi.spyOn(window, 'open').mockReturnValue(null)
+    const { openQuizApp } = await import('./external-apps')
+    theme.current = 'dark'
+    await openQuizApp()
+    expect(new URL(open.mock.calls.at(-1)?.[0] as string).searchParams.get('theme')).toBe('dark')
+  })
+
   it('hands the theme picked here to the roadmap app', async () => {
     const { openRoadmapApp } = await import('./external-apps')
     for (const picked of ['dark', 'system']) {

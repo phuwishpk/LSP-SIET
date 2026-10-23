@@ -151,6 +151,21 @@ export default object ชนิด `FrontendExtension` จาก `<pkg>/frontend
 | `extendI18n` | `lib/i18n.ts` | platform → ชื่อแอป "LSP-SIET", คำของหน้า AI Features |
 | `@import "./siet.css"` | `globals.css` | ชี้ Tailwind ไปสแกนแพ็กเกจ (`@source`) + ธีมของ platform |
 
+### 4.3 แอปแยก (AI Roadmap, AI Quiz) — ธีมสว่าง/มืด
+
+แอปแยกทำตามธีมที่ผู้ใช้เลือกใน SIET Space (ปุ่มธีมในเมนูโปรไฟล์ของ Community) โดยไม่ต้องล็อกอินซ้ำ:
+
+| ทาง | ใครเขียน | ใช้เมื่อ |
+|---|---|---|
+| `theme-storage` (localStorage ของ SIET Space) | theme store ของ open-notebook | แอปอยู่ origin เดียวกับ SIET Space (หลัง Traefik) — อ่านตรง ๆ และสำคัญที่สุด |
+| cookie `siet-theme` = `<light\|dark\|system>~<เวลา ms>` | `@siet/platform/lib/theme-cookie` (เรียกจาก route gate ทุกหน้า dashboard) | แอปคนละพอร์ต (cookie ไม่แยกตามพอร์ต) |
+| `?theme=` ในลิงก์ hand-off | `openRoadmapApp` / `openQuizApp` | ตอนกดเข้าแอป — แอปเก็บไว้พร้อมเวลาที่มาถึง |
+
+แอปเลือกค่าที่ "ใหม่กว่า" ระหว่าง cookie กับ `?theme=` (ไม่มีทั้งคู่ = `system`) และอ่านใหม่ทุกครั้งที่แท็บกลับมาแสดง
+SIET Space เขียน cookie เฉพาะตอนผู้ใช้เปลี่ยนธีมจริง (หรือยังไม่มี cookie) ไม่ใช่ทุกครั้งที่เปิดหน้า
+เพราะเมื่อมี SIET Space หลายชุดบนเครื่องเดียว (prod :3000, ชุดทดสอบ :18502) ทุกชุดใช้ cookie ตัวเดียวกัน
+โค้ดฝั่งแอป: `ai-roadmap-generator/src/lib/theme.js`, `My-ai-quiz/app/lib/theme.ts` (ฟังก์ชันเดียวกัน ใช้ทั้งเป็น inline script ก่อน paint และตอน runtime)
+
 ## 5. migration ของ SurrealDB
 
 migration ของ open-notebook (1, 2, 3 ...) อยู่ใน `_sbl_migrations` ของ KMITL อยู่ใน `_siet_migrations`

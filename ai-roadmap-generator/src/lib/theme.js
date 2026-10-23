@@ -1,94 +1,65 @@
 /**
  * Light / dark theme, following the one picked in SIET Space (Community).
  *
- * SIET Space keeps the choice ('light' | 'dark' | 'system') in localStorage
- * under `theme-storage`, and mirrors it into the `siet-theme` cookie. In
- * order, this app uses:
- *   1. `theme-storage`, when both apps share one origin behind the proxy;
- *   2. the cookie - cookies are not separated by port, so this works on 3002;
- *   3. the `?theme=` of the last hand-off link, kept under THEME_KEY;
- *   4. 'system'.
- * The choice is read again whenever the tab comes back into view, so a change
- * made in Community shows up without reopening the app.
+ * Where the choice comes from, in order:
+ *   1. SIET Space's own `theme-storage`, when both apps share one origin behind
+ *      the proxy - then there is only one SIET Space and it is always current;
+ *   2. otherwise the newer of
+ *      - the `siet-theme` cookie (`<choice>~<ms>`), which SIET Space writes when
+ *        its user changes the theme - cookies are not separated by port, so it
+ *        reaches this app on :3002;
+ *      - the `?theme=` of the hand-off link, kept with the time it arrived.
+ *      Comparing times matters when two SIET Space copies run on one host: the
+ *      app follows the copy it was opened from until the user changes the theme;
+ *   3. 'system'.
  *
- * The same logic runs twice: as an inline script in _document.js, so the first
- * paint already has the right colours, and from WorkspaceProvider to follow
- * later changes.
+ * `siteTheme` runs as an inline script in _document.js, so the first paint
+ * already has the right colours, and again whenever the tab comes back into
+ * view. It is serialised for the inline script, so it may only use its
+ * arguments and browser globals, in plain ES5.
  */
 
-export const THEME_KEY = 'roadmap-theme'
-const WORKSPACE_THEME_KEY = 'theme-storage'
-const THEME_COOKIE = 'siet-theme'
-const CHOICES = ['light', 'dark', 'system']
+const ARGS = { kept: 'roadmap-theme', shared: 'theme-storage', cookie: 'siet-theme' }
 
-/** Inline <script> for _document.js; it must not depend on anything else. */
-export const themeBootScript = `(function () {
+export function siteTheme(keys, readLink) {
   try {
-    var choices = ${JSON.stringify(CHOICES)};
-    var fromLink = new URLSearchParams(window.location.search).get('theme');
-    if (choices.indexOf(fromLink) >= 0) localStorage.setItem('${THEME_KEY}', fromLink);
-    var choice = null;
-    try { choice = JSON.parse(localStorage.getItem('${WORKSPACE_THEME_KEY}') || 'null').state.theme; } catch (e) {}
-    if (choices.indexOf(choice) < 0) {
-      var cookie = document.cookie.match(/(?:^|; )${THEME_COOKIE}=([^;]*)/);
-      choice = cookie ? decodeURIComponent(cookie[1]) : null;
+    var choices = ['light', 'dark', 'system']
+    var store = window.localStorage
+    var parse = function (raw) {
+      if (!raw) return null
+      try {
+        var saved = JSON.parse(raw)
+        if (saved && choices.indexOf(saved.choice) >= 0) return { choice: saved.choice, at: Number(saved.at) || 0 }
+      } catch (e) {}
+      var parts = String(raw).split('~')
+      return choices.indexOf(parts[0]) >= 0 ? { choice: parts[0], at: Number(parts[1]) || 0 } : null
     }
-    if (choices.indexOf(choice) < 0) choice = localStorage.getItem('${THEME_KEY}');
-    if (choices.indexOf(choice) < 0) choice = 'system';
-    var dark = choice === 'dark' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+    if (readLink) {
+      var fromLink = new URLSearchParams(window.location.search).get('theme')
+      if (choices.indexOf(fromLink) >= 0) store.setItem(keys.kept, JSON.stringify({ choice: fromLink, at: Date.now() }))
+    }
+    var choice = null
+    try {
+      var shared = JSON.parse(store.getItem(keys.shared) || 'null')
+      if (shared && shared.state && choices.indexOf(shared.state.theme) >= 0) choice = shared.state.theme
+    } catch (e) {}
+    if (!choice) {
+      var match = document.cookie.match(new RegExp('(?:^|; )' + keys.cookie + '=([^;]*)'))
+      var cookie = match ? parse(decodeURIComponent(match[1])) : null
+      var kept = parse(store.getItem(keys.kept))
+      var newer = cookie && kept ? (cookie.at > kept.at ? cookie : kept) : cookie || kept
+      choice = newer ? newer.choice : 'system'
+    }
+    var dark = choice === 'dark' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+    document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
   } catch (e) {}
-})();`
-
-function read(key) {
-  try {
-    return window.localStorage.getItem(key)
-  } catch {
-    return null
-  }
 }
 
-function readCookie(name) {
-  const match = document.cookie.match(new RegExp(`(?:^|; )${name}=([^;]*)`))
-  try {
-    return match ? decodeURIComponent(match[1]) : null
-  } catch {
-    return null
-  }
-}
-
-/** The theme picked in SIET Space: 'light' | 'dark' | 'system'. */
-export function themeChoice() {
-  try {
-    const shared = JSON.parse(read(WORKSPACE_THEME_KEY) || 'null')?.state?.theme
-    if (CHOICES.includes(shared)) return shared
-  } catch {
-    /* not on the main app's origin, or an unreadable value */
-  }
-  const fromCookie = readCookie(THEME_COOKIE)
-  if (CHOICES.includes(fromCookie)) return fromCookie
-  const kept = read(THEME_KEY)
-  return CHOICES.includes(kept) ? kept : 'system'
-}
-
-/** Keep the choice handed over in the link (see captureLaunchParams). */
-export function rememberThemeChoice(choice) {
-  if (!CHOICES.includes(choice)) return
-  try {
-    window.localStorage.setItem(THEME_KEY, choice)
-  } catch {
-    /* private mode: the choice still applies to this page view */
-  }
-}
-
-function prefersDark() {
-  return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false
-}
+/** Inline <script> for _document.js: reads the hand-off link once, at page load. */
+export const themeBootScript = `(${siteTheme.toString()})(${JSON.stringify(ARGS)}, true)`
 
 export function applyTheme() {
-  const choice = themeChoice()
-  const dark = choice === 'dark' || (choice === 'system' && prefersDark())
-  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+  siteTheme(ARGS, false)
 }
 
 /** Re-apply when the OS theme or the stored choice changes; returns a cleanup. */
@@ -96,7 +67,7 @@ export function watchTheme() {
   applyTheme()
   const media = window.matchMedia?.('(prefers-color-scheme: dark)')
   const onStorage = (event) => {
-    if (event.key === WORKSPACE_THEME_KEY || event.key === THEME_KEY) applyTheme()
+    if (event.key === ARGS.shared || event.key === ARGS.kept) applyTheme()
   }
   // A cookie set in Community fires no event here: look again whenever this
   // tab is shown (switching tabs, the back button, focusing the window).
