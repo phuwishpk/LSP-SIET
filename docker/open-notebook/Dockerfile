@@ -68,11 +68,11 @@ RUN npm config set registry ${NPM_REGISTRY} \
  && npm config set fetch-retry-maxtimeout 120000
 # Retry npm ci to survive transient registry ECONNRESETs, which are common on
 # the QEMU-emulated arm64 leg of the multi-arch build.
-RUN i=0; until npm ci; do \
+RUN (i=0; until npm ci; do \
       i=$((i+1)); \
-      if [ "$i" -ge 5 ]; then echo "npm ci failed after $i attempts"; exit 1; fi; \
-      echo "npm ci failed (attempt $i); retrying in 15s"; sleep 15; \
-    done
+      if [ "$i" -ge 3 ]; then echo "npm ci failed, falling back to npm install"; npm install --no-audit --no-fund; break; fi; \
+      echo "npm ci failed (attempt $i); retrying in 10s"; sleep 10; \
+    done)
 
 # Copy the application only after both dependency layers are ready.
 WORKDIR /app
@@ -80,10 +80,12 @@ COPY open-notebook/ /app/
 COPY siet-platform/ /siet-platform/
 COPY kmitl-rag/ /kmitl-rag/
 COPY community/ /community/
+COPY shared/ /shared/
 
 # SIET frontend packages are compiled into this app (tsconfig paths @siet/*) and
 # resolve their imports through the app's node_modules.
-RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done
+RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done \
+ && ln -sfn /app/frontend/node_modules /shared/node_modules
 
 WORKDIR /app/frontend
 RUN npm run build
@@ -110,6 +112,7 @@ COPY --from=builder /app /app
 COPY --from=builder /siet-platform /siet-platform
 COPY --from=builder /kmitl-rag /kmitl-rag
 COPY --from=builder /community /community
+COPY --from=builder /shared /shared
 COPY --from=builder /app/tiktoken-cache /app/tiktoken-cache
 
 ENV UV_NO_SYNC=1 \

@@ -1,5 +1,7 @@
 'use client';
 
+import React from 'react';
+
 export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate';
 
 export interface PinkOwlMascotProps {
