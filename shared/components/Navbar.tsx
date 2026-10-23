@@ -91,6 +91,13 @@ export interface NavbarProps {
   onOpenSettings?: () => void
   onOpenRules?: () => void
   onLogout?: () => void
+  /** The host app's light / dark state, shown by the switch in the menu. */
+  isDark?: boolean
+  /**
+   * Switch the theme in the host app's own theme store (SIET Space). Left out,
+   * there is no switch: the AI apps follow the theme picked in SIET Space.
+   */
+  onToggleTheme?: () => void
   className?: string
 }
 
@@ -285,6 +292,8 @@ export function Navbar({
   onOpenSettings,
   onOpenRules,
   onLogout,
+  isDark = false,
+  onToggleTheme,
   className = '',
 }: NavbarProps) {
   const [user, setUser] = React.useState<NavbarUser | null>(initialUser ?? null)
@@ -302,7 +311,6 @@ export function Navbar({
   const [isWalletOpen, setIsWalletOpen] = React.useState(false)
   const [isNotificationsOpen, setIsNotificationsOpen] = React.useState(false)
   const [unreadCount, setUnreadCount] = React.useState(initialNotificationsCount)
-  const [isDark, setIsDark] = React.useState(false)
 
   const dropdownRef = React.useRef<HTMLDivElement>(null)
   const walletRef = React.useRef<HTMLDivElement>(null)
@@ -441,28 +449,7 @@ export function Navbar({
     fetchWallet(token)
   }, [initialUser, hostToken, initialPoints, fetchWallet])
 
-  // 3. Theme Detection
-  React.useEffect(() => {
-    if (typeof window !== 'undefined') {
-      setIsDark(document.documentElement.classList.contains('dark'))
-    }
-  }, [])
-
-  const toggleTheme = () => {
-    if (typeof window !== 'undefined') {
-      const nextDark = !document.documentElement.classList.contains('dark')
-      if (nextDark) {
-        document.documentElement.classList.add('dark')
-        try { localStorage.setItem('theme', 'dark') } catch {}
-      } else {
-        document.documentElement.classList.remove('dark')
-        try { localStorage.setItem('theme', 'light') } catch {}
-      }
-      setIsDark(nextDark)
-    }
-  }
-
-  // 4. Outside Click Listener for Dropdowns
+  // 3. Outside Click Listener for Dropdowns
   React.useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as Node
@@ -495,7 +482,7 @@ export function Navbar({
     }
   }, [isDropdownOpen, isWalletOpen, isNotificationsOpen])
 
-  // 5. Search Submit
+  // 4. Search Submit
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     const q = draft.trim()
@@ -507,7 +494,7 @@ export function Navbar({
     }
   }
 
-  // 6. Navigation Actions
+  // 5. Navigation Actions
   const handleOpenMenu = () => {
     if (onOpenMenu) {
       onOpenMenu()
@@ -1121,20 +1108,22 @@ export function Navbar({
 
                   <div className="my-2 h-[1px] bg-pink-100 dark:bg-zinc-800" />
 
-                  {/* Theme Toggle */}
-                  <div className="rounded-xl border border-pink-100 bg-slate-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60">
-                    <button
-                      type="button"
-                      onClick={toggleTheme}
-                      className="w-full flex items-center justify-between px-2 py-1 text-sm text-slate-700 dark:text-zinc-200 cursor-pointer"
-                    >
-                      <span className="flex items-center gap-2">
-                        {isDark ? <Moon className="h-4 w-4 text-amber-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
-                        <span>ธีม ({isDark ? 'โหมดมืด' : 'โหมดสว่าง'})</span>
-                      </span>
-                      <span className="text-xs text-slate-400">สลับ</span>
-                    </button>
-                  </div>
+                  {/* Theme Toggle (only where the host app owns the theme) */}
+                  {onToggleTheme && (
+                    <div className="rounded-xl border border-pink-100 bg-slate-50 px-2 py-1.5 dark:border-zinc-700 dark:bg-zinc-800/60">
+                      <button
+                        type="button"
+                        onClick={onToggleTheme}
+                        className="w-full flex items-center justify-between px-2 py-1 text-sm text-slate-700 dark:text-zinc-200 cursor-pointer"
+                      >
+                        <span className="flex items-center gap-2">
+                          {isDark ? <Moon className="h-4 w-4 text-amber-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
+                          <span>ธีม ({isDark ? 'โหมดมืด' : 'โหมดสว่าง'})</span>
+                        </span>
+                        <span className="text-xs text-slate-400">สลับ</span>
+                      </button>
+                    </div>
+                  )}
 
                   {/* Logout */}
                   <button

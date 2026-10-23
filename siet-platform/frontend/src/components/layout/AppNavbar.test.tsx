@@ -2,6 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Navbar } from '@shared/components/Navbar'
 import { useAuthStore } from '@/lib/stores/auth-store'
+import { useThemeStore } from '@/lib/stores/theme-store'
 import { AppNavbar } from './AppNavbar'
 
 const student = { id: '1', username: 'student1', display_name: 'Student One', role: 'student' }
@@ -135,5 +136,40 @@ describe('where the navbar links go', () => {
     fireEvent.click(await screen.findByLabelText('เปิดเมนูบัญชีผู้ใช้'))
 
     expect(profileLink()).toBe('http://localhost:3000/community/profile/me')
+  })
+})
+
+describe('the theme switch', () => {
+  beforeEach(() => {
+    storage.clear()
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => reply(String(input))))
+    useAuthStore.setState({ user: student, token: 'own-token', isAuthenticated: true, lastAuthCheck: Date.now() })
+    useThemeStore.setState({ theme: 'light' })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    document.documentElement.className = ''
+    visit('/')
+  })
+
+  it("in SIET Space switches SIET Space's own theme, which the AI apps follow", async () => {
+    render(<AppNavbar />)
+    fireEvent.click(await screen.findByLabelText('เปิดเมนูบัญชีผู้ใช้'))
+    fireEvent.click(screen.getByText('ธีม (โหมดสว่าง)'))
+
+    expect(useThemeStore.getState().theme).toBe('dark')
+    expect(JSON.parse(localStorage.getItem('theme-storage') || '{}').state?.theme).toBe('dark')
+    expect(document.documentElement.classList.contains('dark')).toBe(true)
+    expect(localStorage.getItem('theme')).toBeNull()
+  })
+
+  it('is left out of the AI apps, which follow SIET Space', async () => {
+    visit('/quiz?token=handed')
+    render(<Navbar />)
+    fireEvent.click(await screen.findByLabelText('เปิดเมนูบัญชีผู้ใช้'))
+
+    expect(screen.getByText('ดูโปรไฟล์เต็ม')).toBeDefined()
+    expect(screen.queryByText(/^ธีม/)).toBeNull()
   })
 })

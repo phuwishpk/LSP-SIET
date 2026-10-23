@@ -52,6 +52,8 @@ export function siteTheme(keys, readLink) {
     }
     var dark = choice === 'dark' || (choice === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches)
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light')
+    // The shared navbar and the community-theme popovers use Tailwind's `dark:` (the class).
+    document.documentElement.classList.toggle('dark', dark)
   } catch (e) {}
 }
 
