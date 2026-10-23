@@ -65,7 +65,14 @@ export interface WalletData {
 }
 
 export interface NavbarProps {
+  /**
+   * The signed-in user (null: signed out) from a host app that keeps its own
+   * session - SIET Space, AI Roadmap. Left out, the Navbar reads the session
+   * itself (see readHandOffToken).
+   */
   user?: NavbarUser | null
+  /** The host app's token, for the points wallet; goes with `user`. */
+  token?: string | null
   pointsBalance?: number
   showPointsWallet?: boolean
   notificationsCount?: number
@@ -88,30 +95,32 @@ export interface NavbarProps {
 }
 
 // --- Formatters & Helpers ---
-export function setSessionCookie(token: string) {
-  if (typeof document === 'undefined') return
-  try {
-    document.cookie = `kmitl_session_token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`
-  } catch {}
-}
+/** Where the AI Quiz / AI Roadmap apps keep the token SIET Space handed them. */
+const HANDOFF_TOKEN_KEY = 'kmitlai-workspace-token'
 
-export function clearSessionCookie() {
-  if (typeof document === 'undefined') return
+/**
+ * The session for a host app that does not pass `user` (see NavbarProps): a
+ * hand-off token that just arrived in the address bar (kept, then removed from
+ * the bar), the one kept from an earlier hand-off, or SIET Space's own when
+ * both apps share one origin behind the proxy. SIET Space's `auth-storage` is
+ * only read (and cleared on sign-out): that session belongs to SIET Space.
+ */
+function readHandOffToken(): string | null {
   try {
-    document.cookie = `kmitl_session_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
-  } catch {}
-}
-
-export function getSessionCookie(): string | null {
-  if (typeof document === 'undefined') return null
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)kmitl_session_token=([^;]+)/)
-    if (match && match[1]) {
-      const decoded = decodeURIComponent(match[1])
-      if (decoded && decoded !== 'not-required') return decoded
+    const url = new URL(window.location.href)
+    const fromLink = url.searchParams.get('token')
+    if (fromLink) {
+      localStorage.setItem(HANDOFF_TOKEN_KEY, fromLink)
+      url.searchParams.delete('token')
+      window.history.replaceState(window.history.state, '', url.pathname + url.search + url.hash)
+      return fromLink
     }
-  } catch {}
-  return null
+    const kept = localStorage.getItem(HANDOFF_TOKEN_KEY)
+    if (kept) return kept
+    return JSON.parse(localStorage.getItem('auth-storage') || 'null')?.state?.token || null
+  } catch {
+    return null
+  }
 }
 
 export function roleLabel(role?: string | null): string {
@@ -210,6 +219,7 @@ export function getWorkspaceUrl(): string {
 // --- Main Navbar Component ---
 export function Navbar({
   user: initialUser,
+  token: hostToken,
   pointsBalance: initialPoints,
   showPointsWallet = true,
   notificationsCount: initialNotificationsCount = 0,
@@ -281,8 +291,12 @@ export function Navbar({
             }
           }
         }
-        // If target origin differs from current origin, forward token in query parameter
-        if (typeof window !== 'undefined' && u.origin !== window.location.origin) {
+        // Hand the token over only to the AI Quiz / AI Roadmap apps on another
+        // origin, the way SIET Space opens them. Never to SIET Space itself: it
+        // trusts only its own sign-in, so a token in a link would be a way to
+        // sign someone into another account.
+        const toAiApp = /^\/(quiz|roadmap)(\/|$)/.test(u.pathname)
+        if (toAiApp && typeof window !== 'undefined' && u.origin !== window.location.origin) {
           if (activeToken && activeToken !== 'not-required') {
             u.searchParams.set('token', activeToken)
           }
@@ -328,140 +342,69 @@ export function Navbar({
     [workspaceUrl, currentToken]
   )
 
-  // 2. Load Auth & Real User Sync from LocalStorage / Cookie / URL token / API
+  // 2. The signed-in user: given by the host app (`user`), else read here
+  // (readHandOffToken) and refreshed from the API. No session is written here.
   React.useEffect(() => {
-    if (initialUser !== undefined && initialUser !== null) {
+    if (initialUser !== undefined) {
+      tokenRef.current = hostToken ?? null
+      setCurrentToken(hostToken ?? null)
       setUser(initialUser)
       if (initialPoints !== undefined) setBalance(initialPoints)
-      else if (initialUser.points_balance !== undefined) setBalance(initialUser.points_balance)
-      if (initialUser.points_exempt !== undefined) setIsExempt(initialUser.points_exempt)
+      else if (initialUser?.points_balance !== undefined) setBalance(initialUser.points_balance)
+      if (initialUser?.points_exempt !== undefined) setIsExempt(initialUser.points_exempt)
       return
     }
 
     if (typeof window === 'undefined') return
 
-    let token: string | null = null
-    let loadedUser: NavbarUser | null = null
-
-    // A. Check URL parameter ?token=... (from cross-app navigation)
-    const params = new URLSearchParams(window.location.search)
-    const urlToken = params.get('token')
-
-    // B. Check shared cookie across ports
-    const cookieToken = getSessionCookie()
-
-    // C. Check auth-storage (standard zustand store for SIET Platform)
-    let storageToken: string | null = null
-    let storageUser: NavbarUser | null = null
-    try {
-      const authStorage = localStorage.getItem('auth-storage')
-      if (authStorage) {
-        const parsed = JSON.parse(authStorage)
-        storageToken = parsed?.state?.token || null
-        storageUser = parsed?.state?.user || null
-      }
-    } catch {}
-
-    // D. Check workspace token
-    let workspaceToken: string | null = null
-    try {
-      workspaceToken = localStorage.getItem('kmitlai-workspace-token')
-    } catch {}
-
-    // Precedence: URL token > Shared cookie > auth-storage token > workspaceToken
-    if (urlToken && urlToken !== 'not-required') {
-      token = urlToken
-      setSessionCookie(urlToken)
-      try {
-        localStorage.setItem('kmitlai-workspace-token', urlToken)
-        const u = new URL(window.location.href)
-        u.searchParams.delete('token')
-        window.history.replaceState({}, document.title, u.pathname + (u.search ? u.search : '') + u.hash)
-      } catch {}
-    } else if (cookieToken && cookieToken !== 'not-required') {
-      token = cookieToken
-    } else if (storageToken && storageToken !== 'not-required') {
-      token = storageToken
-      setSessionCookie(storageToken)
-    } else if (workspaceToken && workspaceToken !== 'not-required') {
-      token = workspaceToken
-      setSessionCookie(workspaceToken)
-    }
-
+    const token = readHandOffToken()
     tokenRef.current = token
     setCurrentToken(token)
-
-    // Only adopt storageUser optimistically if storageToken actually matches the active token!
-    // (Prevents flashing stale accounts like "test" when switching sessions across ports)
-    if (storageUser && storageToken === token) {
-      loadedUser = storageUser
-      setUser(loadedUser)
-      if (loadedUser?.points_balance !== undefined) setBalance(loadedUser.points_balance)
-      if (loadedUser?.points_exempt !== undefined) setIsExempt(loadedUser.points_exempt)
-    }
-
-    // Always fetch fresh profile & wallet from API if token exists
-    if (token && token !== 'not-required') {
-      const fetchFreshProfile = async () => {
-        try {
-          let targetUrl = `${getWorkspaceUrl()}/api/users/me`
-          if (typeof window !== 'undefined') {
-            if (window.location.port === '3001' || window.location.pathname.startsWith('/quiz')) {
-              targetUrl = '/quiz/api/me'
-            } else if (window.location.port === '3002' || window.location.pathname.startsWith('/roadmap')) {
-              targetUrl = '/roadmap/api/ws/users/me'
-            }
-          }
-          const res = await fetch(targetUrl, {
-            headers: { Authorization: `Bearer ${token}` },
-            cache: 'no-store',
-          })
-          if (res.ok) {
-            const data = await res.json()
-            const realUser = data.user || data
-            if (realUser && (realUser.username || realUser.display_name)) {
-              setUser(realUser)
-              if (realUser.points_balance !== undefined) setBalance(realUser.points_balance)
-              if (realUser.points_exempt !== undefined) setIsExempt(realUser.points_exempt)
-              setSessionCookie(token)
-
-              // Keep auth-storage in sync
-              try {
-                const currentStorage = localStorage.getItem('auth-storage')
-                const currentParsed = currentStorage ? JSON.parse(currentStorage) : {}
-                localStorage.setItem(
-                  'auth-storage',
-                  JSON.stringify({
-                    ...currentParsed,
-                    state: {
-                      ...(currentParsed.state || {}),
-                      token,
-                      user: realUser,
-                      isAuthenticated: true,
-                    },
-                  })
-                )
-                localStorage.setItem('kmitlai-workspace-token', token)
-              } catch {}
-            }
-          } else if (res.status === 401) {
-            clearSessionCookie()
-            try {
-              localStorage.removeItem('auth-storage')
-              localStorage.removeItem('kmitlai-workspace-token')
-            } catch {}
-            setUser(null)
-          }
-        } catch {
-          // Keep existing local user on network error
-        }
-      }
-      fetchFreshProfile()
-      fetchWallet(token)
-    } else {
+    if (!token || token === 'not-required') {
       setUser(null)
+      return
     }
-  }, [initialUser, initialPoints, fetchWallet])
+
+    // Behind the proxy SIET Space's own copy of this user shows straight away.
+    try {
+      const own = JSON.parse(localStorage.getItem('auth-storage') || 'null')?.state
+      if (own?.user && own.token === token) {
+        setUser(own.user)
+        if (own.user.points_balance !== undefined) setBalance(own.user.points_balance)
+        if (own.user.points_exempt !== undefined) setIsExempt(own.user.points_exempt)
+      }
+    } catch {}
+
+    const fetchFreshProfile = async () => {
+      try {
+        let targetUrl = `${getWorkspaceUrl()}/api/users/me`
+        if (window.location.port === '3001' || window.location.pathname.startsWith('/quiz')) {
+          targetUrl = '/quiz/api/me'
+        } else if (window.location.port === '3002' || window.location.pathname.startsWith('/roadmap')) {
+          targetUrl = '/roadmap/api/ws/users/me'
+        }
+        const res = await fetch(targetUrl, {
+          headers: { Authorization: `Bearer ${token}` },
+          cache: 'no-store',
+        })
+        if (res.ok) {
+          const data = await res.json()
+          const realUser = data.user || data
+          if (realUser && (realUser.username || realUser.display_name)) {
+            setUser(realUser)
+            if (realUser.points_balance !== undefined) setBalance(realUser.points_balance)
+            if (realUser.points_exempt !== undefined) setIsExempt(realUser.points_exempt)
+          }
+        } else if (res.status === 401) {
+          setUser(null)
+        }
+      } catch {
+        // Keep existing local user on network error
+      }
+    }
+    fetchFreshProfile()
+    fetchWallet(token)
+  }, [initialUser, hostToken, initialPoints, fetchWallet])
 
   // 3. Theme Detection
   React.useEffect(() => {
@@ -560,16 +503,14 @@ export function Navbar({
 
   const handleLogout = () => {
     setIsDropdownOpen(false)
-    clearSessionCookie()
-    if (typeof window !== 'undefined') {
-      try {
-        localStorage.removeItem('auth-storage')
-        localStorage.removeItem('kmitlai-workspace-token')
-      } catch {}
-    }
     if (onLogout) {
+      // The host app signs out its own session.
       onLogout()
     } else if (typeof window !== 'undefined') {
+      try {
+        localStorage.removeItem(HANDOFF_TOKEN_KEY)
+        localStorage.removeItem('auth-storage')
+      } catch {}
       window.location.href = buildCrossUrl(`${workspaceUrl}/community`)
     }
   }

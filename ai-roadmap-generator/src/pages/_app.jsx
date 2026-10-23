@@ -1,18 +1,21 @@
+import { useMemo } from 'react'
 import Head from 'next/head'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import '@/styles/app.css'
 import { Navbar } from '@shared/components/Navbar'
-import { communityUrl } from '@/lib/workspace'
+import { communityUrl, getToken } from '@/lib/workspace'
 import { useWorkspace, WorkspaceProvider } from '@/lib/workspace-context'
 
 function Shell({ Component, pageProps }) {
-  const { status } = useWorkspace()
+  const { status, user, balance, exempt } = useWorkspace()
+  // The navbar shows this app's session (see NavbarProps.user).
+  const navbarUser = useMemo(() => (user ? { ...user, points_exempt: exempt } : null), [user, exempt])
 
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)] antialiased font-sans">
       <div className="relative z-[100] shrink-0" style={{ height: '64px', minHeight: '64px' }}>
-        <Navbar />
+        <Navbar user={navbarUser} pointsBalance={balance} token={getToken()} />
       </div>
       <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
         {status === 'loading' ? (

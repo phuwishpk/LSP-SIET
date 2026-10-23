@@ -17,43 +17,25 @@ export function getWorkspaceUrl(): string {
 
 export const TOKEN_STORAGE_KEY = 'kmitlai-workspace-token';
 
+/**
+ * The token SIET Space handed over: from the address bar on arrival (then kept),
+ * else the one kept, else SIET Space's own when both apps share one origin
+ * behind the proxy.
+ */
 export function getWorkspaceToken(): string | null {
   if (typeof window === 'undefined') return null;
-
-  // 1. URL parameter ?token=
   try {
-    const params = new URLSearchParams(window.location.search);
-    const urlToken = params.get('token');
-    if (urlToken && urlToken !== 'not-required') {
-      try {
-        localStorage.setItem(TOKEN_STORAGE_KEY, urlToken);
-        document.cookie = `kmitl_session_token=${encodeURIComponent(urlToken)}; path=/; max-age=2592000; SameSite=Lax`;
-      } catch {}
-      return urlToken;
+    const fromLink = new URLSearchParams(window.location.search).get('token');
+    if (fromLink) {
+      window.localStorage.setItem(TOKEN_STORAGE_KEY, fromLink);
+      return fromLink;
     }
-  } catch {}
-
-  // 2. Cookie
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)kmitl_session_token=([^;]+)/);
-    if (match && match[1]) {
-      const cookieToken = decodeURIComponent(match[1]);
-      if (cookieToken && cookieToken !== 'not-required') {
-        return cookieToken;
-      }
-    }
-  } catch {}
-
-  // 3. auth-storage
-  try {
-    const raw = window.localStorage.getItem('auth-storage');
-    if (raw) {
-      const { state } = JSON.parse(raw);
-      if (state?.token && state.token !== 'not-required') {
-        return state.token;
-      }
-    }
-  } catch {}
-
-  return window.localStorage.getItem(TOKEN_STORAGE_KEY);
+    return (
+      window.localStorage.getItem(TOKEN_STORAGE_KEY) ||
+      JSON.parse(window.localStorage.getItem('auth-storage') || 'null')?.state?.token ||
+      null
+    );
+  } catch {
+    return null;
+  }
 }

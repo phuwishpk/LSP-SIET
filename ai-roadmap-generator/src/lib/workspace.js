@@ -36,50 +36,20 @@ function write(storage, key, value) {
   }
 }
 
+/** The token SIET Space handed over, else its own when both apps share one origin behind the proxy. */
 export function getToken() {
   if (!isBrowser()) return null
-  // 1. URL search param if present during initial load
+  const handed = read(window.localStorage, TOKEN_KEY)
+  if (handed) return handed
   try {
-    const params = new URLSearchParams(window.location.search)
-    const urlToken = params.get('token')
-    if (urlToken && urlToken !== 'not-required') {
-      return urlToken
-    }
-  } catch {}
-
-  // 2. Cookie kmitl_session_token (shared cross-port session)
-  try {
-    const match = document.cookie.match(/(?:^|;\s*)kmitl_session_token=([^;]+)/)
-    if (match) {
-      const decoded = decodeURIComponent(match[1])
-      if (decoded && decoded !== 'not-required') return decoded
-    }
-  } catch {}
-
-  // 3. LocalStorage kmitlai-workspace-token
-  const localToken = read(window.localStorage, TOKEN_KEY)
-  if (localToken && localToken !== 'not-required') return localToken
-
-  // 4. auth-storage in localStorage
-  try {
-    const authStorage = window.localStorage.getItem('auth-storage')
-    if (authStorage) {
-      const parsed = JSON.parse(authStorage)
-      const token = parsed?.state?.token
-      if (token && token !== 'not-required') return token
-    }
-  } catch {}
-
-  return null
+    return JSON.parse(read(window.localStorage, 'auth-storage') || 'null')?.state?.token || null
+  } catch {
+    return null
+  }
 }
 
 export function clearToken() {
-  if (isBrowser()) {
-    write(window.localStorage, TOKEN_KEY, null)
-    try {
-      document.cookie = 'kmitl_session_token=; path=/; max-age=0; SameSite=Lax'
-    } catch {}
-  }
+  if (isBrowser()) write(window.localStorage, TOKEN_KEY, null)
 }
 
 /** Only a URL on this same host (any port) may become the back target. */
@@ -104,13 +74,7 @@ export function captureLaunchParams() {
   const params = new URL(window.location.href).searchParams
 
   const token = params.get('token')
-  if (token && token !== 'not-required') {
-    write(window.localStorage, TOKEN_KEY, token)
-    try {
-      const maxAge = 60 * 60 * 24 * 7
-      document.cookie = `kmitl_session_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`
-    } catch {}
-  }
+  if (token) write(window.localStorage, TOKEN_KEY, token)
 
 
   const back = params.get('return')
