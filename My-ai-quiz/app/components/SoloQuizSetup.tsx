@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { QuizNavbar } from './QuizNavbar';
 import {
   IconGraduationCap,
   IconSparkles,
@@ -157,10 +156,8 @@ export function SoloQuizSetup() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
-      {/* 1. Header / Navbar matching Community */}
-      <QuizNavbar />
-
+    <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
+      
       {/* 2. Solo Configuration Screen */}
       <main className="max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 flex-1 animate-in fade-in duration-200">
         <div className="bg-white rounded-3xl border border-slate-200/90 shadow-xs overflow-hidden">

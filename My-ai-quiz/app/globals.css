@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source "../shared/**/*.{js,ts,jsx,tsx}";
+@source "./shared/**/*.{js,ts,jsx,tsx}";
 
 :root {
   --background: #f8fafc;
@@ -8,8 +10,6 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
 }
 
 * {
@@ -25,7 +25,7 @@ body {
   min-height: 100vh;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
 }
 
 button,

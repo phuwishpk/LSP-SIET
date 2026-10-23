@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { QuizNavbar } from '../../components/QuizNavbar';
 import { PinkOwlMascot, OwlMood } from '../../components/PinkOwlMascot';
 import { saveQuizHistory } from '../../lib/quizStorage';
 import {
@@ -182,7 +181,7 @@ export default function SoloPlayPage() {
 
   if (!session) {
     return (
-      <div className="min-h-screen bg-[#f8fafc] flex items-center justify-center">
+      <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] flex items-center justify-center">
         <div className="animate-spin h-8 w-8 border-4 border-rose-600 border-t-transparent rounded-full" />
       </div>
     );
@@ -344,9 +343,8 @@ export default function SoloPlayPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
-      <QuizNavbar />
-
+    <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
+      
       <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 flex-1 animate-in fade-in duration-200">
         {!isQuizCompleted ? (
           <div className="space-y-6">

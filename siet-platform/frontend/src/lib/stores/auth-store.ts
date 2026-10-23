@@ -3,6 +3,47 @@ import { persist } from 'zustand/middleware'
 import { getApiUrl } from '@/lib/config'
 import { authApi } from '@siet/platform/lib/api/auth'
 
+export function setSessionCookie(token: string) {
+  if (typeof document === 'undefined') return
+  try {
+    document.cookie = `kmitl_session_token=${encodeURIComponent(token)}; path=/; max-age=2592000; SameSite=Lax`
+  } catch {}
+}
+
+export function clearSessionCookie() {
+  if (typeof document === 'undefined') return
+  try {
+    document.cookie = `kmitl_session_token=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax`
+  } catch {}
+}
+
+export function getSessionCookie(): string | null {
+  if (typeof document === 'undefined') return null
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)kmitl_session_token=([^;]+)/)
+    if (match && match[1]) {
+      const decoded = decodeURIComponent(match[1])
+      if (decoded && decoded !== 'not-required') return decoded
+    }
+  } catch {}
+  return null
+}
+
+export function getUrlToken(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    if (token && token !== 'not-required') {
+      const u = new URL(window.location.href)
+      u.searchParams.delete('token')
+      window.history.replaceState({}, document.title, u.pathname + (u.search ? u.search : '') + u.hash)
+      return token
+    }
+  } catch {}
+  return null
+}
+
 export interface AuthUser {
   id: string
   username: string
@@ -69,6 +110,10 @@ export const useAuthStore = create<AuthState>()(
       },
 
       setSession: (token: string, user: AuthUser) => {
+        setSessionCookie(token)
+        try {
+          localStorage.setItem('kmitlai-workspace-token', token)
+        } catch {}
         set({
           isAuthenticated: true,
           token,
@@ -127,6 +172,10 @@ export const useAuthStore = create<AuthState>()(
         try {
           const apiUrl = await getApiUrl()
           const data = await authApi.login(apiUrl, { username, password })
+          setSessionCookie(data.access_token)
+          try {
+            localStorage.setItem('kmitlai-workspace-token', data.access_token)
+          } catch {}
           set({
             isAuthenticated: true,
             token: data.access_token,
@@ -158,6 +207,10 @@ export const useAuthStore = create<AuthState>()(
             password,
             display_name: displayName,
           })
+          setSessionCookie(data.access_token)
+          try {
+            localStorage.setItem('kmitlai-workspace-token', data.access_token)
+          } catch {}
           set({
             isAuthenticated: true,
             token: data.access_token,
@@ -183,6 +236,10 @@ export const useAuthStore = create<AuthState>()(
       logout: async () => {
         const apiUrl = await getApiUrl().catch(() => null)
         const token = get().token
+        clearSessionCookie()
+        try {
+          localStorage.removeItem('kmitlai-workspace-token')
+        } catch {}
         if (apiUrl && token && token !== 'not-required') {
           try {
             await authApi.logout(apiUrl, token)
@@ -217,29 +274,44 @@ export const useAuthStore = create<AuthState>()(
 
       checkAuth: async () => {
         const state = get()
-        const { token, lastAuthCheck, isCheckingAuth, isAuthenticated } = state
+        const externalToken = getUrlToken() || getSessionCookie()
+        const token = externalToken || state.token
+        const tokenChanged = Boolean(externalToken && externalToken !== state.token)
 
-        if (isCheckingAuth) return isAuthenticated
-        if (!token) return false
-        if (token === 'not-required') return true
+        if (!tokenChanged) {
+          if (state.isCheckingAuth) return state.isAuthenticated
+          if (!token) return false
+          if (token === 'not-required') return true
 
-        const now = Date.now()
-        if (isAuthenticated && lastAuthCheck && now - lastAuthCheck < 30_000) {
-          return true
+          const now = Date.now()
+          if (state.isAuthenticated && state.lastAuthCheck && now - state.lastAuthCheck < 30_000) {
+            return true
+          }
         }
 
         set({ isCheckingAuth: true })
         try {
           const apiUrl = await getApiUrl()
-          const user = await authApi.me(apiUrl, token)
+          const user = await authApi.me(apiUrl, token!)
+          setSessionCookie(token!)
+          try {
+            localStorage.setItem('kmitlai-workspace-token', token!)
+          } catch {}
           set({
             isAuthenticated: true,
+            token,
             user,
-            lastAuthCheck: now,
+            lastAuthCheck: Date.now(),
             isCheckingAuth: false,
           })
           return true
         } catch {
+          if (tokenChanged) {
+            clearSessionCookie()
+            try {
+              localStorage.removeItem('kmitlai-workspace-token')
+            } catch {}
+          }
           set({
             isAuthenticated: false,
             token: null,
@@ -264,7 +336,6 @@ export const useAuthStore = create<AuthState>()(
     }
   )
 )
-
 
 function extractErrorMessage(error: unknown, fallback: string): string {
   if (typeof error === 'object' && error !== null) {

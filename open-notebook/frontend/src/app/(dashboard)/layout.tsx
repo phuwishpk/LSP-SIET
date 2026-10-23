@@ -66,8 +66,10 @@ export default function DashboardLayout({
     <ErrorBoundary>
       <CreateDialogsProvider>
         <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
-          <AppNavbar />
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="relative z-[100] shrink-0">
+            <AppNavbar />
+          </div>
+          <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
             {children}
           </div>
         </div>

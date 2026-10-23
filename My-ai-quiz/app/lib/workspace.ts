@@ -3,15 +3,15 @@
  *
  * `NEXT_PUBLIC_WORKSPACE_URL` wins when it was baked into the build. Otherwise
  * we infer it: when this app is served on its own port (3001) the workspace is
- * on port 3000 of the same host; when it is served behind Traefik under
+ * on port 3500 of the same host; when it is served behind Traefik under
  * `/quiz`, the workspace is the site root.
  */
 export function getWorkspaceUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, '');
-  if (typeof window === 'undefined') return 'http://localhost:3000';
+  if (typeof window === 'undefined') return 'http://localhost:3500';
   const { protocol, hostname, port, origin } = window.location;
-  if (port === '3001') return `${protocol}//${hostname}:3000`;
+  if (port === '3001' || port === '3002' || port === '3000') return `${protocol}//${hostname}:3500`;
   return origin;
 }
 
@@ -19,5 +19,41 @@ export const TOKEN_STORAGE_KEY = 'kmitlai-workspace-token';
 
 export function getWorkspaceToken(): string | null {
   if (typeof window === 'undefined') return null;
+
+  // 1. URL parameter ?token=
+  try {
+    const params = new URLSearchParams(window.location.search);
+    const urlToken = params.get('token');
+    if (urlToken && urlToken !== 'not-required') {
+      try {
+        localStorage.setItem(TOKEN_STORAGE_KEY, urlToken);
+        document.cookie = `kmitl_session_token=${encodeURIComponent(urlToken)}; path=/; max-age=2592000; SameSite=Lax`;
+      } catch {}
+      return urlToken;
+    }
+  } catch {}
+
+  // 2. Cookie
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)kmitl_session_token=([^;]+)/);
+    if (match && match[1]) {
+      const cookieToken = decodeURIComponent(match[1]);
+      if (cookieToken && cookieToken !== 'not-required') {
+        return cookieToken;
+      }
+    }
+  } catch {}
+
+  // 3. auth-storage
+  try {
+    const raw = window.localStorage.getItem('auth-storage');
+    if (raw) {
+      const { state } = JSON.parse(raw);
+      if (state?.token && state.token !== 'not-required') {
+        return state.token;
+      }
+    }
+  } catch {}
+
   return window.localStorage.getItem(TOKEN_STORAGE_KEY);
 }

@@ -205,7 +205,7 @@ export default function UserProfilePage() {
               <button
                 type="button"
                 onClick={openProfileEditor}
-                className="absolute bottom-3 right-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-800/80 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                className="absolute bottom-3 right-3 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/60 bg-white/80 px-3 py-1.5 text-xs font-medium text-slate-800 shadow-sm backdrop-blur-sm transition-colors hover:bg-white dark:border-zinc-700/70 dark:bg-zinc-800/80 dark:text-zinc-100 dark:hover:bg-zinc-800 z-10"
               >
                 <Camera className="h-4 w-4" aria-hidden="true" />
                 แก้ไขรูปหน้าปก
