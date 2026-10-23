@@ -30,10 +30,26 @@ interface ReportButtonProps {
   alreadyReported?: boolean
   size?: 'sm' | 'icon'
   className?: string
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  hideTrigger?: boolean
 }
 
-export function ReportButton({ targetType, targetId, targetLabel, alreadyReported, size = 'sm', className }: ReportButtonProps) {
-  const [open, setOpen] = useState(false)
+export function ReportButton({
+  targetType,
+  targetId,
+  targetLabel,
+  alreadyReported,
+  size = 'sm',
+  className,
+  open: controlledOpen,
+  onOpenChange: setControlledOpen,
+  hideTrigger = false,
+}: ReportButtonProps) {
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const open = isControlled ? controlledOpen : internalOpen
+  const setOpen = isControlled ? setControlledOpen! : setInternalOpen
   const [reason, setReason] = useState<ReportReason>('inappropriate')
   const [detail, setDetail] = useState('')
   const report = useReportContent()
@@ -41,19 +57,21 @@ export function ReportButton({ targetType, targetId, targetLabel, alreadyReporte
 
   return (
     <>
-      <Button
-        type="button"
-        variant="ghost"
-        size={size === 'icon' ? 'icon' : 'sm'}
-        className={cn('text-muted-foreground', size === 'sm' && 'h-7 gap-1 px-2 text-xs', className)}
-        disabled={done}
-        onClick={() => setOpen(true)}
-        aria-label={done ? 'รายงานแล้ว' : `รายงาน${REPORT_TARGET_LABELS[targetType]}`}
-        title={done ? 'คุณรายงานรายการนี้แล้ว' : undefined}
-      >
-        <Flag className="h-3.5 w-3.5" />
-        {size === 'sm' && (done ? 'รายงานแล้ว' : 'รายงาน')}
-      </Button>
+      {!hideTrigger && (
+        <Button
+          type="button"
+          variant="ghost"
+          size={size === 'icon' ? 'icon' : 'sm'}
+          className={cn('text-muted-foreground', size === 'sm' && 'h-7 gap-1 px-2 text-xs', className)}
+          disabled={done}
+          onClick={() => setOpen(true)}
+          aria-label={done ? 'รายงานแล้ว' : `รายงาน${REPORT_TARGET_LABELS[targetType]}`}
+          title={done ? 'คุณรายงานรายการนี้แล้ว' : undefined}
+        >
+          <Flag className="h-3.5 w-3.5" />
+          {size === 'sm' && (done ? 'รายงานแล้ว' : 'รายงาน')}
+        </Button>
+      )}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>

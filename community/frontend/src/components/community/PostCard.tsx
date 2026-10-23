@@ -7,6 +7,7 @@ import {
   Map,
   Download,
   FileText,
+  Flag,
   Hash,
   HelpCircle,
   Library,
@@ -46,6 +47,7 @@ import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
 import { PostDetailModal } from './PostDetailModal'
 import { SharePostModal } from './SharePostModal'
+import { ReportButton } from '../common/ReportButton'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -82,6 +84,7 @@ export function PostCard({
   const [draftContent, setDraftContent] = useState(post.content ?? '')
   const [detailOpen, setDetailOpen] = useState(false)
   const [shareOpen, setShareOpen] = useState(false)
+  const [reportOpen, setReportOpen] = useState(false)
   const [expanded, setExpanded] = useState(false)
 
   const meta = TYPE_META[post.type] ?? TYPE_META.summary
@@ -228,9 +231,23 @@ export function PostCard({
                   <Trash2 className="mr-2 h-4 w-4" /> ลบโพสต์
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem
+                className="text-amber-600 focus:text-amber-600"
+                onClick={() => setReportOpen(true)}
+              >
+                <Flag className="mr-2 h-4 w-4" /> รายงานโพสต์
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
           )}
+          <ReportButton
+            targetType="post"
+            targetId={post.id}
+            targetLabel={post.title || post.content?.slice(0, 50) || 'โพสต์'}
+            open={reportOpen}
+            onOpenChange={setReportOpen}
+            hideTrigger
+          />
         </div>
 
         {editing ? (

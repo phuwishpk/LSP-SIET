@@ -299,11 +299,13 @@ async def _upsert_google_user(profile: GoogleProfile) -> Tuple[User, bool]:
         else:
             return user, True
 
-    # Existing account: link Google identity + refresh profile. Never
-    # downgrade an admin; otherwise adopt the institutional role.
+    # Existing account: link Google identity + refresh profile.
+    # The role in the database is the authoritative source of truth managed by Admin / RBAC.
+    # Google login must NEVER override or mutate the role of an existing account,
+    # except when an account is explicitly elevated to ADMIN via ADMIN_EMAILS (.env).
     new_role = None
-    if user.role != USER_ROLE_ADMIN and role != user.role:
-        new_role = role
+    if email in admin_emails() and user.role != USER_ROLE_ADMIN:
+        new_role = USER_ROLE_ADMIN
     updated = await update_profile(
         user.id or 0,
         email=email if user.email != email else None,
@@ -434,8 +436,35 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
     await touch_last_login(user.id or "")
     fresh = await get_by_id(user.id or 0) or user
 
+    # Auto-lift expired suspension if applicable
+    if fresh.disabled:
+        from siet_platform.users import suspension_lifted
+        if await suspension_lifted(fresh):
+            fresh = await get_by_id(fresh.id or 0) or fresh
+
+    from siet_platform.audit import log_action
+
+    if fresh.disabled:
+        await log_action(
+            actor_id=int(fresh.id or 0),
+            action="auth.login_failed",
+            target_type="user",
+            target_id=fresh.id,
+            detail={"method": "google", "reason": "account_suspended"},
+        )
+    else:
+        await log_action(
+            actor_id=int(fresh.id or 0),
+            action="auth.login",
+            target_type="user",
+            target_id=fresh.id,
+            detail={"method": "google", "email": profile.email, "is_new": is_new},
+        )
+
     access_token, expires_at = issue_access_token(fresh)
-    if fresh.role == USER_ROLE_PENDING:
+    if fresh.disabled:
+        target_next = "/pending"
+    elif fresh.role == USER_ROLE_PENDING:
         target_next = "/pending"
     elif fresh.role == USER_ROLE_ADMIN:
         target_next = "/admin"

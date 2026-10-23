@@ -42,6 +42,7 @@ from siet_platform.users import (
     create as create_user,
     get_by_id,
     get_by_username,
+    record_pdpa_consent,
     touch_last_login,
     verify_password,
 )
@@ -78,8 +79,12 @@ class UserResponse(BaseModel):
     student_id: Optional[str] = None
     points_balance: int = 0
     points_exempt: bool = False
+    disabled: bool = False
+    suspend_reason: Optional[str] = None
+    suspended_until: Optional[str] = None
     created_at: Optional[str] = None
     last_login_at: Optional[str] = None
+    pdpa_consented_at: Optional[str] = None
 
 
 class TokenResponse(BaseModel):
@@ -115,8 +120,12 @@ def _to_response(user: User) -> UserResponse:
         student_id=user.student_id,
         points_balance=int(user.points_balance or 0),
         points_exempt=user.is_points_exempt,
+        disabled=bool(user.disabled or 0),
+        suspend_reason=user.suspend_reason,
+        suspended_until=user.suspended_until,
         created_at=user.created_at,
         last_login_at=user.last_login_at,
+        pdpa_consented_at=user.pdpa_consented_at,
     )
 
 
@@ -222,6 +231,15 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
         from siet_platform.users import suspension_lifted, suspension_text
 
         if not await suspension_lifted(user):
+            from siet_platform.audit import log_action
+
+            await log_action(
+                actor_id=int(user.id or 0),
+                action="auth.login_failed",
+                target_type="user",
+                target_id=user.id,
+                detail={"reason": "account_suspended", "ip": request.client.host if request.client else None},
+            )
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=suspension_text(user),
@@ -230,6 +248,19 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
         # Run verify_password against a dummy hash to keep timing constant
         verify_password(payload.password, "$2b$12$invalidinvalidinvalidinvalidinvalidinvalidinvalidinv")
         await record_login_failure(payload.username, request)
+        from siet_platform.audit import log_action
+
+        await log_action(
+            actor_id=int(user.id) if user and user.id else 0,
+            action="auth.login_failed",
+            target_type="user",
+            target_id=user.id if user else None,
+            detail={
+                "reason": "invalid_credentials" if user else "user_not_found",
+                "username": payload.username,
+                "ip": request.client.host if request.client else None,
+            },
+        )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
@@ -239,6 +270,15 @@ async def login(payload: LoginRequest, request: Request) -> TokenResponse:
     user = await _with_welcome(user)
     access_token, expires_at = issue_access_token(user)
     await touch_last_login(user.id or "")
+    from siet_platform.audit import log_action
+
+    await log_action(
+        actor_id=int(user.id or 0),
+        action="auth.login",
+        target_type="user",
+        target_id=user.id,
+        detail={"method": "password", "ip": request.client.host if request.client else None},
+    )
     return TokenResponse(access_token=access_token, expires_at=expires_at, user=_to_response(user))
 
 
@@ -251,6 +291,17 @@ async def logout() -> dict:
 @router.get("/users/me", response_model=UserResponse)
 async def get_me(user: User = Depends(get_current_user)) -> UserResponse:
     return _to_response(user)
+
+
+@router.post("/users/me/consent-pdpa", response_model=UserResponse)
+async def consent_pdpa(user: User = Depends(get_current_user)) -> UserResponse:
+    """Record user's PDPA consent agreement."""
+    if user.id is None:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User ID is required")
+    updated = await record_pdpa_consent(user.id)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
+    return _to_response(updated)
 
 
 # =============================================================================

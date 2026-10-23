@@ -191,7 +191,7 @@ function ResolveDialog({ report, onClose }: { report: Report; onClose: () => voi
     <Dialog open onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>จัดการรายงาน: {REPORT_TARGET_LABELS[report.target_type]}</DialogTitle>
+          <DialogTitle>จัดการรายงาน {REPORT_TARGET_LABELS[report.target_type]}</DialogTitle>
           <DialogDescription>
             “{report.target_title || `#${report.target_id}`}” · {report.reason_label}
             {report.report_count > 1 ? ` · มี ${report.report_count} คนรายงาน` : ''}

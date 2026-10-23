@@ -182,6 +182,12 @@ async def get_current_user(
         from siet_platform.users import suspension_lifted, suspension_text
 
         if not await suspension_lifted(user):
+            # Allow /api/users/me and /api/auth/logout so the frontend can display their
+            # suspension reason on /pending and allow them to sign out or check status.
+            path = request.url.path.rstrip("/")
+            if path in ("/api/users/me", "/api/auth/logout", "/api/auth/status"):
+                set_request_owner(request, user.id or "")
+                return user
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail=suspension_text(user),
@@ -200,6 +206,10 @@ async def optional_current_user(
         return None
     user = await _resolve_user_from_token(token)
     if user is not None:
+        if getattr(user, "disabled", False):
+            from siet_platform.users import suspension_lifted
+            if not await suspension_lifted(user):
+                return None
         set_request_owner(request, user.id or "")
     return user
 

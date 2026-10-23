@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import os
 from datetime import date, datetime, timedelta, timezone
-from typing import Any, Dict, List, Literal, Optional
+from typing import Any, Dict, List, Literal, Optional, Union
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from loguru import logger
@@ -50,13 +50,13 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 
 
 class UserUpdate(BaseModel):
-    role: Optional[Literal["student", "teacher", "admin"]] = None
+    role: Optional[Literal["student", "teacher", "admin", "pending"]] = None
     display_name: Optional[str] = Field(default=None, max_length=128)
     student_id: Optional[str] = Field(default=None, max_length=32)
     disabled: Optional[bool] = None
     # With disabled=True: why, and (optionally) the day the suspension lifts itself.
     suspend_reason: Optional[str] = Field(default=None, max_length=255)
-    suspended_until: Optional[date] = None
+    suspended_until: Optional[Union[date, datetime, str]] = None
 
 
 class UserCreate(BaseModel):
@@ -159,15 +159,31 @@ def _public(target: User) -> Dict[str, Any]:
     }
 
 
-def _suspension_until(day: Optional[date]) -> Optional[datetime]:
+def _suspension_until(day: Optional[Union[date, datetime, str]]) -> Optional[datetime]:
     """A suspension that ends on a day lifts at the start of that day (UTC)."""
-    return datetime.combine(day, datetime.min.time()) if day else None
+    if not day:
+        return None
+    if isinstance(day, datetime):
+        return day
+    if isinstance(day, date):
+        return datetime.combine(day, datetime.min.time())
+    if isinstance(day, str):
+        try:
+            cleaned = day.strip()
+            if "T" in cleaned:
+                return datetime.fromisoformat(cleaned.replace("Z", "+00:00")).replace(tzinfo=None)
+            d = date.fromisoformat(cleaned)
+            return datetime.combine(d, datetime.min.time())
+        except Exception:
+            return None
+    return None
 
 
-async def _suspend(target: User, admin: User, *, reason: Optional[str], until: Optional[date]) -> None:
-    await set_disabled(int(target.id or 0), True, reason=reason, until=_suspension_until(until))
-    when = f" จนถึง {until.isoformat()}" if until else ""
-    why = f" เหตุผล: {reason}" if reason else ""
+async def _suspend(target: User, admin: User, *, reason: Optional[str], until: Optional[Union[date, datetime, str]]) -> None:
+    until_dt = _suspension_until(until)
+    await set_disabled(int(target.id or 0), True, reason=reason, until=until_dt)
+    when = f" จนถึง {until_dt.strftime('%Y-%m-%d')}" if until_dt else ""
+    why = f" เหตุผล {reason}" if reason else ""
     await notifications.add_notification(
         int(target.id or 0), "moderation",
         f"บัญชีของคุณถูกระงับการใช้งาน{when}{why} — ติดต่อผู้ดูแลระบบหากมีข้อสงสัย",

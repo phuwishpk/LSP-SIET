@@ -15,6 +15,9 @@ export interface AuthUser {
   student_id?: string | null
   points_balance?: number
   points_exempt?: boolean
+  disabled?: boolean
+  suspend_reason?: string | null
+  pdpa_consented_at?: string | null
   created_at?: string | null
   last_login_at?: string | null
 }
@@ -150,6 +153,9 @@ export const authApi = {
 
   googleExchange: (apiUrl: string, payload: GoogleExchangePayload) =>
     postJson<GoogleTokenResponse>(`${apiUrl}/api/auth/google/exchange`, payload),
+
+  consentPdpa: (apiUrl: string, token: string) =>
+    postJson<AuthUser>(`${apiUrl}/api/users/me/consent-pdpa`, {}, { token }),
 }
 
 export { AuthApiError }

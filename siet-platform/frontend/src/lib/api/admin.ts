@@ -5,7 +5,7 @@
 import { apiClient } from '@/lib/api/client'
 import type { PointTransaction } from '@siet/platform/lib/api/community'
 
-export type UserRole = 'student' | 'teacher' | 'admin'
+export type UserRole = 'student' | 'teacher' | 'admin' | 'pending'
 
 export interface AdminUser {
   id: number
@@ -26,7 +26,7 @@ export interface AdminUser {
 export interface AdminUserList {
   items: AdminUser[]
   total: number
-  by_role: Partial<Record<UserRole, number>>
+  by_role: Partial<Record<UserRole | 'suspended', number>>
   /** Id of the signed-in admin, so the UI can protect their own row. */
   me: number
 }

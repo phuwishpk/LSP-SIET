@@ -731,7 +731,21 @@ async def create_document(
                 "content_hash": content_hash,
             },
         )
-        return int(result.lastrowid)
+        doc_id = int(result.lastrowid)
+        if owner_id:
+            try:
+                from siet_platform.audit import log_action
+
+                await log_action(
+                    actor_id=int(owner_id),
+                    action="document.upload",
+                    target_type="document",
+                    target_id=doc_id,
+                    detail={"title": title[:100], "kind": kind, "filename": filename, "scope": scope},
+                )
+            except Exception:
+                pass
+        return doc_id
 
 
 async def get_document(doc_id: int) -> Optional[Dict[str, Any]]:
