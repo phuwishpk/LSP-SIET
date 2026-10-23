@@ -253,10 +253,11 @@ body.theme-siet {
 
 /* ---------------------------------------------------------------------------
    SIET Pink — "AI Learning Adventure" (root DESIGN.md), as a scoped theme.
-   Applied to the KMITL RAG AI page and the roadmap app; the values are the
-   design system's own (#ED4988 etc.), mapped onto the same semantic variables
-   the rest of the app reads, so shadcn components and the community panels
-   pick it up without changes. Light only, as DESIGN.md specifies.
+   Applied to the KMITL RAG AI page; the values are the design system's own
+   (#ED4988 etc.), mapped onto the same semantic variables the rest of the app
+   reads, so shadcn components and the community panels pick it up without
+   changes. With the app-wide dark toggle on it follows Community's dark look
+   (see `.dark .theme-adventure` below and DESIGN.md "Dark mode").
    --------------------------------------------------------------------------- */
 .theme-adventure {
   color-scheme: light;
@@ -305,11 +306,47 @@ body.theme-siet {
   font-family: var(--font-nunito), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
-/* Keep the page light even when the app-wide dark toggle is on: DESIGN.md has no dark mode.
-   (The page also drops the html `dark` class while mounted - see useForcedLightTheme - so
-   `dark:` utilities inside shared components do not fire; this is the fallback.) */
+/* Dark: the same surfaces as Community in dark mode - a zinc-950 page, zinc-900
+   bars, plum cards (.dark .community-theme) - with the SIET pink lifted for contrast. */
 .dark .theme-adventure {
-  color-scheme: light;
+  color-scheme: dark;
+  --canvas: #09090b;
+  --background: #18181b;
+  --foreground: #f9edf2;
+  --card: #2b2026;
+  --card-foreground: #f9edf2;
+  --popover: #2b2026;
+  --popover-foreground: #f9edf2;
+  --primary: #f472b6;
+  --primary-foreground: #381126;
+  --secondary: #382630;
+  --secondary-foreground: #f9edf2;
+  --muted: #382630;
+  --muted-foreground: #c4aeb9;
+  --subtle-foreground: #9d8692;
+  --accent: #4a2b3c;
+  --accent-foreground: #fce7f3;
+  --border: #4b3441;
+  --input: #59404e;
+  --ring: #f472b6;
+  --destructive: #ff6b6b;
+  --ai: #f472b6;
+  --ai-soft: #4a2b3c;
+  --ai-foreground: #381126;
+  --sidebar: #18181b;
+  --sidebar-foreground: #f9edf2;
+  --sidebar-primary: #f472b6;
+  --sidebar-primary-foreground: #381126;
+  --sidebar-accent: #4a2b3c;
+  --sidebar-accent-foreground: #fce7f3;
+  --sidebar-border: #4b3441;
+  --sidebar-ring: #f472b6;
+  --adventure-info: #7ccdf7;
+  --adventure-success: #74c48a;
+  --adventure-error: #ff8a8a;
+  --adventure-streak: #ffb24d;
+  --adventure-xp: #ffd84d;
+  --adventure-reward: #d8a6ff;
 }
 
 /* Shared community panels still carry violet/sky accents; inside this theme they
@@ -323,6 +360,16 @@ body.theme-siet {
 .theme-adventure .text-violet-700,
 .theme-adventure .text-sky-700 {
   color: #1686bd;
+}
+.dark .theme-adventure .bg-violet-100 {
+  background-color: #4a2b3c;
+}
+.dark .theme-adventure .text-violet-900 {
+  color: #f9a8d4;
+}
+.dark .theme-adventure .text-violet-700,
+.dark .theme-adventure .text-sky-700 {
+  color: #7ccdf7;
 }
 
 .theme-adventure h1,
@@ -347,6 +394,17 @@ body.theme-siet {
 }
 .theme-adventure [data-slot="button"].bg-primary:hover {
   background-color: #d83a78;
+}
+.dark .theme-adventure .adventure-button,
+.dark .theme-adventure [data-slot="button"].bg-primary:not(.no-lip) {
+  box-shadow: 0 4px 0 #db2777;
+}
+.dark .theme-adventure .adventure-button:active,
+.dark .theme-adventure [data-slot="button"].bg-primary:not(.no-lip):active {
+  box-shadow: none;
+}
+.dark .theme-adventure [data-slot="button"].bg-primary:hover {
+  background-color: #ec4899;
 }
 
 @media (prefers-reduced-motion: reduce) {
