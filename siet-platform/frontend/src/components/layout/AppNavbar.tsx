@@ -13,7 +13,9 @@ export type AppNavbarProps = NavbarProps
 export function AppNavbar(props: AppNavbarProps) {
   const user = useAuthStore((s) => s.user)
   const token = useAuthStore((s) => s.token)
-  return <Navbar {...props} user={user} token={token} />
+  // Links stay in this SIET Space copy, not one an AI app learned about.
+  const communityUrl = typeof window === 'undefined' ? undefined : `${window.location.origin}/community`
+  return <Navbar {...props} user={user} token={token} communityUrl={communityUrl} />
 }
 
 export default AppNavbar

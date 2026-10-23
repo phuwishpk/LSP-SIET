@@ -3,15 +3,15 @@
  *
  * `NEXT_PUBLIC_WORKSPACE_URL` wins when it was baked into the build. Otherwise
  * we infer it: when this app is served on its own port (3001) the workspace is
- * on port 3500 of the same host; when it is served behind Traefik under
+ * on port 3000 of the same host; when it is served behind Traefik under
  * `/quiz`, the workspace is the site root.
  */
 export function getWorkspaceUrl(): string {
   const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL;
   if (fromEnv) return fromEnv.replace(/\/$/, '');
-  if (typeof window === 'undefined') return 'http://localhost:3500';
+  if (typeof window === 'undefined') return 'http://localhost:3000';
   const { protocol, hostname, port, origin } = window.location;
-  if (port === '3001' || port === '3002' || port === '3000') return `${protocol}//${hostname}:3500`;
+  if (port === '3001') return `${protocol}//${hostname}:3000`;
   return origin;
 }
 

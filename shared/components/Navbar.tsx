@@ -201,19 +201,66 @@ export function timeAgo(dateString?: string | null): string {
   }
 }
 
+/** A NEXT_PUBLIC_* value: Next fills in `process.env.NAME` written out in full at build time. */
+function publicEnv(read: () => string | undefined): string {
+  try {
+    return (read() || '').replace(/\/$/, '')
+  } catch {
+    return ''
+  }
+}
+
+/** SIET Space's URL as both the server and the first client render see it. */
+function configuredWorkspaceUrl(): string {
+  return publicEnv(() => process.env.NEXT_PUBLIC_WORKSPACE_URL) || 'http://localhost:3000'
+}
+
+/** Where SIET Space was, learned from a hand-off (see learnWorkspaceOrigin). */
+const WORKSPACE_ORIGIN_KEY = 'kmitlai-workspace-origin'
+
 /**
- * Single source of truth for the workspace URL.
- * Defaults to port 3500 (the active SIET Community Next.js app).
+ * A hand-off link carries `return` (the SIET Space page it came from): keep its
+ * origin, same host only, as the AI Roadmap app does. Several SIET Space copies
+ * can share one AI app (prod :3000 and the test stack :18502 both use :3001).
+ */
+function learnWorkspaceOrigin() {
+  try {
+    const back = new URLSearchParams(window.location.search).get('return')
+    if (back && new URL(back).hostname === window.location.hostname) {
+      localStorage.setItem(WORKSPACE_ORIGIN_KEY, new URL(back).origin)
+    }
+  } catch {}
+}
+
+/**
+ * Browser-facing URL of SIET Space (the main app): `NEXT_PUBLIC_WORKSPACE_URL`
+ * when baked into the build, else the one learned from the last hand-off (same
+ * host), else inferred - an AI app on its own port (3001 / 3002) has SIET Space
+ * on port 3000 of the same host; behind the proxy it is this origin.
  */
 export function getWorkspaceUrl(): string {
-  if (typeof window === 'undefined') return 'http://localhost:3500'
-  const fromEnv = typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_WORKSPACE_URL
-  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  const fromEnv = publicEnv(() => process.env.NEXT_PUBLIC_WORKSPACE_URL)
+  if (fromEnv) return fromEnv
+  if (typeof window === 'undefined') return configuredWorkspaceUrl()
   const { protocol, hostname, port, origin } = window.location
-  if (port === '3001' || port === '3002' || port === '3000') {
-    return `${protocol}//${hostname}:3500`
-  }
+  try {
+    const learned = localStorage.getItem(WORKSPACE_ORIGIN_KEY)
+    if (learned && new URL(learned).hostname === hostname) return learned
+  } catch {}
+  if (port === '3001' || port === '3002') return `${protocol}//${hostname}:3000`
   return origin
+}
+
+/** An AI app: on its own port (quiz 3001, roadmap 3002) next to this one, else under this origin behind the proxy. */
+function aiAppUrl(app: 'quiz' | 'roadmap'): string {
+  const fromEnv =
+    app === 'quiz'
+      ? publicEnv(() => process.env.NEXT_PUBLIC_MY_AI_QUIZ_URL)
+      : publicEnv(() => process.env.NEXT_PUBLIC_AI_ROADMAP_URL)
+  if (fromEnv) return fromEnv
+  const { protocol, hostname, port, origin } = window.location
+  if (port === '3001' || port === '3002') return `${protocol}//${hostname}:${app === 'quiz' ? 3001 : 3002}/${app}`
+  return `${origin}/${app}`
 }
 
 // --- Main Navbar Component ---
@@ -243,7 +290,7 @@ export function Navbar({
   const [user, setUser] = React.useState<NavbarUser | null>(initialUser ?? null)
   const [balance, setBalance] = React.useState<number>(initialPoints ?? 0)
   const [isExempt, setIsExempt] = React.useState<boolean>(false)
-  const [workspaceUrl, setWorkspaceUrl] = React.useState<string>('http://localhost:3500')
+  const [workspaceUrl, setWorkspaceUrl] = React.useState<string>(configuredWorkspaceUrl)
   const [currentToken, setCurrentToken] = React.useState<string | null>(null)
   const [walletData, setWalletData] = React.useState<WalletData | null>(null)
   const [isWalletLoading, setIsWalletLoading] = React.useState<boolean>(false)
@@ -261,13 +308,14 @@ export function Navbar({
   const walletRef = React.useRef<HTMLDivElement>(null)
   const notifRef = React.useRef<HTMLDivElement>(null)
 
-  // 1. Resolve Workspace Root URL (port 3500)
+  // 1. Resolve Workspace Root URL (the host app may tell it: communityUrl)
   React.useEffect(() => {
+    if (!communityUrl) learnWorkspaceOrigin()
     const url = communityUrl ? communityUrl.replace(/\/community\/?$/, '') : getWorkspaceUrl()
     setWorkspaceUrl(url)
   }, [communityUrl])
 
-  // Helper for cross-origin / cross-port links (ensures port 3500 and forwards token)
+  // Helper for links to the other apps (absolute; forwards the token to the AI apps only)
   const buildCrossUrl = React.useCallback(
     (targetHref: string) => {
       const activeToken = tokenRef.current || currentToken
@@ -278,19 +326,6 @@ export function Navbar({
           base = `${root}${base.startsWith('/') ? '' : '/'}${base}`
         }
         const u = new URL(base)
-        // If target points to localhost workspace, ensure it targets port 3500
-        if (typeof window !== 'undefined') {
-          if (u.hostname === 'localhost' || u.hostname === '127.0.0.1') {
-            if (
-              !u.pathname.startsWith('/quiz') &&
-              !u.pathname.startsWith('/roadmap')
-            ) {
-              if (u.port === '3000' || !u.port || window.location.port === '3001' || window.location.port === '3002') {
-                u.port = '3500'
-              }
-            }
-          }
-        }
         // Hand the token over only to the AI Quiz / AI Roadmap apps on another
         // origin, the way SIET Space opens them. Never to SIET Space itself: it
         // trusts only its own sign-in, so a token in a link would be a way to
@@ -486,8 +521,7 @@ export function Navbar({
     if (onOpenQuiz) {
       onOpenQuiz()
     } else if (typeof window !== 'undefined') {
-      const quizBase = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_MY_AI_QUIZ_URL) || 'http://localhost:3001/quiz'
-      window.open(buildCrossUrl(quizBase), '_blank', 'noopener,noreferrer')
+      window.open(buildCrossUrl(aiAppUrl('quiz')), '_blank', 'noopener,noreferrer')
     }
   }
 
@@ -496,8 +530,7 @@ export function Navbar({
     if (onOpenRoadmap) {
       onOpenRoadmap()
     } else if (typeof window !== 'undefined') {
-      const roadmapBase = (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_AI_ROADMAP_URL) || 'http://localhost:3002/roadmap'
-      window.location.assign(buildCrossUrl(roadmapBase))
+      window.location.assign(buildCrossUrl(aiAppUrl('roadmap')))
     }
   }
 

@@ -14,7 +14,8 @@
  * The roadmap app opens in the SAME tab and is told where the user came from
  * (`return`), so its "back to Community" button lands on that exact page, and
  * which theme is picked here (`theme`), so it shows the same light / dark; the
- * quiz app still opens in a new tab, and gets `theme` too.
+ * quiz app still opens in a new tab, and gets `theme` and `return` too (its
+ * navbar links back to this SIET Space copy).
  */
 import { buildCrossAppLink } from '@siet/platform/lib/cross-app'
 import { useThemeStore } from '@/lib/stores/theme-store'
@@ -60,6 +61,8 @@ export async function openQuizApp() {
   // later changes; this covers a quiz app on another host).
   const target = new URL(quizUrl, window.location.origin)
   target.searchParams.set('theme', useThemeStore.getState().theme)
+  // Tells the quiz app's navbar which SIET Space copy to link back to.
+  target.searchParams.set('return', window.location.href)
   return openExternalApp(target.toString())
 }
 

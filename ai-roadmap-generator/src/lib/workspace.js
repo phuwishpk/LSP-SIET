@@ -94,16 +94,15 @@ export function captureLaunchParams() {
 
 /** Origin of the main app: learned from the last hand-off, else inferred. */
 export function workspaceOrigin() {
-  const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL || process.env.NEXT_PUBLIC_COMMUNITY_URL
+  const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL
   if (fromEnv) return fromEnv.replace(/\/$/, '')
-  if (!isBrowser()) return 'http://localhost:3500'
+  if (!isBrowser()) return 'http://localhost:3000'
   const stored = read(window.localStorage, ORIGIN_KEY)
   if (stored && sameHost(stored)) return stored
   const { protocol, hostname, port, origin } = window.location
-  // Standalone port 3000, 3001, 3002 -> the main app is on 3500
-  if (port === '3000' || port === '3001' || port === '3002') {
-    return `${protocol}//${hostname}:3500`
-  }
+  // Standalone port 3002 -> the main app is on 3000; behind the proxy both
+  // share one origin.
+  if (port === '3002') return `${protocol}//${hostname}:3000`
   return origin
 }
 

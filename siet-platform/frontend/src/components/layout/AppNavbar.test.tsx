@@ -88,7 +88,52 @@ describe('the shared navbar and the session', () => {
     expect(document.cookie).not.toContain('kmitl_session_token')
 
     fireEvent.click(screen.getByLabelText('เปิดเมนูบัญชีผู้ใช้'))
-    const profile = screen.getByText('ดูโปรไฟล์เต็ม').closest('a')
-    expect(profile?.getAttribute('href')).toBe('http://localhost:3500/community/profile/me')
+    expect(profileLink()).toBe('http://localhost:3500/community/profile/me')
+  })
+})
+
+function profileLink() {
+  return screen.getByText('ดูโปรไฟล์เต็ม').closest('a')?.getAttribute('href')
+}
+
+describe('where the navbar links go', () => {
+  beforeEach(() => {
+    storage.clear()
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL) => reply(String(input))))
+    useAuthStore.setState({ user: student, token: 'own-token', isAuthenticated: true, lastAuthCheck: Date.now() })
+  })
+
+  afterEach(() => {
+    vi.unstubAllGlobals()
+    visit('/')
+  })
+
+  it('an AI app links back to the SIET Space copy that opened it', async () => {
+    visit('/quiz?token=handed&return=http%3A%2F%2Flocalhost%3A18502%2Fcommunity')
+    render(<Navbar />)
+    await screen.findByText('Quiz Player')
+    fireEvent.click(screen.getByLabelText('เปิดเมนูบัญชีผู้ใช้'))
+
+    expect(localStorage.getItem('kmitlai-workspace-origin')).toBe('http://localhost:18502')
+    expect(profileLink()).toBe('http://localhost:18502/community/profile/me')
+  })
+
+  it('does not learn a SIET Space on another host', async () => {
+    visit('/quiz?token=handed&return=https%3A%2F%2Fexample.com%2Fcommunity')
+    render(<Navbar />)
+    await screen.findByText('Quiz Player')
+    fireEvent.click(screen.getByLabelText('เปิดเมนูบัญชีผู้ใช้'))
+
+    expect(localStorage.getItem('kmitlai-workspace-origin')).toBeNull()
+    expect(profileLink()).toBe('http://localhost:3000/community/profile/me')
+  })
+
+  it('SIET Space links to itself whatever an AI app learned', async () => {
+    localStorage.setItem('kmitlai-workspace-origin', 'http://localhost:18502')
+    visit('/community')
+    render(<AppNavbar />)
+    fireEvent.click(await screen.findByLabelText('เปิดเมนูบัญชีผู้ใช้'))
+
+    expect(profileLink()).toBe('http://localhost:3000/community/profile/me')
   })
 })
