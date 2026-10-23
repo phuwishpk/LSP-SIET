@@ -20,7 +20,7 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@shared/*": ["./shared/*", "../shared/*"]
+      "@shared/*": ["../shared/*"]
     }
   },
   "include": [
@@ -30,8 +30,6 @@
     ".next/types/**/*.ts",
     ".next/dev/types/**/*.ts",
     "**/*.mts",
-    "shared/**/*.ts",
-    "shared/**/*.tsx",
     "../shared/**/*.ts",
     "../shared/**/*.tsx"
   ],

@@ -35,11 +35,49 @@ function write(storage, key, value) {
 }
 
 export function getToken() {
-  return isBrowser() ? read(window.localStorage, TOKEN_KEY) : null
+  if (!isBrowser()) return null
+  // 1. URL search param if present during initial load
+  try {
+    const params = new URLSearchParams(window.location.search)
+    const urlToken = params.get('token')
+    if (urlToken && urlToken !== 'not-required') {
+      return urlToken
+    }
+  } catch {}
+
+  // 2. Cookie kmitl_session_token (shared cross-port session)
+  try {
+    const match = document.cookie.match(/(?:^|;\s*)kmitl_session_token=([^;]+)/)
+    if (match) {
+      const decoded = decodeURIComponent(match[1])
+      if (decoded && decoded !== 'not-required') return decoded
+    }
+  } catch {}
+
+  // 3. LocalStorage kmitlai-workspace-token
+  const localToken = read(window.localStorage, TOKEN_KEY)
+  if (localToken && localToken !== 'not-required') return localToken
+
+  // 4. auth-storage in localStorage
+  try {
+    const authStorage = window.localStorage.getItem('auth-storage')
+    if (authStorage) {
+      const parsed = JSON.parse(authStorage)
+      const token = parsed?.state?.token
+      if (token && token !== 'not-required') return token
+    }
+  } catch {}
+
+  return null
 }
 
 export function clearToken() {
-  if (isBrowser()) write(window.localStorage, TOKEN_KEY, null)
+  if (isBrowser()) {
+    write(window.localStorage, TOKEN_KEY, null)
+    try {
+      document.cookie = 'kmitl_session_token=; path=/; max-age=0; SameSite=Lax'
+    } catch {}
+  }
 }
 
 /** Only a URL on this same host (any port) may become the back target. */
@@ -64,7 +102,13 @@ export function captureLaunchParams() {
   const params = new URL(window.location.href).searchParams
 
   const token = params.get('token')
-  if (token) write(window.localStorage, TOKEN_KEY, token)
+  if (token && token !== 'not-required') {
+    write(window.localStorage, TOKEN_KEY, token)
+    try {
+      const maxAge = 60 * 60 * 24 * 7
+      document.cookie = `kmitl_session_token=${encodeURIComponent(token)}; path=/; max-age=${maxAge}; SameSite=Lax`
+    } catch {}
+  }
 
   const back = params.get('return')
   if (back !== null && sameHost(back)) {
@@ -83,15 +127,16 @@ export function captureLaunchParams() {
 
 /** Origin of the main app: learned from the last hand-off, else inferred. */
 export function workspaceOrigin() {
-  const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL
+  const fromEnv = process.env.NEXT_PUBLIC_WORKSPACE_URL || process.env.NEXT_PUBLIC_COMMUNITY_URL
   if (fromEnv) return fromEnv.replace(/\/$/, '')
-  if (!isBrowser()) return 'http://localhost:3000'
+  if (!isBrowser()) return 'http://localhost:3500'
   const stored = read(window.localStorage, ORIGIN_KEY)
   if (stored && sameHost(stored)) return stored
   const { protocol, hostname, port, origin } = window.location
-  // Standalone port 3002 -> the main app is on 3000; behind the proxy both
-  // share one origin.
-  if (port === '3002') return `${protocol}//${hostname}:3000`
+  // Standalone port 3000, 3001, 3002 -> the main app is on 3500
+  if (port === '3000' || port === '3001' || port === '3002') {
+    return `${protocol}//${hostname}:3500`
+  }
   return origin
 }
 

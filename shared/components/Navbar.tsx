@@ -303,7 +303,12 @@ export function Navbar({
       setIsWalletLoading(true)
       try {
         const root = workspaceUrl || getWorkspaceUrl()
-        const url = `${root}/api/community/wallet?limit=30`
+        let url = `${root}/api/community/wallet?limit=30`
+        if (typeof window !== 'undefined') {
+          if (window.location.port === '3002' || window.location.pathname.startsWith('/roadmap')) {
+            url = '/roadmap/api/ws/community/wallet?limit=30'
+          }
+        }
         const res = await fetch(url, {
           headers: { Authorization: `Bearer ${t}` },
           cache: 'no-store',
@@ -399,8 +404,14 @@ export function Navbar({
     if (token && token !== 'not-required') {
       const fetchFreshProfile = async () => {
         try {
-          const isQuizPort = window.location.port === '3001' || window.location.pathname.startsWith('/quiz')
-          const targetUrl = isQuizPort ? '/quiz/api/me' : `${getWorkspaceUrl()}/api/users/me`
+          let targetUrl = `${getWorkspaceUrl()}/api/users/me`
+          if (typeof window !== 'undefined') {
+            if (window.location.port === '3001' || window.location.pathname.startsWith('/quiz')) {
+              targetUrl = '/quiz/api/me'
+            } else if (window.location.port === '3002' || window.location.pathname.startsWith('/roadmap')) {
+              targetUrl = '/roadmap/api/ws/users/me'
+            }
+          }
           const res = await fetch(targetUrl, {
             headers: { Authorization: `Bearer ${token}` },
             cache: 'no-store',
@@ -574,6 +585,8 @@ export function Navbar({
         background: 'linear-gradient(to right, #420A2B, #6B0F3F, #8C1453)',
         borderBottom: '2.5px solid #E91E63',
         color: '#ffffff',
+        minHeight: '64px',
+        height: '64px',
       }}
       className={`sticky top-0 z-[100] w-full bg-gradient-to-r from-[#420A2B] via-[#6B0F3F] to-[#8C1453] text-white shadow-md shadow-black/10 select-none ${className}`}
     >
@@ -622,21 +635,28 @@ export function Navbar({
         </svg>
       </div>
 
-      <div className="relative z-[100] mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6">
-        {/* Mobile menu trigger */}
-        <button
-          type="button"
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg p-0 text-white hover:bg-white/15 hover:text-white lg:hidden transition-colors cursor-pointer"
-          onClick={handleOpenMenu}
-          aria-label="เปิดเมนู"
-        >
-          <Menu className="h-5 w-5" />
-        </button>
+      <div
+        className="relative z-[100] mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6"
+        style={{ height: '64px', minHeight: '64px', display: 'flex', alignItems: 'center' }}
+      >
+        {/* Mobile menu trigger - only rendered when onOpenMenu handler is provided */}
+        {onOpenMenu && (
+          <button
+            type="button"
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg p-0 text-white hover:bg-white/15 hover:text-white lg:hidden transition-colors cursor-pointer bg-transparent border-0"
+            style={{ background: 'transparent', border: 'none' }}
+            onClick={handleOpenMenu}
+            aria-label="เปิดเมนู"
+          >
+            <Menu size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
+          </button>
+        )}
 
         {/* Brand logo & tagline */}
         <a
           href={buildCrossUrl(`${workspaceUrl}/community`)}
-          className="flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-pink-300"
+          className="flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-white/10 no-underline"
+          style={{ textDecoration: 'none' }}
         >
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-white/15 p-1 ring-1 ring-white/25 shadow-xs backdrop-blur-xs">
             {logoSrc ? (
@@ -662,7 +682,7 @@ export function Navbar({
             <span className="text-base font-bold tracking-tight text-white drop-shadow-xs">
               nungsue
             </span>
-            <span className="text-[10px] font-medium text-pink-200/90">
+            <span className="text-[10px] font-medium text-pink-200/90" style={{ color: 'rgba(251, 207, 232, 0.9)' }}>
               SIET learning community
             </span>
           </span>
@@ -674,14 +694,42 @@ export function Navbar({
           className="mx-1 min-w-[48px] w-auto max-w-xl flex-1 sm:mx-auto"
           role="search"
         >
-          <div className="relative w-full flex items-center">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pink-200/90 transition-colors z-10" />
+          <div className="relative w-full flex items-center" style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pink-200/90 transition-colors z-10 shrink-0"
+              style={{
+                position: 'absolute',
+                left: '14px',
+                top: '50%',
+                transform: 'translateY(-50%)',
+                width: '16px',
+                height: '16px',
+                color: 'rgba(251, 207, 232, 0.9)',
+                pointerEvents: 'none',
+                zIndex: 10,
+                flexShrink: 0,
+              }}
+            />
             <input
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder={searchPlaceholder}
               className="h-9 w-full cursor-text rounded-full border border-white/20 bg-white/10 pl-9 pr-10 text-xs text-white placeholder:text-pink-100/60 backdrop-blur-xs transition-all duration-200 hover:border-white/35 hover:bg-white/15 focus:border-[#E91E63] focus:bg-white/20 focus:ring-2 focus:ring-[#E91E63]/60 focus-visible:border-[#E91E63] focus-visible:ring-2 focus-visible:ring-[#E91E63]/60 sm:text-sm focus:outline-none"
+              style={{
+                height: '36px',
+                width: '100%',
+                borderRadius: '9999px',
+                paddingLeft: '38px',
+                paddingRight: '38px',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#ffffff',
+                outline: 'none',
+                boxSizing: 'border-box',
+                fontSize: '13px',
+              }}
             />
             {draft && (
               <button
@@ -714,11 +762,23 @@ export function Navbar({
                   if (onPointsClick) onPointsClick()
                 }}
                 className="group relative overflow-hidden flex items-center gap-1.5 rounded-full border border-amber-300/90 bg-gradient-to-r from-amber-50 via-amber-100/60 to-orange-50 px-3 py-1.5 text-amber-950 shadow-xs transition-all duration-200 hover:border-amber-400 hover:shadow-sm hover:scale-[1.03] active:scale-95 max-sm:gap-1 max-sm:px-2.5 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-orange-950/30 dark:text-amber-200 dark:border-amber-600 cursor-pointer"
+                style={{
+                  borderRadius: '9999px',
+                  border: '1px solid rgba(252, 211, 77, 0.9)',
+                  background: 'linear-gradient(to right, #fffbeb, #fef3c7, #fff7ed)',
+                  color: '#451a03',
+                  display: 'flex',
+                  alignItems: 'center',
+                  padding: '6px 12px',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  cursor: 'pointer',
+                }}
                 aria-label="กระเป๋าแต้ม"
               >
                 {/* Kinetic Shimmer Wave */}
                 <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full motion-reduce:hidden" />
-                <Coins className="h-4 w-4 text-amber-600 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110 dark:text-amber-400" />
+                <Coins size={16} className="h-4 w-4 text-amber-600 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110 dark:text-amber-400" style={{ width: 16, height: 16, color: '#d97706', flexShrink: 0 }} />
                 {isExempt ? (
                   <span className="flex items-center gap-1 text-xs font-semibold">
                     <InfinityIcon className="h-3.5 w-3.5" /> <span className="max-sm:hidden">ไม่จำกัด</span>
@@ -889,9 +949,10 @@ export function Navbar({
                 if (onOpenNotifications) onOpenNotifications()
               }}
               className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15 transition-colors cursor-pointer relative"
+              style={{ background: 'transparent', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
               aria-label="การแจ้งเตือน"
             >
-              <Bell className="h-5 w-5" />
+              <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
               {unreadCount > 0 && (
                 <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
                   {unreadCount > 9 ? '9+' : unreadCount}
@@ -928,24 +989,58 @@ export function Navbar({
                   setIsNotificationsOpen(false)
                 }}
                 className="flex h-9 shrink-0 items-center gap-2 rounded-full px-1.5 text-white hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-pink-300 cursor-pointer"
+                style={{ background: 'transparent', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
               >
                 {/* Avatar with initial or photo */}
-                <div className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-[#6B0F3F] font-bold text-xs ring-1.5 ring-white/50 shadow-xs">
+                <div
+                  className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-[#6B0F3F] font-bold text-xs ring-1.5 ring-white/50 shadow-xs"
+                  style={{
+                    width: '28px',
+                    height: '28px',
+                    borderRadius: '9999px',
+                    backgroundColor: '#fce7f3',
+                    color: '#6B0F3F',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontWeight: 700,
+                    fontSize: '12px',
+                    flexShrink: 0,
+                    border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                  }}
+                >
                   {user.avatar_url ? (
                     <img
                       src={user.avatar_url}
                       alt={activeName}
                       className="h-full w-full object-cover"
+                      style={{ width: '100%', height: '100%', objectFit: 'cover' }}
                     />
                   ) : (
-                    <span>{activeInitials}</span>
+                    <span style={{ color: '#6B0F3F', fontWeight: 700, lineHeight: 1 }}>{activeInitials}</span>
                   )}
                 </div>
-                <span className="hidden max-w-[120px] truncate text-sm font-semibold text-white drop-shadow-xs md:inline">
+                <span
+                  className="max-w-[140px] truncate text-sm font-semibold text-white drop-shadow-xs"
+                  style={{
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '14px',
+                    maxWidth: '140px',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    display: 'inline-block',
+                  }}
+                >
                   {activeName}
                 </span>
-                <ChevronDown className="hidden h-3.5 w-3.5 text-pink-200 md:inline" />
+                <ChevronDown
+                  size={14}
+                  className="h-3.5 w-3.5 text-pink-200 shrink-0"
+                  style={{ width: '14px', height: '14px', color: '#fbcfe8', flexShrink: 0 }}
+                />
               </button>
 
               {/* Profile Dropdown Menu */}

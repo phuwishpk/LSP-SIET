@@ -1,6 +1,7 @@
 @import "tailwindcss";
-@source "../shared/**/*.{js,ts,jsx,tsx}";
-@source "./shared/**/*.{js,ts,jsx,tsx}";
+@config "../tailwind.config.js";
+@source "../../shared/**/*.{js,ts,jsx,tsx}";
+@source "../**/*.{js,ts,jsx,tsx}";
 
 :root {
   --background: #f8fafc;
