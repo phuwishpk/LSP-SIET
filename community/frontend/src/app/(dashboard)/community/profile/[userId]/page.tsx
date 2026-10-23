@@ -183,7 +183,7 @@ export default function UserProfilePage() {
   }
 
   return (
-    <div className="community-theme min-h-full bg-[#FDF7F8] text-foreground dark:bg-background">
+    <div className="community-theme min-h-full w-full overflow-y-auto bg-[#FDF7F8] text-foreground dark:bg-background">
 
       <main className="mx-auto w-full max-w-[1040px] space-y-5 px-3 py-5 sm:px-6 sm:py-8">
         <Card className="overflow-hidden border-pink-100/80 shadow-sm dark:border-border">
