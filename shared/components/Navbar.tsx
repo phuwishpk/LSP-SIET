@@ -689,7 +689,7 @@ export function Navbar({
           <div className="relative w-full flex items-center" style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
             <Search
               size={16}
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-pink-200/90 transition-colors z-10 shrink-0"
+              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 text-pink-200/90 transition-colors z-10 shrink-0"
               style={{
                 position: 'absolute',
                 left: '14px',
