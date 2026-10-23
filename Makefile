@@ -110,12 +110,14 @@ migrate-split:  ## One-time: move KMITL migration records to the SIET track (CON
 
 # The SIET frontend packages (siet-platform/frontend, kmitl-rag/frontend,
 # community/frontend) are compiled into open-notebook's Next.js app and resolve
-# react & co. through its node_modules, via a symlink in each package.
+# react & co. through its node_modules, via a symlink in each package. So does
+# shared/ (components imported as @shared/*, e.g. the mascot).
 SIET_FRONTENDS = siet-platform kmitl-rag community
 
 frontend-links:  ## Link each SIET frontend package to open-notebook/frontend/node_modules
 	@for d in $(SIET_FRONTENDS); do ln -sfn ../../open-notebook/frontend/node_modules $$d/frontend/node_modules; done
-	@echo "linked: $(SIET_FRONTENDS)"
+	@ln -sfn ../open-notebook/frontend/node_modules shared/node_modules
+	@echo "linked: $(SIET_FRONTENDS) shared"
 
 test-frontend: frontend-links  ## Typecheck and run frontend tests (open-notebook + SIET packages)
 	cd open-notebook/frontend && npx tsc --noEmit -p . && npx vitest run $(ARGS)

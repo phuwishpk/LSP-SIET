@@ -80,10 +80,12 @@ COPY open-notebook/ /app/
 COPY siet-platform/ /siet-platform/
 COPY kmitl-rag/ /kmitl-rag/
 COPY community/ /community/
+COPY shared/ /shared/
 
-# SIET frontend packages are compiled into this app (tsconfig paths @siet/*) and
-# resolve their imports through the app's node_modules.
-RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done
+# SIET frontend packages are compiled into this app (tsconfig paths @siet/*,
+# @shared/*) and resolve their imports through the app's node_modules.
+RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done \
+ && ln -sfn /app/frontend/node_modules /shared/node_modules
 
 WORKDIR /app/frontend
 RUN npm run build
