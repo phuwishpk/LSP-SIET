@@ -76,17 +76,17 @@ function NavbarSearch() {
       className="relative mx-1 min-w-[48px] w-auto max-w-xl flex-1 sm:mx-auto"
       role="search"
     >
-      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground transition-colors" />
+      <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/65 transition-colors" />
       <Input
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
-        className="h-9 w-full cursor-text rounded-full border border-border/80 bg-muted/60 pl-9 pr-14 text-xs transition-all duration-200 hover:border-pink-300 hover:bg-slate-100/90 focus:border-pink-400 focus:bg-background focus:ring-2 focus:ring-pink-300/50 sm:text-sm dark:border-zinc-800 dark:bg-zinc-800/60 dark:hover:border-pink-500/40 dark:hover:bg-zinc-800/90 dark:focus:border-pink-400 dark:focus:bg-zinc-900 dark:focus:ring-pink-500/30"
+        className="h-9 w-full cursor-text rounded-full border border-white/20 bg-white/10 pl-9 pr-14 text-xs text-white placeholder:text-white/60 backdrop-blur-xs transition-all duration-200 hover:border-white/35 hover:bg-white/15 focus:border-[#E91E63] focus:bg-white/20 focus:ring-2 focus:ring-[#E91E63]/60 focus-visible:border-[#E91E63] focus-visible:ring-2 focus-visible:ring-[#E91E63]/60 sm:text-sm"
       />
       {draft && (
         <button
           type="button"
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground transition-colors hover:text-foreground"
+          className="absolute right-3 top-1/2 -translate-y-1/2 text-xs font-medium text-white/70 transition-colors hover:text-white"
           onClick={handleClear}
           aria-label="ล้างการค้นหา"
         >
@@ -113,16 +113,64 @@ export function AppNavbar({ onOpenMenu, className }: AppNavbarProps) {
   return (
     <header
       className={cn(
-        'sticky top-0 z-40 w-full border-b border-border/80 bg-white/95 backdrop-blur-md supports-[backdrop-filter]:bg-white/80 dark:border-zinc-800 dark:bg-zinc-900/95 dark:supports-[backdrop-filter]:bg-zinc-900/80',
+        'sticky top-0 z-40 w-full relative border-b-[2.5px] border-[#E91E63] bg-gradient-to-r from-[#420A2B] via-[#6B0F3F] to-[#8C1453] text-white shadow-md shadow-black/10',
         className
       )}
     >
-      <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6">
+      {/* Geometric Overlay Pattern (Journal of Industrial Education / JIE inspired) */}
+      <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-18">
+        <svg
+          className="absolute inset-0 h-full w-full"
+          xmlns="http://www.w3.org/2000/svg"
+          preserveAspectRatio="none"
+          viewBox="0 0 1440 64"
+          fill="none"
+          aria-hidden="true"
+        >
+          <defs>
+            <pattern
+              id="jie-geometric-pattern"
+              width="56"
+              height="56"
+              patternUnits="userSpaceOnUse"
+            >
+              {/* Diamond & triangle line mesh */}
+              <path
+                d="M0 28 L28 0 L56 28 L28 56 Z"
+                stroke="rgba(255,255,255,0.35)"
+                strokeWidth="0.8"
+                fill="none"
+              />
+              <path
+                d="M0 0 L56 56 M56 0 L0 56"
+                stroke="rgba(255,255,255,0.18)"
+                strokeWidth="0.5"
+              />
+              <polygon
+                points="28,0 56,28 28,28"
+                fill="rgba(255,255,255,0.06)"
+              />
+              <polygon
+                points="0,28 28,56 0,56"
+                fill="rgba(255,255,255,0.04)"
+              />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#jie-geometric-pattern)" />
+
+          {/* Accent geometric polygons */}
+          <polygon points="0,0 150,0 75,64 0,64" fill="rgba(255,255,255,0.05)" />
+          <polygon points="1050,0 1200,0 1275,64 1125,64" fill="rgba(255,255,255,0.04)" />
+          <polygon points="1320,0 1440,0 1440,64 1365,64" fill="rgba(255,255,255,0.06)" />
+        </svg>
+      </div>
+
+      <div className="relative z-10 mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6">
         {/* Mobile menu trigger */}
         <Button
           variant="ghost"
           size="sm"
-          className="h-9 w-9 shrink-0 p-0 lg:hidden"
+          className="h-9 w-9 shrink-0 p-0 text-white hover:bg-white/15 hover:text-white lg:hidden"
           onClick={handleOpenMenu}
           aria-label="เปิดเมนู"
         >
@@ -132,14 +180,16 @@ export function AppNavbar({ onOpenMenu, className }: AppNavbarProps) {
         {/* Brand logo & tagline */}
         <Link
           href="/community"
-          className="flex shrink-0 items-center gap-2 rounded-lg px-1 py-1 text-left transition-colors hover:bg-accent focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-pink-400"
+          className="flex shrink-0 items-center gap-2 rounded-lg px-1.5 py-1 text-left transition-colors hover:bg-white/10 focus-visible:outline-hidden focus-visible:ring-2 focus-visible:ring-pink-300"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-rose-600 via-rose-500 to-pink-500 text-sm font-black text-white shadow-sm shadow-rose-500/20">
+          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-[#E91E63] via-rose-500 to-amber-300 text-sm font-black text-white shadow-sm ring-1 ring-white/30">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">
-            <span className="text-sm font-bold tracking-tight">SIET Space</span>
-            <span className="text-[10px] font-medium text-rose-600/80 dark:text-rose-400">
+            <span className="text-sm font-bold tracking-tight text-white drop-shadow-xs">
+              SIET Space
+            </span>
+            <span className="text-[10px] font-medium text-pink-200/90">
               KMITL learning community
             </span>
           </span>
@@ -155,36 +205,41 @@ export function AppNavbar({ onOpenMenu, className }: AppNavbarProps) {
         </Suspense>
 
         {/* Right side items */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-1.5 [&_button]:shrink-0">
-          <PointsWallet />
-          <NotificationsMenu
-            onOpenPost={(postId) => router.push(`/community?post=${postId}`)}
-          />
+        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2 [&_button]:shrink-0">
+          <div className="[&_button]:border-amber-300/80 [&_button]:shadow-xs">
+            <PointsWallet />
+          </div>
+
+          <div className="[&_button]:text-white [&_button]:hover:bg-white/15 [&_button]:hover:text-white">
+            <NotificationsMenu
+              onOpenPost={(postId) => router.push(`/community?post=${postId}`)}
+            />
+          </div>
 
           {/* User profile dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-9 shrink-0 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
+                className="h-9 shrink-0 gap-2 rounded-full px-1.5 text-white hover:bg-white/15 hover:text-white focus-visible:ring-2 focus-visible:ring-pink-300"
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
               >
                 <Avatar
                   size="sm"
                   src={user?.avatar_url}
                   name={displayName(user)}
-                  className="bg-pink-200 text-pink-800"
+                  className="bg-pink-100 text-[#6B0F3F] font-bold ring-1.5 ring-white/50"
                 />
-                <span className="hidden max-w-[120px] truncate text-sm font-medium md:inline">
+                <span className="hidden max-w-[120px] truncate text-sm font-semibold text-white drop-shadow-xs md:inline">
                   {displayName(user)}
                 </span>
-                <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground md:inline" />
+                <ChevronDown className="hidden h-3.5 w-3.5 text-pink-200 md:inline" />
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <DropdownMenuLabel className="px-2.5 pb-3 pt-2">
                 <div className="flex items-center gap-3">
@@ -288,4 +343,3 @@ export function AppNavbar({ onOpenMenu, className }: AppNavbarProps) {
     </header>
   )
 }
-
