@@ -92,16 +92,23 @@ def login(username: str, password: str) -> dict:
 
 def accounts() -> None:
     admin_pw, pw = os.environ["IT46_ADMIN_PW"], os.environ["IT46_PW"]
-    # The first admin cannot be made through the API, so create it with the app's own code.
-    code = ("import asyncio, os\nfrom siet_platform.users import create, UserAlreadyExists\n"
-            "async def main():\n    try:\n        await create('it46.admin', os.environ['PW'], display_name='IT46 Test Admin', role='admin')\n"
-            "    except UserAlreadyExists:\n        pass\nasyncio.run(main())\n")
-    subprocess.run(["docker", "exec", "-e", f"PW={admin_pw}", "siet46-app", "/app/.venv/bin/python", "-c", code], capture_output=True)
+    # The first admin cannot be made through the API, so create it with the app's own code; an
+    # existing it46.* account gets the password from this run (earlier passwords are not kept).
+    code = ("import asyncio, os\nfrom siet_platform.users import create, get_by_username, update_password, UserAlreadyExists\n"
+            "async def main():\n"
+            "    try:\n        await create('it46.admin', os.environ['ADMIN_PW'], display_name='IT46 Test Admin', role='admin')\n"
+            "    except UserAlreadyExists:\n        await update_password((await get_by_username('it46.admin')).id, os.environ['ADMIN_PW'])\n"
+            "    for name in ('it46.teacher', 'it46.student1', 'it46.student2', 'it46.student3'):\n"
+            "        user = await get_by_username(name)\n"
+            "        if user:\n            await update_password(user.id, os.environ['PW'])\n"
+            "asyncio.run(main())\n")
+    subprocess.run(["docker", "exec", "-e", f"ADMIN_PW={admin_pw}", "-e", f"PW={pw}", "siet46-app", "/app/.venv/bin/python", "-c", code],
+                   capture_output=True)
     h = login("it46.admin", admin_pw)
     for name, role, disp in [("it46.teacher", "teacher", "IT46 ผู้สอนทดสอบ"), ("it46.student1", "student", "IT46 นักศึกษาทดสอบ 1"),
                              ("it46.student2", "student", "IT46 นักศึกษาทดสอบ 2"), ("it46.student3", "student", "IT46 นักศึกษาทดสอบ 3")]:
         r = requests.post(f"{API}/api/admin/users", headers=h, json={"username": name, "password": pw, "display_name": disp, "role": role}, timeout=30)
-        print(name, r.status_code)
+        print(name, "created" if r.status_code == 201 else "exists (password reset)" if r.status_code == 409 else r.status_code)
 
 
 def corpus() -> None:
