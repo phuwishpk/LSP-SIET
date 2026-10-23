@@ -219,6 +219,8 @@ def test_members_report_what_they_can_see(client, sign_in, monkeypatch):
 
 def test_room_owner_settles_reports_in_own_room_only(client, sign_in, monkeypatch):
     monkeypatch.setattr(repo, "get_course", AsyncMock(return_value={"id": 5, "created_by": 7, "status": "active"}))
+    # nobody else manages room 5 (the TA lookup would otherwise query the real database)
+    monkeypatch.setattr(repo, "member_role", AsyncMock(return_value=None))
     monkeypatch.setattr(moderation, "get_report", AsyncMock(return_value=_report()))
     hide = AsyncMock(); monkeypatch.setattr(repo, "soft_delete_post", hide)
     resolve = AsyncMock(); monkeypatch.setattr(moderation, "resolve_report", resolve)

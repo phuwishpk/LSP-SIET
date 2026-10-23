@@ -1,0 +1,14 @@
+$ cd open-notebook && PYTHON_DOTENV_DISABLED=1 python -m pytest -q --continue-on-collection-errors \
+    tests ../siet-platform/tests ../kmitl-rag/tests ../community/tests --cov=... --junitxml=...
+...
+TOTAL                                                                            18741   8932    52%
+=========================== short test summary info ============================
+FAILED tests/test_auth.py::TestNonAsciiPassword::test_accepts_utf8_password
+FAILED tests/test_crud_404.py::test_delete_notebook_missing_returns_404
+FAILED tests/test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_link_source_persists_url_asset
+FAILED tests/test_podcast_audio_containment.py::TestStreamEndpointRejectsInvalidAudio::test_returns_403_for_legacy_abs
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[podcasts]
+FAILED tests/test_empty_model_reply.py::test_notebook_chat_failed_turn_is_rolled_back_and_retry_is_clean
+FAILED test_moderation.py::test_room_owner_settles_reports_in_own_room_only
+... (รวม 79 รายการ)
+79 failed, 1288 passed, 6 warnings in 22.74s

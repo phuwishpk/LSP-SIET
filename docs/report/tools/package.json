@@ -1,0 +1,10 @@
+{
+  "name": "siet-report-tools",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "docx": "9.5.1",
+    "mermaid": "11.4.1",
+    "playwright-core": "1.56.1"
+  }
+}

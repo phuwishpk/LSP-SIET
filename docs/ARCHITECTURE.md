@@ -168,6 +168,10 @@ SIET Space เขียน cookie เฉพาะตอนผู้ใช้เ�
 เพราะเมื่อมี SIET Space หลายชุดบนเครื่องเดียว (prod :3000, ชุดทดสอบ :18502) ทุกชุดใช้ cookie ตัวเดียวกัน
 โค้ดฝั่งแอป: `ai-roadmap-generator/src/lib/theme.js`, `My-ai-quiz/app/lib/theme.ts` (ฟังก์ชันเดียวกัน ใช้ทั้งเป็น inline script ก่อน paint และตอน runtime)
 
+**การเชื่อมกับระบบ:** ทั้งสองแอปรับ JWT ทาง `?token=` (เก็บใน localStorage `kmitlai-workspace-token`) และเรียก API ผ่านเซิร์ฟเวอร์ของตัวเองที่อนุญาตเฉพาะ `community/*` และ `users/me` (`/roadmap/api/ws/*`, `/quiz/api/ws/*`)
+แอป AI Quiz สร้างข้อสอบผ่าน `/quiz/api/generate-quiz` → `POST /api/community/study/quiz` จึงใช้โมเดลของระบบ (Gemini) คลังความรู้ (RAG, ตัวเลือกแหล่งความรู้ชุดเดียวกับ Roadmap) และแต้มของระบบ (`quiz_generate`)
+รองรับข้อสอบ ปรนัย / เติมคำ / จับคู่ / ผสม และระดับ ง่าย / ปานกลาง / ยาก — ฟีดและหน้า `/features` ใช้เฉพาะข้อปรนัย (`_quiz_snapshot`)
+
 ## 5. migration ของ SurrealDB
 
 migration ของ open-notebook (1, 2, 3 ...) อยู่ใน `_sbl_migrations` ของ KMITL อยู่ใน `_siet_migrations`

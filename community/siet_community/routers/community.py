@@ -15,7 +15,7 @@ import time
 import uuid
 from collections import deque
 from datetime import date, datetime, timedelta
-from typing import Any, Deque, Dict, List, Literal, Optional
+from typing import Any, Deque, Dict, List, Literal, Optional, Union
 
 from fastapi import (
     APIRouter,
@@ -220,9 +220,15 @@ class StudyQuizBody(BaseModel):
     topic: str = Field(..., min_length=1, max_length=500)
     question_count: int = Field(default=10, ge=1, le=20)
     language: str = "th"
-    scope: Literal["auto", "course", "personal", "document"] = "auto"
+    difficulty: Literal["easy", "medium", "hard"] = "medium"
+    # "mixed" mixes multiple choice, fill in the blank and matching.
+    question_type: Literal["mcq", "fill", "matching", "mixed"] = "mcq"
+    # Same knowledge picker as the roadmap: "none" = no library, the model only.
+    scope: Literal["auto", "course", "personal", "document", "notebook", "none"] = "auto"
     course_id: Optional[int] = None
-    document_ids: List[int] = Field(default_factory=list)
+    document_ids: List[int] = Field(default_factory=list, max_length=20)
+    notebook_ids: List[str] = Field(default_factory=list, max_length=20)
+    source_ids: List[str] = Field(default_factory=list, max_length=20)
 
 
 class StudyRoadmapBody(BaseModel):
@@ -830,12 +836,7 @@ async def create_post(
         try:
             if embed_type == "quiz":
                 session = await QuizSession.get_for_owner(session_id=embed_id, owner_id=_owner(user))
-                snapshot = {
-                    "topic": session.topic,
-                    "language": session.language,
-                    "question_count": session.question_count,
-                    "questions": session.questions,
-                }
+                snapshot = _quiz_snapshot(session)
                 post_type = "quiz"
                 if not title:
                     title = session.topic
@@ -1189,6 +1190,28 @@ async def reshare(post_id: int, user: User = Depends(get_current_user)) -> Dict[
 # ---------------------------------------------------------------------------
 
 
+def _quiz_snapshot(session: QuizSession) -> Dict[str, Any]:
+    """
+    What a quiz post keeps of the quiz: its multiple-choice questions.
+
+    The feed plays and grades only multiple choice (the answer is one option's
+    text), so fill-in-the-blank and matching questions - made in the AI Quiz
+    app - stay out of it.
+    """
+    questions = [q for q in session.questions or [] if (q.get("type") or "mcq") == "mcq"]
+    if not questions:
+        raise HTTPException(
+            status_code=400,
+            detail="แบบทดสอบนี้มีแต่ข้อเติมคำ/จับคู่ ซึ่งยังแชร์ลงฟีดไม่ได้ (ฟีดเล่นได้เฉพาะข้อปรนัย)",
+        )
+    return {
+        "topic": session.topic,
+        "language": session.language,
+        "question_count": len(questions),
+        "questions": questions,
+    }
+
+
 def _quiz_questions(post: Dict[str, Any]) -> List[Dict[str, Any]]:
     if post.get("embed_type") != "quiz" or not post.get("embed_snapshot"):
         raise HTTPException(status_code=400, detail="This post has no quiz")
@@ -1481,7 +1504,7 @@ async def _expansion_scope(user: User, session: RoadmapSession) -> tuple[List[st
             notebook_ids=saved.get("notebook_ids") or [],
             source_ids=saved.get("source_ids") or [],
         )
-        notebook_ids, source_ids, _label = await _roadmap_scope(user, body)
+        notebook_ids, source_ids, _label = await _study_scope(user, body)
         return notebook_ids, source_ids
     except Exception as exc:
         # A deleted document, a room the user left, settings from an older
@@ -2099,9 +2122,7 @@ async def study_quiz(
     from siet_platform.features import service as feature_service
 
     uid = _uid(user)
-    notebook_ids, label, _fallback = await _resolve_scope(
-        user, body.scope, body.course_id, body.document_ids
-    )
+    notebook_ids, source_ids, label = await _study_scope(user, body)
     try:
         charge = await points.charge(user, "quiz_generate", ref_type="quiz_generate")
     except points.InsufficientPoints as exc:
@@ -2116,7 +2137,13 @@ async def study_quiz(
             language=body.language,
             model_id=None,
             report=report,
-            notebook_ids=notebook_ids or None,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            # The scope is resolved: no notebooks means no library, never the
+            # whole workspace.
+            scoped=True,
+            difficulty=body.difficulty,
+            question_type=body.question_type,
         )
     except (InvalidInputError, ConfigurationError) as exc:
         await points.refund(charge, "quiz generation failed")
@@ -2139,6 +2166,8 @@ async def study_quiz(
     return {
         "session_id": session.id,
         "topic": session.topic,
+        "difficulty": body.difficulty,
+        "question_type": body.question_type,
         "questions": session.questions,
         "scope_label": label,
         "grounded": bool(notebook_ids),
@@ -2148,14 +2177,16 @@ async def study_quiz(
     }
 
 
-async def _roadmap_scope(user: User, body: StudyRoadmapBody) -> tuple[List[str], Optional[List[str]], str]:
-    """The knowledge a roadmap request may read: ``(notebook_ids, source_ids, label)``."""
+async def _study_scope(
+    user: User, body: Union[StudyQuizBody, StudyRoadmapBody]
+) -> tuple[List[str], Optional[List[str]], str]:
+    """The knowledge a quiz or roadmap request may read: ``(notebook_ids, source_ids, label)``."""
     if body.scope == "none":
         return [], None, "ไม่ใช้คลังความรู้"
     if body.scope in ("document", "notebook") and not (
         body.document_ids or body.notebook_ids or body.source_ids
     ):
-        raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อนสร้าง Roadmap")
+        raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อน")
     pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
     if pick is not None:
         return pick
@@ -2176,7 +2207,7 @@ async def study_roadmap(
     from siet_community import roadmap_plan
 
     uid = _uid(user)
-    notebook_ids, source_ids, label = await _roadmap_scope(user, body)
+    notebook_ids, source_ids, label = await _study_scope(user, body)
     try:
         charge = await points.charge(user, "roadmap_generate", ref_type="roadmap_generate")
     except points.InsufficientPoints as exc:

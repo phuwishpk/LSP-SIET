@@ -7,9 +7,16 @@ export interface QuizOptionPayload {
 
 export interface QuizQuestionPayload {
   id: number
+  /** Missing on sets made before other types existed: those are all "mcq". */
+  type?: 'mcq' | 'fill' | 'matching'
   question: string
+  /** Empty for "fill" and "matching". */
   options: QuizOptionPayload[]
   correct_answer: string
+  /** "fill": other spellings that count as correct. */
+  acceptable_answers?: string[]
+  /** "matching": the pairs to match. */
+  pairs?: { left: string; right: string }[]
   explanation: string
 }
 

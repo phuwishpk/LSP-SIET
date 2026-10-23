@@ -1,0 +1,21 @@
+$ docker exec -i kmitlai-surrealdb-1 /surreal sql --endpoint http://localhost:8000 --user root --pass "$SURREAL_PASSWORD" \
+    --ns open_notebook --db open_notebook --pretty <<'SQL'
+SELECT array::len(embedding) AS dimension, count() AS chunks FROM source_embedding GROUP BY dimension;
+SELECT name, provider FROM model WHERE type = 'embedding';
+SQL
+-- Query 1 (execution time: 177.872689ms)
+[
+	{
+		chunks: 835,
+		dimension: 3072
+	}
+]
+
+-- Query 1 (execution time: 1.552441ms)
+[
+	{
+		name: 'gemini-embedding-001',
+		provider: 'google'
+	}
+]
+

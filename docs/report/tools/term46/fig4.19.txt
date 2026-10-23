@@ -1,0 +1,40 @@
+$ curl -s http://localhost:25055/openapi.json -o results/openapi.json
+$ python3 api_contract.py
+ "openapi_operations": 237,
+ "client_call_sites": 257,
+ "client_unique_calls": 232,
+ "routes_used_by_frontend": 217,
+ "routes_without_caller": 20,
+ "broken_unique_calls": 15,
+
+per module (routes / used by a screen):
+  /api/admin                41 /  41
+  /api/auth                  4 /   3
+  /api/capabilities          1 /   1
+  /api/chat                 16 /  16
+  /api/commands              5 /   1
+  /api/community            66 /  66
+  /api/config               11 /   1
+  /api/credentials          14 /  13
+  /api/embed                 1 /   1
+  /api/embeddings            2 /   2
+  /api/features              8 /   8
+  /api/insights              3 /   2
+  /api/languages             1 /   1
+  /api/models               13 /  13
+  /api/notebooks             8 /   8
+  /api/notes                 5 /   5
+  /api/providers             1 /   1
+  /api/recently-viewed       1 /   1
+  /api/search                4 /   2
+  /api/settings              2 /   2
+  /api/sources              17 /  16
+  /api/transformations       8 /   8
+  /api/users                 5 /   5
+
+calls with no matching route:
+  GET    /api/models/{p}                method mismatch lib/api/models.ts:22
+  GET    /api/podcasts/episodes         no such route   lib/api/podcasts.ts:35
+  DELETE /api/podcasts/episodes/{p}     no such route   lib/api/podcasts.ts:40
+  POST   /api/podcasts/episodes/{p}/retry no such route   lib/api/podcasts.ts:44
+  ... อีก 11 รายการใน lib/api/podcasts.ts (ปิดด้วย SIET_ENABLE_PODCASTS)

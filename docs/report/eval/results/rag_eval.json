@@ -1,0 +1,3409 @@
+{
+ "generated_at": "2026-10-23 19:12:53",
+ "base": "http://localhost:25055",
+ "course": 1953,
+ "doc_titles": {
+  "syllabus": "IT46-201-ประมวลรายว_ชา.pdf",
+  "intern": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+  "ds": "IT46-DS-Stacks-and-Queues.pdf"
+ },
+ "rows": [
+  {
+   "setting": "course",
+   "id": "S1",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "วิชา IT46-201 มีกี่หน่วยกิต",
+   "status": 200,
+   "seconds": 0.02,
+   "cached": true,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีจำนวน **3 หน่วยกิต** (โดยมีรูปแบบหน่วยกิตคือ 2-2-5) [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.774,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.703,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.678,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.655,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.618,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.605,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S2",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "สอบกลางภาควิชา IT46-201 คิดเป็นกี่เปอร์เซ็นต์ของคะแนนทั้งหมด",
+   "status": 200,
+   "seconds": 2.95,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "การสอบกลางภาคของรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีสัดส่วนคะแนนคิดเป็น **20%** ของคะแนนทั้งหมด [1, 4] โดยรายละเอียดองค์ประกอบการให้คะแนนรวม 100% ของรายวิชานี้มีดังนี้:\n\n* **งานปฏิบัติการรายสัปดาห์:** 20% [1, 4]\n* **โครงงานกลุ่ม:** 30% [1, 4]\n* **สอบกลางภาค:** 20% [1, 4]\n* **สอบปลายภาค:** 25% [1, 4]\n* **การเข้าชั้นเรียน:** 5% [1, 4]\n\nสำหรับการสอบกลางภาคจะครอบคลุมเนื้อหาในสัปดาห์ที่ 1 ถึง 7 [4]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.758,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.716,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.683,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.672,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.661,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.655,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S3",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "โครงงานกลุ่มของวิชาการพัฒนาเว็บแอปพลิเคชันต้องมีสมาชิกกี่คน",
+   "status": 200,
+   "seconds": 2.73,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ข้อมูลจากประมวลรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน ระบุรายละเอียดเกี่ยวกับโครงงานกลุ่ม ดังนี้ครับ\n\n* **จำนวนสมาชิก:** โครงงานกลุ่มต้องทำกลุ่มละ 3-4 คน [2]\n* **ลักษณะงาน:** พัฒนาเว็บแอปพลิเคชันด้วย Next.js และ FastAPI [2]\n* **การส่งมอบงาน:** นำเสนอโครงงานกลุ่มในสัปดาห์ที่ 15 [2]\n* **สัดส่วนคะแนน:** โครงงานกลุ่มมีสัดส่วนคะแนนอยู่ที่ 30% ของคะแนนทั้งหมด [1, 2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.746,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.729,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.644,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.638,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.632,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.622,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S4",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "ถ้าส่งงานช้าในวิชา IT46-201 จะถูกหักคะแนนอย่างไร",
+   "status": 200,
+   "seconds": 2.53,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "เกณฑ์การส่งงานล่าช้าสำหรับรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีรายละเอียดดังนี้:\n\n* **การหักคะแนน:** จะถูกหักคะแนนวันละ 10% ของคะแนนเต็มของงานชิ้นนั้น [2]\n* **กำหนดเวลาการรับงาน:** สามารถส่งงานล่าช้าได้ไม่เกิน 3 วัน หากเกินกำหนดดังกล่าวจะได้รับ 0 คะแนนสำหรับงานชิ้นนั้น [2]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.756,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.753,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.704,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.704,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.699,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.644,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S5",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "ต้องได้คะแนนเท่าไรถึงจะได้เกรด B+ ในวิชา IT46-201",
+   "status": 200,
+   "seconds": 3.66,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "เกณฑ์การให้คะแนนและระดับคะแนนสำหรับรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน กำหนดไว้ดังนี้ [1]:\n\n* **เกรด B+:** นักศึกษาจะต้องได้คะแนนรวมตั้งแต่ **75-79 คะแนน** [1]\n* **องค์ประกอบคะแนนรวม (100%):**\n  * งานปฏิบัติการรายสัปดาห์: 20% [1, 6]\n  * โครงงานกลุ่ม: 30% [1, 6]\n  * สอบกลางภาค: 20% [1, 6]\n  * สอบปลายภาค: 25% [1, 6]\n  * การเข้าชั้นเรียน: 5% [1, 6]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.762,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.698,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.677,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.639,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.635,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.612,
+     "cited": true
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S6",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "วิชา IT46-201 เรียนเรื่อง FastAPI ในสัปดาห์ที่เท่าไร",
+   "status": 200,
+   "seconds": 2.22,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน จะเรียนเรื่องการสร้าง REST API ด้วย FastAPI ในสัปดาห์ที่ 9 [1, 3]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.754,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.743,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.732,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.666,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.653,
+     "cited": false
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.615,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S7",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "อาจารย์ผู้สอนวิชา IT46-201 มีชั่วโมงให้คำปรึกษาวันไหน เวลาเท่าไร",
+   "status": 200,
+   "seconds": 2.65,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "อาจารย์ผู้สอนวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน คือ อาจารย์ศิริพร มณีวงศ์ มีชั่วโมงให้คำปรึกษาทุกวันพุธ เวลา 13:00-15:00 น. หรือสามารถนัดหมายล่วงหน้าทางอีเมลได้ [1]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.772,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.7,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.683,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.659,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.618,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.612,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "S8",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "ต้องเข้าเรียนอย่างน้อยกี่เปอร์เซ็นต์จึงจะมีสิทธิ์สอบปลายภาควิชา IT46-201",
+   "status": 200,
+   "seconds": 2.61,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นักศึกษาจะต้องเข้าชั้นเรียนในรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน ไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมด จึงจะมีสิทธิ์เข้าสอบปลายภาค [1, 2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.778,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.753,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.732,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.712,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.667,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.641,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I1",
+   "type": "fact",
+   "doc": "intern",
+   "question": "การฝึกงานภาคฤดูร้อนต้องฝึกอย่างน้อยกี่ชั่วโมง",
+   "status": 200,
+   "seconds": 2.7,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "การฝึกงานภาคฤดูร้อนสำหรับนักศึกษาหลักสูตรเทคโนโลยีสารสนเทศ (หน่วยฝึกงาน IT46) มีข้อกำหนดเกี่ยวกับระยะเวลา ดังนี้\n\n* **จำนวนชั่วโมง:** นักศึกษาจะต้องฝึกงานไม่น้อยกว่า **240 ชั่วโมง** หรือคิดเป็นระยะเวลาประมาณ **6 สัปดาห์** ในสถานประกอบการที่หน่วยฝึกงานให้การรับรอง [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.765,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.662,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.65,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.646,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.603,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.598,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I2",
+   "type": "fact",
+   "doc": "intern",
+   "question": "นักศึกษาต้องสอบผ่านกี่หน่วยกิตจึงจะมีสิทธิ์ฝึกงาน",
+   "status": 200,
+   "seconds": 2.79,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "เกณฑ์คุณสมบัติของผู้มีสิทธิ์ฝึกงานภาคฤดูร้อน มีดังนี้:\n\n* **หน่วยกิตสะสม:** นักศึกษาต้องเป็นนักศึกษาชั้นปีที่ 3 และต้องสอบผ่านรายวิชาสะสมไม่น้อยกว่า 90 หน่วยกิต [1]\n* **เกรดเฉลี่ยสะสม:** ต้องมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00 [1]\n* **ระยะเวลาฝึกงาน:** ต้องฝึกงานไม่น้อยกว่า 240 ชั่วโมง หรือประมาณ 6 สัปดาห์ ในสถานประกอบการที่หน่วยฝึกงานรับรอง [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.77,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.746,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.744,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.667,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.665,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.63,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I3",
+   "type": "fact",
+   "doc": "intern",
+   "question": "แบบฟอร์ม IT46-F02 คือเอกสารอะไร",
+   "status": 200,
+   "seconds": 2.36,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "แบบฟอร์ม **IT46-F02** คือ **หนังสือตอบรับจากสถานประกอบการ** ซึ่งนักศึกษาจะต้องส่งก่อนเริ่มฝึกงาน 2 สัปดาห์ [1, 2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.739,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.648,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.619,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.605,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.557,
+     "cited": false
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.541,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I4",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ระหว่างฝึกงานต้องส่งบันทึกการปฏิบัติงานรายสัปดาห์เมื่อไร",
+   "status": 200,
+   "seconds": 2.6,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นักศึกษาต้องส่งบันทึกการปฏิบัติงานรายสัปดาห์ (IT46-F03) ทุกวันศุกร์ ก่อนเวลา 18:00 น. ตลอดระยะเวลาการฝึกงาน [1, 2]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.768,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.739,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.718,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.652,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.619,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.614,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I5",
+   "type": "fact",
+   "doc": "intern",
+   "question": "คะแนนจากพี่เลี้ยงในสถานประกอบการคิดเป็นกี่เปอร์เซ็นต์ของการประเมินฝึกงาน",
+   "status": 200,
+   "seconds": 3.25,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "คะแนนจากการประเมินของพี่เลี้ยงในสถานประกอบการคิดเป็น **60%** ของการประเมินผลการฝึกงานทั้งหมด [1] \n\nสำหรับเกณฑ์การประเมินผลการฝึกงานภาคฤดูร้อน มีองค์ประกอบคะแนนรวมดังนี้:\n* การประเมินจากพี่เลี้ยงในสถานประกอบการ: 60% [1]\n* รายงานฉบับสมบูรณ์: 25% [1]\n* การนำเสนอผลการฝึกงาน: 15% [1]\n\nผู้ที่ได้คะแนนรวมตั้งแต่ 60 คะแนนขึ้นไปจะได้รับผลการเรียน S (ผ่าน) และหากต่ำกว่านั้นจะได้ U (ไม่ผ่าน) [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.799,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.711,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.65,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.645,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.622,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.621,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I6",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ระหว่างฝึกงานลาป่วยได้กี่วัน",
+   "status": 200,
+   "seconds": 2.68,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ข้อมูลจากคู่มือการฝึกงานระบุข้อกำหนดเกี่ยวกับการลาป่วยในระหว่างการฝึกงาน ดังนี้ครับ\n\n* นักศึกษา**ลาป่วยได้ไม่เกิน 3 วัน** ตลอดการฝึกงาน [1]\n* นักศึกษาจะต้องฝึกงานชดเชยให้ครบตามจำนวนชั่วโมงที่กำหนด [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.693,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.667,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.661,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.649,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.59,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.574,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I7",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ต้องส่งรายงานฉบับสมบูรณ์ของการฝึกงานภายในเมื่อไร",
+   "status": 200,
+   "seconds": 2.5,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "การส่งรายงานฉบับสมบูรณ์ของการฝึกงาน มีกำหนดการดังนี้:\n\n* นักศึกษาจะต้องส่งรายงานฉบับสมบูรณ์ภายใน 2 สัปดาห์หลังจากสิ้นสุดระยะเวลาการฝึกงาน [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.736,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.72,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.719,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.658,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.597,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.592,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "I8",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ต้องยื่นคำร้องขอฝึกงานภายในวันที่เท่าไร",
+   "status": 200,
+   "seconds": 2.74,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นักศึกษาต้องยื่นคำร้องขอฝึกงานภายในวันที่ 31 มกราคม 2570 พร้อมกับแนบเอกสารใบสมัครฝึกงานพร้อมคำร้อง (IT46-F01) [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.733,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.73,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.687,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.629,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.596,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.594,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "D1",
+   "type": "cross",
+   "doc": "ds",
+   "question": "circular queue ในแล็บที่มีความจุ 8 ช่อง เก็บข้อมูลได้สูงสุดกี่ตัว",
+   "status": 200,
+   "seconds": 2.6,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากข้อมูลในรายวิชา ข้อมูลเกี่ยวกับ circular queue ในห้องปฏิบัติการระบุไว้ดังนี้:\n\n* คิวแบบวงกลม (circular queue) มีความจุรวมทั้งหมด 8 ช่อง [1]\n* จะต้องเว้นว่างไว้ 1 ช่องเสมอ เพื่อใช้แยกแยะระหว่างสถานะคิวเต็มกับคิวว่าง ดังนั้นจึงสามารถเก็บข้อมูลได้ **สูงสุด 7 ตัว** [1]\n* เงื่อนไขที่ระบุว่าคิวเต็มคือเมื่อ `(rear + 1) % capacity == front` [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.678,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.587,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.573,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.571,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.557,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.546,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "D2",
+   "type": "cross",
+   "doc": "ds",
+   "question": "นิพจน์ postfix 5 3 + 2 * ในเอกสารมีผลลัพธ์เท่าไร",
+   "status": 200,
+   "seconds": 3.17,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากเอกสารประกอบการเรียนวิชาโครงสร้างข้อมูล นิพจน์ postfix \"5 3 + 2 *\" จะถูกประเมินผลลัพธ์ได้เท่ากับ 16 [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.626,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.592,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.569,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.559,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.559,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.555,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "D3",
+   "type": "fact",
+   "doc": "ds",
+   "question": "What file name must Lab 5 be submitted as?",
+   "status": 200,
+   "seconds": 2.8,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "สำหรับการบ้าน Lab 5 ในรายวิชาที่เกี่ยวข้อง นักศึกษาจะต้องส่งงานเป็นไฟล์เดี่ยว โดยมีชื่อไฟล์ว่า `stack_queue.py` [1] ซึ่งจะต้องส่งก่อนกำหนดเวลาสิ้นสุดสัปดาห์ที่ 6 โดยมีระบบตรวจงานอัตโนมัติ (autograder) ทำการทดสอบกับชุดทดสอบที่ซ่อนอยู่ทั้งหมด 12 ชุด [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.628,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.59,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.58,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.565,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.546,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.543,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "D4",
+   "type": "cross",
+   "doc": "ds",
+   "question": "Lab 5 ต้องทำอะไรและถูกตรวจด้วยกรณีทดสอบที่ซ่อนไว้กี่กรณี",
+   "status": 200,
+   "seconds": 2.92,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากเอกสารที่เกี่ยวข้องกับ Lab 5 มีรายละเอียดดังนี้:\n\n* **งานที่ต้องทำ:** ให้นักศึกษาimplement สเตียก (Stack) โดยใช้คิว (Queue) จำนวนสองคิว และให้ส่งไฟล์โค้ดในชื่อ `stack_queue.py` ก่อนสิ้นสุดสัปดาห์ที่ 6 [1]\n* **การตรวจผลงาน:** โค้ดที่ส่งจะถูกตรวจสอบโดยระบบตรวจอัตโนมัติ (Autograder) ซึ่งมีการรันชุดทดสอบที่ซ่อนไว้จำนวน 12 กรณีทดสอบ [1]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.644,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.631,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.621,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.615,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.604,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.588,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "D5",
+   "type": "cross",
+   "doc": "ds",
+   "question": "priority queue ที่สร้างด้วย binary heap ใช้เวลาเพิ่มข้อมูลเท่าไร",
+   "status": 200,
+   "seconds": 3.04,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "Priority queue ที่สร้างขึ้นบน binary heap จะใช้เวลาในการเพิ่มข้อมูล (insert) ในระดับ $O(\\log n)$ และใช้เวลาในการลบค่าที่น้อยที่สุด (remove the minimum) ในระดับ $O(\\log n)$ เช่นเดียวกัน [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.661,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.562,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.562,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.557,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.555,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.547,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "D6",
+   "type": "fact",
+   "doc": "ds",
+   "question": "Which Python version is used for the lab code in this course?",
+   "status": 200,
+   "seconds": 2.74,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากเอกสารประกอบรายวิชาในคลังความรู้ โค้ดห้องปฏิบัติการทั้งหมดในรายวิชาดังกล่าวใช้ **Python 3.12** [1] \n\nโดยรายละเอียดสำคัญของรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีดังนี้:\n* **ผู้สอน:** อาจารย์ศิริพร มณีวงศ์ [4]\n* **เวลาเรียน:** ภาคบรรยายวันอังคาร 09:00-12:00 น. และภาคปฏิบัติการวันพฤหัสบดี 13:00-15:00 น. ที่ห้อง 1204 อาคาร 12 [4]\n* **เกณฑ์การให้คะแนน:** ประกอบด้วยงานปฏิบัติการรายสัปดาห์ 20%, โครงงานกลุ่ม 30%, สอบกลางภาค 20%, สอบปลายภาค 25% และการเข้าชั้นเรียน 5% [3, 4]\n* **ข้อกำหนด:** นักศึกษาต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมดจึงจะมีสิทธิ์สอบปลายภาค [4, 5]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.593,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.551,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.549,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.53,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.529,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.512,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "R1",
+   "type": "reason",
+   "doc": "syllabus",
+   "question": "คะแนนสอบกลางภาคและปลายภาคของวิชา IT46-201 รวมกันคิดเป็นกี่เปอร์เซ็นต์",
+   "status": 200,
+   "seconds": 3.55,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "คะแนนสอบกลางภาคและปลายภาคของวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน เมื่อนำมารวมกันจะมีสัดส่วนคิดเป็น **45%** ของคะแนนทั้งหมด โดยมีรายละเอียดสัดส่วนคะแนนแต่ละส่วนดังนี้:\n\n* **สอบกลางภาค:** คิดเป็น 20% [1, 4]\n* **สอบปลายภาค:** คิดเป็น 25% [1, 4]\n\nสำหรับองค์ประกอบคะแนนส่วนอื่นๆ ในรายวิชานี้ประกอบด้วย โครงงานกลุ่ม 30%, งานปฏิบัติการรายสัปดาห์ 20% และการเข้าชั้นเรียนอีก 5% รวมเป็น 100% [1, 4]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.768,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.725,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.69,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.683,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.679,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.655,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "R2",
+   "type": "reason",
+   "doc": "syllabus",
+   "question": "ในวิชา IT46-201 คะแนนส่วนที่ไม่ใช่การสอบ (งานปฏิบัติการ โครงงาน และการเข้าเรียน) รวมกันกี่เปอร์เซ็นต์",
+   "status": 200,
+   "seconds": 2.97,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "รายละเอียดสัดส่วนคะแนนในวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน สำหรับส่วนที่ไม่ใช่การสอบ (ประกอบด้วย งานปฏิบัติการรายสัปดาห์ โครงงานกลุ่ม และการเข้าชั้นเรียน) มีดังนี้ครับ:\n\n* **งานปฏิบัติการรายสัปดาห์:** 20% [1, 5]\n* **โครงงานกลุ่ม:** 30% [1, 5]\n* **การเข้าชั้นเรียน:** 5% [1, 5]\n\nเมื่อนำคะแนนในส่วนที่ไม่ใช่การสอบทั้ง 3 องค์ประกอบมารวมกัน จะคิดเป็นเปอร์เซ็นต์รวมทั้งหมด **55%** ของคะแนนเต็มทั้งหมด (โดยแบ่งเป็นสอบกลางภาค 20% และสอบปลายภาค 25%) [1, 5]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.788,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.717,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.709,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.706,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.697,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.687,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "R3",
+   "type": "reason",
+   "doc": "syllabus",
+   "question": "ถ้าส่งงานปฏิบัติการวิชา IT46-201 ช้าไป 2 วัน จะได้คะแนนสูงสุดกี่เปอร์เซ็นต์ของคะแนนเต็ม",
+   "status": 200,
+   "seconds": 2.89,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "สำหรับการส่งงานปฏิบัติการรายสัปดาห์ในรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน หากนักศึกษาส่งงานล่าช้า จะมีเกณฑ์การหักคะแนนดังนี้:\n\n* **อัตราการหักคะแนน:** จะถูกหักคะแนนวันละ 10% ของคะแนนเต็มของงานชิ้นนั้น ๆ [2]\n* **ระยะเวลาที่ยอมรับได้:** สามารถรับงานล่าช้าได้ไม่เกิน 3 วัน (หลังจากนั้นจะได้ 0 คะแนน) [2]\n\nดังนั้น หากนักศึกษา **ส่งงานช้าไป 2 วัน** จะถูกหักคะแนนรวมเป็น 20% ของคะแนนเต็ม (10% $\\times$ 2 วัน) ทำให้เหลือคะแนนสูงสุดที่จะได้รับคือ **80%** ของคะแนนเต็มของงานชิ้นนั้น",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.762,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.758,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.711,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.708,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.702,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.642,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "R4",
+   "type": "reason",
+   "doc": "intern",
+   "question": "ถ้าฝึกงานครบ 240 ชั่วโมงใน 6 สัปดาห์ เฉลี่ยต้องฝึกสัปดาห์ละกี่ชั่วโมง",
+   "status": 200,
+   "seconds": 2.89,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ถ้านักศึกษาต้องฝึกงานภาคฤดูร้อนไม่น้อยกว่า 240 ชั่วโมง ในระยะเวลาประมาณ 6 สัปดาห์ ตามข้อกำหนดของหน่วยฝึกงาน [1] \n\nเมื่อคำนวณค่าเฉลี่ยต่อสัปดาห์ จะได้ดังนี้:\n* **จำนวนชั่วโมงเฉลี่ย:** $240 \\div 6 = 40$ ชั่วโมงต่อสัปดาห์\n\nทั้งนี้ นักศึกษาจะต้องฝึกงานในสถานประกอบการที่หน่วยฝึกงานรับรอง และต้องปฏิบัติงานให้ครบถ้วนตามจำนวนชั่วโมงดังกล่าว [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.688,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.664,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.64,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.624,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.622,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.621,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "N1",
+   "type": "none",
+   "doc": "syllabus",
+   "question": "ค่าลงทะเบียนเรียนวิชา IT46-201 เท่าไร",
+   "status": 200,
+   "seconds": 3.11,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากข้อมูลของรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีรายละเอียดดังนี้:\n* รายวิชานี้มีขนาด 3 หน่วยกิต (รูปแบบ 2-2-5) ในหลักสูตรเทคโนโลยีสารสนเทศ ภาคการศึกษาที่ 2 ปีการศึกษา 2569 [1]\n* ผู้สอนคือ อาจารย์ศิริพร มณีวงศ์ [1]\n\nทั้งนี้ ในเอกสารประมวลรายวิชาไม่ได้ระบุข้อมูลเกี่ยวกับค่าลงทะเบียนเรียนของรายวิชาดังกล่าวไว้ [1]",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.736,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.678,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.673,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.648,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.615,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.609,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "N2",
+   "type": "none",
+   "doc": "syllabus",
+   "question": "สอบปลายภาควิชา IT46-201 สอบที่ห้องอะไร",
+   "status": 200,
+   "seconds": 2.59,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ข้อมูลในรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน ระบุรายละเอียดเกี่ยวกับการสอบปลายภาคดังนี้:\n- การประเมินผลสอบปลายภาคมีสัดส่วนคะแนนอยู่ที่ 25% ของคะแนนทั้งหมด [1]\n- แผนการสอนระบุว่าสัปดาห์ที่ 17 เป็นช่วงของการสอบปลายภาค [5]\n- ข้อกำหนดของรายวิชาระบุว่า นักศึกษาต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมดจึงจะมีสิทธิ์เข้าสอบปลายภาค [1]\n\nอย่างไรก็ตาม เอกสารที่ดึงมาไม่ได้ระบุข้อมูลเกี่ยวกับ \"ห้อง\" ที่ใช้ในการสอบปลายภาค มีเพียงการระบุห้องเรียนปกติ (ห้อง 1204 อาคาร 12) สำหรับภาคปฏิบัติการเท่านั้น [1]",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.746,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.674,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.627,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.622,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "N3",
+   "type": "none",
+   "doc": "intern",
+   "question": "นักศึกษาไปฝึกงานที่ต่างประเทศได้หรือไม่ และต้องใช้เอกสารอะไรเพิ่ม",
+   "status": 200,
+   "seconds": 3.62,
+   "cached": false,
+   "coverage": "none",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากความรู้ที่ได้รับในระบบระบุเพียงรายละเอียดทั่วไปเกี่ยวกับการฝึกงานภาคฤดูร้อน เช่น คุณสมบัติของผู้ฝึกงานที่ต้องอยู่ชั้นปีที่ 3 สอบผ่านรายวิชาสะสมไม่น้อยกว่า 90 หน่วยกิต และมีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00 ระยะเวลาไม่น้อยกว่า 240 ชั่วโมง (ประมาณ 6 สัปดาห์) ในสถานประกอบการที่หน่วยฝึกงานรับรอง พร้อมกำหนดเอกสารทั่วไป เช่น ใบสมัครฝึกงาน (IT46-F01) และหนังสือตอบรับจากสถานประกอบการ (IT46-F02) [1, 2] แต่ไม่มีข้อมูลระบุถึงการไปฝึกงานที่ต่างประเทศแต่อย่างใด",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": false,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.726,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.689,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.625,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.576,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.568,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "course",
+   "id": "N4",
+   "type": "none",
+   "doc": "intern",
+   "question": "สถานประกอบการจ่ายเบี้ยเลี้ยงให้นักศึกษาฝึกงานวันละเท่าไร",
+   "status": 200,
+   "seconds": 2.31,
+   "cached": false,
+   "coverage": "none",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากข้อมูลที่ได้รับ ไม่มีการระบุถึงอัตราเบี้ยเลี้ยงที่นักศึกษาฝึกงานจะได้รับจากสถานประกอบการในคู่มือการฝึกงานแต่อย่างใด [1, 2]",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": false,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.686,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.674,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.643,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.625,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.578,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.568,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S1",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "วิชา IT46-201 มีกี่หน่วยกิต",
+   "status": 200,
+   "seconds": 2.76,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีจำนวน 3 หน่วยกิต (2-2-5) [1] โดยมีรายละเอียดโครงสร้างเวลาเรียนคือ เรียนภาคบรรยาย 2 ชั่วโมง ภาคปฏิบัติ 2 ชั่วโมง และศึกษาด้วยตนเอง 5 ชั่วโมงต่อสัปดาห์ ในภาคการศึกษาที่ 2 ปีการศึกษา 2569 [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.774,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.703,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.678,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.677,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.674,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.673,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S2",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "สอบกลางภาควิชา IT46-201 คิดเป็นกี่เปอร์เซ็นต์ของคะแนนทั้งหมด",
+   "status": 200,
+   "seconds": 2.64,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "คะแนนสอบกลางภาคของรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน คิดเป็นสัดส่วน **20%** ของคะแนนทั้งหมด [1, 6]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.758,
+     "cited": true
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "score": 0.716,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.716,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.686,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.683,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.672,
+     "cited": true
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S3",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "โครงงานกลุ่มของวิชาการพัฒนาเว็บแอปพลิเคชันต้องมีสมาชิกกี่คน",
+   "status": 200,
+   "seconds": 2.69,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "โครงงานกลุ่มของวิชาการพัฒนาเว็บแอปพลิเคชัน (IT46-201) มีข้อกำหนดเกี่ยวกับจำนวนสมาชิกดังนี้:\n\n* นักศึกษาต้องจัดกลุ่ม **กลุ่มละ 3-4 คน** [2]\n* ต้องพัฒนาเว็บแอปพลิเคชันโดยใช้ Next.js และ FastAPI [2]\n* จะต้องนำเสนอโครงงานในสัปดาห์ที่ 15 ของภาคการศึกษา [2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.746,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.729,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.686,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.652,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.649,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.649,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S4",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "ถ้าส่งงานช้าในวิชา IT46-201 จะถูกหักคะแนนอย่างไร",
+   "status": 200,
+   "seconds": 2.75,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "การส่งงานล่าช้าในรายวิชา IT46-201 มีกฎระเบียบดังนี้:\n\n* จะถูกหักคะแนนวันละ 10% ของคะแนนเต็มของงานชิ้นนั้น [2]\n* สามารถส่งงานล่าช้าได้ไม่เกิน 3 วัน หากเกินกำหนดเวลานี้จะได้ 0 คะแนน [2]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.756,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.753,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.704,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.704,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.699,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.667,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S5",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "ต้องได้คะแนนเท่าไรถึงจะได้เกรด B+ ในวิชา IT46-201",
+   "status": 200,
+   "seconds": 2.89,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "เกณฑ์ระดับคะแนนสำหรับรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน มีดังนี้:\n\n* **เกรด B+:** ได้คะแนนตั้งแต่ **75 ถึง 79 คะแนน** [1]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.762,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.715,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.698,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.677,
+     "cited": false
+    },
+    {
+     "title": "Dense Summary",
+     "score": 0.649,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.639,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S6",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "วิชา IT46-201 เรียนเรื่อง FastAPI ในสัปดาห์ที่เท่าไร",
+   "status": 200,
+   "seconds": 2.7,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "วิชา IT46-201 (การพัฒนาเว็บแอปพลิเคชัน) จะเรียนเรื่องการสร้าง REST API ด้วย FastAPI ในสัปดาห์ที่ 9",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": false,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.754,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.743,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.732,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.666,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.657,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.655,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S7",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "อาจารย์ผู้สอนวิชา IT46-201 มีชั่วโมงให้คำปรึกษาวันไหน เวลาเท่าไร",
+   "status": 200,
+   "seconds": 2.34,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "อาจารย์ผู้สอนวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน คือ อาจารย์ศิริพร มณีวงศ์ โดยมีรายละเอียดช่วงเวลาให้คำปรึกษาดังนี้:\n\n* **วัน:** ทุกวันพุธ [1]\n* **เวลา:** 13:00-15:00 น. หรือสามารถนัดหมายล่วงหน้าทางอีเมล [1]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.772,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.7,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.683,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.67,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.664,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.661,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "S8",
+   "type": "fact",
+   "doc": "syllabus",
+   "question": "ต้องเข้าเรียนอย่างน้อยกี่เปอร์เซ็นต์จึงจะมีสิทธิ์สอบปลายภาควิชา IT46-201",
+   "status": 200,
+   "seconds": 2.72,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นักศึกษาในรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน จะต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมด จึงจะมีสิทธิ์เข้าสอบปลายภาค [1, 2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.778,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.753,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.732,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.712,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.697,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.667,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "I1",
+   "type": "fact",
+   "doc": "intern",
+   "question": "การฝึกงานภาคฤดูร้อนต้องฝึกอย่างน้อยกี่ชั่วโมง",
+   "status": 200,
+   "seconds": 2.95,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "สรุปข้อกำหนดเกี่ยวกับจำนวนชั่วโมงในการฝึกงานจากหลักสูตรต่างๆ มีดังนี้:\n\n* **หลักสูตรเทคโนโลยีสารสนเทศ (หน่วยฝึกงาน IT46):** ต้องฝึกงานภาคฤดูร้อนไม่น้อยกว่า 240 ชั่วโมง หรือประมาณ 6 สัปดาห์ ในสถานประกอบการที่หน่วยฝึกงานรับรอง [1]\n* **หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์:** การฝึกงานอุตสาหกรรมต้องมีระยะเวลาในการฝึกงานไม่น้อยกว่า 280 ชั่วโมง (จัดเวลาไม่น้อยกว่า 5 วันต่อสัปดาห์ เป็นเวลา 7 สัปดาห์ วันละ 8 ชั่วโมง) [2, 3, 6]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.765,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.725,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.686,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.682,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.662,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.654,
+     "cited": true
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "I2",
+   "type": "fact",
+   "doc": "intern",
+   "question": "นักศึกษาต้องสอบผ่านกี่หน่วยกิตจึงจะมีสิทธิ์ฝึกงาน",
+   "status": 200,
+   "seconds": 6.5,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": true,
+   "answer": "สำหรับหลักสูตรเทคโนโลยีสารสนเทศ (หน่วยฝึกงาน IT46) มีข้อกำหนดเกี่ยวกับคุณสมบัติของผู้ฝึกงานดังนี้:\n\n* เป็นนักศึกษาชั้นปีที่ 3 [1]\n* ต้องสอบผ่านรายวิชาสะสมไม่น้อยกว่า 90 หน่วยกิต [1]\n* มีเกรดเฉลี่ยสะสมไม่ต่ำกว่า 2.00 [1]\n\n**ข้อมูลเสริมจากการค้นเว็บ**\n\nสำหรับหลักสูตรเทคโนโลยีคอมพิวเตอร์ (ครุศาสตร์อุตสาหกรรมบัณฑิต หรือ ค.อ.บ.) สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง (KMITL) รายละเอียดเกณฑ์จำนวนหน่วยกิตสะสมขั้นต่ำที่ต้องสอบผ่านก่อนออกฝึกงาน หรือเงื่อนไขเฉพาะของรายวิชาฝึกงาน \n\n* เนื่องจากข้อมูลหลักสูตรเฉพาะส่วนของเกณฑ์หน่วยกิตสะสมเพื่อการฝึกงานไม่ปรากฏอยู่ในคลังความรู้กลางหรือเอกสารที่ระบบห้องสมุดครอบคลุม \n* นักศึกษาควรตรวจสอบรายละเอียดเพิ่มเติมจากคู่มือศึกษาของหลักสูตรประจำปีนั้น ๆ, โครงสร้างรายวิชาฝึกงานของภาควิชา, หรือสอบถามโดยตรงกับอาจารย์ที่ปรึกษาและเจ้าหน้าที่งาน \n* โดยทั่วไปตามแผนการศึกษา 4 ปี นักศึกษาจะมีกำหนดการฝึกงานในช่วงภาคฤดูร้อนของปีที่ 3 [W1] หรือตามเงื่อนไขการผ่านรายวิชาบังคับพื้นฐานทางคอมพิวเตอร์ก่อนลงทะเบียนเรียนวิชาฝึกงาน",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.77,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.746,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.744,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.737,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.703,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.702,
+     "cited": false
+    }
+   ],
+   "web_sources": 1
+  },
+  {
+   "setting": "auto",
+   "id": "I3",
+   "type": "fact",
+   "doc": "intern",
+   "question": "แบบฟอร์ม IT46-F02 คือเอกสารอะไร",
+   "status": 200,
+   "seconds": 2.6,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "แบบฟอร์ม **IT46-F02** คือ **หนังสือตอบรับจากสถานประกอบการ** [1, 2]\n\n* **กำหนดการส่ง:** ต้องส่งก่อนเริ่มฝึกงาน 2 สัปดาห์ [1, 2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.739,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.648,
+     "cited": true
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.619,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.605,
+     "cited": false
+    },
+    {
+     "title": "Dense Summary",
+     "score": 0.585,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.582,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "I4",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ระหว่างฝึกงานต้องส่งบันทึกการปฏิบัติงานรายสัปดาห์เมื่อไร",
+   "status": 200,
+   "seconds": 2.08,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นักศึกษาต้องส่งบันทึกการปฏิบัติงานรายสัปดาห์ (แบบฟอร์ม IT46-F03) ทุกวันศุกร์ก่อนเวลา 18:00 น. [1, 2]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.768,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.739,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.739,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.718,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.673,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.668,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "I5",
+   "type": "fact",
+   "doc": "intern",
+   "question": "คะแนนจากพี่เลี้ยงในสถานประกอบการคิดเป็นกี่เปอร์เซ็นต์ของการประเมินฝึกงาน",
+   "status": 200,
+   "seconds": 2.4,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "คะแนนจากการประเมินของพี่เลี้ยงในสถานประกอบการคิดเป็น 60% ของคะแนนการประเมินฝึกงานทั้งหมด [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.799,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.722,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.715,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.714,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.711,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.689,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "I6",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ระหว่างฝึกงานลาป่วยได้กี่วัน",
+   "status": 200,
+   "seconds": 5.88,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": true,
+   "answer": "จากคู่มือการฝึกงานภาคฤดูร้อน หลักสูตรเทคโนโลยีสารสนเทศ (หน่วยฝึกงาน IT46) มีข้อกำหนดเกี่ยวกับการลาป่วยระหว่างการฝึกงานดังนี้:\n\n* **โควตาการลา:** นักศึกษาสามารถลาป่วยได้ไม่เกิน 3 วันตลอดระยะเวลาการฝึกงาน [1]\n* **การชดเชยเวลา:** หากมีการลาป่วย นักศึกษาจะต้องฝึกงานชดเชยให้ครบตามจำนวนชั่วโมงที่กำหนด [1]\n\n**ข้อมูลเสริมจากการค้นเว็บ**\n\nเนื่องจากในหลักสูตร ค.อ.บ. เทคโนโลยีคอมพิวเตอร์ ไม่มีข้อมูลระบุจำนวนวันลาป่วยในช่วงฝึกงานไว้อย่างชัดเจน การลาป่วยจึงต้องปฏิบัติตามกฎระเบียบของสถานที่ฝึกงาน (สถานประกอบการ) ที่นักศึกษาไปปฏิบัติงานจริง โดยมีแนวทางปฏิบัติทั่วไปดังนี้\n\n* **ขึ้นอยู่กับระเบียบของสถานประกอบการ:** สถานฝึกงานแต่ละแห่งจะเป็นผู้กำหนดโควตาหรือเงื่อนไขการลาป่วย รวมถึงการใช้ใบรับรองแพทย์ [W1][W2]\n* **ตรวจสอบชั่วโมงฝึกงานรวม:** นักศึกษาต้องเช็กว่าหากลาป่วยแล้ว จะยังมีชั่วโมงปฏิบัติงานครบตามเกณฑ์ที่หลักสูตรหรือสถานประกอบการกำหนดไว้หรือไม่ [W1]\n* **การแจ้งลา:** ควรแจ้งให้พี่เลี้ยงหรือผู้ควบคุมการฝึกงานทราบทันทีที่มีอาการเจ็บป่วยตามขั้นตอนของบริษัท [W2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.693,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.681,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.667,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.661,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.649,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.635,
+     "cited": false
+    }
+   ],
+   "web_sources": 2
+  },
+  {
+   "setting": "auto",
+   "id": "I7",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ต้องส่งรายงานฉบับสมบูรณ์ของการฝึกงานภายในเมื่อไร",
+   "status": 200,
+   "seconds": 2.42,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "การส่งรายงานฉบับสมบูรณ์ของการฝึกงาน มีข้อกำหนดดังนี้:\n\n* นักศึกษาจะต้องส่งรายงานฉบับสมบูรณ์ภายใน 2 สัปดาห์หลังสิ้นสุดการฝึกงาน [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.736,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.72,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.719,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.701,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.665,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.665,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "I8",
+   "type": "fact",
+   "doc": "intern",
+   "question": "ต้องยื่นคำร้องขอฝึกงานภายในวันที่เท่าไร",
+   "status": 200,
+   "seconds": 7.58,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": false,
+   "answer": "สำหรับหลักสูตรเทคโนโลยีสารสนเทศ (หน่วยฝึกงาน IT46) มีข้อกำหนดเกี่ยวกับการยื่นคำร้องดังนี้:\n\n* นักศึกษาต้องยื่นคำร้องขอฝึกงานภายในวันที่ 31 มกราคม 2570 พร้อมกับใบสมัครฝึกงานพร้อมคำร้อง (IT46-F01) [1, 2]\n\n**ความรู้ทั่วไปของโมเดล (ไม่พบแหล่งอ้างอิงบนเว็บ)**\n\nสำหรับกำหนดการยื่นคำร้องขอฝึกงานของหลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี สจล.) \n\nเนื่องจากข้อมูลดังกล่าวไม่อยู่ในคลังความรู้หรือเอกสารที่ระบบห้องสมุดครอบคลุมอยู่ในขณะนี้ นักศึกษาจะไม่สามารถตรวจสอบวันปิดรับคำร้องที่แน่ชัดจากฐานข้อมูลนี้ได้ \n\nแนะนำให้ท่านดำเนินการตรวจสอบประกาศอย่างเป็นทางการผ่านช่องทางเหล่านี้โดยตรง:\n* ติดต่อสอบถามกับอาจารย์ที่ปรึกษาหรือภาควิชาครุศาสตร์วิศวกรรม \n* ตรวจสอบประกาศบอร์ดประชาสัมพันธ์ หรือเพจ Facebook ของคณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี (SIET KMITL) ที่มักจะมีการอัปเดตกำหนดการปฐมนิเทศและการยื่นเอกสารฝึกงานประจำปีการศึกษาอย่างต่อเนื่อง",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.733,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.73,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.713,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.687,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.644,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.639,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "D1",
+   "type": "cross",
+   "doc": "ds",
+   "question": "circular queue ในแล็บที่มีความจุ 8 ช่อง เก็บข้อมูลได้สูงสุดกี่ตัว",
+   "status": 200,
+   "seconds": 2.9,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากข้อมูลในรายวิชา IT46-105 สรุปเกี่ยวกับ circular queue ในห้องปฏิบัติการได้ดังนี้ครับ:\n\n* **ความจุ:** คิวแบบวงกลม (circular queue) ในห้องปฏิบัติการมีความจุทั้งหมด 8 ช่อง [1]\n* **การเก็บข้อมูล:** จะต้องเหลือ 1 ช่องไว้เสมอ เพื่อใช้แยกแยะระหว่างกรณีที่คิวเต็มกับคิวว่าง ทำให้สามารถเก็บข้อมูลได้สูงสุด **7 ตัว** [1]\n* **เงื่อนไขคิวเต็ม:** คิวจะถือว่าเต็มเมื่อตรงตามเงื่อนไข `(rear + 1) % capacity == front` [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.678,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.617,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.605,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.602,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.601,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.595,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "D2",
+   "type": "cross",
+   "doc": "ds",
+   "question": "นิพจน์ postfix 5 3 + 2 * ในเอกสารมีผลลัพธ์เท่าไร",
+   "status": 200,
+   "seconds": 2.46,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นิพจน์ postfix \"5 3 + 2 *\" ในเอกสารมีผลลัพธ์เท่ากับ 16 [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.626,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.622,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.603,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.597,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.597,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.595,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "D3",
+   "type": "fact",
+   "doc": "ds",
+   "question": "What file name must Lab 5 be submitted as?",
+   "status": 200,
+   "seconds": 2.57,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "นักศึกษาต้องส่งงาน Lab 5 เป็นไฟล์เดียวโดยใช้ชื่อว่า `stack_queue.py` และต้องส่งก่อนสิ้นสุดสัปดาห์ที่ 6 โดยระบบตรวจงานอัตโนมัติ (autograder) จะทำการตรวจสอบชุดทดสอบที่ซ่อนอยู่ทั้งหมด 12 ชุดทดสอบ [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.628,
+     "cited": true
+    },
+    {
+     "title": "Dense Summary",
+     "score": 0.601,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.59,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.58,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.579,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.573,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "D4",
+   "type": "cross",
+   "doc": "ds",
+   "question": "Lab 5 ต้องทำอะไรและถูกตรวจด้วยกรณีทดสอบที่ซ่อนไว้กี่กรณี",
+   "status": 200,
+   "seconds": 2.49,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "จากเอกสารประกอบการเรียน Lab 5 นักศึกษาจะต้องปฏิบัติงานดังนี้:\n* **งานที่ต้องทำ:** ให้เขียนโปรแกรมสร้าง Stack โดยใช้ Queue จำนวน 2 คิว และส่งมอบไฟล์เดี่ยวในชื่อ `stack_queue.py` ก่อนสิ้นสุดสัปดาห์ที่ 6 [2]\n* **การตรวจผลงาน:** งานที่ส่งจะถูกตรวจสอบโดยระบบตรวจงานอัตโนมัติ (autgrader) ซึ่งมีการรันกรณีทดสอบที่ซ่อนไว้จำนวน 12 กรณี [2]",
+   "facts_expected": 2,
+   "facts_found": 2,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 2,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.646,
+     "cited": false
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.644,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.632,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.631,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.631,
+     "cited": false
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "score": 0.624,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "D5",
+   "type": "cross",
+   "doc": "ds",
+   "question": "priority queue ที่สร้างด้วย binary heap ใช้เวลาเพิ่มข้อมูลเท่าไร",
+   "status": 200,
+   "seconds": 2.58,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "* **การแทรกข้อมูล (Insertion):** Priority queue ที่สร้างบนพื้นฐานของ binary heap จะใช้เวลาในการเพิ่มข้อมูลหรือแทรกข้อมูลในระดับ $O(\\log n)$ [1]\n* **การลบข้อมูล:** นอกจากนี้ การนำข้อมูลที่มีค่าน้อยที่สุดออก (remove the minimum) ยังใช้เวลา $O(\\log n)$ เช่นเดียวกัน [1]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.661,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.588,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.583,
+     "cited": false
+    },
+    {
+     "title": "สไลด์สัปดาห์ที่ 5 – Memory Management",
+     "score": 0.581,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.579,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.576,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "D6",
+   "type": "fact",
+   "doc": "ds",
+   "question": "Which Python version is used for the lab code in this course?",
+   "status": 200,
+   "seconds": 2.37,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "โค้ดสำหรับห้องปฏิบัติการ (lab code) ในรายวิชาที่กำหนดจะใช้ Python 3.12 [3]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 3,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "Dense Summary",
+     "score": 0.621,
+     "cited": false
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO101 บทที่ 1–3: ตัวแปร เงื่อนไข และลูป",
+     "score": 0.602,
+     "cited": false
+    },
+    {
+     "title": "IT46-DS-Stacks-and-Queues.pdf",
+     "score": 0.593,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.585,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.583,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.582,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "R1",
+   "type": "reason",
+   "doc": "syllabus",
+   "question": "คะแนนสอบกลางภาคและปลายภาคของวิชา IT46-201 รวมกันคิดเป็นกี่เปอร์เซ็นต์",
+   "status": 200,
+   "seconds": 2.58,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "คะแนนสอบกลางภาคและปลายภาคของวิชา IT46-201 (การพัฒนาเว็บแอปพลิเคชัน) มีสัดส่วนคะแนนรวมกันดังนี้:\n\n* **สอบกลางภาค:** คิดเป็นสัดส่วน 20% ของคะแนนทั้งหมด [1, 6]\n* **สอบปลายภาค:** คิดเป็นสัดส่วน 25% ของคะแนนทั้งหมด [1, 6]\n\nเมื่อนำคะแนนสอบทั้งสองส่วนมารวมกัน จะคิดเป็นเปอร์เซ็นต์รวมทั้งหมด **45%** ของคะแนนประเมินรายวิชาทั้งหมด [1, 6]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.768,
+     "cited": true
+    },
+    {
+     "title": "เอกสารประกอบการสอน DEMO202: การออกแบบฐานข้อมูลและ Normalization",
+     "score": 0.737,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.725,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.707,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.69,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.683,
+     "cited": true
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "R2",
+   "type": "reason",
+   "doc": "syllabus",
+   "question": "ในวิชา IT46-201 คะแนนส่วนที่ไม่ใช่การสอบ (งานปฏิบัติการ โครงงาน และการเข้าเรียน) รวมกันกี่เปอร์เซ็นต์",
+   "status": 200,
+   "seconds": 2.48,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ในรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน คะแนนส่วนที่ไม่ใช่การสอบ (ประกอบด้วยงานปฏิบัติการรายสัปดาห์ โครงงานกลุ่ม และการเข้าชั้นเรียน) มีสัดส่วนคะแนนรวมกันทั้งหมด **55%** โดยมีรายละเอียดสัดส่วนของแต่ละองค์ประกอบดังนี้ครับ:\n\n* **งานปฏิบัติการรายสัปดาห์:** 20% [1, 5]\n* **โครงงานกลุ่ม:** 30% [1, 5]\n* **การเข้าชั้นเรียน:** 5% [1, 5]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.788,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.717,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.709,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.706,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.697,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.689,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "R3",
+   "type": "reason",
+   "doc": "syllabus",
+   "question": "ถ้าส่งงานปฏิบัติการวิชา IT46-201 ช้าไป 2 วัน จะได้คะแนนสูงสุดกี่เปอร์เซ็นต์ของคะแนนเต็ม",
+   "status": 200,
+   "seconds": 2.98,
+   "cached": false,
+   "coverage": "full",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ข้อมูลจากประประมวลรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน ระบุข้อกำหนดเกี่ยวกับการส่งงานล่าช้าไว้ดังนี้:\n\n* **เกณฑ์การหักคะแนน:** การส่งงานล่าช้าจะถูกหักคะแนนวันละ 10% ของคะแนนเต็มของงานชิ้นนั้น [2]\n* **กำหนดเวลา:** สามารถรับงานล่าช้าได้ไม่เกิน 3 วัน หากเกินกว่านั้นจะได้ 0 คะแนน [2]\n\nดังนั้น หากนักศึกษาส่งงานปฏิบัติการช้าไป **2 วัน** จะถูกหักคะแนนรวมเป็น 20% (วันละ 10% จำนวน 2 วัน) ทำให้ได้รับคะแนนสูงสุดไม่เกิน **80%** ของคะแนนเต็มของงานชิ้นนั้น [2]",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.762,
+     "cited": false
+    },
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.758,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.711,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.708,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.702,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.677,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "R4",
+   "type": "reason",
+   "doc": "intern",
+   "question": "ถ้าฝึกงานครบ 240 ชั่วโมงใน 6 สัปดาห์ เฉลี่ยต้องฝึกสัปดาห์ละกี่ชั่วโมง",
+   "status": 200,
+   "seconds": 4.78,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": false,
+   "answer": "ข้อมูลที่ดึงมาได้ระบุว่าหลักสูตรเทคโนโลยีสารสนเทศ (หน่วยฝึกงาน IT46) กำหนดให้นักศึกษาต้องฝึกงานไม่น้อยกว่า 240 ชั่วโมง หรือประมาณ 6 สัปดาห์ ในสถานประกอบการที่หน่วยฝึกงานรับรอง [2] ส่วนหลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ ระบุระยะเวลาการฝึกงานรวมไม่น้อยกว่า 280 ชั่วโมง (ไม่น้อยกว่า 5 วันต่อสัปดาห์ เป็นเวลา 7 สัปดาห์ วันละ 8 ชั่วโมง) [1, 3]\n\n**ความรู้ทั่วไปของโมเดล (ไม่พบแหล่งอ้างอิงบนเว็บ)**\n\nหากต้องการฝึกงานให้ครบ 240 ชั่วโมง ภายในระยะเวลา 6 สัปดาห์ นักศึกษาจะต้องคำนวณหาค่าเฉลี่ยชั่วโมงการทำงานต่อสัปดาห์ด้วยสูตรการหาร ดังนี้ครับ:\n\n* **สูตรการคำนวณ:** จำนวนชั่วโมงฝึกงานทั้งหมด ÷ จำนวนสัปดาห์ทั้งหมด\n* **แทนค่า:** 240 ชั่วโมง ÷ 6 สัปดาห์ = **40 ชั่วโมงต่อสัปดาห์**\n\nเมื่อเฉลี่ยออกมาแล้ว นักศึกษาจะต้องฝึกงานวันละประมาณ 8 ชั่วโมง (กรณีฝึกงาน 5 วันต่อสัปดาห์) จึงจะครบกำหนดตามเกณฑ์เวลา 240 ชั่วโมงพอดีครับ",
+   "facts_expected": 1,
+   "facts_found": 1,
+   "correct": true,
+   "partial": false,
+   "refusal": null,
+   "rank": 2,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.689,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.688,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.684,
+     "cited": true
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.664,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.664,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.662,
+     "cited": false
+    }
+   ],
+   "web_sources": 0
+  },
+  {
+   "setting": "auto",
+   "id": "N1",
+   "type": "none",
+   "doc": "syllabus",
+   "question": "ค่าลงทะเบียนเรียนวิชา IT46-201 เท่าไร",
+   "status": 200,
+   "seconds": 6.15,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": true,
+   "answer": "จากเอกสารประมวลรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน ภาคการศึกษาที่ 2 ปีการศึกษา 2569 มีรายละเอียดดังนี้:\n\n* **หน่วยกิตและเวลาเรียน:** รายวิชานี้มีขนาด 3 หน่วยกิต (2-2-5) สังกัดหลักสูตรเทคโนโลยีสารสนเทศ [1]\n* **เกณฑ์การให้คะแนน:** \n  * งานปฏิบัติการรายสัปดาห์ 20% [1]\n  * โครงงานกลุ่ม 30% [1]\n  * สอบกลางภาค 20% [1]\n  * สอบปลายภาค 25% [1]\n  * การเข้าชั้นเรียน 5% [1]\n* **ข้อกำหนด:** นักศึกษาต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมดจึงจะมีสิทธิ์สอบปลายภาค [1]\n\n**ข้อมูลเสริมจากการค้นเว็บ**\n\nจากแหล่งข้อมูลในคลังความรู้และประกาศของสถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง (KMITL) ไม่พบข้อมูลระบุจำนวนเงินหรืออัตราค่าลงทะเบียนเฉพาะเจาะจงของรายวิชา IT46-201 \n\nโดยทั่วไปการชำระค่าธรรมเนียมการศึกษาของคณะเทคโนโลยีสารสนเทศ KMITL สำหรับนักศึกษาระดับปริญญาตรี ภาคปกติ จะใช้อัตราการชำระแบบเหมาจ่ายต่อภาคการศึกษา [W1] ตามโครงสร้างหลักสูตรของสถาบันฯ ไม่ได้คิดค่าใช้จ่ายแยกเป็นรายวิชาเดี่ยว ๆ เว้นแต่กรณีการลงทะเบียนเรียนในภาคฤดูร้อน [W2][W3] หรือกรณีศึกษาพิเศษนอกเหนือจากแผนการศึกษาปกติ หากต้องการทราบอัตราค่าใช้จ่ายที่แน่ชัดสำหรับรายวิชาดังกล่าว แนะนำให้ตรวจสอบกับประกาศอัตราค่าธรรมเนียมการศึกษาของสำนักทะเบียนและประมวลผล หรือติดต่อสอบถามโดยตรงกับเจ้าหน้าที่งานทะเบียนของคณะเทคโนโลยีสารสนเทศ",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.736,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.678,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.673,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.668,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.66,
+     "cited": false
+    },
+    {
+     "title": "Dense Summary",
+     "score": 0.654,
+     "cited": false
+    }
+   ],
+   "web_sources": 3
+  },
+  {
+   "setting": "auto",
+   "id": "N2",
+   "type": "none",
+   "doc": "syllabus",
+   "question": "สอบปลายภาควิชา IT46-201 สอบที่ห้องอะไร",
+   "status": 200,
+   "seconds": 5.61,
+   "cached": false,
+   "coverage": "partial",
+   "grounded": true,
+   "web_used": true,
+   "answer": "ข้อมูลจากประมวลรายวิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน ได้ระบุรายละเอียดเกี่ยวกับสถานที่เรียนและข้อกำหนดในการเข้าสอบ ดังนี้:\n\n* **สถานที่เรียนภาคปฏิบัติการ:** ห้อง 1204 อาคาร 12 [1]\n* **ข้อกำหนดการมีสิทธิ์สอบปลายภาค:** นักศึกษาต้องเข้าชั้นเรียนไม่น้อยกว่าร้อยละ 80 ของเวลาเรียนทั้งหมด [1]\n\nอย่างไรก็ตาม ในเอกสารที่สืบค้นได้ไม่ได้ระบุห้องหรือตารางเวลาที่ใช้ในการสอบปลายภาคโดยเฉพาะ ระบุไว้เพียงสถานที่สำหรับเวลาเรียนภาคปฏิบัติการเท่านั้น [1]\n\n**ข้อมูลเสริมจากการค้นเว็บ**\n\nขออภัยครับ คลังความรู้ภายในระบบและฐานข้อมูลกลางของห้องสมุดหรือเอกสารรายวิชาที่บันทึกไว้ ยังไม่มีข้อมูลระบุรายละเอียดเกี่ยวกับวัน เวลา และห้องสอบปลายภาคของวิชา IT46-201 \n\nคุณสามารถตรวจสอบตารางสอบปลายภาค ห้องสอบ และผังที่นั่งสอบรายบุคคลอย่างเป็นทางการได้จากช่องทางต่อไปนี้:\n* ระบบบริการการศึกษาของสถาบัน (REG KMITL) [W1]\n* ประกาศหรือเว็บไซต์ของคณะเทคโนโลยีสารสนเทศ (IT KMITL) [W2]\n* ระบบตารางสอบและผังที่นั่งสอบออนไลน์ประจำภาคการศึกษาของคณะ [W2]",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": true,
+   "citations": [
+    {
+     "title": "IT46-201-ประมวลรายว_ชา.pdf",
+     "score": 0.746,
+     "cited": true
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.674,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.672,
+     "cited": false
+    }
+   ],
+   "web_sources": 2
+  },
+  {
+   "setting": "auto",
+   "id": "N3",
+   "type": "none",
+   "doc": "intern",
+   "question": "นักศึกษาไปฝึกงานที่ต่างประเทศได้หรือไม่ และต้องใช้เอกสารอะไรเพิ่ม",
+   "status": 200,
+   "seconds": 6.6,
+   "cached": false,
+   "coverage": "none",
+   "grounded": true,
+   "web_used": true,
+   "answer": "เอกสารในขอบเขตที่เลือกไม่มีข้อมูลเรื่องนี้\n\n**ข้อมูลจากการค้นเว็บ**\n\nนักศึกษาสามารถไปฝึกงานที่ต่างประเทศได้ ผ่านโครงการแลกเปลี่ยนและฝึกงาน หรือการสมัครผ่านสำนักงานกิจการต่างประเทศ (OIA) ของสถาบัน โดยมักมีเงื่อนไขสำคัญคือต้องได้รับการตอบรับ (Acceptance Letter) จากหน่วยงานหรือมหาวิทยาลัยในต่างประเทศ และมีผลการเรียนเฉลี่ยสะสม (GPA) ตามเกณฑ์ที่กำหนด (เช่น 3.00 ขึ้นไป) [W1][W2]\n\nเอกสารหลักฐานเพิ่มเติมที่มักต้องใช้ในการสมัคร มีดังนี้ครับ:\n* **ใบสมัครออนไลน์และรูปถ่าย:** ใบสมัครของทางสถาบันหรือหน่วยงานที่เกี่ยวข้อง พร้อมรูปถ่ายหน้าตรงขนาดที่เป็นทางการ [W3]\n* **หนังสือตอบรับ:** จดหมายตอบรับการฝึกงานหรือตอบรับจากหน่วยงาน/มหาวิทยาลัยต่างประเทศ (Acceptance Letter) [W1][W2]\n* **เอกสารผลการเรียนและประวัติส่วนตัว:** สำเนาใบแสดงผลการเรียน (Official Transcript) และเรซูเม่/ประวัติย่อ (Resume/CV) [W3][W4]\n* **หนังสือเดินทาง (Passport):** สำเนาหนังสือเดินทางที่ยังมีอายุใช้งาน [W3]\n* **เอกสารรับรองผู้ปกครอง:** หนังสือรับรองความยินยอมจากผู้ปกครองและสัญญาการเดินทางไปฝึกงาน ณ ต่างประเทศ [W3] \n* **เอกสารอื่น ๆ:** เช่น แผนการฝึกงาน ผลทดสอบภาษาอังกฤษ หรือประกันสุขภาพและอุบัติเหตุที่ครอบคลุมตามเงื่อนไขของประเทศปลายทาง [W3]",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 1,
+   "cited_expected": false,
+   "citations": [
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.726,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.708,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.689,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.676,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.672,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.666,
+     "cited": false
+    }
+   ],
+   "web_sources": 4
+  },
+  {
+   "setting": "auto",
+   "id": "N4",
+   "type": "none",
+   "doc": "intern",
+   "question": "สถานประกอบการจ่ายเบี้ยเลี้ยงให้นักศึกษาฝึกงานวันละเท่าไร",
+   "status": 200,
+   "seconds": 5.75,
+   "cached": false,
+   "coverage": "none",
+   "grounded": true,
+   "web_used": true,
+   "answer": "เอกสารในขอบเขตที่เลือกไม่มีข้อมูลเรื่องนี้\n\n**ข้อมูลจากการค้นเว็บ**\n\nจำนวนเงินเบี้ยเลี้ยงหรือค่าตอบแทนที่สถานประกอบการจ่ายให้นักศึกษาฝึกงานและนักศึกษาสหกิจศึกษา **ไม่มีอัตราตายตัวที่เป็นมาตรฐานเดียวกันทั้งหมด** [W1] เนื่องจากขึ้นอยู่กับนโยบาย โครงสร้างสวัสดิการ และประเภทธุรกิจของแต่ละบริษัท [W2] \n\nโดยทั่วไปอัตราเบี้ยเลี้ยงที่พบได้บ่อยในภาคปฏิบัติจะมีตั้งแต่:\n* **ไม่มีเบี้ยเลี้ยง:** บางแห่งรับฝึกงานเพื่อให้ประสบการณ์และการเรียนรู้ [W1]\n* **จ่ายตามความเหมาะสมหรือตามตกลง:** เช่น อัตราวันละ 150 ถึง 350 บาท หรือมากกว่านั้น [W1][W3][W4]\n* **สวัสดิการอื่น ๆ:** บางสถานประกอบการอาจไม่มีเบี้ยเลี้ยงเป็นตัวเงิน แต่มีสวัสดิการอื่นทดแทน เช่น ฟรีอาหารกลางวัน ที่พัก หรือค่าเดินทาง [W1][W5]\n\nนักศึกษาควรตรวจสอบรายละเอียดสวัสดิการและค่าตอบแทนล่วงหน้าจากประกาศรับสมัครของแต่ละบริษัทหรือสอบถามจากทางสถานประกอบการโดยตรงก่อนตัดสินใจยื่นใบสมัคร",
+   "facts_expected": 0,
+   "facts_found": 0,
+   "correct": false,
+   "partial": false,
+   "refusal": true,
+   "rank": 2,
+   "cited_expected": false,
+   "citations": [
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.717,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.686,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.676,
+     "cited": false
+    },
+    {
+     "title": "IT46-ค_ม_อการฝ_กงาน-2569.pdf",
+     "score": 0.674,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.654,
+     "cited": false
+    },
+    {
+     "title": "01. หลักสูตร ค.อ.บ. สาขาวิชาเทคโนโลยีคอมพิวเตอร์ (หลักสูตรปรับปรุง พ.ศ. 2567).pdf",
+     "score": 0.647,
+     "cited": false
+    }
+   ],
+   "web_sources": 5
+  }
+ ],
+ "cache": [
+  {
+   "id": "S1",
+   "status": 200,
+   "seconds": 1.879,
+   "cached": false
+  },
+  {
+   "id": "S2",
+   "status": 200,
+   "seconds": 0.03,
+   "cached": true
+  },
+  {
+   "id": "S3",
+   "status": 200,
+   "seconds": 0.03,
+   "cached": true
+  },
+  {
+   "id": "S4",
+   "status": 200,
+   "seconds": 0.028,
+   "cached": true
+  },
+  {
+   "id": "S5",
+   "status": 200,
+   "seconds": 0.019,
+   "cached": true
+  },
+  {
+   "id": "S6",
+   "status": 200,
+   "seconds": 0.035,
+   "cached": true
+  },
+  {
+   "id": "S7",
+   "status": 200,
+   "seconds": 0.022,
+   "cached": true
+  },
+  {
+   "id": "S8",
+   "status": 200,
+   "seconds": 0.021,
+   "cached": true
+  },
+  {
+   "id": "I1",
+   "status": 200,
+   "seconds": 0.04,
+   "cached": true
+  },
+  {
+   "id": "I2",
+   "status": 200,
+   "seconds": 0.028,
+   "cached": true
+  }
+ ],
+ "summary": {
+  "auto": {
+   "asked": 30,
+   "errors": 0,
+   "answerable": 26,
+   "correct": 26,
+   "partial": 0,
+   "accuracy": 1.0,
+   "by_type": {
+    "fact": {
+     "n": 18,
+     "correct": 18,
+     "partial": 0
+    },
+    "cross": {
+     "n": 4,
+     "correct": 4,
+     "partial": 0
+    },
+    "reason": {
+     "n": 4,
+     "correct": 4,
+     "partial": 0
+    }
+   },
+   "none": 4,
+   "refused": 4,
+   "hit@1": 0.885,
+   "hit@k": 1.0,
+   "mrr": 0.936,
+   "cited_expected": 0.962,
+   "web_used": 6,
+   "seconds_mean": 3.54,
+   "seconds_p50": 2.7,
+   "seconds_p95": 6.6,
+   "seconds_max": 7.58
+  },
+  "course": {
+   "asked": 30,
+   "errors": 0,
+   "answerable": 26,
+   "correct": 26,
+   "partial": 0,
+   "accuracy": 1.0,
+   "by_type": {
+    "fact": {
+     "n": 18,
+     "correct": 18,
+     "partial": 0
+    },
+    "cross": {
+     "n": 4,
+     "correct": 4,
+     "partial": 0
+    },
+    "reason": {
+     "n": 4,
+     "correct": 4,
+     "partial": 0
+    }
+   },
+   "none": 4,
+   "refused": 4,
+   "hit@1": 1.0,
+   "hit@k": 1.0,
+   "mrr": 1.0,
+   "cited_expected": 1.0,
+   "web_used": 0,
+   "seconds_mean": 2.83,
+   "seconds_p50": 2.74,
+   "seconds_p95": 3.62,
+   "seconds_max": 3.66
+  },
+  "cache": {
+   "repeated": 10,
+   "served_from_cache": 9,
+   "seconds_mean": 0.028
+  }
+ },
+ "usage": {
+  "ask/chat": {
+   "calls": 68,
+   "input_tokens": 124038,
+   "output_tokens": 8693,
+   "search_queries": 8,
+   "cost_usd": 0.058932
+  },
+  "ask/embedding": {
+   "calls": 29,
+   "input_tokens": 647,
+   "output_tokens": 0,
+   "search_queries": 0,
+   "cost_usd": 9.8e-05
+  }
+ }
+}
