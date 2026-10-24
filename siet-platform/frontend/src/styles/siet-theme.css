@@ -64,6 +64,13 @@
   --fern: #db2777;
   --fern-deep: #be185d;
   --fern-tint: #fce7f3;
+  /* its green accents on notebook and source pages; gold (notes) stays amber */
+  --teal: #be185d;
+  --teal-deep: #9d174d;
+  --teal-tint: #fce7f3;
+  --sage: #db2777;
+  --sage-deep: #be185d;
+  --sage-tint: #fdf2f8;
   font-family: var(--font-inter), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
@@ -136,6 +143,12 @@
   --fern: #f472b6;
   --fern-deep: #f9a8d4;
   --fern-tint: #4a2b3c;
+  --teal: #f472b6;
+  --teal-deep: #f9a8d4;
+  --teal-tint: #4a2b3c;
+  --sage: #f9a8d4;
+  --sage-deep: #fbcfe8;
+  --sage-tint: #382630;
 }
 
 /*

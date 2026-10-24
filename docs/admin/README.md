@@ -13,7 +13,7 @@
 | ไฟล์ | ตอบคำถามว่า | อ่านเมื่อ |
 |---|---|---|
 | [01-overview.md](01-overview.md) | ส่วน admin มีหน้าอะไร แบ่งอย่างไร ใครเห็น กติกาความเป็นส่วนตัว อำนาจลบ ตัวเลขที่ดูแปลก จะเปิดดูหน้าจริงอย่างไร | **เริ่มที่นี่เสมอ** |
-| [02-theme-and-layout.md](02-theme-and-layout.md) | สเปกดีไซน์ Minimal/Clean Light, โทเค็นสีและฟอนต์ของ `.theme-siet`, การ scope ธีมไว้เฉพาะ `/admin`, sidebar และแบรนด์ LSP-SIET | แก้หน้าตา สี ฟอนต์ ระยะ หรือจะใช้ธีมนี้กับส่วนอื่น |
+| [02-theme-and-layout.md](02-theme-and-layout.md) | สเปกดีไซน์ Minimal/Clean Light, โทเค็นสีและฟอนต์ของ `.theme-siet` (เลิกใช้ 23 ต.ค.), ธีมชมพู `.community-theme` ทุกหน้าใน dashboard, sidebar และแบรนด์ LSP-SIET | แก้หน้าตา สี ฟอนต์ ระยะ หรือจะใช้ธีมนี้กับส่วนอื่น |
 | [03-frontend-pages.md](03-frontend-pages.md) | แต่ละหน้า → แต่ละแท็บ → component ไหน ดึงข้อมูลจาก hook/endpoint ไหน มีพฤติกรรมอะไร พร้อมเช็กลิสต์เพิ่มหน้า/แท็บใหม่ | แก้หรือเพิ่มสิ่งที่ผู้ใช้เห็นในหน้าใดหน้าหนึ่ง |
 | [04-frontend-shared.md](04-frontend-shared.md) | ชิ้นส่วนร่วม (`StatTile`, `StatCharts`, `controls`, `PostCounts`, `AdminPageHeader`), `lib/api/admin.ts`, `use-admin.ts` (query keys, invalidate), `community-format.ts` | สร้าง panel ใหม่, เพิ่ม API call, สงสัยว่า cache ไหนต้อง refresh |
 | [05-backend-api.md](05-backend-api.md) | ทุก endpoint ใต้ `/api/admin` พารามิเตอร์และ response shape, หน้าต่างเวลาของผู้ดู, ฟังก์ชัน SQL ใน `repository.py`/`library.py`/`features.py`, ตารางที่แตะ, ตัวอย่าง curl | เพิ่มหรือแก้ endpoint, แก้ query, สอบสวนตัวเลข |

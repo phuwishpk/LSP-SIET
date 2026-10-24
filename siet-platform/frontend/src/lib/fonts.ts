@@ -6,7 +6,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 // DESIGN.md's display face for the AI Learning Adventure theme (Latin only;
 // Thai falls back to IBM Plex Sans Thai through the font stack).
 const nunito = Nunito({ subsets: ['latin'], variable: '--font-nunito' })
-// Thai faces for the SIET theme (`.theme-siet`). Only the CSS variables are
+// Thai faces for the SIET themes (`.community-theme` on every dashboard page,
+// `.theme-adventure` on /community/ask). Only the CSS variables are
 // set here; without preload the files are fetched by the pages that actually
 // use the family. Noto Sans Thai is a variable font and must stay without a
 // weight list: Turbopack fails to resolve its files when one is given.

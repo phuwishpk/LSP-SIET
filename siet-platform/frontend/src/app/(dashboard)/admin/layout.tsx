@@ -1,19 +1,10 @@
-'use client'
-
-import { useLayoutEffect } from 'react'
-
 /**
- * Every /admin page wears the SIET minimal theme (`.theme-siet` in globals.css).
+ * /admin pages wear the same pink palette as the rest of the dashboard, set on
+ * <body> by useCommunityPalette (lib/hooks/use-community-palette.ts).
  *
- * The wrapper themes the page itself. Dialogs, menus and tooltips are portaled
- * to <body>, outside the wrapper, so the class is also set there for as long as
- * an admin page is open.
+ * Until 23 Oct 2026 this layout put the admin pages in `.theme-siet` (minimal
+ * monochrome). The class is still in siet-theme.css but nothing applies it.
  */
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  useLayoutEffect(() => {
-    document.body.classList.add('theme-siet')
-    return () => document.body.classList.remove('theme-siet')
-  }, [])
-
-  return <div className="theme-siet bg-canvas">{children}</div>
+  return children
 }

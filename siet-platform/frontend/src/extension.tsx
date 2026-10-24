@@ -12,6 +12,7 @@ import { PdpaConsentDialog } from '@siet/platform/components/auth/PdpaConsentDia
 import { AppNavbar } from '@siet/platform/components/layout/AppNavbar'
 import { PointsWalletLink } from '@siet/platform/components/layout/PointsWalletLink'
 import { clearPostLoginPath } from '@siet/platform/lib/auth-redirect'
+import { useCommunityPalette } from '@siet/platform/lib/hooks/use-community-palette'
 import { getWorkspaceNavigation } from '@siet/platform/lib/navigation'
 import { canAccessRoute, isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
 import { useShareThemeWithApps } from '@siet/platform/lib/theme-cookie'
@@ -53,6 +54,8 @@ const extension: FrontendExtension = {
     const signedIn = useAuthStore((s) => s.isAuthenticated)
     // Runs on every dashboard page: the AI Roadmap app reads the theme from here.
     useShareThemeWithApps()
+    // ...and every one of them is pink, not open-notebook's green.
+    useCommunityPalette()
     // Reached a page while signed in: the remembered post-login target is used up.
     useEffect(() => {
       if (signedIn && role && role !== 'pending' && !user?.disabled) clearPostLoginPath()
