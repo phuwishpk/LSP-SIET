@@ -34,7 +34,7 @@ pre{margin:0;padding:14px 18px;white-space:pre}
 const page = await browser.newPage({ deviceScaleFactor: 2 })
 for (const [n, file] of [
   ['19', 'fig-4.19-api-contract.png'], ['20', 'fig-4.20-integration-test.png'], ['21', 'fig-4.21-e2e.png'],
-  ['23', 'fig-4.23-pytest.png'], ['24', 'fig-4.24-vitest.png'], ['25', 'fig-4.25-rag-eval.png'],
+  ['23', 'fig-4.23-pytest.png'], ['24', 'fig-4.24-vitest.png'],
 ]) {
   await page.setContent(term(fs.readFileSync(new URL(`./term46/fig4.${n}.txt`, import.meta.url), 'utf8').trimEnd()))
   await page.locator('.win').screenshot({ path: path.join(OUT, file) })
