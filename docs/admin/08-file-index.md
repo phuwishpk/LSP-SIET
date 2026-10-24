@@ -14,7 +14,7 @@
 |---|---|---|---|
 | `app/layout.tsx` | แก้ | โหลดฟอนต์ Inter + IBM Plex Sans Thai + Noto Sans Thai เป็นตัวแปร CSS บน `<body>` | 02 §2.4 |
 | `app/globals.css` | แก้ | โทเค็น `canvas`/`subtle-foreground`/`ai*` ใน `@theme inline`, `:root`, `.dark`; class `.theme-siet` (light + dark); ปิดเงา; ฟอนต์ | 02 §2 |
-| `app/(dashboard)/admin/layout.tsx` | ใหม่ | ใส่ `.theme-siet` ให้ wrapper และ `<body>` ตลอดที่อยู่ใน `/admin` | 02 §3 |
+| `app/(dashboard)/admin/layout.tsx` | ใหม่ | เดิมใส่ `.theme-siet`; ตั้งแต่ 23 ต.ค. ส่ง children ต่อเฉย ๆ เพราะ `.community-theme` อยู่บน `<body>` ทุกหน้า (`lib/hooks/use-community-palette.ts`) | 02 §3 |
 | `app/(dashboard)/admin/page.tsx` | แก้ | จัดการระบบ: 5 แท็บ, ตารางผู้ใช้, `UserDialog`; ถอดแท็บเนื้อหา/ห้อง | 03 §1 |
 | `app/(dashboard)/admin/community/page.tsx` | ใหม่ | จัดการ Community: ภาพรวม/โพสต์/ความคิดเห็น/ห้อง/หมวดหมู่ (แท็บหมวดหมู่ 22 ต.ค.) | 03 §2 |
 | `app/(dashboard)/admin/rag/page.tsx` | ใหม่ | จัดการ RAG AI: ภาพรวม/เอกสารที่ AI อ่าน/แหล่งความรู้ | 03 §3 |

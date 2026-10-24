@@ -32,6 +32,8 @@ const PRESETS = [
   { label: 'นักศึกษา 67030001', email: '67030001@kmitl.ac.th', name: 'นวพล ทดสอบ' },
   { label: 'นักศึกษา 67030002', email: '67030002@kmitl.ac.th', name: 'พรพรม ทดสอบ' },
   { label: 'อาจารย์ somchai.su', email: 'somchai.su@kmitl.ac.th', name: 'อ.สมชาย สุขใจ' },
+  // Admin only when this address is listed in WORKSPACE_ADMIN_EMAILS (.env)
+  { label: 'แอดมิน', email: 'admin@siet.test', name: 'ผู้ดูแลระบบ (ทดสอบ)' },
 ]
 
 function GoogleMock() {
@@ -50,11 +52,21 @@ function GoogleMock() {
     setError(null)
     try {
       const apiUrl = await getApiUrl()
-      const data = await authApi.googleExchange(apiUrl, {
-        state,
-        mock_email: email.trim(),
-        mock_name: name.trim() || undefined,
-      })
+      const exchange = (s: string) =>
+        authApi.googleExchange(apiUrl, {
+          state: s,
+          mock_email: email.trim(),
+          mock_name: name.trim() || undefined,
+        })
+      let data
+      try {
+        data = await exchange(state)
+      } catch (err) {
+        // The signed state lives 10 minutes; a page left open longer gets a fresh one instead of a dead end
+        if (!/OAuth state/.test((err as { detail?: string })?.detail || '')) throw err
+        const fresh = await authApi.googleStart(apiUrl, '/community')
+        data = await exchange(fresh.state)
+      }
       useAuthStore.getState().setSession(data.access_token, data.user)
       if (data.welcome_granted) {
         toast.success(`ยินดีต้อนรับสู่ SIET Space! รับแต้มเริ่มต้น ${data.user.points_balance ?? 20} แต้ม 🎁`)
@@ -77,7 +89,8 @@ function GoogleMock() {
           <CardTitle>Google Sign-in (โหมดจำลอง)</CardTitle>
           <CardDescription>
             ยังไม่ได้ตั้งค่า Google OAuth Client ระบบจึงจำลองหน้าเลือกบัญชี Google ให้ทดสอบ
-            ใส่อีเมล @kmitl.ac.th ใดก็ได้ (รหัสนักศึกษา 8 หลัก = นักศึกษา, อื่น ๆ = อาจารย์)
+            ใส่อีเมล @kmitl.ac.th ใดก็ได้ (รหัสนักศึกษา 8 หลัก = นักศึกษา, อาจารย์ที่อยู่ในรายชื่อ = อาจารย์,
+            อีเมลใน WORKSPACE_ADMIN_EMAILS = แอดมิน, อื่น ๆ = รออนุมัติ)
           </CardDescription>
         </CardHeader>
         <CardContent>

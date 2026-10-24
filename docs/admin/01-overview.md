@@ -38,7 +38,7 @@ open-notebook/
 ├── tests/test_admin_consoles.py              ← unit test ของ helper ฝั่ง backend
 └── frontend/src/
     ├── app/(dashboard)/admin/
-    │   ├── layout.tsx                        ← ใส่ธีม .theme-siet ให้ทุกหน้า /admin
+    │   ├── layout.tsx                        ← ส่ง children ต่อเฉย ๆ (ธีมชมพูมาจาก useCommunityPalette, ดู 02 §3)
     │   ├── page.tsx                          ← จัดการระบบ (รวม UserDialog อยู่ในไฟล์นี้)
     │   ├── community/page.tsx
     │   ├── rag/page.tsx

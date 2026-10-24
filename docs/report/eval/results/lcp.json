@@ -1,0 +1,1039 @@
+{
+  "generated_at": "2026-10-23T19:21:54.201Z",
+  "app": "http://localhost:28502",
+  "runs": 3,
+  "summary": {
+    "anonymous": {
+      "loads": 3,
+      "no_lcp": 0,
+      "p50": 300,
+      "p75": 444,
+      "max": 444,
+      "good": 3,
+      "needs_improvement": 0,
+      "poor": 0
+    },
+    "student": {
+      "loads": 36,
+      "no_lcp": 0,
+      "p50": 332,
+      "p75": 352,
+      "max": 396,
+      "good": 36,
+      "needs_improvement": 0,
+      "poor": 0
+    },
+    "teacher": {
+      "loads": 21,
+      "no_lcp": 3,
+      "p50": 556,
+      "p75": 572,
+      "max": 592,
+      "good": 21,
+      "needs_improvement": 0,
+      "poor": 0
+    },
+    "admin": {
+      "loads": 27,
+      "no_lcp": 0,
+      "p50": 344,
+      "p75": 364,
+      "max": 520,
+      "good": 27,
+      "needs_improvement": 0,
+      "poor": 0
+    },
+    "teacher (roadmap app)": {
+      "loads": 3,
+      "no_lcp": 0,
+      "p50": 212,
+      "p75": 228,
+      "max": 228,
+      "good": 3,
+      "needs_improvement": 0,
+      "poor": 0
+    },
+    "student (quiz app)": {
+      "loads": 3,
+      "no_lcp": 0,
+      "p50": 128,
+      "p75": 132,
+      "max": 132,
+      "good": 3,
+      "needs_improvement": 0,
+      "poor": 0
+    },
+    "all": {
+      "loads": 93,
+      "no_lcp": 3,
+      "p50": 340,
+      "p75": 396,
+      "max": 592,
+      "good": 93,
+      "needs_improvement": 0,
+      "poor": 0
+    }
+  },
+  "rows": [
+    {
+      "role": "anonymous",
+      "url": "http://localhost:28502/login",
+      "run": 1,
+      "lcp": 444,
+      "fcp": 344,
+      "ttfb": 74,
+      "dcl": 123,
+      "network_idle": 833
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/dashboard",
+      "run": 1,
+      "lcp": 356,
+      "fcp": 280,
+      "ttfb": 3,
+      "dcl": 56,
+      "network_idle": 858
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community",
+      "run": 1,
+      "lcp": 356,
+      "fcp": 256,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 946
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=mine",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 885
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=saved",
+      "run": 1,
+      "lcp": 320,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 852
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=library",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 888
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=materials",
+      "run": 1,
+      "lcp": 396,
+      "fcp": 256,
+      "ttfb": 4,
+      "dcl": 48,
+      "network_idle": 911
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=rules",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 252,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 875
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?course=1953",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 236,
+      "ttfb": 20,
+      "dcl": 48,
+      "network_idle": 930
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/search?q=IT46",
+      "run": 1,
+      "lcp": 360,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 836
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/ask",
+      "run": 1,
+      "lcp": 332,
+      "fcp": 248,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1047
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/profile/me",
+      "run": 1,
+      "lcp": 308,
+      "fcp": 236,
+      "ttfb": 12,
+      "dcl": 50,
+      "network_idle": 813
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/features",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 260,
+      "ttfb": 4,
+      "dcl": 47,
+      "network_idle": 865
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/teacher",
+      "run": 1,
+      "lcp": 592,
+      "fcp": 248,
+      "ttfb": 7,
+      "dcl": 57,
+      "network_idle": 986
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/teacher/courses/1953",
+      "run": 1,
+      "lcp": 572,
+      "fcp": 228,
+      "ttfb": 10,
+      "dcl": 47,
+      "network_idle": 931
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/community",
+      "run": 1,
+      "lcp": 564,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 960
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/features",
+      "run": 1,
+      "lcp": 536,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 900
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/notebooks",
+      "run": 1,
+      "lcp": 536,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 938
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/sources",
+      "run": 1,
+      "lcp": 548,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 915
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/search",
+      "run": 1,
+      "lcp": 0,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 870
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/transformations",
+      "run": 1,
+      "lcp": 548,
+      "fcp": 232,
+      "ttfb": 4,
+      "dcl": 48,
+      "network_idle": 921
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin",
+      "run": 1,
+      "lcp": 380,
+      "fcp": 264,
+      "ttfb": 3,
+      "dcl": 54,
+      "network_idle": 1409
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/community",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 1287
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/rag",
+      "run": 1,
+      "lcp": 324,
+      "fcp": 232,
+      "ttfb": 4,
+      "dcl": 48,
+      "network_idle": 1270
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/roadmap",
+      "run": 1,
+      "lcp": 328,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1266
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/quiz",
+      "run": 1,
+      "lcp": 344,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 1285
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/settings",
+      "run": 1,
+      "lcp": 356,
+      "fcp": 224,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1245
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/settings/models",
+      "run": 1,
+      "lcp": 520,
+      "fcp": 296,
+      "ttfb": 7,
+      "dcl": 63,
+      "network_idle": 1415
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/advanced",
+      "run": 1,
+      "lcp": 336,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 55,
+      "network_idle": 1317
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/notebooks",
+      "run": 1,
+      "lcp": 368,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1256
+    },
+    {
+      "role": "teacher (roadmap app)",
+      "url": "http://localhost:23002/roadmap?token=<jwt>&theme=light",
+      "run": 1,
+      "lcp": 212,
+      "fcp": 88,
+      "ttfb": 10,
+      "dcl": 76,
+      "network_idle": 850
+    },
+    {
+      "role": "student (quiz app)",
+      "url": "http://localhost:23001/quiz?token=<jwt>&theme=light",
+      "run": 1,
+      "lcp": 128,
+      "fcp": 128,
+      "ttfb": 13,
+      "dcl": 49,
+      "network_idle": 746
+    },
+    {
+      "role": "anonymous",
+      "url": "http://localhost:28502/login",
+      "run": 2,
+      "lcp": 300,
+      "fcp": 244,
+      "ttfb": 6,
+      "dcl": 58,
+      "network_idle": 733
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/dashboard",
+      "run": 2,
+      "lcp": 304,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 56,
+      "network_idle": 814
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community",
+      "run": 2,
+      "lcp": 328,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 916
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=mine",
+      "run": 2,
+      "lcp": 328,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 868
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=saved",
+      "run": 2,
+      "lcp": 308,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 851
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=library",
+      "run": 2,
+      "lcp": 336,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 883
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=materials",
+      "run": 2,
+      "lcp": 356,
+      "fcp": 248,
+      "ttfb": 3,
+      "dcl": 50,
+      "network_idle": 903
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=rules",
+      "run": 2,
+      "lcp": 324,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 857
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?course=1953",
+      "run": 2,
+      "lcp": 332,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 871
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/search?q=IT46",
+      "run": 2,
+      "lcp": 376,
+      "fcp": 232,
+      "ttfb": 6,
+      "dcl": 47,
+      "network_idle": 836
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/ask",
+      "run": 2,
+      "lcp": 308,
+      "fcp": 236,
+      "ttfb": 4,
+      "dcl": 48,
+      "network_idle": 990
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/profile/me",
+      "run": 2,
+      "lcp": 396,
+      "fcp": 312,
+      "ttfb": 13,
+      "dcl": 62,
+      "network_idle": 928
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/features",
+      "run": 2,
+      "lcp": 320,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 839
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/teacher",
+      "run": 2,
+      "lcp": 572,
+      "fcp": 240,
+      "ttfb": 4,
+      "dcl": 56,
+      "network_idle": 941
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/teacher/courses/1953",
+      "run": 2,
+      "lcp": 576,
+      "fcp": 244,
+      "ttfb": 7,
+      "dcl": 47,
+      "network_idle": 924
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/community",
+      "run": 2,
+      "lcp": 568,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 955
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/features",
+      "run": 2,
+      "lcp": 544,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 890
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/notebooks",
+      "run": 2,
+      "lcp": 560,
+      "fcp": 252,
+      "ttfb": 27,
+      "dcl": 49,
+      "network_idle": 959
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/sources",
+      "run": 2,
+      "lcp": 540,
+      "fcp": 224,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 898
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/search",
+      "run": 2,
+      "lcp": 0,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 899
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/transformations",
+      "run": 2,
+      "lcp": 572,
+      "fcp": 248,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 934
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin",
+      "run": 2,
+      "lcp": 364,
+      "fcp": 248,
+      "ttfb": 3,
+      "dcl": 56,
+      "network_idle": 1365
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/community",
+      "run": 2,
+      "lcp": 328,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 1272
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/rag",
+      "run": 2,
+      "lcp": 340,
+      "fcp": 240,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1270
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/roadmap",
+      "run": 2,
+      "lcp": 324,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1285
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/quiz",
+      "run": 2,
+      "lcp": 340,
+      "fcp": 240,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1297
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/settings",
+      "run": 2,
+      "lcp": 348,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 1241
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/settings/models",
+      "run": 2,
+      "lcp": 376,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 1236
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/advanced",
+      "run": 2,
+      "lcp": 336,
+      "fcp": 228,
+      "ttfb": 6,
+      "dcl": 47,
+      "network_idle": 1321
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/notebooks",
+      "run": 2,
+      "lcp": 364,
+      "fcp": 248,
+      "ttfb": 4,
+      "dcl": 48,
+      "network_idle": 1277
+    },
+    {
+      "role": "teacher (roadmap app)",
+      "url": "http://localhost:23002/roadmap?token=<jwt>&theme=light",
+      "run": 2,
+      "lcp": 228,
+      "fcp": 104,
+      "ttfb": 10,
+      "dcl": 92,
+      "network_idle": 883
+    },
+    {
+      "role": "student (quiz app)",
+      "url": "http://localhost:23001/quiz?token=<jwt>&theme=light",
+      "run": 2,
+      "lcp": 132,
+      "fcp": 132,
+      "ttfb": 14,
+      "dcl": 53,
+      "network_idle": 736
+    },
+    {
+      "role": "anonymous",
+      "url": "http://localhost:28502/login",
+      "run": 3,
+      "lcp": 292,
+      "fcp": 240,
+      "ttfb": 7,
+      "dcl": 59,
+      "network_idle": 729
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/dashboard",
+      "run": 3,
+      "lcp": 352,
+      "fcp": 284,
+      "ttfb": 3,
+      "dcl": 54,
+      "network_idle": 853
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community",
+      "run": 3,
+      "lcp": 328,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 914
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=mine",
+      "run": 3,
+      "lcp": 324,
+      "fcp": 232,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 871
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=saved",
+      "run": 3,
+      "lcp": 328,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 860
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=library",
+      "run": 3,
+      "lcp": 328,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 868
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=materials",
+      "run": 3,
+      "lcp": 352,
+      "fcp": 244,
+      "ttfb": 4,
+      "dcl": 47,
+      "network_idle": 894
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?view=rules",
+      "run": 3,
+      "lcp": 332,
+      "fcp": 248,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 865
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community?course=1953",
+      "run": 3,
+      "lcp": 320,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 882
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/search?q=IT46",
+      "run": 3,
+      "lcp": 360,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 826
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/ask",
+      "run": 3,
+      "lcp": 312,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1007
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/community/profile/me",
+      "run": 3,
+      "lcp": 300,
+      "fcp": 228,
+      "ttfb": 8,
+      "dcl": 48,
+      "network_idle": 815
+    },
+    {
+      "role": "student",
+      "url": "http://localhost:28502/features",
+      "run": 3,
+      "lcp": 324,
+      "fcp": 248,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 834
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/teacher",
+      "run": 3,
+      "lcp": 592,
+      "fcp": 260,
+      "ttfb": 3,
+      "dcl": 53,
+      "network_idle": 955
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/teacher/courses/1953",
+      "run": 3,
+      "lcp": 548,
+      "fcp": 232,
+      "ttfb": 6,
+      "dcl": 47,
+      "network_idle": 910
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/community",
+      "run": 3,
+      "lcp": 556,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 953
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/features",
+      "run": 3,
+      "lcp": 560,
+      "fcp": 244,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 898
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/notebooks",
+      "run": 3,
+      "lcp": 544,
+      "fcp": 236,
+      "ttfb": 8,
+      "dcl": 49,
+      "network_idle": 921
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/sources",
+      "run": 3,
+      "lcp": 552,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 912
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/search",
+      "run": 3,
+      "lcp": 0,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 50,
+      "network_idle": 876
+    },
+    {
+      "role": "teacher",
+      "url": "http://localhost:28502/transformations",
+      "run": 3,
+      "lcp": 540,
+      "fcp": 224,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 896
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin",
+      "run": 3,
+      "lcp": 360,
+      "fcp": 252,
+      "ttfb": 4,
+      "dcl": 59,
+      "network_idle": 1347
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/community",
+      "run": 3,
+      "lcp": 316,
+      "fcp": 224,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 1314
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/rag",
+      "run": 3,
+      "lcp": 320,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 1258
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/roadmap",
+      "run": 3,
+      "lcp": 328,
+      "fcp": 236,
+      "ttfb": 3,
+      "dcl": 49,
+      "network_idle": 1266
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/admin/quiz",
+      "run": 3,
+      "lcp": 344,
+      "fcp": 244,
+      "ttfb": 12,
+      "dcl": 49,
+      "network_idle": 1267
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/settings",
+      "run": 3,
+      "lcp": 344,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 46,
+      "network_idle": 1230
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/settings/models",
+      "run": 3,
+      "lcp": 384,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 47,
+      "network_idle": 1266
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/advanced",
+      "run": 3,
+      "lcp": 332,
+      "fcp": 232,
+      "ttfb": 4,
+      "dcl": 47,
+      "network_idle": 1333
+    },
+    {
+      "role": "admin",
+      "url": "http://localhost:28502/notebooks",
+      "run": 3,
+      "lcp": 344,
+      "fcp": 228,
+      "ttfb": 3,
+      "dcl": 48,
+      "network_idle": 1272
+    },
+    {
+      "role": "teacher (roadmap app)",
+      "url": "http://localhost:23002/roadmap?token=<jwt>&theme=light",
+      "run": 3,
+      "lcp": 200,
+      "fcp": 84,
+      "ttfb": 14,
+      "dcl": 72,
+      "network_idle": 888
+    },
+    {
+      "role": "student (quiz app)",
+      "url": "http://localhost:23001/quiz?token=<jwt>&theme=light",
+      "run": 3,
+      "lcp": 124,
+      "fcp": 124,
+      "ttfb": 11,
+      "dcl": 49,
+      "network_idle": 754
+    }
+  ]
+}

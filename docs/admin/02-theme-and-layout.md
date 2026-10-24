@@ -4,6 +4,11 @@
 > ไฟล์หลัก: `frontend/src/app/globals.css`, `frontend/src/app/layout.tsx`,
 > `siet-platform/frontend/src/app/(dashboard)/admin/layout.tsx`, `frontend/src/components/layout/AppSidebar.tsx`
 
+> **อัปเดต 23 ต.ค. 2026:** หน้า `/admin` เลิกใช้ `.theme-siet` แล้ว ทุกหน้าใน dashboard
+> (admin, Notebooks, Sources, Ask and Search, AI Features, `/teacher`, Community) ใช้ธีมชมพู
+> `.community-theme` ชุดเดียวกัน ดูข้อ 3 ส่วนข้อ 1–2 เก็บไว้เป็นประวัติของสเปก Minimal/Clean Light
+> class `.theme-siet` ยังอยู่ใน `siet-theme.css` แต่ไม่มีหน้าไหนใช้แล้ว
+
 ## 1. สเปกดีไซน์ที่ได้รับ (8 ต.ค. 2026)
 
 เจ้าของระบบส่งแนว **Minimal / Clean Light** มาให้:
@@ -82,27 +87,35 @@ const notoThai = Noto_Sans_Thai({ variable: "--font-noto-thai", preload: false }
   ปล่อยให้ไม่มี weight ตามที่เป็นอยู่
 - `preload: false` เพื่อไม่ให้ทุกหน้าโหลดฟอนต์ไทยสองตัวทั้งที่ใช้เฉพาะ `/admin`
 
-## 3. การใส่ธีมให้หน้า `/admin` ทุกหน้า
+## 3. การใส่ธีมให้ทุกหน้าใน dashboard (ตั้งแต่ 23 ต.ค. 2026)
 
-`siet-platform/frontend/src/app/(dashboard)/admin/layout.tsx`:
+`siet-platform/frontend/src/lib/hooks/use-community-palette.ts` ถูกเรียกจาก `useRouteGate` ใน
+`siet-platform/frontend/src/extension.tsx` ซึ่งทำงานทุกหน้าของ dashboard:
 
-```tsx
-export default function AdminLayout({ children }) {
+```ts
+export function useCommunityPalette() {
   useLayoutEffect(() => {
-    document.body.classList.add('theme-siet')
-    return () => document.body.classList.remove('theme-siet')
+    document.body.classList.add('community-theme')
+    return () => document.body.classList.remove('community-theme')
   }, [])
-  return <div className="theme-siet bg-canvas">{children}</div>
 }
 ```
 
-- wrapper ให้ธีมกับตัวหน้า
-- class บน `<body>` จำเป็นเพราะ Dialog / AlertDialog / DropdownMenu / Tooltip ของ Radix ถูก portal
-  ไปที่ `<body>` นอก wrapper; ถอดออกเมื่อออกจาก `/admin` (ตรวจแล้วว่า `/community` ไม่ติดธีม)
-- หน้า admin ทุกหน้าจึง**ไม่ต้อง**ใส่ class ธีมเอง แค่อยู่ใต้ `app/(dashboard)/admin/`
+- class อยู่บน `<body>` ตัวแปรสีจึงไหลลงทุกอย่าง: ตัวหน้า sidebar navbar และ Dialog / AlertDialog /
+  DropdownMenu / Tooltip ของ Radix ที่ถูก portal ไปที่ `<body>`
+- layout ของ dashboard ไม่ถูก unmount ตอนเปลี่ยนหน้า class จึงหลุดเฉพาะตอนออกจาก dashboard (เช่นไป `/login`)
+- `.community-theme` กำหนดโทเค็นครบชุดเดียวกับ `.theme-siet` (`canvas`, `subtle-foreground`, `ai*`,
+  `sidebar*`) และเขียนทับสีเขียวของ open-notebook (`--fern*`, `--teal*` ของหน้า notebook, `--sage*` ของ
+  sources; `--gold*` ของ notes คงเป็นสีทอง) ให้เป็นชมพู utility ในหน้า admin
+  (`bg-canvas`, `bg-ai-soft`, `text-ai` ฯลฯ) จึงใช้ได้เหมือนเดิม แต่ได้สีชมพูแทนดำ/ม่วง
+- ผลข้างเคียงที่ติดมากับ `.community-theme`: ซ่อน scrollbar ทุกที่ (ยังเลื่อนได้), การ์ดและปุ่มมีเงา
+  (ข้อ 2.3 ใช้กับ `.theme-siet` เท่านั้น)
+- layout ของ `/admin` (`siet-platform/.../admin/layout.tsx`) และ `CommunityThemeLayout` ของ `/teacher`,
+  `/community/search` เหลือแค่ส่ง `children` ต่อ ห้ามให้ layout ไหนเพิ่มหรือถอด class นี้เอง เพราะการถอด
+  ตอนออกจาก route จะทำให้หน้าถัดไปกลับเป็นสีเขียว
+- `/community/ask` ยังมี `.theme-adventure` (ชมพู DESIGN.md) ซ้อนอยู่ด้านใน ซึ่งชนะเพราะอยู่ลึกกว่า
 
-จะใช้ธีมนี้กับส่วนอื่น (เช่น `/teacher`) ให้ทำ layout แบบเดียวกันในโฟลเดอร์นั้น
-**อย่าแก้โทเค็น `:root`** เพราะจะเปลี่ยนทั้งแอป
+**อย่าแก้โทเค็น `:root`** ถ้าจะเปลี่ยนสีหลักให้แก้ที่ `.community-theme` / `.dark .community-theme`
 
 ## 4. Sidebar และแบรนด์
 
