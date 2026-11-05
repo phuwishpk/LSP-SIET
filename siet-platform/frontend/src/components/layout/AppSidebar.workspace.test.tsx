@@ -48,6 +48,17 @@ describe('AppSidebar with the SIET workspace navigation', () => {
     expect(screen.queryByText('navigation.notebooks')).toBeNull()
     expect(screen.queryByText('navigation.teacherConsole')).toBeNull()
     expect(screen.queryByText('navigation.adminConsole')).toBeNull()
+    expect(screen.queryByText('navigation.features')).toBeNull()
+  })
+
+  it('leaves AI Features to teachers and admins', () => {
+    for (const role of ['teacher', 'admin']) {
+      mockRole.mockReturnValue(role)
+      const { unmount } = render(<AppSidebar />)
+
+      expect(screen.getByText('navigation.features').closest('a')?.getAttribute('href')).toBe('/features')
+      unmount()
+    }
   })
 
   it('gives admins the console and model settings', () => {

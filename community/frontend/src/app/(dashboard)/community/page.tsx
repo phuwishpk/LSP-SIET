@@ -51,6 +51,8 @@ import type { AskFocus } from '@siet/kmitl-rag/components/community/AiQuickWidge
 import type { LibraryDocument } from '@siet/platform/lib/api/library'
 import { openQuizApp, openRoadmapApp } from '@siet/platform/lib/external-apps'
 import { useGenerateQuiz } from '@siet/platform/lib/hooks/use-features'
+import type { QuizSessionResponse } from '@siet/platform/lib/api/features'
+import { QuizRunner } from '@siet/community/app/(dashboard)/features/components/QuizRunner'
 import Link from 'next/link'
 
 export default function CommunityPage() {
@@ -84,6 +86,7 @@ function CommunityContent() {
   const addPostToSavedCollection = useAddPostToSavedCollection()
   const generateQuiz = useGenerateQuiz()
   const [createCollectionOpen, setCreateCollectionOpen] = useState(false)
+  const [savedQuiz, setSavedQuiz] = useState<QuizSessionResponse | null>(null)
   const courseId = params.get('course') ? Number(params.get('course')) : null
   const rawSavedCollectionId = params.get('collection')
   const parsedSavedCollectionId = Number(rawSavedCollectionId)
@@ -177,8 +180,11 @@ function CommunityContent() {
         saved_collection_id: selectedSavedCollection?.id,
       },
       {
+        // AI Features (/features) is for staff only, so students play the quiz they just paid for here.
         onSuccess: (result) =>
-          router.push(`/features?tab=quiz&id=${encodeURIComponent(result.session.id)}`),
+          isStaff
+            ? router.push(`/features?tab=quiz&id=${encodeURIComponent(result.session.id)}`)
+            : setSavedQuiz(result.session),
       }
     )
 
@@ -221,6 +227,22 @@ function CommunityContent() {
           />
         </SheetContent>
       </Sheet>
+
+      {/* A student's quiz from saved posts. A click outside does not close it: the quiz cost points. */}
+      <Dialog open={savedQuiz !== null} onOpenChange={(open) => !open && setSavedQuiz(null)}>
+        <DialogContent
+          onInteractOutside={(event) => event.preventDefault()}
+          className="community-theme no-scrollbar max-h-[85vh] overflow-x-hidden overflow-y-auto sm:max-w-2xl"
+        >
+          <DialogHeader>
+            <DialogTitle>{savedQuiz?.topic}</DialogTitle>
+            <DialogDescription>
+              {savedQuiz?.questions.length} ข้อ · ตอบให้ครบทุกข้อแล้วกดส่งเพื่อดูเฉลย
+            </DialogDescription>
+          </DialogHeader>
+          {savedQuiz && <QuizRunner key={savedQuiz.id} questions={savedQuiz.questions} />}
+        </DialogContent>
+      </Dialog>
 
       <Sheet open={aiOpen} onOpenChange={setAiOpen}>
         <SheetContent

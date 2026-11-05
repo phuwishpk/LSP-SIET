@@ -219,6 +219,40 @@ describe('SIET Space navbar', () => {
     expect(app.push).toHaveBeenNthCalledWith(2, '/community/profile/me')
   })
 
+  it('gives teachers a way into their console from any page', () => {
+    useAuthStore.setState({ user: { ...student, role: 'teacher' } })
+    render(<AppNavbar />)
+    openMenu()
+
+    expect(screen.getByText('จัดการการสอน').closest('a')?.getAttribute('href')).toBe('http://localhost:3000/teacher')
+    expect(screen.queryByText('จัดการระบบ')).toBeNull()
+    fireEvent.click(screen.getByText('จัดการการสอน'))
+    expect(app.push).toHaveBeenCalledWith('/teacher')
+  })
+
+  it('gives admins both consoles and the system settings', () => {
+    useAuthStore.setState({ user: { ...student, role: 'admin' } })
+    render(<AppNavbar />)
+    openMenu()
+
+    expect(screen.getByText('จัดการการสอน')).toBeDefined()
+    expect(screen.getByText('ตั้งค่าบัญชีและความเป็นส่วนตัว').closest('a')).not.toBeNull()
+    fireEvent.click(screen.getByText('จัดการระบบ'))
+    expect(app.push).toHaveBeenCalledWith('/admin')
+  })
+
+  it('offers students and teachers no settings link they would be sent back from', () => {
+    for (const role of ['student', 'teacher']) {
+      useAuthStore.setState({ user: { ...student, role } })
+      const { unmount } = render(<AppNavbar />)
+      openMenu()
+
+      expect(screen.getByText('ตั้งค่าบัญชีและความเป็นส่วนตัว').closest('a')).toBeNull()
+      if (role === 'student') expect(screen.queryByText('จัดการการสอน')).toBeNull()
+      unmount()
+    }
+  })
+
   it("shows SIET Space's notifications and the balance it keeps up to date", () => {
     render(<AppNavbar />)
 

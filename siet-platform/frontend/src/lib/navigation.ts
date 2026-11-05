@@ -20,8 +20,8 @@ import {
 import { isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
 
 /**
- * The workspace sidebar: SIET Space first, open-notebook's research tools for
- * staff only, AI features in place of podcasts, and one group per admin
+ * The workspace sidebar: SIET Space first, open-notebook's research tools and
+ * AI features (in place of podcasts) for staff only, and one group per admin
  * console. It replaces open-notebook's sections rather than adding to them.
  */
 export const getWorkspaceNavigation = (t: TFunction, role: Role) => [
@@ -50,12 +50,16 @@ export const getWorkspaceNavigation = (t: TFunction, role: Role) => [
         },
       ]
     : []),
-  {
-    title: t('navigation.create'),
-    items: [
-      { name: t('navigation.features', 'AI Features'), href: '/features', icon: Sparkles },
-    ],
-  },
+  ...(isStaff(role)
+    ? [
+        {
+          title: t('navigation.create'),
+          items: [
+            { name: t('navigation.features', 'AI Features'), href: '/features', icon: Sparkles },
+          ],
+        },
+      ]
+    : []),
   // The admin consoles, one group per area. What belongs to no single area
   // (accounts, points, AI cost, health) stays under "จัดการระบบ" in Manage.
   ...(isAdmin(role)

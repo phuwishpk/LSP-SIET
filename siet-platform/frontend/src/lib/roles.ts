@@ -27,6 +27,9 @@ export const STAFF_ROUTES = [
   '/transformations',
   '/advanced',
   '/settings',
+  // AI Features (quiz and roadmap sessions) is a teaching tool; students have
+  // the AI Quiz and AI Roadmap apps, and play saved-post quizzes in Community.
+  '/features',
 ] as const
 
 export const ADMIN_ROUTES = ['/settings', '/advanced', '/admin'] as const

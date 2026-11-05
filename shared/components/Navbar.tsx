@@ -18,6 +18,7 @@ import {
   Moon,
   Search,
   Settings,
+  ShieldCheck,
   Sun,
   UserRound,
   X,
@@ -94,6 +95,10 @@ export interface NavbarProps {
   onOpenLibrary?: () => void
   onOpenSettings?: () => void
   onOpenRules?: () => void
+  /** Open SIET Space's teaching console (/teacher, teachers and admins) in the host app; the link works without it. */
+  onOpenTeaching?: () => void
+  /** Open SIET Space's system console (/admin, admins) in the host app; the link works without it. */
+  onOpenAdmin?: () => void
   onLogout?: () => void
   /** The host app's light / dark state, shown by the switch in the menu. */
   isDark?: boolean
@@ -316,6 +321,8 @@ export function Navbar({
   onOpenLibrary,
   onOpenSettings,
   onOpenRules,
+  onOpenTeaching,
+  onOpenAdmin,
   onLogout,
   isDark = false,
   onToggleTheme,
@@ -565,6 +572,7 @@ export function Navbar({
   const activeName = displayName(user)
   const activeInitials = initials(activeName || user?.username)
   const isPrivileged = user?.role === 'teacher' || user?.role === 'admin'
+  const isAdmin = user?.role === 'admin'
   const profileHref = buildCrossUrl(`${workspaceUrl}/community/profile/me`)
 
   return (
@@ -1094,7 +1102,31 @@ export function Navbar({
                     <span>คลังความรู้และไฟล์ของฉัน</span>
                   </a>
 
-                  {isPrivileged ? (
+                  {/* The consoles: /community has no sidebar, so this menu is the way in from there */}
+                  {isPrivileged && (
+                    <a
+                      href={buildCrossUrl(`${workspaceUrl}/teacher`)}
+                      onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenTeaching) }}
+                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <GraduationCap className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                      <span>จัดการการสอน</span>
+                    </a>
+                  )}
+
+                  {isAdmin && (
+                    <a
+                      href={buildCrossUrl(`${workspaceUrl}/admin`)}
+                      onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenAdmin) }}
+                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    >
+                      <ShieldCheck className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                      <span>จัดการระบบ</span>
+                    </a>
+                  )}
+
+                  {/* /settings is admin-only in SIET Space: a teacher would be sent straight back to /community */}
+                  {isAdmin ? (
                     <a
                       href={buildCrossUrl(`${workspaceUrl}/settings`)}
                       onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenSettings) }}
@@ -1105,7 +1137,7 @@ export function Navbar({
                     </a>
                   ) : (
                     <div
-                      title="การตั้งค่าบัญชีสำหรับนักศึกษายังไม่พร้อมใช้งาน"
+                      title="การตั้งค่าบัญชียังไม่พร้อมใช้งาน"
                       className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500 cursor-not-allowed opacity-60"
                     >
                       <Settings className="h-4 w-4 shrink-0" />

@@ -47,6 +47,8 @@ function SietNavbar({ query = '', ...props }: AppNavbarProps & { query?: string 
       onOpenLibrary={() => router.push('/community?view=library')}
       onOpenSettings={() => router.push('/settings')}
       onOpenRules={() => router.push('/community?view=rules')}
+      onOpenTeaching={() => router.push('/teacher')}
+      onOpenAdmin={() => router.push('/admin')}
       onOpenQuiz={() => void openQuizApp()}
       onOpenRoadmap={() => void openRoadmapApp()}
       onLogout={() => void logout()}
