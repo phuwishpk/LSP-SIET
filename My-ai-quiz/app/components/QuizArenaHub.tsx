@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   IconGraduationCap,
-  IconUsers,
   IconSparkles,
   IconTarget,
   IconTrophy,
@@ -12,7 +11,6 @@ import {
   IconFlame,
   IconZap,
   IconArrowRight,
-  IconKeyRound,
   IconClock,
   IconCheckCircle2,
   IconShieldCheck,
@@ -26,8 +24,9 @@ import {
 } from '../lib/quizStorage';
 
 export function QuizArenaHub() {
-  const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [pin, setPin] = useState('');
+  // Future battle feature:
+  // const [pinModalOpen, setPinModalOpen] = useState(false);
+  // const [pin, setPin] = useState('');
 
   // Real data states
   const [quests, setQuests] = useState<DailyQuestsState>({
@@ -87,7 +86,7 @@ export function QuizArenaHub() {
               ทบทวนบทเรียนด้วย AI Arena
             </h1>
             <p className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed">
-              ฝึกฝนเดี่ยวด้วยโจทย์ที่ปรับตามจุดอ่อน หรือสร้างห้องประลองสดกับเพื่อนร่วมชั้นแบบ Real-time
+              ฝึกฝนเดี่ยวด้วยโจทย์ที่ปรับตามจุดอ่อน พร้อมทบทวนและติดตามความก้าวหน้า
             </p>
           </div>
 
@@ -142,7 +141,7 @@ export function QuizArenaHub() {
             </Link>
           </div>
 
-          {/* Card 2: Battle Mode */}
+          {/* Battle with friends — paused for future use.
           <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-6 group">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
@@ -180,6 +179,7 @@ export function QuizArenaHub() {
               </button>
             </div>
           </div>
+          */}
 
           {/* Card 3: AI Weakness Recommendation (FUNCTIONAL) */}
           <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-5 group">
@@ -362,7 +362,7 @@ export function QuizArenaHub() {
         </div>
       </footer>
 
-      {/* PIN Entry Modal */}
+      {/* PIN Entry Modal — paused with the battle feature for future use.
       {pinModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-5 border border-slate-200 shadow-2xl">
@@ -403,6 +403,7 @@ export function QuizArenaHub() {
           </div>
         </div>
       )}
+      */}
     </div>
   );
 }
