@@ -26,6 +26,7 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@shared': path.resolve(__dirname, '../../shared'),
       ...sietAliases,
     },
     include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)', ...sietTests],

@@ -9,7 +9,7 @@ import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
-import { AppNavbar } from '@/components/layout/AppNavbar'
+import { Navbar } from '@shared/components/Navbar'
 import { useGate, useRouteGate } from '@/lib/extensions'
 
 export default function DashboardLayout({
@@ -67,7 +67,7 @@ export default function DashboardLayout({
       <CreateDialogsProvider>
         <div className="theme-siet flex h-screen flex-col overflow-hidden bg-background text-foreground">
           <div className="relative z-[100] shrink-0">
-            <AppNavbar />
+            <Navbar />
           </div>
           <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
             {children}

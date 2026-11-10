@@ -71,6 +71,8 @@ export interface NavbarProps {
   notificationsCount?: number
   communityUrl?: string
   logoSrc?: string
+  notificationsSlot?: React.ReactNode
+  onHome?: () => void
   onSearch?: (query: string) => void
   searchDefaultValue?: string
   searchPlaceholder?: string
@@ -215,6 +217,8 @@ export function Navbar({
   notificationsCount: initialNotificationsCount = 0,
   communityUrl,
   logoSrc,
+  notificationsSlot,
+  onHome,
   onSearch,
   searchDefaultValue = '',
   searchPlaceholder = 'ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…',
@@ -250,6 +254,10 @@ export function Navbar({
   const dropdownRef = React.useRef<HTMLDivElement>(null)
   const walletRef = React.useRef<HTMLDivElement>(null)
   const notifRef = React.useRef<HTMLDivElement>(null)
+
+  React.useEffect(() => {
+    setDraft(searchDefaultValue)
+  }, [searchDefaultValue])
 
   // 1. Resolve Workspace Root URL (port 3500)
   React.useEffect(() => {
@@ -581,18 +589,29 @@ export function Navbar({
 
   return (
     <header
+      id="siet-shared-navbar"
       className={`siet-shared-navbar sticky top-0 z-[100] w-full border-b border-[#EAE6EA] bg-white text-[#202124] shadow-[0_1px_0_#EAE6EA] select-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 ${className}`}
       style={{ minHeight: '64px', height: '64px' }}
     >
+      <style>{`
+        #siet-shared-navbar :focus-visible {
+          outline: 2px solid #C92F6B !important;
+          outline-offset: 2px !important;
+        }
+
+        #siet-shared-navbar input:focus-visible {
+          border-color: #ED4988 !important;
+        }
+      `}</style>
       <div
-        className="relative z-[100] mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6"
+        className="relative z-[100] mx-auto flex h-16 max-w-[1440px] items-center gap-[6px] px-[12px] sm:gap-[12px] sm:px-[20px] lg:px-[24px]"
         style={{ height: '64px', minHeight: '64px', display: 'flex', alignItems: 'center' }}
       >
         {/* Mobile menu trigger - only rendered when onOpenMenu handler is provided */}
         {onOpenMenu && (
           <button
             type="button"
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B] lg:hidden transition-colors cursor-pointer bg-transparent border-0 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
+            className="flex h-[44px] w-[44px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-[12px] p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] lg:hidden transition-colors cursor-pointer bg-transparent border-0 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
             onClick={handleOpenMenu}
             aria-label="เปิดเมนู"
           >
@@ -603,17 +622,23 @@ export function Navbar({
         {/* Brand logo & tagline */}
         <a
           href={buildCrossUrl(`${workspaceUrl}/community`)}
-          className="flex shrink-0 items-center gap-2.5 rounded-xl px-1.5 py-1 text-left transition-colors hover:bg-[#FFF8FA] no-underline dark:hover:bg-zinc-800"
+          onClick={(event) => {
+            if (onHome) {
+              event.preventDefault()
+              onHome()
+            }
+          }}
+          className="flex min-h-[44px] shrink-0 items-center gap-[10px] rounded-[12px] px-[6px] py-[4px] text-left transition-colors hover:bg-[#FFF8FA] no-underline dark:hover:bg-zinc-800"
           style={{ textDecoration: 'none' }}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border border-[#F7B7D0] bg-[#FCE7F0] p-1 dark:border-[#694255] dark:bg-[#382630]">
+          <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[12px] border border-[#F7B7D0] bg-[#FCE7F0] p-[4px] dark:border-[#694255] dark:bg-[#382630]">
             {logoSrc ? (
               <img
                 src={logoSrc}
                 alt="SIET Space"
                 width={32}
                 height={32}
-                className="h-7 w-7 object-contain drop-shadow-xs select-none"
+                className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
                 onError={(e) => {
                   e.currentTarget.src = OWL_LOGO_DATA_URI
                 }}
@@ -621,13 +646,13 @@ export function Navbar({
             ) : (
               <OwlLogo
                 size={32}
-                className="h-7 w-7 object-contain drop-shadow-xs select-none"
+                className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
                 alt="SIET Space"
               />
             )}
           </div>
           <span className="hidden flex-col leading-none sm:flex">
-            <span className="text-base font-bold tracking-tight text-[#202124] dark:text-zinc-100">
+            <span className="text-[16px] font-bold tracking-tight text-[#202124] dark:text-zinc-100">
               SIET Space
             </span>
             <span className="text-[10px] font-medium text-[#707070] dark:text-zinc-400">
@@ -639,13 +664,13 @@ export function Navbar({
         {/* Center capsule search bar */}
         <form
           onSubmit={handleSearchSubmit}
-          className="mx-1 min-w-[48px] w-auto max-w-xl flex-1 sm:mx-auto"
+          className="mx-[4px] min-w-[48px] w-auto max-w-[576px] flex-1 sm:mx-auto"
           role="search"
         >
           <div className="relative w-full flex items-center" style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
             <Search
               size={16}
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#707070] transition-colors z-10 shrink-0 dark:text-zinc-400"
+              className="pointer-events-none absolute left-[14px] top-1/2 h-[16px] w-[16px] -translate-y-1/2 text-[#707070] transition-colors z-10 shrink-0 dark:text-zinc-400"
             />
             <input
               type="text"
@@ -653,13 +678,16 @@ export function Navbar({
               onChange={(e) => setDraft(e.target.value)}
               aria-label={searchPlaceholder || 'ค้นหาใน SIET Space'}
               placeholder={searchPlaceholder}
-              className="h-11 w-full cursor-text rounded-full border border-[#EAE6EA] bg-[#FAF7F9] pl-9 pr-12 text-xs text-[#202124] placeholder:text-[#707070] transition-all duration-200 hover:border-[#D6D0D6] hover:bg-white focus:border-[#ED4988] focus:ring-2 focus:ring-[#C92F6B]/30 focus-visible:border-[#ED4988] focus-visible:ring-2 focus-visible:ring-[#C92F6B] focus-visible:ring-offset-2 sm:text-sm focus:outline-none dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900"
+              className="h-[44px] w-full cursor-text rounded-full border border-solid border-[#EAE6EA] bg-[#FAF7F9] pl-[36px] pr-[48px] text-[12px] text-[#202124] placeholder:text-[#707070] transition-all duration-200 hover:border-[#D6D0D6] hover:bg-white focus:border-[#ED4988] focus-visible:border-[#ED4988] sm:text-[14px] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900"
             />
             {draft && (
               <button
                 type="button"
-                className="absolute right-0.5 top-1/2 -translate-y-1/2 flex h-11 w-11 items-center justify-center rounded-full text-[#707070] transition-colors hover:bg-[#FCE7F0] hover:text-[#C92F6B] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B] cursor-pointer z-10 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-pink-200"
-                onClick={() => setDraft('')}
+                className="absolute right-[2px] top-1/2 -translate-y-1/2 flex h-[44px] w-[44px] items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#707070] transition-colors hover:bg-[#FCE7F0] hover:text-[#C92F6B] focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] cursor-pointer z-10 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-pink-200"
+                  onClick={() => {
+                    setDraft('')
+                    onSearch?.('')
+                  }}
                 aria-label="ล้างการค้นหา"
               >
                 <X className="h-3 w-3" />
@@ -669,7 +697,7 @@ export function Navbar({
         </form>
 
         {/* Right side items */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-[4px] sm:gap-[8px]">
           {/* Points Wallet Button & Popover */}
           {showPointsWallet && user && (
             <div className="relative z-[100]" ref={walletRef}>
@@ -685,7 +713,7 @@ export function Navbar({
                   }
                   if (onPointsClick) onPointsClick()
                 }}
-                className="group relative flex min-h-11 items-center gap-1.5 rounded-full border border-[#E3D8FB] bg-[#F3E8FF] px-3 py-2 text-xs font-semibold text-[#6035C8] transition-colors duration-150 hover:border-[#C7B1F5] hover:bg-[#EADBFF] active:scale-95 max-sm:gap-1 max-sm:px-2.5 dark:border-[#604D82] dark:bg-[#382A4D] dark:text-[#DECAFF] cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B]"
+                className="group relative flex min-h-[44px] min-w-[44px] items-center gap-[6px] rounded-full border border-[#E3D8FB] bg-[#F3E8FF] px-[12px] py-[8px] text-[12px] font-semibold text-[#6035C8] transition-colors duration-150 hover:border-[#C7B1F5] hover:bg-[#EADBFF] active:scale-95 max-sm:gap-[4px] max-sm:px-[10px] cursor-pointer focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:border-[#604D82] dark:bg-[#382A4D] dark:text-[#DECAFF]"
                 aria-label="กระเป๋าแต้ม"
                 aria-expanded={isWalletOpen}
               >
@@ -703,10 +731,10 @@ export function Navbar({
 
               {/* Full Points Wallet Popover */}
               {isWalletOpen && (
-                <div className="community-theme absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="community-theme absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
                   {/* Top Stats */}
-                  <div className="border-b border-slate-100 dark:border-zinc-800 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-zinc-500 font-semibold">
+                  <div className="border-b border-slate-100 p-4 dark:border-zinc-800">
+                    <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold dark:text-zinc-500">
                       Points Wallet
                     </p>
                     <div className="mt-1 flex items-end justify-between">
@@ -715,7 +743,7 @@ export function Navbar({
                         <span className="ml-1 text-base font-medium text-slate-500 dark:text-zinc-400">แต้ม</span>
                       </p>
                       {isExempt && (
-                        <span className="rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
                           อาจารย์/ผู้ดูแล ไม่ถูกตัดแต้ม
                         </span>
                       )}
@@ -728,7 +756,7 @@ export function Navbar({
                   </div>
 
                   {/* Rules and Earnings */}
-                  <div className="p-4 border-b border-slate-100 dark:border-zinc-800 max-h-72 overflow-y-auto">
+                  <div className="p-4 border-b border-slate-100 max-h-72 overflow-y-auto dark:border-zinc-800">
                     <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">อัตราการตัดแต้ม</p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                       <div className="text-slate-600 dark:text-zinc-300">ถาม RAG AI 1 คำถาม</div>
@@ -838,11 +866,11 @@ export function Navbar({
                     )}
                   </div>
 
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 flex justify-end">
+                  <div className="p-3 bg-slate-50 flex justify-end dark:bg-zinc-800/50">
                     <button
                       type="button"
                       onClick={() => setIsWalletOpen(false)}
-                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white rounded-lg hover:bg-slate-200/60 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-lg hover:bg-slate-200/60 transition-colors cursor-pointer dark:text-zinc-300 dark:hover:text-white dark:hover:bg-zinc-700/60"
                     >
                       ปิด
                     </button>
@@ -853,45 +881,47 @@ export function Navbar({
           )}
 
           {/* Notifications Button & Dropdown */}
-          <div className="relative z-[100]" ref={notifRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setIsNotificationsOpen(!isNotificationsOpen)
-                setIsDropdownOpen(false)
-                setIsWalletOpen(false)
-                if (onOpenNotifications) onOpenNotifications()
-              }}
-              className="relative flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] transition-colors cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B] dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
-              aria-label="การแจ้งเตือน"
-              aria-expanded={isNotificationsOpen}
-            >
-              <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
-              {unreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
+          {notificationsSlot ?? (
+            <div className="relative z-[100]" ref={notifRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNotificationsOpen(!isNotificationsOpen)
+                  setIsDropdownOpen(false)
+                  setIsWalletOpen(false)
+                  if (onOpenNotifications) onOpenNotifications()
+                }}
+                className="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] transition-colors cursor-pointer focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
+                aria-label="การแจ้งเตือน"
+                aria-expanded={isNotificationsOpen}
+              >
+                <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {isNotificationsOpen && (
-              <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150">
-                <div className="border-b border-slate-100 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold">การแจ้งเตือน</p>
-                  <a
-                    href={buildCrossUrl(`${workspaceUrl}/community`)}
-                    className="text-xs text-pink-600 hover:text-pink-700 dark:text-pink-400"
-                  >
-                    ดูทั้งหมด
-                  </a>
+              {isNotificationsOpen && (
+                <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-2xl border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
+                  <div className="border-b border-slate-100 px-4 py-3 flex items-center justify-between dark:border-zinc-800">
+                    <p className="text-sm font-semibold">การแจ้งเตือน</p>
+                    <a
+                      href={buildCrossUrl(`${workspaceUrl}/community`)}
+                      className="text-xs text-pink-600 no-underline hover:text-pink-700 dark:text-pink-400"
+                    >
+                      ดูทั้งหมด
+                    </a>
+                  </div>
+                  <div className="m-4 flex items-center justify-center gap-2 rounded-2xl border border-[#EAE6EA] bg-[#FAF7F9] p-4 text-sm text-slate-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400" role="status">
+                    <Bell aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    <span>ยังไม่มีการแจ้งเตือนใหม่</span>
+                  </div>
                 </div>
-                <div className="m-4 flex items-center justify-center gap-2 rounded-2xl border border-[#EAE6EA] bg-[#FAF7F9] p-4 text-sm text-slate-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400" role="status">
-                  <Bell aria-hidden="true" className="h-4 w-4 shrink-0" />
-                  <span>ยังไม่มีการแจ้งเตือนใหม่</span>
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
+          )}
 
           {/* User Profile / Login */}
           {user ? (
@@ -903,7 +933,7 @@ export function Navbar({
                   setIsWalletOpen(false)
                   setIsNotificationsOpen(false)
                 }}
-                className="flex h-11 shrink-0 items-center gap-2 rounded-full px-1.5 text-[#202124] hover:bg-[#FCE7F0] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B] cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
+                className="flex h-[44px] min-h-[44px] shrink-0 items-center gap-[8px] rounded-full border-0 bg-transparent px-[6px] py-0 text-[#202124] hover:bg-[#FCE7F0] transition-colors focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
                 aria-expanded={isDropdownOpen}
               >
@@ -937,7 +967,7 @@ export function Navbar({
                   )}
                 </div>
                 <span
-                  className="max-w-[140px] truncate text-sm font-semibold text-[#202124] dark:text-zinc-100"
+                  className="max-w-[140px] truncate text-[14px] font-semibold text-[#202124] dark:text-zinc-100"
                 >
                   {activeName}
                 </span>
@@ -949,7 +979,7 @@ export function Navbar({
 
               {/* Profile Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="community-theme absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-[#EAE6EA] bg-white p-2.5 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] animate-in fade-in-0 zoom-in-95 duration-150">
+                <div className="community-theme absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-[#EAE6EA] bg-white p-2.5 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100">
                   {/* User Profile Header */}
                   <div className="px-2.5 pb-3 pt-2">
                     <div className="flex items-center gap-3">
@@ -985,18 +1015,18 @@ export function Navbar({
                   <a
                     href={profileHref}
                     onClick={() => { setIsDropdownOpen(false); if (onOpenProfile) onOpenProfile() }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <UserRound className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                    <UserRound className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                     <span>ดูโปรไฟล์เต็ม</span>
                   </a>
 
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=library`)}
                     onClick={() => { setIsDropdownOpen(false); if (onOpenLibrary) onOpenLibrary() }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <BookOpen className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                    <BookOpen className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                     <span>คลังความรู้และไฟล์ของฉัน</span>
                   </a>
 
@@ -1004,15 +1034,15 @@ export function Navbar({
                     <a
                       href={buildCrossUrl(`${workspaceUrl}/settings`)}
                       onClick={() => { setIsDropdownOpen(false); if (onOpenSettings) onOpenSettings() }}
-                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                     >
-                      <Settings className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                      <Settings className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                       <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
                     </a>
                   ) : (
                     <div
                       title="การตั้งค่าบัญชีสำหรับนักศึกษายังไม่พร้อมใช้งาน"
-                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500 cursor-not-allowed opacity-60"
+                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 cursor-not-allowed opacity-60 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500"
                     >
                       <Settings className="h-4 w-4 shrink-0" />
                       <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
@@ -1021,10 +1051,16 @@ export function Navbar({
 
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=rules`)}
-                    onClick={() => { setIsDropdownOpen(false); if (onOpenRules) onOpenRules() }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    onClick={(event) => {
+                      setIsDropdownOpen(false)
+                      if (onOpenRules) {
+                        event.preventDefault()
+                        onOpenRules()
+                      }
+                    }}
+                    className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-xl border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <CircleHelp className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                    <CircleHelp className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                     <span>ช่วยเหลือและกฎชุมชน</span>
                   </a>
 
@@ -1034,18 +1070,18 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenQuiz() }}
-                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <GraduationCap className="h-4 w-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
                     <span>แอป AI Quiz ↗</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenRoadmap() }}
-                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <MapIcon className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                    <MapIcon className="h-4 w-4 text-orange-600 shrink-0 dark:text-orange-400" />
                     <span>แอป AI Roadmap</span>
                   </button>
 
@@ -1056,7 +1092,7 @@ export function Navbar({
                     <button
                       type="button"
                       onClick={toggleTheme}
-                      className="w-full flex items-center justify-between px-2 py-1 text-sm text-slate-700 dark:text-zinc-200 cursor-pointer"
+                      className="w-full flex items-center justify-between px-2 py-1 text-sm text-slate-700 cursor-pointer dark:text-zinc-200"
                     >
                       <span className="flex items-center gap-2">
                         {isDark ? <Moon className="h-4 w-4 text-amber-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
@@ -1070,7 +1106,7 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="mt-2 w-full min-h-11 flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60 cursor-pointer"
+                    className="mt-2 w-full min-h-11 flex items-center gap-2 rounded-xl border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 cursor-pointer dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60"
                   >
                     <LogOut className="h-4 w-4 shrink-0" />
                     <span>ออกจากระบบ</span>
@@ -1081,7 +1117,7 @@ export function Navbar({
           ) : (
             <a
               href={buildCrossUrl(`${workspaceUrl}/login`)}
-              className="flex min-h-11 items-center gap-1.5 rounded-full border border-[#F7B7D0] bg-[#FCE7F0] px-3.5 py-2 text-xs font-semibold text-[#C92F6B] transition-colors hover:bg-[#F7B7D0] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B] dark:border-[#694255] dark:bg-[#382630] dark:text-[#F9C4DC] dark:hover:bg-[#4A2B3C]"
+              className="flex min-h-[44px] items-center gap-[6px] rounded-full border border-[#F7B7D0] bg-[#FCE7F0] px-[14px] py-[8px] text-[12px] font-semibold text-[#C92F6B] no-underline transition-colors hover:bg-[#F7B7D0] active:scale-95 focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:border-[#694255] dark:bg-[#382630] dark:text-[#F9C4DC] dark:hover:bg-[#4A2B3C]"
             >
               เข้าสู่ระบบ
             </a>
