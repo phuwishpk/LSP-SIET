@@ -5,15 +5,12 @@ import Link from 'next/link';
 import { QuizNavbar } from './QuizNavbar';
 import {
   IconGraduationCap,
-  IconUsers,
   IconSparkles,
   IconTarget,
   IconTrophy,
-  IconHeart,
   IconFlame,
   IconZap,
   IconArrowRight,
-  IconKeyRound,
   IconClock,
   IconCheckCircle2,
   IconShieldCheck,
@@ -27,9 +24,6 @@ import {
 } from '../lib/quizStorage';
 
 export function QuizArenaHub() {
-  const [pinModalOpen, setPinModalOpen] = useState(false);
-  const [pin, setPin] = useState('');
-
   // Real data states
   const [quests, setQuests] = useState<DailyQuestsState>({
     date: '',
@@ -87,10 +81,10 @@ export function QuizArenaHub() {
               <span>SIET AI Adaptive Learning Arena</span>
             </div>
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight leading-tight">
-              ทบทวนบทเรียนด้วย AI Arena
+              ทบทวนบทเรียนด้วย AI Quiz
             </h1>
             <p className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed">
-              ฝึกฝนเดี่ยวด้วยโจทย์ที่ปรับตามจุดอ่อน หรือสร้างห้องประลองสดกับเพื่อนร่วมชั้นแบบ Real-time
+              ฝึกฝนเดี่ยวด้วยโจทย์ที่ปรับระดับตามความแม่นยำ พร้อมวิเคราะห์จุดอ่อนรายบุคคลแบบ Real-time
             </p>
           </div>
 
@@ -100,22 +94,32 @@ export function QuizArenaHub() {
           </div>
         </section>
 
+        {/* Reward Toast */}
+        {rewardToast && (
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-sm flex items-center justify-between animate-in slide-in-from-top-2 duration-200 shadow-sm">
+            <span>{rewardToast}</span>
+            <button onClick={() => setRewardToast(null)} className="text-emerald-600 hover:text-emerald-900 text-xs">
+              ปิด
+            </button>
+          </div>
+        )}
+
         {/* Section Heading */}
         <div className="flex flex-col sm:flex-row items-baseline justify-between gap-1">
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
-              โหมดการเรียนรู้
+              ศูนย์การเรียนรู้
             </h2>
             <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-              เลือกรูปแบบที่คุณต้องการฝึกฝนในวันนี้
+              เลือกฝึกฝนและทำภารกิจเพื่อสะสมคะแนน
             </p>
           </div>
         </div>
 
-        {/* 2x2 Grid of Feature Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Card 1: Solo Mode */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-6 group">
+        {/* Main Grid: Solo Mode + AI Diagnostic + Daily Quests (3 Cards Layout) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Card 1: Solo Mode (Hero Focus) */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-rose-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-6 group lg:col-span-1 bg-gradient-to-b from-white to-rose-50/20">
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 group-hover:scale-105 transition-transform duration-200">
@@ -131,7 +135,7 @@ export function QuizArenaHub() {
                   Solo Training: ฝึกฝนเดี่ยว
                 </h3>
                 <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                  สร้างชุดข้อสอบจำลองตามเนื้อหารายวิชา พร้อมคำอธิบายเฉลยแบบเจาะลึก
+                  สร้างชุดข้อสอบจำลองตามเนื้อหารายวิชา พร้อมเฉลยละเอียดและวิเคราะห์จุดที่ต้องปรับปรุง
                 </p>
               </div>
             </div>
@@ -145,58 +149,16 @@ export function QuizArenaHub() {
             </Link>
           </div>
 
-          {/* Card 2: Battle Mode */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-6 group">
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="w-12 h-12 rounded-2xl bg-indigo-50 border border-indigo-100 flex items-center justify-center text-indigo-600 group-hover:scale-105 transition-transform duration-200">
-                  <IconUsers className="w-6 h-6" />
-                </div>
-                <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200/80">
-                  <IconUsers className="w-3.5 h-3.5 text-indigo-600" />
-                  <span>Multiplayer</span>
-                </span>
-              </div>
-              <div>
-                <h3 className="text-xl font-extrabold text-slate-900 group-hover:text-indigo-600 transition-colors">
-                  Quiz Battle: แข่งขันกับเพื่อน
-                </h3>
-                <p className="text-xs sm:text-sm text-slate-500 mt-1.5 leading-relaxed">
-                  เปิดห้องดวลความเร็วตอบคำถามแบบกลุ่ม พร้อมกระดานคะแนน Leaderboard สด
-                </p>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                onClick={() => alert('ฟีเจอร์สร้างห้องแข่งกำลังเปิดให้ทดสอบ')}
-                className="py-3 px-3 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 font-bold text-xs sm:text-sm transition-all active:scale-95 text-center cursor-pointer shadow-2xs"
-              >
-                สร้างห้องใหม่
-              </button>
-              <button
-                onClick={() => setPinModalOpen(true)}
-                className="inline-flex items-center justify-center gap-1.5 py-3 px-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm transition-all shadow-sm active:scale-95 text-center cursor-pointer"
-              >
-                <IconKeyRound className="w-3.5 h-3.5" />
-                <span>ใส่รหัส PIN</span>
-              </button>
-            </div>
-          </div>
-
-          {/* Card 3: AI Weakness Recommendation (FUNCTIONAL) */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-5 group">
+          {/* Card 2: AI Weakness Recommendation (FUNCTIONAL) */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-5 group lg:col-span-1">
             <div className="space-y-3.5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2 text-slate-900 font-extrabold text-base">
                   <div className="p-1.5 rounded-lg bg-rose-50 text-rose-600">
                     <IconTarget className="w-4.5 h-4.5" />
                   </div>
-                  <span>จุดที่ควรทบทวนเพิ่ม (AI Diagnostic)</span>
+                  <span>จุดที่ควรทบทวน (AI Diagnostic)</span>
                 </div>
-                <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200/70">
-                  วิเคราะห์จากประวัติจริง
-                </span>
               </div>
 
               <div className="inline-block px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold max-w-full truncate">
@@ -209,9 +171,9 @@ export function QuizArenaHub() {
                 </h4>
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-rose-600 tabular-nums">
-                    ความแม่นยำเฉลี่ย {weakestTopic.accuracy}%
+                    ความแม่นยำ {weakestTopic.accuracy}%
                   </span>
-                  <div className="w-36 bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                  <div className="flex-1 bg-slate-100 rounded-full h-2.5 overflow-hidden">
                     <div
                       className="bg-gradient-to-r from-rose-500 to-rose-600 h-2.5 rounded-full transition-all duration-500"
                       style={{ width: `${Math.max(5, weakestTopic.accuracy)}%` }}
@@ -226,13 +188,13 @@ export function QuizArenaHub() {
               href={`/solo?quick=true&subject=${encodeURIComponent(weakestTopic.subject)}&topic=${encodeURIComponent(weakestTopic.topic)}`}
               className="w-full inline-flex items-center justify-center gap-2 text-center py-3.5 px-4 rounded-2xl bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold text-sm tracking-wide transition-all border border-rose-200/80 active:scale-95 group/link shadow-2xs"
             >
-              <span>ทำแบบฝึกหัดแก้ไขจุดนี้ทันที (1 คลิก)</span>
+              <span>ฝึกซ้ำหัวข้อนี้ทันที</span>
               <IconArrowRight className="w-4 h-4 transition-transform group-hover/link:translate-x-1" />
             </Link>
           </div>
 
-          {/* Card 4: Daily Quests (FUNCTIONAL) */}
-          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-5">
+          {/* Card 3: Daily Quests (FUNCTIONAL) */}
+          <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-5 lg:col-span-1">
             <div className="flex items-center justify-between">
               <h3 className="text-base font-extrabold text-slate-900 flex items-center gap-2">
                 <div className="p-1.5 rounded-lg bg-amber-50 text-amber-600">
@@ -242,121 +204,154 @@ export function QuizArenaHub() {
               </h3>
               <div className="flex items-center gap-1 text-[11px] font-medium text-slate-400">
                 <IconClock className="w-3 h-3" />
-                <span>รีเซ็ตทุกเที่ยงคืน</span>
+                <span>รีเซ็ตเที่ยงคืน</span>
               </div>
             </div>
 
             <div className="space-y-4">
               {/* Quest 1: ทำครบ 2 ชุด */}
-              <div className="space-y-1.5">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <div className="flex items-center gap-2">
-                    <IconCheckCircle2
-                      className={`w-4 h-4 ${
-                        quests.quizzesCompleted >= 2 ? 'text-emerald-500' : 'text-slate-300'
-                      }`}
-                    />
-                    <span className="font-semibold text-slate-800">
-                      ทำควิซครบ 2 ชุด ({Math.min(2, quests.quizzesCompleted)}/2)
-                    </span>
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <span>ทำควิซครบ 2 ชุด</span>
+                    <span className="text-[10px] text-amber-600 font-extrabold">(+50 XP)</span>
                   </div>
-
-                  {quests.claimedRewards['quest_quiz_count'] ? (
-                    <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                      รับแล้ว ✓
-                    </span>
-                  ) : quests.quizzesCompleted >= 2 ? (
-                    <button
-                      type="button"
-                      onClick={() => handleClaimReward('quest_quiz_count', '+50 XP')}
-                      className="text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 px-2.5 py-0.5 rounded-md shadow-2xs active:scale-95 transition-all cursor-pointer"
-                    >
-                      กดรับ +50 XP
-                    </button>
-                  ) : (
-                    <span className="font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded-md text-xs">
-                      +50 XP
-                    </span>
-                  )}
+                  <div className="w-24 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-amber-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (quests.quizzesCompleted / 2) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-emerald-500 h-1.5 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (quests.quizzesCompleted / 2) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[11px] text-slate-400">
-                  {quests.quizzesCompleted >= 2
-                    ? 'ภารกิจสำเร็จแล้ว!'
-                    : `ขาดอีก ${2 - quests.quizzesCompleted} ชุด`}
-                </span>
+                {quests.claimedRewards['quest_2_quizzes'] ? (
+                  <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    <IconCheckCircle2 className="w-3.5 h-3.5" /> รับแล้ว
+                  </span>
+                ) : quests.quizzesCompleted >= 2 ? (
+                  <button
+                    onClick={() => handleClaimReward('quest_2_quizzes', '50 XP')}
+                    className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95"
+                  >
+                    รับรางวัล
+                  </button>
+                ) : (
+                  <span className="text-xs font-bold text-slate-400 tabular-nums">
+                    {quests.quizzesCompleted}/2
+                  </span>
+                )}
               </div>
 
-              {/* Quest 2: ตอบถูกต่อเนื่อง 5 ข้อ */}
-              <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                <div className="flex items-center justify-between text-xs sm:text-sm">
-                  <div className="flex items-center gap-2">
-                    <IconFlame
-                      className={`w-4 h-4 ${
-                        quests.maxStreakAchieved >= 5 ? 'text-orange-500' : 'text-slate-300'
-                      }`}
-                    />
-                    <span className="font-semibold text-slate-800">
-                      ตอบถูกต่อเนื่อง 5 ข้อ ({Math.min(5, quests.maxStreakAchieved)}/5)
-                    </span>
+              {/* Quest 2: Combo Streak */}
+              <div className="p-3 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800">
+                    <IconFlame className="w-3 h-3 text-orange-500" />
+                    <span>ตอบถูกติดกัน 3 ข้อ</span>
+                    <span className="text-[10px] text-amber-600 font-extrabold">(+30 XP)</span>
                   </div>
-
-                  {quests.claimedRewards['quest_combo_streak'] ? (
-                    <span className="text-[11px] font-bold text-slate-400 bg-slate-100 px-2 py-0.5 rounded-md">
-                      รับแล้ว ✓
-                    </span>
-                  ) : quests.maxStreakAchieved >= 5 ? (
-                    <button
-                      type="button"
-                      onClick={() => handleClaimReward('quest_combo_streak', '+100 XP โบนัส')}
-                      className="text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 px-2.5 py-0.5 rounded-md shadow-2xs active:scale-95 transition-all cursor-pointer"
-                    >
-                      กดรับรางวัล
-                    </button>
-                  ) : (
-                    <span className="inline-flex items-center gap-1 font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md text-xs">
-                      <IconHeart className="w-3 h-3 text-rose-500" /> +100 XP
-                    </span>
-                  )}
+                  <div className="w-24 bg-slate-200 rounded-full h-1.5 overflow-hidden">
+                    <div
+                      className="bg-orange-500 h-1.5 rounded-full transition-all duration-300"
+                      style={{ width: `${Math.min(100, (quests.maxStreakAchieved / 3) * 100)}%` }}
+                    />
+                  </div>
                 </div>
-                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                  <div
-                    className="bg-gradient-to-r from-rose-500 to-amber-500 h-1.5 rounded-full transition-all duration-500"
-                    style={{ width: `${Math.min(100, (quests.maxStreakAchieved / 5) * 100)}%` }}
-                  />
-                </div>
-                <span className="text-[11px] text-slate-400">
-                  {quests.maxStreakAchieved >= 5
-                    ? 'ยอดเยี่ยมมาก ทำคอมโบทะลุ 5 ข้อแล้ว!'
-                    : `สถิติสูงสุดวันนี้: ${quests.maxStreakAchieved} ข้อ`}
-                </span>
+                {quests.claimedRewards['quest_combo_3'] ? (
+                  <span className="text-[11px] font-bold text-emerald-600 flex items-center gap-1">
+                    <IconCheckCircle2 className="w-3.5 h-3.5" /> รับแล้ว
+                  </span>
+                ) : quests.maxStreakAchieved >= 3 ? (
+                  <button
+                    onClick={() => handleClaimReward('quest_combo_3', '30 XP')}
+                    className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95"
+                  >
+                    รับรางวัล
+                  </button>
+                ) : (
+                  <span className="text-xs font-bold text-slate-400 tabular-nums">
+                    {quests.maxStreakAchieved}/3
+                  </span>
+                )}
               </div>
             </div>
 
-            <div className="pt-1 text-right">
-              <span className="text-[11px] text-slate-400 font-medium">
-                ทำควิซเพื่อสะสมความก้าวหน้าอัตโนมัติ
-              </span>
+            <div className="text-[11px] text-slate-400 text-center">
+              สะสม XP เพื่ออัปเลเวลและปลดล็อกเข็มกลัด
             </div>
+          </div>
+        </div>
+
+        {/* Subjects Directory Bar */}
+        <div className="bg-white rounded-3xl p-6 sm:p-7 border border-slate-200/90 shadow-xs space-y-4">
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <h3 className="text-base font-extrabold text-slate-900">
+                คลังวิชาที่เปิดให้ทดสอบ AI Quiz
+              </h3>
+              <p className="text-xs text-slate-500">
+                เลือกรายวิชาเพื่อเข้าสู่โหมดการทำแบบฝึกหัดอย่างรวดเร็ว
+              </p>
+            </div>
+            <Link
+              href="/solo"
+              className="text-xs font-bold text-rose-600 hover:text-rose-700 flex items-center gap-1 transition-colors"
+            >
+              <span>ดูทั้งหมด</span>
+              <IconArrowRight className="w-3 h-3" />
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {[
+              {
+                code: 'CS101',
+                name: 'สถาปัตยกรรมระบบปฏิบัติการ',
+                topic: 'Process Scheduling, Mutex Lock',
+                color: 'bg-rose-50 border-rose-200 text-rose-700',
+              },
+              {
+                code: 'CS202',
+                name: 'การออกแบบอัลกอริทึมและโครงสร้างข้อมูล',
+                topic: 'Binary Search Tree, Dynamic Programming',
+                color: 'bg-blue-50 border-blue-200 text-blue-700',
+              },
+              {
+                code: 'NET301',
+                name: 'เครือข่ายคอมพิวเตอร์และการสื่อสาร',
+                topic: 'TCP/IP Model, Subnetting, Routing Protocols',
+                color: 'bg-amber-50 border-amber-200 text-amber-700',
+              },
+            ].map((sub) => (
+              <Link
+                key={sub.code}
+                href={`/solo?subject=${encodeURIComponent(`[${sub.code}] ${sub.name}`)}`}
+                className="p-4 rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-xs transition-all flex flex-col justify-between gap-3 group"
+              >
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border ${sub.color}`}>
+                      {sub.code}
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-400 group-hover:text-rose-600 transition-colors">
+                      เริ่มทำควิซ →
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-900 group-hover:text-rose-600 transition-colors">
+                    {sub.name}
+                  </h4>
+                  <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">
+                    {sub.topic}
+                  </p>
+                </div>
+              </Link>
+            ))}
           </div>
         </div>
       </main>
 
-      {/* Reward Toast Notification */}
-      {rewardToast && (
-        <div className="fixed bottom-6 right-6 z-50 bg-slate-900 text-white text-xs sm:text-sm font-bold px-4 py-3 rounded-2xl shadow-xl flex items-center gap-2 animate-in slide-in-from-bottom duration-200">
-          <span>{rewardToast}</span>
-        </div>
-      )}
-
       {/* 3. Footer */}
-      <footer className="w-full border-t border-slate-200/80 bg-white/70 py-4 px-4 sm:px-8 text-xs text-slate-400">
-        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2 text-center sm:text-left">
+      <footer className="w-full border-t border-slate-200/80 bg-white py-6 mt-12 text-center text-xs text-slate-400 font-medium">
+        <div className="max-w-6xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
           <p className="flex items-center gap-1.5 justify-center sm:justify-start">
             <IconShieldCheck className="w-3.5 h-3.5 text-slate-400" />
             <span>KMITL SIET Intelligent Learning Workspace</span>
@@ -364,48 +359,7 @@ export function QuizArenaHub() {
           <p>StudyTogether · AI Quiz Arena</p>
         </div>
       </footer>
-
-      {/* PIN Entry Modal */}
-      {pinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-150">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 space-y-5 border border-slate-200 shadow-2xl">
-            <div className="text-center space-y-1">
-              <div className="mx-auto w-12 h-12 rounded-2xl bg-slate-100 flex items-center justify-center text-slate-700 mb-2">
-                <IconKeyRound className="w-6 h-6" />
-              </div>
-              <h3 className="text-lg font-bold text-slate-900">เข้าร่วมห้องประลอง</h3>
-              <p className="text-xs text-slate-500">ใส่รหัส PIN 6 หลักที่ได้รับจากผู้สร้างห้อง</p>
-            </div>
-
-            <input
-              type="text"
-              maxLength={6}
-              value={pin}
-              onChange={(e) => setPin(e.target.value.toUpperCase())}
-              placeholder="000000"
-              className="w-full text-center tracking-[0.4em] font-mono font-black text-2xl py-3 rounded-2xl border border-slate-200 bg-slate-50 focus:bg-white focus:border-rose-500 focus:outline-none focus:ring-2 focus:ring-rose-200"
-            />
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setPinModalOpen(false)}
-                className="py-2.5 rounded-xl border border-slate-200 text-slate-600 font-semibold text-sm hover:bg-slate-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                disabled={pin.length < 6}
-                onClick={() => alert(`กำลังเชื่อมต่อห้อง PIN: ${pin}`)}
-                className="py-2.5 rounded-xl bg-rose-600 text-white font-bold text-sm hover:bg-rose-700 disabled:opacity-50"
-              >
-                เข้าร่วม
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+export default QuizArenaHub;
