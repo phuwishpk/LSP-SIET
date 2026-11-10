@@ -44,7 +44,11 @@ export function QuizArenaHub() {
     totalAttempts: 1,
   });
 
-  const [rewardToast, setRewardToast] = useState<string | null>(null);
+  // Reward Celebration Modal State
+  const [celebrationReward, setCelebrationReward] = useState<{
+    rewardName: string;
+    questTitle: string;
+  } | null>(null);
 
   useEffect(() => {
     // Load real stats from storage
@@ -57,12 +61,12 @@ export function QuizArenaHub() {
     }
   }, []);
 
-  const handleClaimReward = (questId: string, rewardName: string) => {
+  const handleClaimReward = (questId: string, rewardName: string, questTitle: string) => {
     const success = claimQuestReward(questId);
     if (success) {
       setQuests(getDailyQuests());
-      setRewardToast(`🎉 รับรางวัลสำเร็จ: ${rewardName}!`);
-      setTimeout(() => setRewardToast(null), 3000);
+      // Open celebratory owl modal
+      setCelebrationReward({ rewardName, questTitle });
     }
   };
 
@@ -94,16 +98,6 @@ export function QuizArenaHub() {
           </div>
         </section>
 
-        {/* Reward Toast */}
-        {rewardToast && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-sm flex items-center justify-between animate-in slide-in-from-top-2 duration-200 shadow-sm">
-            <span>{rewardToast}</span>
-            <button onClick={() => setRewardToast(null)} className="text-emerald-600 hover:text-emerald-900 text-xs">
-              ปิด
-            </button>
-          </div>
-        )}
-
         {/* Section Heading */}
         <div className="flex flex-col sm:flex-row items-baseline justify-between gap-1">
           <div>
@@ -116,7 +110,7 @@ export function QuizArenaHub() {
           </div>
         </div>
 
-        {/* Main Grid: Solo Mode + AI Diagnostic + Daily Quests (3 Cards Layout) */}
+        {/* Main Grid: Solo Mode + AI Diagnostic + Daily Quests */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Card 1: Solo Mode (Hero Focus) */}
           <div className="bg-white rounded-3xl p-6 sm:p-7 border border-rose-200/80 shadow-xs hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 flex flex-col justify-between gap-6 group lg:col-span-1 bg-gradient-to-b from-white to-rose-50/20">
@@ -229,8 +223,8 @@ export function QuizArenaHub() {
                   </span>
                 ) : quests.quizzesCompleted >= 2 ? (
                   <button
-                    onClick={() => handleClaimReward('quest_2_quizzes', '50 XP')}
-                    className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95"
+                    onClick={() => handleClaimReward('quest_2_quizzes', '50 XP', 'ทำควิซครบ 2 ชุด')}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
                   >
                     รับรางวัล
                   </button>
@@ -262,8 +256,8 @@ export function QuizArenaHub() {
                   </span>
                 ) : quests.maxStreakAchieved >= 3 ? (
                   <button
-                    onClick={() => handleClaimReward('quest_combo_3', '30 XP')}
-                    className="px-2.5 py-1 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-[11px] shadow-xs cursor-pointer active:scale-95"
+                    onClick={() => handleClaimReward('quest_combo_3', '30 XP', 'ตอบถูกติดกัน 3 ข้อ')}
+                    className="px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs shadow-xs cursor-pointer active:scale-95 transition-all"
                   >
                     รับรางวัล
                   </button>
@@ -359,6 +353,48 @@ export function QuizArenaHub() {
           <p>StudyTogether · AI Quiz Arena</p>
         </div>
       </footer>
+
+      {/* 4. Celebratory Owl Reward Popup Modal */}
+      {celebrationReward && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 border border-rose-100 shadow-2xl animate-in zoom-in-95 duration-200">
+            {/* Mascot in Wave (Cheering) Mood */}
+            <div className="relative flex justify-center pt-2">
+              <div className="absolute -top-3 w-36 h-36 bg-rose-100/60 rounded-full blur-xl -z-10" />
+              <PinkOwlMascot mood="wave" size={135} className="drop-shadow-md" />
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full bg-amber-50 text-amber-700 text-xs font-bold border border-amber-200">
+                <IconTrophy className="w-3.5 h-3.5 text-amber-500" />
+                <span>สำเร็จภารกิจประจำวัน!</span>
+              </span>
+              <h3 className="text-xl font-extrabold text-slate-900">
+                {celebrationReward.questTitle}
+              </h3>
+              <p className="text-xs text-slate-500 leading-relaxed">
+                ยอดเยี่ยมมาก! นกฮูกดีใจที่คุณหมั่นทบทวนความรู้อย่างสม่ำเสมอ
+              </p>
+            </div>
+
+            {/* Reward Pill */}
+            <div className="p-3 rounded-2xl bg-gradient-to-r from-amber-50 via-rose-50 to-amber-50 border border-amber-200/80 flex items-center justify-center gap-2">
+              <IconSparkles className="w-4 h-4 text-amber-500" />
+              <span className="text-sm font-black text-amber-800">
+                ได้รับรางวัล +{celebrationReward.rewardName}
+              </span>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setCelebrationReward(null)}
+              className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-sm shadow-md shadow-rose-600/25 transition-all cursor-pointer"
+            >
+              รับทราบ ลุยต่อเลย!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
