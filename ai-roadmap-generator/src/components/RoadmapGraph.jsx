@@ -58,7 +58,7 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
               <path d="M0 0 L6 3 L0 6 Z" fill="#AFAFAF" />
             </marker>
             <marker id="arrow-dashed" orient="auto" markerWidth="6" markerHeight="6" refX="4" refY="3">
-              <path d="M0 0 L6 3 L0 6 Z" fill="#ED4988" />
+              <path d="M0 0 L6 3 L0 6 Z" fill="#00A879" />
             </marker>
           </defs>
           {layout.lines.map((line, index) => (
@@ -79,8 +79,12 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
             style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
             onClick={() => onSelect?.(box.id)}
             aria-pressed={box.id === selectedId}
+            aria-current={box.id === selectedId ? 'step' : undefined}
             title={box.node.label}
           >
+            {box.node.order != null && (
+              <span className="node-order" aria-hidden="true">{box.node.order}</span>
+            )}
             <span className="node-label">{box.node.label}</span>
           </button>
         ))}

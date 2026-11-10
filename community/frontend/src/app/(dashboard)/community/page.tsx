@@ -727,12 +727,13 @@ function CommunityContent() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   type="button"
+                  data-ai-tool="quiz"
                   onClick={() => void openQuizApp()}
-                  className="group flex flex-col justify-between rounded-xl border border-rose-100 bg-rose-50/50 p-2.5 text-left transition-all hover:bg-rose-100/60 hover:shadow-2xs active:scale-[0.98] dark:border-rose-950/40 dark:bg-rose-950/20"
+                  className="community-ai-tool-card group flex flex-col justify-between rounded-xl border p-2.5 text-left transition-all active:scale-[0.98]"
                 >
                   <div className="flex items-center justify-between">
-                    <ListChecks className="h-4 w-4 text-rose-600 dark:text-rose-400" />
-                    <span className="text-[10px] font-bold text-rose-600/80">8 PT</span>
+                    <ListChecks className="community-ai-tool-icon h-4 w-4" />
+                    <span className="community-ai-tool-cost text-[10px] font-bold">8 PT</span>
                   </div>
                   <div className="mt-2">
                     <span className="block text-xs font-bold text-slate-900 dark:text-zinc-100">แบบทดสอบ AI</span>
@@ -741,16 +742,17 @@ function CommunityContent() {
                 </button>
                 <button
                   type="button"
+                  data-ai-tool="roadmap"
                   onClick={() =>
                     void openRoadmapApp({
                       course: selectedCourse && selectedCourse.kind !== 'club' ? selectedCourse.id : null,
                     })
                   }
-                  className="group flex flex-col justify-between rounded-xl border border-indigo-100 bg-indigo-50/50 p-2.5 text-left transition-all hover:bg-indigo-100/60 hover:shadow-2xs active:scale-[0.98] dark:border-indigo-950/40 dark:bg-indigo-950/20"
+                  className="community-ai-tool-card group flex flex-col justify-between rounded-xl border p-2.5 text-left transition-all active:scale-[0.98]"
                 >
                   <div className="flex items-center justify-between">
-                    <MapIcon className="h-4 w-4 text-indigo-600 dark:text-indigo-400" />
-                    <span className="text-[10px] font-bold text-indigo-600/80">15 PT</span>
+                    <MapIcon className="community-ai-tool-icon h-4 w-4" />
+                    <span className="community-ai-tool-cost text-[10px] font-bold">15 PT</span>
                   </div>
                   <div className="mt-2">
                     <span className="block text-xs font-bold text-slate-900 dark:text-zinc-100">วางแผน Roadmap</span>

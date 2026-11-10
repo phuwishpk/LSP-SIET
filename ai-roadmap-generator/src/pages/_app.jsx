@@ -1,4 +1,5 @@
 import Head from 'next/head'
+import { LoaderCircle, WifiOff } from 'lucide-react'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import '@/styles/app.css'
@@ -17,15 +18,21 @@ function Shell({ Component, pageProps }) {
       <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
         {status === 'loading' ? (
           <main className="center-screen">
-            <p className="muted">กำลังเข้าสู่ระบบ…</p>
+            <section className="system-state-card" role="status">
+              <LoaderCircle aria-hidden="true" className="system-state-icon system-state-spinner" />
+              <p className="muted">กำลังเข้าสู่ระบบ…</p>
+            </section>
           </main>
         ) : status === 'blocked' ? (
           <main className="center-screen">
-            <h1 className="h2">เข้าสู่ระบบไม่สำเร็จ</h1>
-            <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ SIET Space ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
-            <a className="btn btn-primary" href={communityUrl()}>
-              ไปที่ SIET Space
-            </a>
+            <section className="system-state-card" role="alert">
+              <WifiOff aria-hidden="true" className="system-state-icon system-state-error" />
+              <h1 className="h2">เข้าสู่ระบบไม่สำเร็จ</h1>
+              <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ SIET Space ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
+              <a className="btn btn-primary" href={communityUrl()}>
+                ไปที่ SIET Space
+              </a>
+            </section>
           </main>
         ) : (
           <Component {...pageProps} />

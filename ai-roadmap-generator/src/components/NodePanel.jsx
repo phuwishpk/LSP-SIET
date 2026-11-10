@@ -1,4 +1,5 @@
 import { categoryColor } from '@/lib/roadmap-layout'
+import { BookOpen } from 'lucide-react'
 import { External, Plus } from './icons'
 
 function Sources({ sources }) {
@@ -78,11 +79,15 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
     return (
       <aside className="panel">
         <section className="panel-section">
+          <p className="panel-label">เป้าหมายการเรียนรู้</p>
           <h2 className="h3">{roadmap?.title}</h2>
           {roadmap?.description && <p className="body">{roadmap.description}</p>}
         </section>
         <PlanGrounding grounding={roadmap?.grounding} />
-        <p className="hint">กดที่ด่านในแผนเพื่อดูคำอธิบายและที่มา</p>
+        <div className="panel-empty-state" role="status">
+          <BookOpen aria-hidden="true" />
+          <span>เลือกด่านในแผนเพื่อดูขั้นตอน คำอธิบาย และแหล่งความรู้ที่เกี่ยวข้อง</span>
+        </div>
       </aside>
     )
   }
@@ -90,7 +95,8 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
   const color = categoryColor(node.category)
   return (
     <aside className="panel">
-      <section className="panel-section">
+      <section className="panel-section panel-current-step">
+        <p className="panel-label">ด่านที่กำลังดู</p>
         <div className="chips">
           {node.category && (
             <span className="chip" style={{ color, borderColor: color }}>
@@ -100,7 +106,14 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
           <span className="chip">{mainIndex ? `ด่านที่ ${mainIndex}` : 'ด่านย่อย'}</span>
         </div>
         <h2 className="h3">{node.label}</h2>
-        {node.description ? <p className="body">{node.description}</p> : <p className="hint">ด่านนี้ยังไม่มีคำอธิบาย</p>}
+        {node.description ? (
+          <p className="body">{node.description}</p>
+        ) : (
+          <div className="panel-empty-state" role="status">
+            <BookOpen aria-hidden="true" />
+            <span>ด่านนี้ยังไม่มีคำอธิบาย</span>
+          </div>
+        )}
       </section>
 
       <Sources sources={node.sources} />
@@ -108,7 +121,8 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
       {childCount > 0 && <p className="hint">มีด่านย่อย {childCount} ด่านแตกออกจากด่านนี้</p>}
 
       {expand && (
-        <section className="panel-footer">
+        <section className="panel-footer panel-next-action">
+          <p className="panel-label">การดำเนินการถัดไป</p>
           <button
             type="button"
             className="btn btn-outline-accent btn-block"

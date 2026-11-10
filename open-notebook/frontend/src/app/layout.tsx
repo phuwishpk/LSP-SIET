@@ -5,6 +5,15 @@ import {
   Spline_Sans_Mono,
 } from "next/font/google";
 import { sietFontVariables } from "@siet/platform/lib/fonts"; // KMITL
+// Self-host Prompt glyphs for both Thai and Latin without build-time Google Fonts requests.
+import "@fontsource/prompt/latin-400.css";
+import "@fontsource/prompt/latin-500.css";
+import "@fontsource/prompt/latin-600.css";
+import "@fontsource/prompt/latin-700.css";
+import "@fontsource/prompt/thai-400.css";
+import "@fontsource/prompt/thai-500.css";
+import "@fontsource/prompt/thai-600.css";
+import "@fontsource/prompt/thai-700.css";
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Toaster } from "@/components/ui/sonner";

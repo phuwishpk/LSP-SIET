@@ -44,7 +44,7 @@ export function ReferencesList({
   }
 
   return (
-    <div className={`mt-2 pt-2 border-t border-border/50 ${className || ''}`}>
+    <div className={`kmitl-rag-reference-list mt-2 pt-2 border-t border-border/50 ${className || ''}`}>
       <div className="flex items-center gap-1 text-xs text-muted-foreground mb-2">
         <ExternalLink className="h-3 w-3" />
         <span className="font-medium">{t('common.references') || 'References'}</span>

@@ -105,7 +105,7 @@ export default function DashboardHomePage() {
   return (
     <main className="min-h-screen bg-background overflow-y-auto">
       <div className="max-w-5xl mx-auto px-6 py-10 space-y-8">
-          <header className="flex items-start justify-between gap-4">
+          <header className="workspace-learning-hero flex items-start justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles className="h-5 w-5 text-primary" />
@@ -139,11 +139,13 @@ export default function DashboardHomePage() {
               return (
                 <Card
                   key={card.id}
-                  className="group flex flex-col transition-all hover:shadow-md hover:-translate-y-0.5"
+                  data-workspace-app-card={card.id}
+                  className="workspace-app-card group flex flex-col transition-all hover:shadow-md hover:-translate-y-0.5"
                 >
                   <CardHeader className="space-y-3">
                     <div
-                      className={`w-12 h-12 rounded-lg bg-gradient-to-br ${card.gradient} flex items-center justify-center`}
+                      data-workspace-app-icon={card.id}
+                      className="workspace-app-icon flex h-12 w-12 items-center justify-center rounded-xl"
                     >
                       <Icon className="h-6 w-6 text-foreground" />
                     </div>
@@ -159,7 +161,7 @@ export default function DashboardHomePage() {
                   </CardHeader>
                   <CardContent className="mt-auto">
                     <Button
-                      className="w-full justify-between"
+                      className="workspace-app-action w-full justify-between"
                       variant="outline"
                       onClick={() => navigate(card)}
                       disabled={isBusy}

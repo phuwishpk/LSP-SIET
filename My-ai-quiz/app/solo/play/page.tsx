@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { PinkOwlMascot, OwlMood } from '../../components/PinkOwlMascot';
@@ -16,6 +16,7 @@ import {
   IconPenLine,
   IconLink2,
 } from '../../components/ui/Icons';
+import { CheckCircle2, XCircle } from 'lucide-react';
 
 interface MatchingPair {
   left: string;
@@ -67,6 +68,7 @@ export default function SoloPlayPage() {
 
   // Owl reaction state during quiz
   const [owlMood, setOwlMood] = useState<OwlMood>('study');
+  const currentQuestionRef = useRef<Question | null>(null);
 
   useEffect(() => {
     try {
@@ -128,6 +130,7 @@ export default function SoloPlayPage() {
 
   // Prepare current question matching rights shuffled
   useEffect(() => {
+    currentQuestionRef.current = session?.questions[currentIndex] ?? null;
     if (!session) return;
     const currentQ = session.questions[currentIndex];
     if (currentQ?.type === 'matching' && currentQ.matchingPairs) {
@@ -163,26 +166,34 @@ export default function SoloPlayPage() {
     return () => clearInterval(timer);
   }, [isAnswered, isQuizCompleted, currentIndex]);
 
-    const handleTimeUp = () => {
+  const handleTimeUp = () => {
+    const timedOutQuestion = currentQuestionRef.current;
+    if (!timedOutQuestion) return;
+
     setIsAnswered(true);
     setOwlMood('idle');
     setAnswersLog((prev) => [
       ...prev,
       {
-        questionId: currentQ.id || currentIndex + 1,
-        questionText: currentQ.question,
+        questionId: timedOutQuestion.id || currentIndex + 1,
+        questionText: timedOutQuestion.question,
         selected: '(หมดเวลา ไม่ได้ตอบ)',
-        correct: currentQ.options ? currentQ.options[currentQ.correctAnswer] : String(currentQ.correctAnswer || ''),
+        correct: timedOutQuestion.options
+          ? timedOutQuestion.options[timedOutQuestion.correctAnswer]
+          : String(timedOutQuestion.correctAnswer || ''),
         isCorrect: false,
-        explanation: currentQ.explanation,
+        explanation: timedOutQuestion.explanation,
       },
     ]);
   };
 
   if (!session) {
     return (
-      <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] flex items-center justify-center">
-        <div className="animate-spin h-8 w-8 border-4 border-rose-600 border-t-transparent rounded-full" />
+      <div className="flex min-h-[calc(100vh-4rem)] flex-1 items-center justify-center bg-white p-4">
+        <div className="quiz-state-card" role="status" aria-live="polite">
+          <IconSparkles className="h-5 w-5 text-[#ED4988]" />
+          <span>กำลังเตรียมแบบทดสอบ…</span>
+        </div>
       </div>
     );
   }
@@ -343,7 +354,7 @@ export default function SoloPlayPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
+    <div className="quiz-play-surface min-h-[calc(100vh-4rem)] flex-1 bg-white text-[#202124] font-sans flex flex-col justify-between">
       
       <main className="max-w-3xl w-full mx-auto px-4 sm:px-6 py-8 flex-1 animate-in fade-in duration-200">
         {!isQuizCompleted ? (
@@ -378,7 +389,7 @@ export default function SoloPlayPage() {
             </div>
 
             {/* Question Card */}
-            <div className="bg-white rounded-3xl border border-slate-200/90 p-6 sm:p-8 shadow-xs space-y-6">
+            <div className="bg-white rounded-2xl border border-[#EAE6EA] p-6 sm:p-8 shadow-[0_4px_16px_rgba(32,33,36,0.04)] space-y-6">
               {/* Type Badge & Question Title with Mascot Buddy */}
               <div className="flex items-start justify-between gap-4">
                 <div className="space-y-2 flex-1">
@@ -423,13 +434,33 @@ export default function SoloPlayPage() {
                         key={idx}
                         type="button"
                         disabled={isAnswered}
+                        aria-pressed={selectedOption === idx}
+                        data-outcome={
+                          isAnswered
+                            ? idx === currentQ.correctAnswer
+                              ? 'correct'
+                              : idx === selectedOption
+                                ? 'incorrect'
+                                : 'neutral'
+                            : idx === selectedOption
+                              ? 'selected'
+                              : undefined
+                        }
                         onClick={() => handleSelectMCQ(idx)}
-                        className={`w-full text-left p-4 rounded-2xl border text-sm transition-all flex items-start gap-3.5 cursor-pointer active:scale-98 ${optStyle}`}
+                        className={`quiz-option w-full text-left p-4 rounded-xl border text-sm transition-colors flex items-start justify-between gap-3.5 cursor-pointer active:scale-98 ${optStyle}`}
                       >
-                        <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs font-bold bg-white/80">
-                          {String.fromCharCode(65 + idx)}
+                        <span className="flex min-w-0 items-start gap-3.5">
+                          <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#D6D0D6] bg-white text-xs font-bold text-[#3C3C3C]">
+                            {String.fromCharCode(65 + idx)}
+                          </span>
+                          <span className="leading-relaxed">{option}</span>
                         </span>
-                        <span className="leading-relaxed">{option}</span>
+                        {isAnswered && idx === currentQ.correctAnswer && (
+                          <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0 text-[#2E8B57]" aria-label="คำตอบที่ถูกต้อง" />
+                        )}
+                        {isAnswered && idx === selectedOption && idx !== currentQ.correctAnswer && (
+                          <XCircle className="mt-0.5 h-5 w-5 shrink-0 text-[#E53935]" aria-label="คำตอบไม่ถูกต้อง" />
+                        )}
                       </button>
                     );
                   })}
@@ -454,7 +485,7 @@ export default function SoloPlayPage() {
                     <button
                       type="submit"
                       disabled={!fillAnswer.trim()}
-                      className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-bold text-sm transition-all shadow-md shadow-rose-600/20 active:scale-95"
+                      className="quiz-check-button w-full py-3 text-white font-bold text-sm"
                     >
                       ส่งคำตอบ
                     </button>
@@ -539,7 +570,7 @@ export default function SoloPlayPage() {
                       type="button"
                       disabled={Object.keys(matchingSelections).length !== currentQ.matchingPairs.length}
                       onClick={handleSubmitMatching}
-                      className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 disabled:bg-slate-300 text-white font-bold text-sm transition-all shadow-md shadow-rose-600/20 active:scale-95"
+                      className="quiz-check-button w-full py-3 text-white font-bold text-sm"
                     >
                       ตรวจคำตอบการจับคู่
                     </button>
@@ -550,22 +581,23 @@ export default function SoloPlayPage() {
               {/* Feedback & Explanation Box */}
               {isAnswered && (
                 <div
-                  className={`p-4 rounded-2xl text-xs sm:text-sm border animate-in fade-in duration-200 ${
+                  data-outcome={isCurrentCorrect ? 'correct' : 'incorrect'}
+                  className={`quiz-answer-feedback p-4 text-xs sm:text-sm border animate-in fade-in duration-200 ${
                     isCurrentCorrect
-                      ? 'bg-emerald-50/80 border-emerald-200 text-emerald-950'
-                      : 'bg-rose-50/80 border-rose-200 text-rose-950'
+                      ? 'border-[#2E8B57] bg-[#EDF7F0] text-[#205F3C]'
+                      : 'border-[#E53935] bg-[#FFF1F0] text-[#9F2522]'
                   }`}
                 >
                   <div className="flex items-center gap-2 font-bold mb-1">
                     {isCurrentCorrect ? (
                       <>
-                        <IconCheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span className="text-emerald-700">ถูกต้อง! ยอดเยี่ยมมาก</span>
+                        <CheckCircle2 className="w-4 h-4 text-[#2E8B57]" aria-hidden="true" />
+                        <span>ถูกต้อง! ยอดเยี่ยมมาก</span>
                       </>
                     ) : (
                       <>
-                        <IconZap className="w-4 h-4 text-rose-600" />
-                        <span className="text-rose-700">
+                        <XCircle className="w-4 h-4 text-[#E53935]" aria-hidden="true" />
+                        <span>
                           {qType === 'fill'
                             ? `คำตอบที่ถูกต้องคือ: "${currentQ.correctAnswer}"`
                             : 'ยังไม่ถูกต้อง'}

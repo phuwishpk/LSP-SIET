@@ -61,13 +61,13 @@ export function CommunityHeader({
   useEffect(() => setDraft(query), [query])
 
   return (
-    <header className="sticky top-0 z-30 border-b bg-white dark:bg-zinc-900">
+    <header className="sticky top-0 z-30 border-b border-[#EAE6EA] bg-white shadow-[0_1px_0_#EAE6EA] dark:bg-zinc-900">
       <div className="mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6">
         {onOpenMenu && (
           <Button
             variant="ghost"
             size="sm"
-            className="h-9 w-9 shrink-0 p-0 lg:hidden"
+            className="h-11 w-11 shrink-0 p-0 lg:hidden"
             onClick={onOpenMenu}
             aria-label="เปิดเมนู"
           >
@@ -77,9 +77,9 @@ export function CommunityHeader({
         <button
           type="button"
           onClick={onHome}
-          className="flex shrink-0 items-center gap-2 rounded-md px-1 py-1 text-left hover:bg-accent"
+          className="flex shrink-0 items-center gap-2 rounded-xl px-1 py-1 text-left hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B]"
         >
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-rose-600 via-rose-500 to-pink-500 text-sm font-black text-white shadow-sm shadow-rose-500/20">
+          <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-[#ED4988] text-sm font-black text-[#202124]">
             S
           </span>
           <span className="hidden flex-col leading-none sm:flex">
@@ -105,12 +105,13 @@ export function CommunityHeader({
               className="h-9 rounded-xl border border-slate-200/90 bg-slate-50/80 pl-9 pr-16 text-xs transition-all focus:border-rose-400 focus:bg-white focus:ring-2 focus:ring-rose-500/20 dark:border-zinc-800 dark:bg-zinc-800/60 dark:focus:bg-zinc-900"
             */
             placeholder="ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…"
-            className="h-9 cursor-text rounded-lg border-border bg-muted/70 pl-9 pr-16 transition-all duration-200 hover:bg-slate-100/80 focus:bg-white focus:ring-2 focus:ring-pink-300/50 dark:bg-muted/70 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900 dark:focus:ring-pink-500/30"
+            className="h-11 cursor-text rounded-full border-border bg-muted/70 pl-9 pr-16 transition-all duration-200 hover:bg-slate-100/80 focus:bg-white focus:ring-2 focus:ring-pink-300/50 dark:bg-muted/70 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900 dark:focus:ring-pink-500/30"
           />
           {draft && (
             <button
               type="button"
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-muted-foreground hover:text-foreground"
+              className="absolute right-0 top-1/2 flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full text-xs text-muted-foreground hover:bg-pink-50 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B]"
+              aria-label="ล้างการค้นหา"
               onClick={() => {
                 setDraft('')
                 onSearch('')
@@ -128,7 +129,7 @@ export function CommunityHeader({
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
-                className="h-9 shrink-0 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-pink-400"
+                className="h-11 shrink-0 gap-2 rounded-full px-1.5 focus-visible:ring-2 focus-visible:ring-[#C92F6B]"
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
               >
                 <Avatar
@@ -146,7 +147,7 @@ export function CommunityHeader({
             <DropdownMenuContent
               align="end"
               sideOffset={10}
-              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-md dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
+              className="community-theme w-[320px] max-w-[calc(100vw-1rem)] rounded-2xl border border-[#EAE6EA] bg-white p-2.5 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100"
             >
               <DropdownMenuLabel className="px-2.5 pb-3 pt-2">
                 <div className="flex items-center gap-3">

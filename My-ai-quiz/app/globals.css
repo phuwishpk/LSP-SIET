@@ -21,19 +21,19 @@
   /* Surfaces & Typography */
   --color-ink: #202124;
   --color-body: #3C3C3C;
-  --color-muted: #777777;
+  --color-muted: #707070;
   --color-soft: #AFAFAF;
   --color-canvas: #FFFFFF;
   --color-surface: #FFFFFF;
-  --color-border: #E5E5E5;
+  --color-border: #EAE6EA;
 
   /* Gamification & Status Colors */
   --color-info: #1CB0F6;
-  --color-success: #58A66A;
-  --color-error: #FF4B4B;
+  --color-success: #2E8B57;
+  --color-error: #E53935;
   --color-streak: #FF9600;
   --color-xp: #FFC800;
-  --color-reward: #CE82FF;
+  --color-reward: #8A57FF;
 
   /* Typography */
   --font-display: 'Nunito', 'IBM Plex Sans Thai', system-ui, sans-serif;
@@ -47,10 +47,10 @@
 
   /* Tactile Shadows */
   --shadow-button: 0 4px 0 var(--color-primary-pressed);
-  --shadow-card: 0 2px 4px rgba(32, 33, 36, 0.04), 0 1px 2px rgba(32, 33, 36, 0.02);
+  --shadow-card: 0 4px 16px rgba(32, 33, 36, 0.04);
 
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  --background: #ffffff;
+  --foreground: #202124;
 }
 
 @theme inline {
@@ -90,6 +90,20 @@ textarea {
   font: inherit;
 }
 
+:is(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid #c92f6b;
+  outline-offset: 3px;
+}
+
+.siet-shared-navbar :is(button, a, input):focus-visible {
+  outline: 3px solid #c92f6b;
+  outline-offset: 3px;
+}
+
+.dark .siet-shared-navbar :is(button, a, input):focus-visible {
+  outline-color: #f472b6;
+}
+
 /* ---- Community Theme & Popovers (Matches Community 3500) ---- */
 .community-theme {
   --radius: 0.75rem;
@@ -100,7 +114,7 @@ textarea {
   --popover: #ffffff;
   --popover-foreground: #263142;
   --primary: #ED4988;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #202124;
   --secondary: #fff1f5;
   --secondary-foreground: #263142;
   --muted: #f8fafc;
@@ -140,7 +154,7 @@ textarea {
   border: 0;
   border-radius: var(--radius-lg);
   background: var(--color-primary);
-  color: #FFFFFF;
+  color: #202124;
   font-weight: 800;
   font-size: 15px;
   line-height: 1.2;
@@ -152,7 +166,8 @@ textarea {
 
 .button-primary:hover,
 .btn-primary-tactile:hover {
-  background: var(--color-primary-hover);
+  background: var(--color-primary-pressed);
+  color: #ffffff;
 }
 
 .button-primary:active,
@@ -163,6 +178,118 @@ textarea {
 
 .button-primary:focus-visible,
 .btn-primary-tactile:focus-visible {
-  outline: 3px solid var(--color-info);
+  outline: 3px solid var(--color-primary-pressed);
   outline-offset: 3px;
+}
+
+.quiz-play-surface {
+  background-color: #ffffff;
+  color: #202124;
+}
+
+.quiz-play-surface .quiz-option {
+  min-height: 64px;
+  border-color: #eae6ea;
+  background-color: #ffffff;
+  color: #202124;
+}
+
+.quiz-play-surface .quiz-option:not(:disabled):hover {
+  border-color: #ed4988;
+  background-color: #fff8fa;
+}
+
+.quiz-play-surface .quiz-option[data-outcome='selected'] {
+  border-color: #ed4988;
+  background-color: #fce7f0;
+  color: #8d2850;
+}
+
+.quiz-play-surface .quiz-option[data-outcome='correct'] {
+  border: 2px solid #2e8b57;
+  background-color: #edf7f0;
+  color: #205f3c;
+}
+
+.quiz-play-surface .quiz-option[data-outcome='incorrect'] {
+  border: 2px solid #e53935;
+  background-color: #fff1f0;
+  color: #9f2522;
+}
+
+.quiz-play-surface .quiz-option[data-outcome='neutral'] {
+  border-color: #eae6ea;
+  background-color: #ffffff;
+  color: #707070;
+}
+
+.quiz-play-surface .quiz-option:focus-visible {
+  outline: 3px solid #c92f6b;
+  outline-offset: 2px;
+}
+
+.quiz-play-surface .quiz-answer-feedback {
+  border-radius: 12px;
+}
+
+.quiz-play-surface .quiz-answer-feedback[data-outcome='correct'] {
+  border-color: #2e8b57;
+  background-color: #edf7f0;
+  color: #205f3c;
+}
+
+.quiz-play-surface .quiz-answer-feedback[data-outcome='incorrect'] {
+  border-color: #e53935;
+  background-color: #fff1f0;
+  color: #9f2522;
+}
+
+.quiz-state-card {
+  display: flex;
+  min-height: 56px;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 12px 16px;
+  border: 1px solid #eae6ea;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow-card);
+  color: #3c3c3c;
+  font-weight: 700;
+}
+
+.quiz-play-surface .quiz-check-button {
+  min-height: 52px;
+  border-radius: 16px;
+  background-color: #ed4988;
+  color: #202124;
+  box-shadow: var(--shadow-button);
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+.quiz-play-surface .quiz-check-button:hover:not(:disabled) {
+  background-color: #c92f6b;
+  color: #ffffff;
+}
+
+.quiz-play-surface .quiz-check-button:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.quiz-play-surface .quiz-check-button:disabled {
+  background-color: #afafaf;
+  box-shadow: none;
+}
+
+.quiz-play-surface .quiz-check-button:focus-visible {
+  outline: 3px solid #c92f6b;
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .quiz-play-surface .quiz-check-button {
+    transition: none;
+  }
 }

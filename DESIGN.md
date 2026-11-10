@@ -72,8 +72,8 @@ The palette pairs a soft pink-neutral canvas and white content surfaces with SIE
 
 ### Primary
 
-- **SIET Pink** (`#ED4988`): Brand accent and primary action color. Use selectively for a page's main action, selected state, or important learning milestone.
-- **Primary Hover** (`#D83A78`) and **Primary Pressed** (`#C92F6B`): Interaction states for primary controls; do not use color change as the only state cue.
+- **SIET Pink** (`#ED4988`): Brand accent and primary action color. Use selectively for a page's main action, selected state, or important learning milestone. Pair filled SIET Pink with Main Ink (`#202124`), which provides 4.53:1 text contrast; white labels do not meet WCAG AA on this color.
+- **Primary Hover** (`#D83A78`) and **Primary Pressed** (`#C92F6B`): Interaction states for primary controls; do not use color change as the only state cue. For filled controls with labels, use `#C92F6B` with white text on hover/press (5.12:1) rather than placing normal-size text on `#D83A78`, which does not meet 4.5:1 contrast with either white or Main Ink.
 - **Soft Pink** (`#FCE7F0`) and **Light Pink** (`#F7B7D0`): Low-emphasis selected surfaces, course tags, and subtle borders.
 
 ### Secondary
@@ -96,6 +96,8 @@ The palette pairs a soft pink-neutral canvas and white content surfaces with SIE
 ### Named Rules
 
 **The Accent-with-Meaning Rule.** Color must indicate brand, interaction, or status—not decoration alone. Do not rely on the 60-30-10 guide as proof of contrast or accessibility.
+
+**The Primary Contrast Rule.** Use Main Ink on SIET Pink at rest. When an interaction state darkens the filled action, verify its foreground pair independently; do not assume the light-theme foreground remains accessible.
 
 ## Typography
 

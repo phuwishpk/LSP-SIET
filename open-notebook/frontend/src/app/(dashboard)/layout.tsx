@@ -65,7 +65,7 @@ export default function DashboardLayout({
   return (
     <ErrorBoundary>
       <CreateDialogsProvider>
-        <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+        <div className="theme-siet flex h-screen flex-col overflow-hidden bg-background text-foreground">
           <div className="relative z-[100] shrink-0">
             <AppNavbar />
           </div>

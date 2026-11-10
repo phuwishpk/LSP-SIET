@@ -25,14 +25,12 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           variant="outline"
           size="sm"
           className={cn(
-            'group relative overflow-hidden gap-1.5 rounded-full border border-amber-300/90 bg-gradient-to-r from-amber-50 via-amber-100/60 to-orange-50 text-amber-950 shadow-xs transition-all duration-200 hover:border-amber-400 hover:shadow-sm hover:scale-[1.03] active:scale-95 max-sm:gap-1 max-sm:px-2.5 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-orange-950/30 dark:text-amber-200 dark:border-amber-600',
+            'siet-points-pill group relative min-h-11 min-w-11 overflow-hidden gap-1.5 rounded-full border px-3 text-xs font-semibold shadow-none transition-colors duration-150 active:scale-95 max-sm:gap-1 max-sm:px-2.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B]',
             compact && 'px-2'
           )}
           aria-label="กระเป๋าแต้ม"
         >
-          {/* Kinetic Shimmer Wave */}
-          <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full motion-reduce:hidden" />
-          <Coins className="h-4 w-4 text-amber-600 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110 dark:text-amber-400" />
+          <Coins className="siet-points-icon h-4 w-4" />
           {exempt ? (
             <span className="flex items-center gap-1 text-xs font-semibold">
             <InfinityIcon className="h-3.5 w-3.5" /> <span className="max-sm:hidden">{!compact && 'ไม่จำกัด'}</span>
@@ -44,7 +42,10 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="community-theme w-96 max-w-[calc(100vw-2rem)] p-0">
+      <PopoverContent
+        align="end"
+        className="community-theme w-96 max-w-[calc(100vw-2rem)] rounded-2xl border-[#EAE6EA] p-0 shadow-[0_4px_16px_rgba(32,33,36,0.04)]"
+      >
         <div className="border-b p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Points Wallet</p>
           <div className="mt-1 flex items-end justify-between">
@@ -108,7 +109,10 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
             </div>
           )}
           {!isLoading && (wallet?.history.length ?? 0) === 0 && (
-            <p className="text-xs text-muted-foreground">ยังไม่มีรายการ</p>
+            <div className="flex items-center gap-2 rounded-2xl border border-[#EAE6EA] bg-muted/60 px-3 py-2 text-xs text-muted-foreground" role="status">
+              <Coins aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span>ยังไม่มีรายการ</span>
+            </div>
           )}
           <ScrollArea className="no-scrollbar max-h-56">
             <ul className="space-y-1.5 pr-3">
