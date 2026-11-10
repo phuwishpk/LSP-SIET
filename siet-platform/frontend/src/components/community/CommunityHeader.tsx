@@ -30,6 +30,7 @@ export function CommunityHeader({
 
   return (
     <Navbar
+      activeRoute="community"
       searchDefaultValue={query}
       onSearch={onSearch}
       onHome={onHome}

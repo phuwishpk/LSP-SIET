@@ -67,7 +67,7 @@ export default function DashboardLayout({
       <CreateDialogsProvider>
         <div className="theme-siet flex h-screen flex-col overflow-hidden bg-background text-foreground">
           <div className="relative z-[100] shrink-0">
-            <Navbar />
+            <Navbar activeRoute="rag" />
           </div>
           <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
             {children}

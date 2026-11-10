@@ -24,7 +24,7 @@ export default function RootLayout({
       </head>
       <body className="flex h-screen flex-col overflow-hidden bg-white text-[#202124] antialiased font-sans">
         <div className="relative z-[100] shrink-0" style={{ height: '64px', minHeight: '64px' }}>
-          <Navbar />
+          <Navbar activeRoute="quiz" />
         </div>
         <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
           {children}

@@ -64,9 +64,12 @@ export interface WalletData {
   history?: WalletTransaction[]
 }
 
+export type NavbarRoute = 'community' | 'rag' | 'quiz' | 'roadmap'
+
 export interface NavbarProps {
   user?: NavbarUser | null
   pointsBalance?: number
+  activeRoute?: NavbarRoute
   showPointsWallet?: boolean
   notificationsCount?: number
   communityUrl?: string
@@ -213,6 +216,7 @@ export function getWorkspaceUrl(): string {
 export function Navbar({
   user: initialUser,
   pointsBalance: initialPoints,
+  activeRoute,
   showPointsWallet = true,
   notificationsCount: initialNotificationsCount = 0,
   communityUrl,
@@ -590,6 +594,7 @@ export function Navbar({
   return (
     <header
       id="siet-shared-navbar"
+      data-active-route={activeRoute}
       className={`siet-shared-navbar sticky top-0 z-[100] w-full border-b border-[#EAE6EA] bg-white text-[#202124] shadow-[0_1px_0_#EAE6EA] select-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 ${className}`}
       style={{ minHeight: '64px', height: '64px' }}
     >
@@ -628,6 +633,7 @@ export function Navbar({
               onHome()
             }
           }}
+          aria-current={activeRoute === 'community' ? 'page' : undefined}
           className="flex min-h-[44px] shrink-0 items-center gap-[10px] rounded-[12px] px-[6px] py-[4px] text-left transition-colors hover:bg-[#FFF8FA] no-underline dark:hover:bg-zinc-800"
           style={{ textDecoration: 'none' }}
         >
@@ -664,7 +670,7 @@ export function Navbar({
         {/* Center capsule search bar */}
         <form
           onSubmit={handleSearchSubmit}
-          className="mx-[4px] min-w-[48px] w-auto max-w-[576px] flex-1 sm:mx-auto"
+          className="mx-[4px] min-w-[48px] w-full max-w-md flex-1 sm:mx-auto"
           role="search"
         >
           <div className="relative w-full flex items-center" style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
@@ -1070,7 +1076,12 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenQuiz() }}
-                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    aria-current={activeRoute === 'quiz' ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors cursor-pointer dark:text-zinc-100 ${
+                      activeRoute === 'quiz'
+                        ? 'bg-pink-50 text-[#C92F6B] dark:bg-pink-950/40 dark:text-pink-200'
+                        : 'text-slate-800 hover:bg-pink-50 dark:hover:bg-zinc-800'
+                    }`}
                   >
                     <GraduationCap className="h-4 w-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
                     <span>แอป AI Quiz ↗</span>
@@ -1079,7 +1090,12 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenRoadmap() }}
-                    className="w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    aria-current={activeRoute === 'roadmap' ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 rounded-xl px-3 py-2 text-sm transition-colors cursor-pointer dark:text-zinc-100 ${
+                      activeRoute === 'roadmap'
+                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+                        : 'text-slate-800 hover:bg-pink-50 dark:hover:bg-zinc-800'
+                    }`}
                   >
                     <MapIcon className="h-4 w-4 text-orange-600 shrink-0 dark:text-orange-400" />
                     <span>แอป AI Roadmap</span>

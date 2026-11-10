@@ -13,7 +13,7 @@ function Shell({ Component, pageProps }) {
   return (
     <div className="flex h-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)] antialiased font-sans">
       <div className="relative z-[100] shrink-0" style={{ height: '64px', minHeight: '64px' }}>
-        <Navbar />
+        <Navbar activeRoute="roadmap" />
       </div>
       <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
         {status === 'loading' ? (
