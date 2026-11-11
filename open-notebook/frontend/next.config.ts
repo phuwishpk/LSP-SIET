@@ -4,6 +4,11 @@ const nextConfig: NextConfig = {
   // Enable standalone output for optimized Docker deployment
   output: "standalone",
 
+  // Skip the type-check during `next build`: on the 3.3GB production server it
+  // runs for over an hour. Type errors still show in `next dev` / `tsc --noEmit`.
+  // (Next 16 no longer lints during build, so there is no `eslint` option.)
+  typescript: { ignoreBuildErrors: true },
+
   // Experimental features
   // Keep the Next.js rewrite proxy limit aligned with the FastAPI upload limit.
   // Otherwise Next.js truncates large multipart requests before they reach the API.
