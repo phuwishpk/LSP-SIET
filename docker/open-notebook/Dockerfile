@@ -27,10 +27,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && apt-get install -y nodejs \
     && rm -rf /var/lib/apt/lists/*
 
+# UV_COMPILE_BYTECODE=0: on the low-RAM production server uv's bytecode
+# compile ran past its 60s per-file limit and failed the build.
 ENV MAKEFLAGS="-j$(nproc)" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    UV_COMPILE_BYTECODE=1 \
+    UV_COMPILE_BYTECODE=0 \
     UV_LINK_MODE=copy
 
 WORKDIR /app

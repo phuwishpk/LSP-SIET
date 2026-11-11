@@ -1,16 +1,14 @@
 # =============================================================================
 # KMITL AI Workspace – unified docker-compose
 #
-# Single entry point: http://localhost/ (Basic Auth: admin / 123)
+# Production entry point: https://lsp-siet.site (Cloudflare Tunnel → Traefik :80).
+# Traefik answers only for Host(lsp-siet.site); no app port is published on the host.
 #
-# Routing:
-#   /           → open-notebook Next.js frontend (port 8502)
+# Routing (docker/traefik/dynamic/all.yml):
+#   /          → open-notebook Next.js frontend (port 8502)
 #   /api/*     → FastAPI backend (port 5055)
-#   /docs/*    → FastAPI Swagger docs (port 5055)
-#   /streamlit → Streamlit UI (port 8502)
 #   /quiz/*    → My-ai-quiz (port 3000)
 #   /roadmap/* → ai-roadmap-generator (port 3000)
-#   /pb/*      → PocketBase admin (port 8090)
 #
 # Usage:
 #   cp .env.example .env   # fill in API keys / passwords
@@ -24,7 +22,7 @@ networks:
 
 services:
   # ---------------------------------------------------------------------------
-  # Traefik v2.11 – single-port reverse proxy + Basic Auth gate
+  # Traefik v2.11 – single-port reverse proxy (routes: docker/traefik/dynamic)
   # ---------------------------------------------------------------------------
   traefik:
     image: traefik:v2.11
@@ -176,13 +174,8 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
-    # Exposed directly on host for local development:
-    #   http://localhost:3000  → Next.js frontend (login, dashboard, features)
-    #   http://localhost:5055  → FastAPI backend (debug/docs access)
-    # Traefik is intentionally NOT routing this service so the dev port stays stable.
-    ports:
-      - "3000:8502"
-      - "5055:5055"
+    # No host ports: Traefik reaches this container over kmitlai_default via the
+    # file provider (docker/traefik/dynamic/all.yml), not via labels.
     labels:
       - "traefik.enable=false"
 
@@ -203,43 +196,15 @@ services:
       - NODE_ENV=production
     networks:
       - kmitlai_default
-    ports:
-      - "3001:3000"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=kmitlai_default"
-      - "traefik.http.routers.quiz.rule=PathPrefix(`/quiz`)"
+      - "traefik.http.routers.quiz.rule=Host(`lsp-siet.site`) && PathPrefix(`/quiz`)"
       - "traefik.http.routers.quiz.entrypoints=web"
-      - "traefik.http.routers.quiz.middlewares=gate-auth,quiz-stripprefix"
+      - "traefik.http.routers.quiz.middlewares=quiz-stripprefix"
       - "traefik.http.services.quiz.loadbalancer.server.port=3000"
       - "traefik.http.middlewares.quiz-stripprefix.stripprefix.prefixes=/quiz"
-
-  # ---------------------------------------------------------------------------
-  # ai-roadmap-generator infra: PocketBase
-  # ---------------------------------------------------------------------------
-  ai_roadmap_pocketbase:
-    image: ghcr.io/muchobien/pocketbase:latest
-    container_name: kmitl_ai_roadmap_pocketbase
-    volumes:
-      - ./ai-roadmap-generator/pb_data:/pb_data
-    networks:
-      - kmitlai_default
-    restart: unless-stopped
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=kmitlai_default"
-      - "traefik.http.routers.pb.rule=PathPrefix(`/pb`)"
-      - "traefik.http.routers.pb.entrypoints=web"
-      - "traefik.http.routers.pb.middlewares=gate-auth,pb-stripprefix"
-      - "traefik.http.services.pb.loadbalancer.server.port=8090"
-      - "traefik.http.middlewares.pb-stripprefix.stripprefix.prefixes=/pb"
-    healthcheck:
-      test: ["CMD", "wget", "-qO-", "http://localhost:8090/api/health"]
-      interval: 30s
-      timeout: 5s
-      retries: 5
-      start_period: 10s
 
   # ---------------------------------------------------------------------------
   # ai-roadmap-generator (Next.js)
@@ -251,23 +216,19 @@ services:
     image: kmitlai/ai-roadmap-generator:local
     container_name: kmitl_ai_roadmap_generator
     environment:
-      - NEXT_PUBLIC_POCKETBASE_URL=/pb
-      - POCKETBASE_URL=http://ai_roadmap_pocketbase:8090
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
       - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
       - NODE_ENV=production
     networks:
       - kmitlai_default
-    ports:
-      - "3002:3000"
     restart: unless-stopped
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=kmitlai_default"
-      - "traefik.http.routers.roadmap.rule=PathPrefix(`/roadmap`)"
+      - "traefik.http.routers.roadmap.rule=Host(`lsp-siet.site`) && PathPrefix(`/roadmap`)"
       - "traefik.http.routers.roadmap.entrypoints=web"
-      - "traefik.http.routers.roadmap.middlewares=gate-auth,roadmap-stripprefix"
+      - "traefik.http.routers.roadmap.middlewares=roadmap-stripprefix"
       - "traefik.http.services.roadmap.loadbalancer.server.port=3000"
       - "traefik.http.middlewares.roadmap-stripprefix.stripprefix.prefixes=/roadmap"
 
