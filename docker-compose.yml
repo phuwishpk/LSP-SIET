@@ -106,7 +106,9 @@ services:
       - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
       - WORKSPACE_SEED_ADMIN=true
       - WORKSPACE_SEED_ADMIN_USERNAME=admin1
-      - WORKSPACE_SEED_ADMIN_PASSWORD=admin1
+      # Re-applied on every start (api/main.py resets admin1's password to it).
+      # Production must set it: with no basic-auth gate, admin1/admin1 is public.
+      - WORKSPACE_SEED_ADMIN_PASSWORD=${WORKSPACE_SEED_ADMIN_PASSWORD:-admin1}
       - SURREAL_URL=ws://surrealdb:8000/rpc
       - SURREAL_USER=${SURREAL_USER:-root}
       - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
@@ -137,10 +139,10 @@ services:
       # Runtime override (no frontend rebuild needed when the domain changes).
       - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost:3001/quiz}
       - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost:3002/roadmap}
-      # Browser requests stay on localhost:3000 and Next.js proxies /api to
-      # FastAPI. This avoids exposing a container-only address to the browser.
+      # Where the browser sends API calls (served to it by /config). Production
+      # sets API_URL=https://lsp-siet.site; the default only works on the dev box.
       - NEXT_PUBLIC_API_URL=http://localhost:3000
-      - API_URL=http://localhost:3000
+      - API_URL=${API_URL:-http://localhost:3000}
       # Internal service URLs (container-to-container)
       - INTERNAL_API_URL=http://localhost:5055
       # --- SIET Space: Google Workspace SSO + point wallet ---
