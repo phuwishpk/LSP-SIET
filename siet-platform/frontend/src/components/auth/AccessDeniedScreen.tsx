@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -34,8 +34,14 @@ import { PdpaConsentDialog } from '@siet/platform/components/auth/PdpaConsentDia
 
 export function AccessDeniedScreen() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { logout } = useAuth()
   const { user, refreshUser } = useAuthStore()
+
+  const emailParam = searchParams.get('email')
+  const nameParam = searchParams.get('name')
+  const displayEmail = user?.email || emailParam || user?.username || 'บัญชี Google'
+  const displayNameVal = user?.display_name || nameParam || null
 
   const [adminInfo, setAdminInfo] = useState<AdminInfo | null>(null)
   const [isChecking, setIsChecking] = useState(false)
@@ -119,7 +125,9 @@ export function AccessDeniedScreen() {
   const handleLogout = async () => {
     setIsLoggingOut(true)
     try {
-      await logout()
+      if (user) {
+        await logout()
+      }
       router.replace('/login')
     } catch {
       window.location.href = '/login'
@@ -212,13 +220,13 @@ export function AccessDeniedScreen() {
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">อีเมลที่เข้าสู่ระบบ</span>
               <span className="font-medium text-foreground font-mono">
-                {user?.email || user?.username || 'บัญชี Google'}
+                {displayEmail}
               </span>
             </div>
-            {user?.display_name && (
+            {displayNameVal && (
               <div className="flex items-center justify-between">
                 <span className="text-muted-foreground">ชื่อผู้ใช้</span>
-                <span className="font-medium text-foreground">{user.display_name}</span>
+                <span className="font-medium text-foreground">{displayNameVal}</span>
               </div>
             )}
             {user?.student_id && (
