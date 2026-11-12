@@ -50,16 +50,47 @@ async def log_action(
 
 
 async def list_audit(
-    *, action: Optional[str] = None, actor_id: Optional[int] = None, limit: int = 50, offset: int = 0
+    *,
+    action: Optional[str] = None,
+    category: Optional[str] = None,
+    actor_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    query: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
 ) -> Dict[str, Any]:
     where: List[str] = []
     params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
     if action:
         where.append("a.action LIKE :action")
         params["action"] = action.replace("%", "\\%") + "%"
+    if category:
+        category = category.strip().lower()
+        if category == "auth":
+            where.append("a.action LIKE 'auth.%'")
+        elif category == "user":
+            where.append("a.action LIKE 'user.%'")
+        elif category == "content":
+            where.append("(a.action LIKE 'post.%' OR a.action LIKE 'comment.%' OR a.action LIKE 'document.%')")
+        elif category == "moderation":
+            where.append("(a.action LIKE 'report.%' OR a.action LIKE 'room.report.%')")
+        elif category == "course":
+            where.append("(a.action LIKE 'room.%' OR a.action LIKE 'category.%')")
+        elif category == "ai":
+            where.append("(a.action LIKE 'quiz.%' OR a.action LIKE 'roadmap.%')")
     if actor_id:
         where.append("a.actor_id = :actor")
         params["actor"] = int(actor_id)
+    if date_from:
+        where.append("a.created_at >= :date_from")
+        params["date_from"] = date_from
+    if date_to:
+        where.append("a.created_at <= :date_to")
+        params["date_to"] = date_to
+    if query:
+        where.append("(a.target_type LIKE :query OR a.target_id LIKE :query OR a.detail LIKE :query)")
+        params["query"] = f"%{query.replace('%', '')}%"
     clause = f"WHERE {' AND '.join(where)}" if where else ""
     async with _mariadb_session() as session:
         total = (await session.execute(text(f"SELECT COUNT(*) FROM admin_audit_log a {clause}"), params)).scalar()

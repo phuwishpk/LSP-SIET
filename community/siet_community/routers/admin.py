@@ -586,14 +586,27 @@ async def resolve_report(report_id: int, body: ReportResolve, user: User = Depen
 @router.get("/audit")
 async def audit_log(
     action: Optional[str] = Query(default=None, max_length=64),
+    category: Optional[str] = Query(default=None, max_length=32),
     actor_id: Optional[int] = Query(default=None, ge=1),
+    date_from: Optional[str] = Query(default=None),
+    date_to: Optional[str] = Query(default=None),
+    q: Optional[str] = Query(default=None, max_length=100),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """Who changed what, newest first. ``action`` matches a prefix such as ``user.`` or ``report.``."""
+    """Who changed what, newest first. Filter by action prefix, category, actor, dates, or search."""
     _require_admin(user)
-    return await audit.list_audit(action=action, actor_id=actor_id, limit=limit, offset=offset)
+    return await audit.list_audit(
+        action=action,
+        category=category,
+        actor_id=actor_id,
+        date_from=date_from,
+        date_to=date_to,
+        query=q,
+        limit=limit,
+        offset=offset,
+    )
 
 
 # ---------------------------------------------------------------------------
