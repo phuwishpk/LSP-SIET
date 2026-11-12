@@ -609,6 +609,23 @@ async def audit_log(
     )
 
 
+@router.post("/audit/purge")
+async def purge_audit_logs(
+    days: Optional[int] = Query(default=None, ge=90, description="Retention threshold in days (minimum 90 days per Computer Crime Act)"),
+    user: User = Depends(get_current_user),
+) -> Dict[str, Any]:
+    """Purge audit logs older than retention threshold (enforcing >= 90 days legal minimum)."""
+    _require_admin(user)
+    purged = await audit.purge_expired_audit_logs(days)
+    effective_days = days or audit.get_retention_days()
+    return {
+        "ok": True,
+        "purged": purged,
+        "retention_days": effective_days,
+        "legal_basis": "Computer Crime Act B.E. 2560 Section 26 (>= 90 days)",
+    }
+
+
 # ---------------------------------------------------------------------------
 # Categories (หมวดหมู่รายวิชา)
 # ---------------------------------------------------------------------------

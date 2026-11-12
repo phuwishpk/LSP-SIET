@@ -7,6 +7,7 @@ always be answered. Used by the admin consoles of every SIET package.
 from __future__ import annotations
 
 import json
+import os
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 
@@ -14,6 +15,45 @@ from sqlalchemy import text
 
 from siet_platform.db import _row, _rows
 from siet_platform.users import _mariadb_session
+
+
+# Minimum retention period in days mandated by Thailand Computer Crime Act B.E. 2560 Section 26
+LEGAL_MIN_RETENTION_DAYS = 90
+
+
+def get_retention_days() -> int:
+    """Resolve retention policy in days from AUDIT_LOG_RETENTION_DAYS (enforces legal minimum of 90 days)."""
+    raw = os.getenv("AUDIT_LOG_RETENTION_DAYS")
+    if not raw:
+        return LEGAL_MIN_RETENTION_DAYS
+    try:
+        val = int(raw)
+        return max(LEGAL_MIN_RETENTION_DAYS, val)
+    except ValueError:
+        return LEGAL_MIN_RETENTION_DAYS
+
+
+async def purge_expired_audit_logs(days: Optional[int] = None) -> int:
+    """Purge audit log entries older than retention policy (minimum 90 days per Computer Crime Act).
+    Returns count of deleted entries.
+    """
+    retention = days if days is not None else get_retention_days()
+    retention = max(LEGAL_MIN_RETENTION_DAYS, retention)
+    try:
+        async with _mariadb_session() as session:
+            result = await session.execute(
+                text("DELETE FROM admin_audit_log WHERE created_at < NOW() - INTERVAL :days DAY"),
+                {"days": int(retention)},
+            )
+            count = result.rowcount or 0
+            if count > 0:
+                from loguru import logger
+                logger.info(f"audit: purged {count} audit records older than {retention} days per retention policy")
+            return count
+    except Exception as exc:  # noqa: BLE001
+        from loguru import logger
+        logger.warning(f"audit: retention purge failed: {exc}")
+        return 0
 
 
 
