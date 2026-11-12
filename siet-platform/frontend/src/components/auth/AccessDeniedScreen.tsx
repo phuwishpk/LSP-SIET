@@ -331,7 +331,7 @@ export function AccessDeniedScreen() {
                   ) : (
                     <div className="flex items-center justify-center gap-1.5">
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>แอดมินปลดระงับแล้ว? ตรวจสอบสถานะอีกครั้ง</span>
+                      <span>ตรวจสอบสถานะบัญชีอีกครั้ง</span>
                     </div>
                   )}
                 </Button>
