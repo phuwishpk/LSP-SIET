@@ -183,9 +183,9 @@ async def get_current_user(
 
         if not await suspension_lifted(user):
             # Allow /api/users/me and /api/auth/logout so the frontend can display their
-            # suspension reason on /pending and allow them to sign out or check status.
+            # suspension reason on /denied and allow them to sign out or check status.
             path = request.url.path.rstrip("/")
-            if path in ("/api/users/me", "/api/auth/logout", "/api/auth/status"):
+            if path in ("/api/users/me", "/api/auth/logout", "/api/auth/status", "/api/system/admin-info"):
                 set_request_owner(request, user.id or "")
                 return user
             raise HTTPException(

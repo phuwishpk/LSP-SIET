@@ -61,9 +61,9 @@ const extension: FrontendExtension = {
       if (signedIn && role && role !== 'pending' && !user?.disabled) clearPostLoginPath()
     }, [signedIn, role, user?.disabled])
 
-    // Suspended accounts or pending role accounts must only see /pending
+    // Suspended accounts or pending role accounts must only see /denied
     if (user?.disabled || role === 'pending') {
-      if (pathname !== '/pending') return { ready: true, redirect: '/pending' }
+      if (pathname !== '/denied' && pathname !== '/pending') return { ready: true, redirect: '/denied' }
       return { ready: true }
     }
 

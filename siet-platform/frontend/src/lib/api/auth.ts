@@ -48,6 +48,17 @@ export interface GoogleExchangePayload {
 }
 
 export interface GoogleTokenResponse extends TokenResponse {
+  next?: string
+  welcome_granted?: boolean
+}
+
+export interface AdminInfo {
+  name: string
+  email: string
+  department: string
+  telephone: string
+  note?: string
+}
   next: string
   is_new_user: boolean
   welcome_granted: boolean
@@ -156,6 +167,8 @@ export const authApi = {
 
   consentPdpa: (apiUrl: string, token: string) =>
     postJson<AuthUser>(`${apiUrl}/api/users/me/consent-pdpa`, {}, { token }),
+
+  adminInfo: (apiUrl: string) => getJson<AdminInfo>(`${apiUrl}/api/system/admin-info`),
 }
 
 export { AuthApiError }

@@ -452,6 +452,14 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
             target_id=fresh.id,
             detail={"method": "google", "reason": "account_suspended"},
         )
+    elif fresh.role == USER_ROLE_PENDING:
+        await log_action(
+            actor_id=int(fresh.id or 0),
+            action="auth.login_failed",
+            target_type="user",
+            target_id=fresh.id,
+            detail={"method": "google", "reason": "access_denied_not_allowed"},
+        )
     else:
         await log_action(
             actor_id=int(fresh.id or 0),
@@ -462,10 +470,8 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
         )
 
     access_token, expires_at = issue_access_token(fresh)
-    if fresh.disabled:
-        target_next = "/pending"
-    elif fresh.role == USER_ROLE_PENDING:
-        target_next = "/pending"
+    if fresh.disabled or fresh.role == USER_ROLE_PENDING:
+        target_next = "/denied"
     elif fresh.role == USER_ROLE_ADMIN:
         target_next = "/admin"
     else:

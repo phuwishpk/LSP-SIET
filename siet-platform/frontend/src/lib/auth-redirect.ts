@@ -17,7 +17,7 @@ export function rememberPostLoginPath(path: string) {
 
 export function peekPostLoginPath(role?: string | null, disabled?: boolean): string {
   if (disabled || role === 'pending') {
-    return '/pending'
+    return '/denied'
   }
   if (role === 'admin') {
     let stored: string | null = null
@@ -43,7 +43,8 @@ export function peekPostLoginPath(role?: string | null, disabled?: boolean): str
     stored.startsWith('/') &&
     !stored.startsWith('//') &&
     !stored.startsWith('/login') &&
-    !stored.startsWith('/pending')
+    !stored.startsWith('/pending') &&
+    !stored.startsWith('/denied')
   ) {
     return stored
   }
