@@ -27,6 +27,7 @@ import {
   Building2,
   RefreshCw,
   AlertOctagon,
+  ArrowRight,
 } from 'lucide-react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { PdpaConsentDialog } from '@siet/platform/components/auth/PdpaConsentDialog'
@@ -43,7 +44,7 @@ export function AccessDeniedScreen() {
   const isSuspended = Boolean(user?.disabled)
   const isApproved = Boolean(user?.role && user.role !== 'pending' && !user.disabled)
 
-  // Fetch admin contact info
+  // ดึงข้อมูลติดต่อผู้ดูแลระบบ
   useEffect(() => {
     let active = true
     ;(async () => {
@@ -56,9 +57,9 @@ export function AccessDeniedScreen() {
       } catch {
         if (active) {
           setAdminInfo({
-            name: 'ผู้ดูแลระบบ คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี',
+            name: 'ผู้ดูแลระบบ',
             email: 'siet_admin@kmitl.ac.th',
-            department: 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี สจล.',
+            department: '',
             telephone: '02-329-8000 ต่อ 3030',
           })
         }
@@ -69,7 +70,7 @@ export function AccessDeniedScreen() {
     }
   }, [])
 
-  // Redirect if already approved or restored
+  // หากได้รับการอนุมัติหรือปลดระงับแล้ว ให้เข้าสู่ระบบอัตโนมัติ
   useEffect(() => {
     if (isApproved && user?.role) {
       router.replace(peekPostLoginPath(user.role))
@@ -89,7 +90,7 @@ export function AccessDeniedScreen() {
     return () => window.removeEventListener('focus', handleFocus)
   }, [refreshUser, router])
 
-  // ตรวจสอบสิทธิ์ใหม่
+  // ตรวจสอบสิทธิ์ใหม่ (สำหรับกรณีระงับบัญชีที่แอดมินเพิ่งปลดให้)
   const handleCheckStatus = async () => {
     if (isApproved && user?.role) {
       router.replace(peekPostLoginPath(user.role))
@@ -100,7 +101,7 @@ export function AccessDeniedScreen() {
     try {
       const updated = await refreshUser()
       if (updated && updated.role && updated.role !== 'pending' && !updated.disabled) {
-        toast.success('บัญชีของคุณใช้งานได้เรียบร้อยแล้ว')
+        toast.success('บัญชีของคุณได้รับการคืนสิทธิ์เรียบร้อยแล้ว')
         router.replace(peekPostLoginPath(updated.role))
       } else if (updated?.disabled) {
         toast.error('บัญชียังถูกระงับการใช้งานอยู่ กรุณาติดต่อผู้ดูแลระบบ')
@@ -129,7 +130,7 @@ export function AccessDeniedScreen() {
 
   return (
     <div className="relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 overflow-hidden bg-background">
-      {/* ลวดลายกราฟิกพื้นหลัง */}
+      {/* ลวดลายพื้นหลัง */}
       <div
         className="absolute inset-0 pointer-events-none opacity-20 dark:opacity-10"
         style={{
@@ -144,22 +145,22 @@ export function AccessDeniedScreen() {
       <div className="absolute top-1/4 -left-20 w-80 h-80 bg-rose-500/10 rounded-full blur-3xl pointer-events-none" />
       <div className="absolute bottom-1/4 -right-20 w-80 h-80 bg-pink-500/10 rounded-full blur-3xl pointer-events-none" />
 
-      <Card className="relative z-10 w-full max-w-[520px] rounded-3xl border border-border/80 bg-card/95 p-5 sm:p-7 shadow-2xl backdrop-blur-xl">
-        <CardHeader className="text-center space-y-3 pb-2">
+      <Card className="relative z-10 w-full max-w-[500px] rounded-3xl border border-border/70 bg-card/95 p-6 sm:p-7 shadow-xl backdrop-blur-xl">
+        <CardHeader className="text-center space-y-3 pb-2 pt-0 px-0">
           {/* ชื่อระบบ */}
           <div className="flex items-center justify-center gap-2.5">
             <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-rose-500/10 text-rose-600 ring-1 ring-rose-500/20 dark:bg-rose-500/20 dark:text-rose-400">
               <GraduationCap className="w-6 h-6 stroke-[2]" />
             </div>
             <span className="text-2xl sm:text-[26px] font-bold tracking-tight text-foreground">
-              StudyTogether
+              nungsue
             </span>
           </div>
 
           <div className="flex justify-center">
             <div className="inline-flex items-center gap-1.5 rounded-full bg-rose-500/10 px-3.5 py-1 text-xs font-medium text-rose-600 ring-1 ring-rose-500/20 dark:text-rose-400">
               <Sparkles className="w-3.5 h-3.5 text-rose-500 dark:text-rose-400" />
-              <span>พื้นที่การเรียนรู้ คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี สจล.</span>
+              <span>พื้นที่ชุมชนการเรียนรู้ SIET · KMITL</span>
             </div>
           </div>
 
@@ -205,8 +206,8 @@ export function AccessDeniedScreen() {
           </div>
         </CardHeader>
 
-        <CardContent className="space-y-4 px-1 sm:px-3 pt-1">
-          {/* ข้อมูลบัญชี */}
+        <CardContent className="space-y-4 px-0 pt-2 pb-0">
+          {/* ข้อมูลบัญชีผู้ใช้ */}
           <div className="rounded-2xl border border-border/80 bg-muted/40 p-3.5 space-y-1.5 text-xs">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">อีเมลที่เข้าสู่ระบบ</span>
@@ -245,17 +246,17 @@ export function AccessDeniedScreen() {
                 <ShieldAlert className="w-4 h-4 shrink-0" />
                 <span>ข้อกำหนดการเข้าใช้งาน</span>
               </div>
-              <div className="space-y-2 text-muted-foreground text-[12px] pl-6">
-                <p>
+              <ul className="space-y-2 text-muted-foreground text-[12px] pl-6 list-disc marker:text-red-500">
+                <li>
                   เปิดให้เข้าใช้งานเฉพาะนักศึกษาคณะครุศาสตร์อุตสาหกรรมและเทคโนโลยีที่ใช้เมลสถาบัน และมีรหัสนักศึกษาขึ้นต้นด้วย 030 เท่านั้น
-                </p>
-                <p>
+                </li>
+                <li>
                   สำหรับอาจารย์ผู้สอน ต้องเป็นรายชื่อที่ได้รับการรับรองจากทางคณะ
-                </p>
-                <p className="text-red-600/90 dark:text-red-400">
+                </li>
+                <li className="text-red-600/90 dark:text-red-400">
                   ระบบไม่เปิดให้ใช้งานสำหรับอีเมลส่วนตัวทั่วไป หรือนักศึกษาจากคณะอื่น
-                </p>
-              </div>
+                </li>
+              </ul>
             </div>
           )}
 
@@ -266,9 +267,6 @@ export function AccessDeniedScreen() {
               <span>ติดต่อผู้ดูแลระบบ</span>
             </div>
             <div className="space-y-1.5 text-muted-foreground text-[11.5px] pl-5">
-              <div className="text-foreground font-medium">
-                {adminInfo?.name || 'ผู้ดูแลระบบ คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี'}
-              </div>
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                 <a
@@ -282,52 +280,76 @@ export function AccessDeniedScreen() {
                 <Phone className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                 <span>{adminInfo?.telephone || '02-329-8000 ต่อ 3030'}</span>
               </div>
-              <div className="text-[11px] text-muted-foreground/90">
-                {adminInfo?.department || 'คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง'}
-              </div>
             </div>
           </div>
 
-          {/* ปุ่มการกระทำ */}
-          <div className="space-y-2 pt-1">
-            <Button
-              type="button"
-              onClick={handleCheckStatus}
-              disabled={isChecking || isLoggingOut}
-              className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-medium py-5 text-sm shadow-sm transition-all disabled:opacity-50"
-            >
-              {isChecking ? (
-                <div className="flex items-center justify-center gap-2">
-                  <LoadingSpinner size="sm" />
-                  <span>กำลังตรวจสอบข้อมูล</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <RefreshCw className="w-4 h-4" />
-                  <span>ตรวจสอบสิทธิ์ใหม่</span>
-                </div>
-              )}
-            </Button>
+          {/* ปุ่มการกระทำ - ออกแบบตาม Material 3 UX Hierarchy */}
+          <div className="space-y-2.5 pt-1">
+            {isSuspended ? (
+              // กรณีระงับบัญชี: Action หลักคือออกจากระบบ และมีปุ่มตรวจสอบสิทธิ์รองเผื่อแอดมินเพิ่งปลดให้
+              <>
+                <Button
+                  type="button"
+                  variant="default"
+                  onClick={handleLogout}
+                  disabled={isChecking || isLoggingOut}
+                  className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-medium py-5 text-sm shadow-sm transition-all"
+                >
+                  {isLoggingOut ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <LoadingSpinner size="sm" />
+                      <span>กำลังออกจากระบบ</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-2">
+                      <LogOut className="w-4 h-4" />
+                      <span>ออกจากระบบ</span>
+                    </div>
+                  )}
+                </Button>
 
-            <Button
-              type="button"
-              variant="outline"
-              onClick={handleLogout}
-              disabled={isChecking || isLoggingOut}
-              className="w-full rounded-2xl border-border bg-background hover:bg-muted text-foreground font-medium py-5 text-sm transition-colors"
-            >
-              {isLoggingOut ? (
-                <div className="flex items-center justify-center gap-2">
-                  <LoadingSpinner size="sm" />
-                  <span>กำลังออกจากระบบ</span>
-                </div>
-              ) : (
-                <div className="flex items-center justify-center gap-2">
-                  <LogOut className="w-4 h-4 text-muted-foreground" />
-                  <span>ออกจากระบบ</span>
-                </div>
-              )}
-            </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={handleCheckStatus}
+                  disabled={isChecking || isLoggingOut}
+                  className="w-full text-xs text-muted-foreground hover:text-foreground h-9 font-normal"
+                >
+                  {isChecking ? (
+                    <div className="flex items-center justify-center gap-1.5">
+                      <LoadingSpinner size="sm" />
+                      <span>กำลังตรวจสอบข้อมูล</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-center gap-1.5">
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>แอดมินปลดระงับแล้ว? ตรวจสอบสถานะอีกครั้ง</span>
+                    </div>
+                  )}
+                </Button>
+              </>
+            ) : (
+              // กรณีไม่ได้รับสิทธิ์ (คนนอก): Action ชัดเจนอันเดียวคือ "เข้าสู่ระบบด้วยบัญชีสถาบัน"
+              <Button
+                type="button"
+                variant="default"
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="w-full rounded-2xl bg-rose-600 hover:bg-rose-700 text-white font-medium py-5 text-sm shadow-sm transition-all"
+              >
+                {isLoggingOut ? (
+                  <div className="flex items-center justify-center gap-2">
+                    <LoadingSpinner size="sm" />
+                    <span>กำลังออกจากระบบ</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <ArrowRight className="w-4 h-4" />
+                    <span>เข้าสู่ระบบด้วยบัญชีสถาบัน (@kmitl.ac.th)</span>
+                  </div>
+                )}
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
