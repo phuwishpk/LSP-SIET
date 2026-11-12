@@ -820,10 +820,19 @@ async def create_post(
         raise HTTPException(status_code=403, detail="Only teachers can publish course materials")
     if course_id is not None and course_id > 0:
         room = await repo.get_course(course_id)
-        if room and (room.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+        if not room:
+            raise HTTPException(status_code=404, detail="Course not found")
+        if (room.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
             raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว โพสต์เพิ่มไม่ได้")
-    if course_id is not None and course_id > 0 and not await repo.get_course(course_id):
-        raise HTTPException(status_code=404, detail="Course not found")
+        # Restriction: Only enrolled members, room creator, or admins can post in a course room.
+        is_creator = room.get("created_by") == uid
+        is_admin_user = _role(user) == "admin"
+        is_member = await repo.member_role(course_id, uid) is not None
+        if not (is_creator or is_admin_user or is_member):
+            raise HTTPException(
+                status_code=403,
+                detail="เฉพาะสมาชิกที่เข้าร่วมชั้นเรียนนี้หรือผู้สอนประจำวิชาเท่านั้นที่สามารถสร้างโพสต์ได้ กรุณาเข้าร่วมชั้นเรียนก่อน",
+            )
     if course_id is not None and course_id <= 0:
         course_id = None
     post_visibility = _clean_visibility(visibility, has_room=course_id is not None)
