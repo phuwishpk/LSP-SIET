@@ -48,8 +48,9 @@ export interface GoogleExchangePayload {
 }
 
 export interface GoogleTokenResponse extends TokenResponse {
-  next?: string
-  welcome_granted?: boolean
+  next: string
+  is_new_user: boolean
+  welcome_granted: boolean
 }
 
 export interface AdminInfo {
@@ -58,10 +59,6 @@ export interface AdminInfo {
   department: string
   telephone: string
   note?: string
-}
-  next: string
-  is_new_user: boolean
-  welcome_granted: boolean
 }
 
 export interface TokenResponse {
