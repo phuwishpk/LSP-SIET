@@ -277,12 +277,9 @@ export function AccessDeniedScreen() {
             <div className="space-y-1.5 text-muted-foreground text-[11.5px] pl-5">
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <a
-                  href={`mailto:${adminInfo?.email || 'siet_admin@kmitl.ac.th'}`}
-                  className="hover:underline font-mono text-rose-600 dark:text-rose-400"
-                >
+                <span className="font-mono text-foreground font-medium">
                   {adminInfo?.email || 'siet_admin@kmitl.ac.th'}
-                </a>
+                </span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-rose-500 shrink-0" />
