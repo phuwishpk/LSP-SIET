@@ -28,7 +28,7 @@ export function roleLabel(role?: string | null): string {
     case 'student':
       return 'นักศึกษา'
     case 'pending':
-      return 'รออนุมัติ'
+      return 'ปฏิเสธสิทธิ์'
     default:
       return role || ''
   }

@@ -90,7 +90,7 @@ function GoogleMock() {
           <CardDescription>
             ยังไม่ได้ตั้งค่า Google OAuth Client ระบบจึงจำลองหน้าเลือกบัญชี Google ให้ทดสอบ
             ใส่อีเมล @kmitl.ac.th ใดก็ได้ (รหัสนักศึกษา 8 หลัก = นักศึกษา, อาจารย์ที่อยู่ในรายชื่อ = อาจารย์,
-            อีเมลใน WORKSPACE_ADMIN_EMAILS = แอดมิน, อื่น ๆ = รออนุมัติ)
+            อีเมลใน WORKSPACE_ADMIN_EMAILS = แอดมิน, อื่น ๆ = ปฏิเสธสิทธิ์การเข้าใช้งาน)
           </CardDescription>
         </CardHeader>
         <CardContent>

@@ -64,7 +64,7 @@ const ROLE_STYLE: Record<UserRole, string> = {
   admin: 'bg-foreground text-background',
   teacher: 'border bg-card text-foreground',
   student: 'bg-muted text-muted-foreground',
-  pending: 'bg-amber-100 text-amber-900 border border-amber-300 dark:bg-amber-950/60 dark:text-amber-300 dark:border-amber-800',
+  pending: 'bg-rose-100 text-rose-900 border border-rose-300 dark:bg-rose-950/60 dark:text-rose-300 dark:border-rose-800',
 }
 
 export default function AdminPage() {
@@ -142,7 +142,7 @@ export default function AdminPage() {
               <CardTitle className="text-base">รายชื่อผู้ใช้</CardTitle>
               <CardDescription>
                 {data ? `${data.total} บัญชี · ` : ''}
-                {(['admin', 'teacher', 'student', 'pending'] as UserRole[])
+                {(['admin', 'teacher', 'student'] as UserRole[])
                   .map((r) => `${roleLabel(r)} ${data?.by_role?.[r] ?? 0}`)
                   .join(' · ')}
                 {data?.by_role?.suspended ? ` · ระงับอยู่ ${data.by_role.suspended}` : ''}
@@ -174,7 +174,6 @@ export default function AdminPage() {
                   <option value="student">นักศึกษา</option>
                   <option value="teacher">อาจารย์</option>
                   <option value="admin">ผู้ดูแล</option>
-                  <option value="pending">รออนุมัติ</option>
                   <option value="suspended">บัญชีที่ถูกระงับ</option>
                 </select>
               </div>
@@ -464,7 +463,7 @@ function UserDialog({
           <div className="space-y-1.5">
             <Label>สิทธิ์การใช้งาน</Label>
             <div className="flex flex-wrap gap-2">
-              {(['student', 'teacher', 'admin', 'pending'] as UserRole[]).map((r) => (
+              {(['student', 'teacher', 'admin'] as UserRole[]).map((r) => (
                 <Button
                   key={r}
                   type="button"
