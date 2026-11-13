@@ -587,6 +587,7 @@ export function Navbar({
       className={`siet-navbar siet-shared-navbar sticky top-0 z-[100] w-full border-b border-[#EAE6EA] bg-white text-[#202124] shadow-[0_1px_0_#EAE6EA] select-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 ${className}`}
       style={{ minHeight: '64px', height: '64px', fontFamily: NAVBAR_FONT, fontSize: '16px', lineHeight: 1.5 }}
     >
+      {/* No ' " & < > in here: React 18 (AI Roadmap) escapes them when rendering on the server, and the page then fails to hydrate. */}
       <style>{`
         #siet-shared-navbar :focus-visible {
           outline: 2px solid #C92F6B !important;
@@ -598,7 +599,7 @@ export function Navbar({
         }
 
         .dark #siet-shared-navbar :focus-visible,
-        [data-theme='dark'] #siet-shared-navbar :focus-visible {
+        [data-theme=dark] #siet-shared-navbar :focus-visible {
           outline-color: #f472b6 !important;
         }
       `}</style>
