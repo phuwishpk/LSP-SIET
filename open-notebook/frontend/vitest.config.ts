@@ -26,7 +26,6 @@ export default defineConfig({
     setupFiles: ['./src/test/setup.ts'],
     alias: {
       '@': path.resolve(__dirname, './src'),
-      '@shared': path.resolve(__dirname, '../../shared'),
       ...sietAliases,
       // shared/ (navbar, mascot) - same as `@shared/*` in tsconfig.json
       '@shared': path.resolve(__dirname, '../../shared'),

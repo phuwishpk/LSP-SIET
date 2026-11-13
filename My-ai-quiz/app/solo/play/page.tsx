@@ -61,6 +61,8 @@ export default function SoloPlayPage() {
   const [selectedLeft, setSelectedLeft] = useState<string | null>(null);
 
   const [isAnswered, setIsAnswered] = useState(false);
+  // The question ran out of time: shown and logged as unanswered, whatever is in the inputs.
+  const [timedOut, setTimedOut] = useState(false);
   const [score, setScore] = useState(0);
   const [timeLeft, setTimeLeft] = useState(30);
   const [isQuizCompleted, setIsQuizCompleted] = useState(false);
@@ -146,6 +148,7 @@ export default function SoloPlayPage() {
     setFillAnswer('');
     setSelectedOption(null);
     setIsAnswered(false);
+    setTimedOut(false);
     setTimeLeft(initSec);
     setOwlMood('study');
   }, [currentIndex, session]);
@@ -154,23 +157,22 @@ export default function SoloPlayPage() {
   useEffect(() => {
     if (isAnswered || isQuizCompleted) return;
     const timer = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          handleTimeUp();
-          return 0;
-        }
-        return prev - 1;
-      });
+      setTimeLeft((prev) => (prev <= 1 ? 0 : prev - 1));
     }, 1000);
     return () => clearInterval(timer);
   }, [isAnswered, isQuizCompleted, currentIndex]);
 
+  useEffect(() => {
+    if (timeLeft === 0 && !isAnswered && !isQuizCompleted) handleTimeUp();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [timeLeft, isAnswered, isQuizCompleted]);
+
   const handleTimeUp = () => {
     const timedOutQuestion = currentQuestionRef.current;
-    if (!timedOutQuestion) return;
+    if (!timedOutQuestion || isAnswered) return;
 
     setIsAnswered(true);
+    setTimedOut(true);
     setOwlMood('idle');
     setAnswersLog((prev) => [
       ...prev,
@@ -202,9 +204,11 @@ export default function SoloPlayPage() {
   const totalQ = session.questions.length;
   const qType = currentQ.type || 'mcq';
 
-  // Check correctness
+  // Check correctness (a timed-out question is never correct)
   let isCurrentCorrect = false;
-  if (qType === 'mcq') {
+  if (timedOut) {
+    isCurrentCorrect = false;
+  } else if (qType === 'mcq') {
     isCurrentCorrect = selectedOption === currentQ.correctAnswer;
   } else if (qType === 'fill') {
     const cleanUser = fillAnswer.trim().toLowerCase();

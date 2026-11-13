@@ -12,6 +12,36 @@ interface FileTypeIconProps {
   mime?: string | null
 }
 
+type FileKind = 'image' | 'video' | 'slides' | 'sheet' | 'archive' | 'pdf' | 'document'
+
+/** One classification for the icon and the label (from the extension, else the MIME type). */
+export function fileKind(name: string, mime?: string | null): FileKind {
+  const extension = name.split('.').pop()?.toLowerCase() ?? ''
+  const mimeType = mime?.toLowerCase() ?? ''
+  if (mimeType.startsWith('image/') || ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'].includes(extension)) return 'image'
+  if (mimeType.startsWith('video/') || ['mp4', 'webm', 'mov', 'm4v'].includes(extension)) return 'video'
+  if (['ppt', 'pptx', 'key', 'odp'].includes(extension) || mimeType.includes('presentation')) return 'slides'
+  if (['xls', 'xlsx', 'csv', 'ods'].includes(extension) || mimeType.includes('spreadsheet')) return 'sheet'
+  if (['zip', 'rar', '7z', 'tar', 'gz'].includes(extension) || mimeType.includes('zip')) return 'archive'
+  if (mimeType.includes('pdf') || extension === 'pdf') return 'pdf'
+  return 'document'
+}
+
+const KIND_LABEL: Record<FileKind, string> = {
+  image: 'รูปภาพ',
+  video: 'วิดีโอ',
+  slides: 'สไลด์',
+  sheet: 'ตาราง',
+  archive: 'ไฟล์บีบอัด',
+  pdf: 'PDF',
+  document: 'เอกสาร',
+}
+
+/** A short type label for an attachment row (never the raw MIME string). */
+export function fileTypeLabel(name: string, mime?: string | null): string {
+  return KIND_LABEL[fileKind(name, mime)]
+}
+
 export function FileTypeIcon({ name, mime }: FileTypeIconProps) {
   const extension = name.split('.').pop()?.toLowerCase() ?? ''
   const mimeType = mime?.toLowerCase() ?? ''

@@ -184,8 +184,8 @@ export function ChatPanel({
             {isStreaming && (
               <div className="flex gap-3 justify-start">
                 <div className="flex-shrink-0">
-                  <div className="kmitl-rag-avatar h-8 w-8 rounded-full flex items-center justify-center">
-                    <Bot className="h-4 w-4" />
+                  <div className="kmitl-rag-avatar h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
+                    <Bot className="h-4 w-4 text-teal" />
                   </div>
                 </div>
                 <div className="rounded-lg px-4 py-2 bg-card border">
@@ -199,8 +199,8 @@ export function ChatPanel({
 
         {/* RAG Status Indicator */}
         {hasRagContext && (
-          <div className="kmitl-rag-status border-t px-4 py-2">
-            <div className="flex items-center gap-2 text-xs">
+          <div className="kmitl-rag-status border-t px-4 py-2 bg-green-50 dark:bg-green-950/20">
+            <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
               <FileText className="h-3 w-3" />
               <span>RAG: กำลังค้นหาจาก notebook ที่เลือก</span>
             </div>
@@ -370,8 +370,8 @@ const ChatMessage = memo(function ChatMessage({
     >
       {message.type === 'ai' && (
         <div className="flex-shrink-0">
-          <div className="kmitl-rag-avatar h-8 w-8 rounded-full flex items-center justify-center">
-            <Bot className="h-4 w-4" />
+          <div className="kmitl-rag-avatar h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
+            <Bot className="h-4 w-4 text-teal" />
           </div>
         </div>
       )}
@@ -406,7 +406,7 @@ const ChatMessage = memo(function ChatMessage({
       </div>
       {message.type === 'human' && (
         <div className="flex-shrink-0">
-          <div className="kmitl-rag-avatar h-8 w-8 rounded-full flex items-center justify-center">
+          <div className="kmitl-rag-avatar h-8 w-8 rounded-full bg-muted border flex items-center justify-center">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>

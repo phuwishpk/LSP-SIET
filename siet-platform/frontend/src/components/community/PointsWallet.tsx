@@ -44,7 +44,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
       </PopoverTrigger>
       <PopoverContent
         align="end"
-        className="community-theme w-96 max-w-[calc(100vw-2rem)] rounded-2xl border-[#EAE6EA] p-0 shadow-[0_4px_16px_rgba(32,33,36,0.04)]"
+        className="community-theme w-96 max-w-[calc(100vw-2rem)] rounded-2xl border-[#EAE6EA] p-0 shadow-[0_4px_16px_rgba(32,33,36,0.04)] dark:border-border"
       >
         <div className="border-b p-4">
           <p className="text-xs uppercase tracking-wide text-muted-foreground">Points Wallet</p>
@@ -109,7 +109,7 @@ export function PointsWallet({ compact = false }: { compact?: boolean }) {
             </div>
           )}
           {!isLoading && (wallet?.history.length ?? 0) === 0 && (
-            <div className="flex items-center gap-2 rounded-2xl border border-[#EAE6EA] bg-muted/60 px-3 py-2 text-xs text-muted-foreground" role="status">
+            <div className="flex items-center gap-2 rounded-2xl border border-[#EAE6EA] bg-muted/60 px-3 py-2 text-xs text-muted-foreground dark:border-border" role="status">
               <Coins aria-hidden="true" className="h-4 w-4 shrink-0" />
               <span>ยังไม่มีรายการ</span>
             </div>

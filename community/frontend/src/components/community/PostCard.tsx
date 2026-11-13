@@ -48,7 +48,7 @@ import { RoadmapEmbed } from './RoadmapEmbed'
 import { PostDetailModal } from './PostDetailModal'
 import { SharePostModal } from './SharePostModal'
 import { ReportButton } from '../common/ReportButton'
-import { FileTypeIcon } from './FileTypeIcon'
+import { FileTypeIcon, fileTypeLabel } from './FileTypeIcon'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -329,9 +329,7 @@ export function PostCard({
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{post.attachment.name}</span>
               <span className="block text-xs text-muted-foreground">
-                {post.attachment.mime?.includes('pdf')
-                  ? 'PDF'
-                  : post.attachment.mime ?? 'ไฟล์แนบ'}{' '}
+                {fileTypeLabel(post.attachment.name, post.attachment.mime)}{' '}
                 · {formatBytes(post.attachment.size)} · กดเพื่อดาวน์โหลด
               </span>
             </span>

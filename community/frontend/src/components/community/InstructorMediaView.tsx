@@ -11,7 +11,7 @@ import { communityApi, type CommunityPost, type Course } from '@siet/platform/li
 import { useToggleSave } from '@siet/platform/lib/hooks/use-community'
 import { displayName, formatBytes, roomLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
 import { toast } from 'sonner'
-import { FileTypeIcon } from './FileTypeIcon'
+import { FileTypeIcon, fileTypeLabel } from './FileTypeIcon'
 
 interface InstructorMediaViewProps {
   posts: CommunityPost[]
@@ -263,9 +263,7 @@ function MediaCard({ post }: { post: CommunityPost }) {
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-semibold">{post.attachment.name}</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                {post.attachment.mime?.includes('pdf')
-                  ? 'PDF'
-                  : post.attachment.mime || 'ไฟล์แนบ'}
+                {fileTypeLabel(post.attachment.name, post.attachment.mime)}
                 {post.attachment.size ? ` · ${formatBytes(post.attachment.size)}` : ''}
               </span>
             </span>

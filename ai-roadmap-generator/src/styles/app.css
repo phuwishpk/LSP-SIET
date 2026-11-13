@@ -1511,6 +1511,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
    base here - only inside the navbar. `:where()` keeps these below any utility
    class; they come last to win over this file's element rules (a, button).
    ========================================================================== */
+:where(.siet-navbar),
 :where(.siet-navbar) * {
   border: 0 solid;
 }

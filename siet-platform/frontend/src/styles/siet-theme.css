@@ -72,7 +72,7 @@
   --sage: #ed4988;
   --sage-deep: #d83a78;
   --sage-tint: #fff8fa;
-  font-family: var(--font-nunito), "Prompt", var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: var(--font-nunito), var(--font-prompt, "Prompt"), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
 .community-theme,
@@ -191,7 +191,7 @@
   --sidebar-accent-foreground: #c92f6b;
   --sidebar-border: #eae6ea;
   --sidebar-ring: #ed4988;
-  --font-display: var(--font-nunito), "Prompt", var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+  --font-display: var(--font-nunito), var(--font-prompt, "Prompt"), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
   --shadow-card: 0 4px 16px rgba(32, 33, 36, 0.04);
   --shadow-card-hover: 0 8px 24px rgba(237, 73, 136, 0.08);
   color: var(--foreground);
@@ -237,7 +237,7 @@
 /* Nunito handles Latin; Prompt supplies Thai glyphs before the existing fallbacks. */
 .theme-siet,
 body.theme-siet {
-  font-family: var(--font-nunito), "Prompt", var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+  font-family: var(--font-nunito), var(--font-prompt, "Prompt"), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
 /* SIET surfaces: tonal separation at rest, restrained depth for content cards. */
@@ -396,97 +396,97 @@ body.theme-siet {
 }
 
 /* The community feed shares the system's card elevation and semantic chips. */
-.theme-siet .community-theme [data-slot='card'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) [data-slot='card'] {
   border-radius: 1rem;
   box-shadow: var(--shadow-card);
 }
 
-.theme-siet .community-theme .community-feed-post {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-feed-post {
   border-color: var(--border);
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
-.theme-siet .community-theme .community-feed-post:hover {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-feed-post:hover {
   transform: translateY(-2px);
   border-color: #f7b7d0;
   box-shadow: var(--shadow-card-hover);
 }
 
-.theme-siet .community-theme .community-course-tag,
-.theme-siet .community-theme .community-content-tag {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-course-tag,
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-content-tag {
   border-color: transparent;
   border-radius: 9999px;
   background-color: #fce7f0;
   color: #c92f6b;
 }
 
-.theme-siet .community-theme .community-content-tag {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-content-tag {
   display: inline-flex;
   padding: 0.125rem 0.5rem;
   font-weight: 600;
 }
 
-.theme-siet .community-theme .community-post-type[data-post-type='quiz'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-post-type[data-post-type='quiz'] {
   border-color: transparent;
   background-color: #fce7f0;
   color: #c92f6b;
 }
 
-.theme-siet .community-theme .community-post-type[data-post-type='roadmap'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-post-type[data-post-type='roadmap'] {
   border-color: transparent;
   background-color: #e6f7f1;
   color: #007a56;
 }
 
-.theme-siet .community-theme .community-post-type[data-post-type='question'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-post-type[data-post-type='question'] {
   border-color: transparent;
   background-color: #e7f5fc;
   color: #11789f;
 }
 
-.theme-siet .community-theme .community-rag-icon {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-rag-icon {
   background-color: #e7f5fc;
   color: #1686bd;
 }
 
-.theme-siet .community-theme .community-rag-card [data-slot='card-title'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-rag-card [data-slot='card-title'] {
   color: var(--foreground);
 }
 
-.theme-siet .community-theme .community-ai-tool-card {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card {
   min-height: 7rem;
   border-radius: 1rem;
   box-shadow: var(--shadow-card);
   transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
-.theme-siet .community-theme .community-ai-tool-card:hover {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card:hover {
   transform: translateY(-2px);
   box-shadow: var(--shadow-card-hover);
 }
 
-.theme-siet .community-theme .community-ai-tool-card[data-ai-tool='quiz'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card[data-ai-tool='quiz'] {
   border-color: #f7b7d0;
   background-color: #fff8fa;
   color: #c92f6b;
 }
 
-.theme-siet .community-theme .community-ai-tool-card[data-ai-tool='roadmap'] {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card[data-ai-tool='roadmap'] {
   border-color: #a9e8d4;
   background-color: #f0fbf7;
   color: #007a56;
 }
 
-.theme-siet .community-theme .community-ai-tool-icon,
-.theme-siet .community-theme .community-ai-tool-cost {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-icon,
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-cost {
   color: inherit;
 }
 
-.theme-siet .community-theme .community-ai-tool-card > div:last-child > span:first-child {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card > div:last-child > span:first-child {
   color: var(--foreground);
 }
 
-.theme-siet .community-theme .siet-points-pill {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .siet-points-pill {
   min-width: 44px;
   min-height: 44px;
   border-color: #e3d8fb;
@@ -494,11 +494,11 @@ body.theme-siet {
   color: #6035c8;
 }
 
-.theme-siet .community-theme .siet-points-icon {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .siet-points-icon {
   color: #8a57ff;
 }
 
-.theme-siet .community-theme .siet-points-pill:hover {
+:is(.theme-siet .community-theme, .theme-siet.community-theme) .siet-points-pill:hover {
   border-color: #c7b1f5;
   background-color: #eadbff;
 }
@@ -528,24 +528,24 @@ body.theme-siet {
   color: var(--foreground);
 }
 
-.dark .theme-siet .community-theme .community-course-tag,
-.dark .theme-siet .community-theme .community-content-tag {
+.dark :is(.theme-siet .community-theme, .theme-siet.community-theme) .community-course-tag,
+.dark :is(.theme-siet .community-theme, .theme-siet.community-theme) .community-content-tag {
   background-color: #4a2b3c;
   color: #f9c4dc;
 }
 
-.dark .theme-siet .community-theme .community-ai-tool-card[data-ai-tool='quiz'] {
+.dark :is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card[data-ai-tool='quiz'] {
   border-color: #694255;
   background-color: #382630;
 }
 
-.dark .theme-siet .community-theme .community-ai-tool-card[data-ai-tool='roadmap'] {
+.dark :is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card[data-ai-tool='roadmap'] {
   border-color: #285d4f;
   background-color: #203d35;
   color: #8ce0c2;
 }
 
-.dark .theme-siet .community-theme .siet-points-pill {
+.dark :is(.theme-siet .community-theme, .theme-siet.community-theme) .siet-points-pill {
   border-color: #604d82;
   background-color: #382a4d;
   color: #decaff;
@@ -559,8 +559,8 @@ body.theme-siet {
 
 @media (prefers-reduced-motion: reduce) {
   .theme-siet .workspace-app-card,
-  .theme-siet .community-theme .community-feed-post,
-  .theme-siet .community-theme .community-ai-tool-card {
+  :is(.theme-siet .community-theme, .theme-siet.community-theme) .community-feed-post,
+  :is(.theme-siet .community-theme, .theme-siet.community-theme) .community-ai-tool-card {
     transition: none;
   }
 }
@@ -870,6 +870,11 @@ button.community-file-preview:hover {
   border: 1px solid #b9e5f8;
   background-color: #e7f5fc;
   color: #075985;
+}
+
+/* ChatPanel keeps its own token colours for notebook / source pages; here the avatar's colour wins. */
+.kmitl-rag-chat .kmitl-rag-avatar svg {
+  color: inherit;
 }
 
 .kmitl-rag-chat .kmitl-rag-message-bubble {
