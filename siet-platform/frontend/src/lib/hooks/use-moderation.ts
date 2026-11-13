@@ -90,7 +90,16 @@ export function useResolveReport() {
   })
 }
 
-export function useAuditLog(params: { action?: string; actor_id?: number; offset?: number; limit?: number }) {
+export function useAuditLog(params: {
+  action?: string
+  category?: string
+  actor_id?: number
+  date_from?: string
+  date_to?: string
+  q?: string
+  offset?: number
+  limit?: number
+}) {
   return useQuery({
     queryKey: MODERATION_KEYS.audit(params),
     queryFn: () => moderationApi.audit(params),

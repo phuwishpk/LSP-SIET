@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { FileText, GraduationCap, HelpCircle, Library, Map, Paperclip, Sparkles, X } from 'lucide-react'
+import { FileText, GraduationCap, HelpCircle, Library, Map, Paperclip, Sparkles, X, Lock, ShieldAlert } from 'lucide-react'
+import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -81,8 +82,25 @@ export function CreatorBox({
     if (fileRef.current) fileRef.current.value = ''
   }
 
+  const currentCourse = useMemo(
+    () => (defaultCourseId ? courses?.find((c) => c.id === defaultCourseId) : null),
+    [courses, defaultCourseId]
+  )
+  const isLockedForCurrentCourse = Boolean(
+    defaultCourseId && !isStaff && currentCourse && !currentCourse.joined
+  )
+
+  const selectedCourse = useMemo(
+    () => (courseId ? courses?.find((c) => c.id === courseId) : null),
+    [courses, courseId]
+  )
+  const isCourseRestricted = Boolean(
+    courseId && !isStaff && selectedCourse && !selectedCourse.joined
+  )
+
   const canSubmit = (() => {
     if (create.isPending) return false
+    if (isCourseRestricted) return false
     if (mode === 'embed') return !!embedId
     if (mode === 'question') return content.trim().length > 0 || title.trim().length > 0
     return content.trim().length > 0 || !!file
@@ -116,7 +134,13 @@ export function CreatorBox({
         <CardContent className="p-2.5">
           <button
             type="button"
-            onClick={() => setIsOpen(true)}
+            onClick={() => {
+              if (isLockedForCurrentCourse) {
+                toast.warning('กรุณากด "เข้าร่วมชั้นเรียน" ด้านบนก่อนสร้างโพสต์ในห้องเรียนนี้')
+                return
+              }
+              setIsOpen(true)
+            }}
             aria-label="สร้างโพสต์"
             /* MERGE-OWNER (undecided, Poh #4 vs SpriteUm 254a779): kept staging's version (Poh's community redesign).
             SpriteUm's version, to swap in if SpriteUm owns this:
@@ -125,15 +149,26 @@ export function CreatorBox({
             className="group flex w-full cursor-pointer items-center gap-3 rounded-full border border-transparent bg-muted/80 px-2.5 py-2 text-left transition-all duration-200 hover:border-pink-200/80 hover:bg-slate-50/80 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring dark:hover:border-zinc-700 dark:hover:bg-zinc-800/50"
           >
             <Avatar size="sm" src={user?.avatar_url} name={displayName(user)} />
-            <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
-              {placeholder}
-            </span>
+            {isLockedForCurrentCourse ? (
+              <span className="min-w-0 flex-1 truncate px-1 text-xs sm:text-sm text-amber-700 dark:text-amber-400 font-medium flex items-center gap-1.5">
+                <Lock className="h-3.5 w-3.5 shrink-0" />
+                เฉพาะผู้ที่เข้าร่วมชั้นเรียนเท่านั้นจึงจะสามารถสร้างโพสต์ได้
+              </span>
+            ) : (
+              <span className="min-w-0 flex-1 truncate px-1 text-sm text-muted-foreground">
+                {placeholder}
+              </span>
+            )}
           </button>
           <div className="mt-2.5 flex items-center justify-between gap-2 border-t border-slate-100 pt-2 dark:border-border/60">
             <div className="flex flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={() => {
+                  if (isLockedForCurrentCourse) {
+                    toast.warning('กรุณากด "เข้าร่วมชั้นเรียน" ด้านบนก่อนสร้างโพสต์ในห้องเรียนนี้')
+                    return
+                  }
                   setMode('embed')
                   setEmbedType('quiz')
                   setIsOpen(true)
@@ -146,6 +181,10 @@ export function CreatorBox({
               <button
                 type="button"
                 onClick={() => {
+                  if (isLockedForCurrentCourse) {
+                    toast.warning('กรุณากด "เข้าร่วมชั้นเรียน" ด้านบนก่อนสร้างโพสต์ในห้องเรียนนี้')
+                    return
+                  }
                   setMode('summary')
                   setIsOpen(true)
                 }}
@@ -159,6 +198,10 @@ export function CreatorBox({
               <button
                 type="button"
                 onClick={() => {
+                  if (isLockedForCurrentCourse) {
+                    toast.warning('กรุณากด "เข้าร่วมชั้นเรียน" ด้านบนก่อนสร้างโพสต์ในห้องเรียนนี้')
+                    return
+                  }
                   setMode('embed')
                   setEmbedType('roadmap')
                   setIsOpen(true)
@@ -172,6 +215,10 @@ export function CreatorBox({
               <button
                 type="button"
                 onClick={() => {
+                  if (isLockedForCurrentCourse) {
+                    toast.warning('กรุณากด "เข้าร่วมชั้นเรียน" ด้านบนก่อนสร้างโพสต์ในห้องเรียนนี้')
+                    return
+                  }
                   setMode('question')
                   setIsOpen(true)
                 }}
@@ -219,6 +266,14 @@ export function CreatorBox({
                 <p className="text-xs text-muted-foreground">แบ่งปันกับชุมชนการเรียนรู้</p>
               </div>
             </div>
+            {isCourseRestricted && (
+              <div className="flex items-center gap-2 rounded-xl bg-amber-500/10 border border-amber-500/20 px-3.5 py-2.5 text-xs text-amber-800 dark:text-amber-300">
+                <ShieldAlert className="h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                <span>
+                  คุณยังไม่ได้เข้าร่วมชั้นเรียนนี้ จำกัดสิทธิ์สร้างโพสต์เฉพาะผู้ที่เข้าร่วมหรือผู้สอนเท่านั้น
+                </span>
+              </div>
+            )}
             <Tabs value={mode} onValueChange={(v) => setMode(v as Mode)}>
               <TabsList className="no-scrollbar h-9 w-full justify-start overflow-x-auto rounded-lg border-border bg-muted/70 shadow-none">
                 <TabsTrigger value="summary" className="gap-1.5 text-xs">

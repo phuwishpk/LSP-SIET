@@ -59,7 +59,7 @@ function GoogleCallback() {
         const data = await authApi.googleExchange(apiUrl, { code, state })
         useAuthStore.getState().setSession(data.access_token, data.user)
         if (data.user?.disabled || data.user?.role === 'pending') {
-          router.replace('/pending')
+          router.replace('/denied')
           return
         }
         if (data.user?.role === 'admin') {
@@ -71,7 +71,14 @@ function GoogleCallback() {
         }
         router.replace(data.next || '/community')
       } catch (err) {
-        const detail = (err as { detail?: string; message?: string })?.detail
+        const detail = (err as { detail?: string; message?: string })?.detail || ''
+        if (detail.startsWith('access_denied_not_eligible')) {
+          const parts = detail.split(':')
+          const email = parts[1] || ''
+          const name = parts[2] || ''
+          router.replace(`/denied?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`)
+          return
+        }
         setError(detail || (err as Error)?.message || 'เข้าสู่ระบบไม่สำเร็จ')
       }
     })()

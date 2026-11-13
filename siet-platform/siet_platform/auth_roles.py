@@ -95,7 +95,7 @@ STAFF_READABLE_PATHS: tuple[str, ...] = ("/api/settings",)
 # exempt_paths, but stating it here too means the policy is true on its own -
 # removing the middleware exemption must not silently lock students (or the
 # login page) out of the probe.
-ANY_USER_EXACT_PATHS: tuple[str, ...] = ("/api/config",)
+ANY_USER_EXACT_PATHS: tuple[str, ...] = ("/api/config", "/api/system/admin-info")
 
 
 def required_role(path: str, method: str = "GET") -> Optional[str]:
@@ -118,8 +118,9 @@ PENDING_ALLOWED_PREFIXES: tuple[str, ...] = (
     "/api/auth",
     "/api/users/me",
     "/api/config",
+    "/api/system/admin-info",
 )
-PENDING_DENIED_MESSAGE = "บัญชีของคุณอยู่ระหว่างรอผู้ดูแลระบบอนุมัติ หรืออยู่นอกคณะครุศาสตร์ฯ"
+PENDING_DENIED_MESSAGE = "บัญชีนี้ไม่ได้รับอนุญาตให้เข้าใช้งาน หรืออยู่นอกเงื่อนไขคณะครุศาสตร์ฯ (รหัส 030)"
 
 
 def role_allows(role: Optional[str], needed: str) -> bool:

@@ -40,6 +40,14 @@ async def on_startup() -> None:
     except Exception as exc:
         logger.warning(f"Library reaper skipped: {exc}")
 
+    # Audit log retention: purge records older than legal requirement (>= 90 days per Computer Crime Act Section 26)
+    try:
+        from siet_platform.audit import purge_expired_audit_logs
+
+        await purge_expired_audit_logs()
+    except Exception as exc:
+        logger.warning(f"Audit retention sweep skipped: {exc}")
+
     # Seed: 1 admin + 5 students on MariaDB startup.
     # Set WORKSPACE_SEED_ADMIN=false to disable.
     try:

@@ -6,10 +6,11 @@
  * action prefix such as `user.` or `report.`.
  */
 import { useState } from 'react'
-import { ScrollText, Search } from 'lucide-react'
+import { Filter, RotateCcw, ScrollText, Search } from 'lucide-react'
 import { useDebounce } from 'use-debounce'
 import { EmptyState, Pager } from '@siet/platform/components/admin/controls'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@siet/platform/components/ui/skeleton'
@@ -18,9 +19,19 @@ import { timeAgo } from '@siet/platform/lib/utils/community-format'
 
 const PAGE = 50
 
+const CATEGORIES = [
+  { id: 'all', label: 'ทุกหมวดหมู่' },
+  { id: 'auth', label: 'ความปลอดภัย / ล็อกอิน' },
+  { id: 'user', label: 'จัดการผู้ใช้และสิทธิ์' },
+  { id: 'content', label: 'โพสต์ / สื่อการสอน' },
+  { id: 'moderation', label: 'การจัดการรายงาน' },
+  { id: 'course', label: 'ห้องเรียนและหมวดหมู่' },
+  { id: 'ai', label: 'AI Quiz & Roadmap' },
+]
+
 const ACTION_LABELS: Record<string, string> = {
   'auth.login': 'เข้าสู่ระบบสำเร็จ',
-  'auth.login_failed': 'เข้าสู่ระบบไม่สำเร็จ',
+  'auth.login_failed': 'เข้าสู่ระบบไม่สำเร็จ / ปฏิเสธสิทธิ์',
   'document.upload': 'อัปโหลดเอกสารใหม่',
   'user.update': 'แก้ไขบัญชี / ระงับ',
   'user.points': 'ปรับแต้ม',
@@ -49,9 +60,28 @@ function actionLabel(action: string): string {
 
 export function AuditPanel() {
   const [filter, setFilter] = useState('')
+  const [category, setCategory] = useState('all')
+  const [dateFrom, setDateFrom] = useState('')
+  const [dateTo, setDateTo] = useState('')
   const [debounced] = useDebounce(filter, 300)
   const [offset, setOffset] = useState(0)
-  const { data, isLoading } = useAuditLog({ action: debounced.trim() || undefined, offset, limit: PAGE })
+
+  const { data, isLoading } = useAuditLog({
+    q: debounced.trim() || undefined,
+    category: category !== 'all' ? category : undefined,
+    date_from: dateFrom ? `${dateFrom} 00:00:00` : undefined,
+    date_to: dateTo ? `${dateTo} 23:59:59` : undefined,
+    offset,
+    limit: PAGE,
+  })
+
+  const resetFilters = () => {
+    setFilter('')
+    setCategory('all')
+    setDateFrom('')
+    setDateTo('')
+    setOffset(0)
+  }
 
   return (
     <Card>
@@ -60,21 +90,74 @@ export function AuditPanel() {
           <ScrollText className="h-4 w-4" /> บันทึกประวัติการใช้งานและกิจกรรมระบบ
         </CardTitle>
         <CardDescription>
-          บันทึกประวัติเหตุการณ์สำคัญ เช่น การเข้าสู่ระบบ การอัปโหลดเอกสาร และการกระทำเชิงบริหารของผู้ดูแลระบบอย่างถาวร — ใช้ตรวจสอบความปลอดภัยและร่องรอยการใช้งานย้อนหลัง
+          บันทึกประวัติเหตุการณ์สำคัญ เช่น การเข้าสู่ระบบ การจัดการสิทธิ์ การระงับบัญชี และการตรวจสอบเนื้อหาย้อนหลัง
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="relative max-w-sm">
-          <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={filter}
-            onChange={(e) => {
-              setFilter(e.target.value)
-              setOffset(0)
-            }}
-            placeholder="กรองด้วย action เช่น auth. หรือ user. หรือ document."
-            className="pl-8"
-          />
+      <CardContent className="space-y-4">
+        {/* แถบตัวกรองการค้นหา */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5">
+          <div className="relative">
+            <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={filter}
+              onChange={(e) => {
+                setFilter(e.target.value)
+                setOffset(0)
+              }}
+              placeholder="ค้นหารายละเอียด หรือรหัส..."
+              className="pl-8 text-xs"
+            />
+          </div>
+
+          <div>
+            <select
+              value={category}
+              onChange={(e) => {
+                setCategory(e.target.value)
+                setOffset(0)
+              }}
+              className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-xs shadow-sm focus:outline-none focus:ring-1 focus:ring-ring"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="flex items-center gap-1.5">
+            <Input
+              type="date"
+              value={dateFrom}
+              onChange={(e) => {
+                setDateFrom(e.target.value)
+                setOffset(0)
+              }}
+              className="text-xs h-9"
+              title="ตั้งแต่วันที่"
+            />
+            <span className="text-xs text-muted-foreground">-</span>
+            <Input
+              type="date"
+              value={dateTo}
+              onChange={(e) => {
+                setDateTo(e.target.value)
+                setOffset(0)
+              }}
+              className="text-xs h-9"
+              title="ถึงวันที่"
+            />
+          </div>
+
+          <div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={resetFilters}
+              className="w-full h-9 text-xs gap-1.5"
+            >
+              <RotateCcw className="h-3.5 w-3.5" /> ล้างตัวกรอง
+            </Button>
+          </div>
         </div>
         {isLoading && <Skeleton className="h-40 w-full" />}
         {!isLoading && (data?.items.length ?? 0) === 0 && <EmptyState>ยังไม่มีบันทึก</EmptyState>}

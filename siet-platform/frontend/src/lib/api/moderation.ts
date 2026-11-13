@@ -123,6 +123,14 @@ export const moderationApi = {
     (await apiClient.get<ReportList>('/admin/reports', { params })).data,
   resolveReport: async (reportId: number, body: ReportResolveInput) =>
     (await apiClient.post<{ ok: boolean; report: Report; siblings_closed: number }>(`/admin/reports/${reportId}`, body)).data,
-  audit: async (params: { action?: string; actor_id?: number; offset?: number; limit?: number }) =>
-    (await apiClient.get<AuditList>('/admin/audit', { params })).data,
+  audit: async (params: {
+    action?: string
+    category?: string
+    actor_id?: number
+    date_from?: string
+    date_to?: string
+    q?: string
+    offset?: number
+    limit?: number
+  }) => (await apiClient.get<AuditList>('/admin/audit', { params })).data,
 }

@@ -431,6 +431,25 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
             detail=f"Please sign in with your institutional account ({domains})",
         )
 
+    # Check role eligibility BEFORE inserting into database
+    # Non-eligible accounts (outside 030 student, teacher, or admin) are blocked at the gate.
+    email = profile.email.strip().lower()
+    role, student_id = await derive_role(email)
+    if role == USER_ROLE_PENDING:
+        from siet_platform.audit import log_action
+        await log_action(
+            actor_id=0,
+            action="auth.login_failed",
+            target_type="auth",
+            target_id=email,
+            detail={"method": "google", "email": email, "reason": "access_denied_not_eligible"},
+        )
+        safe_name = (profile.name or "").replace(":", " ")
+        raise HTTPException(
+            status_code=403,
+            detail=f"access_denied_not_eligible:{email}:{safe_name}",
+        )
+
     user, is_new = await _upsert_google_user(profile)
     welcome = await points.ensure_welcome(user)
     await touch_last_login(user.id or "")
@@ -452,6 +471,14 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
             target_id=fresh.id,
             detail={"method": "google", "reason": "account_suspended"},
         )
+    elif fresh.role == USER_ROLE_PENDING:
+        await log_action(
+            actor_id=int(fresh.id or 0),
+            action="auth.login_failed",
+            target_type="user",
+            target_id=fresh.id,
+            detail={"method": "google", "reason": "access_denied_not_allowed"},
+        )
     else:
         await log_action(
             actor_id=int(fresh.id or 0),
@@ -462,10 +489,8 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
         )
 
     access_token, expires_at = issue_access_token(fresh)
-    if fresh.disabled:
-        target_next = "/pending"
-    elif fresh.role == USER_ROLE_PENDING:
-        target_next = "/pending"
+    if fresh.disabled or fresh.role == USER_ROLE_PENDING:
+        target_next = "/denied"
     elif fresh.role == USER_ROLE_ADMIN:
         target_next = "/admin"
     else:
