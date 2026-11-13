@@ -1,0 +1,10 @@
+#!/command/with-contenv bash
+exec 2>&1
+# s6-notifyoncheck checks ./supervise, so it starts in the service directory;
+# execline's cd moves to the app directory right before the program.
+export MALLOC_ARENA_MAX=2
+# The API runs the SurrealDB and MariaDB migrations at start-up; it is "up"
+# once /health answers, which is when the worker and the web apps may start.
+exec /command/s6-notifyoncheck -d -n 0 -w 2000 -c "curl -fsS -o /dev/null http://127.0.0.1:5055/health" \
+  /command/cd /app /command/s6-setuidgid lsp /app/.venv/bin/uvicorn api.main:app \
+    --host 127.0.0.1 --port 5055 --proxy-headers --forwarded-allow-ips 127.0.0.1

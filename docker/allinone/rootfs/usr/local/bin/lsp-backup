@@ -1,0 +1,34 @@
+#!/bin/bash
+# Nightly backup into /data/backups/<timestamp>/ (keeps the newest 7).
+# Run from the host: docker exec lsp-siet lsp-backup
+# (docker exec already has the container's environment; this is not an s6
+# script, so no with-contenv.)
+#
+# Restore, into an empty container:
+#   gunzip -c mariadb.sql.gz | mariadb --protocol=socket -uroot -p"$MARIADB_ROOT_PASSWORD"
+#   gunzip surreal.surql.gz && surreal import --conn http://127.0.0.1:8000 --user ... --pass ... \
+#     --ns open_notebook --db open_notebook surreal.surql
+#   tar -C /data -xzf app.tar.gz
+set -euo pipefail
+umask 077   # the dumps hold password hashes
+# MARIADB_HOST (set for the app) would send the client to TCP as root@127.0.0.1.
+unset MARIADB_HOST MYSQL_HOST
+ts=$(date +%Y%m%d-%H%M%S)
+out=/data/backups/$ts
+mkdir -p "$out"
+trap 'echo "lsp-backup: failed, removing $out" >&2; rm -rf "$out"' ERR
+
+mariadb-dump --protocol=socket --socket=/run/mysqld/mysqld.sock -uroot -p"${MARIADB_ROOT_PASSWORD}" \
+  --single-transaction --routines --triggers --databases "${MARIADB_DATABASE:-workspace}" | gzip > "$out/mariadb.sql.gz"
+
+# SurrealDB 2.6 exports fields that its own import has already created by then
+# (in/out of RELATION tables, embedding[*] of arrays), and the import stops at
+# the first one. OVERWRITE makes the file import into an empty database as is.
+surreal export --conn http://127.0.0.1:8000 --user "${SURREAL_USER:-root}" --pass "${SURREAL_PASSWORD:-root}" \
+  --ns "${SURREAL_NAMESPACE:-open_notebook}" --db "${SURREAL_DATABASE:-open_notebook}" "$out/surreal.surql"
+sed -i -E 's/^DEFINE FIELD /DEFINE FIELD OVERWRITE /' "$out/surreal.surql"
+gzip "$out/surreal.surql"
+
+tar -C /data -czf "$out/app.tar.gz" app
+ls -1dt /data/backups/*/ | tail -n +8 | xargs -r rm -rf
+du -sh "$out"

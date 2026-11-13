@@ -1,0 +1,10 @@
+#!/command/with-contenv bash
+exec 2>&1
+# s6-notifyoncheck checks ./supervise, so it starts in the service directory;
+# execline's cd moves to the app directory right before the program.
+export PORT=3001 HOSTNAME=127.0.0.1
+export NEXT_PUBLIC_API_URL=/api OPEN_NOTEBOOK_API_URL=http://127.0.0.1:5055
+export OPEN_NOTEBOOK_API_KEY="${OPEN_NOTEBOOK_PASSWORD:-}"
+echo 300 > /proc/self/oom_score_adj
+exec /command/s6-notifyoncheck -d -n 0 -w 1000 -c "curl -fsS -o /dev/null http://127.0.0.1:3001/quiz" \
+  /command/cd /opt/quiz/My-ai-quiz /command/s6-setuidgid lsp node --max-old-space-size=${QUIZ_MAX_OLD_SPACE_MB:-128} server.js

@@ -1,0 +1,8 @@
+#!/command/with-contenv bash
+exec 2>&1
+# s6-notifyoncheck checks ./supervise, so it starts in the service directory;
+# execline's cd moves to the app directory right before the program.
+export PORT=8502 HOSTNAME=127.0.0.1
+echo 300 > /proc/self/oom_score_adj
+exec /command/s6-notifyoncheck -d -n 0 -w 1000 -c "curl -fsS -o /dev/null http://127.0.0.1:8502/login" \
+  /command/cd /app/frontend /command/s6-setuidgid lsp node --max-old-space-size=${WEB_MAX_OLD_SPACE_MB:-256} server.js

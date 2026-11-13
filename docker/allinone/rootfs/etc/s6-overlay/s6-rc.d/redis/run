@@ -1,0 +1,8 @@
+#!/command/with-contenv bash
+exec 2>&1
+# Only caches with a TTL (answers, searches, question embeddings, provider
+# status) and login-lockout counters live here, so nothing is written to disk:
+# a restart costs some repeated AI calls, nothing else. (Rate limits are in MariaDB.)
+exec /command/s6-notifyoncheck -d -n 0 -w 500 -c "redis-cli -h 127.0.0.1 ping" \
+  /command/s6-setuidgid redis redis-server --bind 127.0.0.1 --port 6379 --protected-mode yes \
+    --save "" --appendonly no --maxmemory 64mb --maxmemory-policy allkeys-lru --daemonize no

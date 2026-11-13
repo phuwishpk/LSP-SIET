@@ -1,0 +1,10 @@
+#!/command/with-contenv bash
+exec 2>&1
+# s6-notifyoncheck checks ./supervise, so it starts in the service directory;
+# execline's cd moves to the app directory right before the program.
+export OPEN_NOTEBOOK_API_URL=http://127.0.0.1:5055
+echo 300 > /proc/self/oom_score_adj
+# `next start` directly: no npm/npx process kept alive next to it.
+exec /command/s6-notifyoncheck -d -n 0 -w 1000 -c "curl -fsS -o /dev/null http://127.0.0.1:3002/roadmap" \
+  /command/cd /opt/roadmap /command/s6-setuidgid lsp node --max-old-space-size=${ROADMAP_MAX_OLD_SPACE_MB:-128} \
+    node_modules/next/dist/bin/next start -p 3002 -H 127.0.0.1

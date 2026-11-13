@@ -1,0 +1,7 @@
+#!/command/with-contenv bash
+exec 2>&1
+# Readiness: ping over the socket (MARIADB_HOST in the environment would make the
+# client use TCP); --silent keeps the tries before the server is up out of the log.
+exec /command/s6-notifyoncheck -d -n 0 -w 1000 \
+  -c "mariadb-admin --protocol=socket --socket=/run/mysqld/mysqld.sock --silent ping" \
+  /command/s6-setuidgid mysql mariadbd --datadir=/data/mariadb --socket=/run/mysqld/mysqld.sock
