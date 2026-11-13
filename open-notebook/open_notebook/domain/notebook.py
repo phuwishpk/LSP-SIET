@@ -1,17 +1,21 @@
-import asyncio
 import os
 from datetime import datetime
 from pathlib import Path
-from typing import Any, ClassVar, Dict, List, Literal, Optional, Tuple, Union
+from typing import Any, ClassVar, Dict, List, Literal, Optional, Union
 
 from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from surreal_commands import submit_command
 from surrealdb import RecordID
 
+from open_notebook import extensions
 from open_notebook.database.repository import ensure_record_id, repo_query
 from open_notebook.domain.base import ObjectModel
-from open_notebook.exceptions import DatabaseOperationError, InvalidInputError
+from open_notebook.exceptions import (
+    DatabaseOperationError,
+    InvalidInputError,
+    NotFoundError,
+)
 
 
 class Notebook(ObjectModel):
@@ -76,7 +80,7 @@ class Notebook(ObjectModel):
 
     async def get_context(self) -> str:
         """
-        Build long-form notebook context for LLM workflows.
+        Build long-form notebook context for podcast and LLM workflows.
 
         Normal list retrieval omits large source/note bodies, so this method uses
         opt-in full-content fetches and formats only substantive context blocks.
@@ -85,8 +89,14 @@ class Notebook(ObjectModel):
         notes = await self.get_notes(include_content=True)
         context_blocks = []
 
+        insights_by_source = await SourceInsight.get_for_sources(
+            [source.id for source in sources if source.id]
+        )
         for source in sources:
-            source_context = await source.get_context(context_size="long")
+            source_context = await source.get_context(
+                context_size="long",
+                insights=insights_by_source.get(source.id or "", []),
+            )
             if isinstance(source_context, dict):
                 title = source_context.get("title") or source.title or "Untitled source"
                 full_text = source_context.get("full_text")
@@ -218,7 +228,8 @@ class Notebook(ObjectModel):
                                      only to this notebook. Default is False.
 
         Returns:
-            Dict with counts: deleted_notes, deleted_sources, unlinked_sources
+            Dict with counts: deleted_notes, deleted_sources, unlinked_sources,
+            deleted_chat_sessions
         """
         if self.id is None:
             raise InvalidInputError("Cannot delete notebook without an ID")
@@ -228,6 +239,7 @@ class Notebook(ObjectModel):
             deleted_notes = 0
             deleted_sources = 0
             unlinked_sources = 0
+            deleted_chat_sessions = 0
 
             # 1. Get and delete all notes linked to this notebook
             notes = await self.get_notes()
@@ -288,7 +300,16 @@ class Notebook(ObjectModel):
                 f"exclusive sources for notebook {self.id}"
             )
 
-            # 3. Delete the notebook record itself
+            # 3. Delete chat sessions linked to this notebook
+            chat_sessions = await self.get_chat_sessions()
+            for chat_session in chat_sessions:
+                await chat_session.delete()
+                deleted_chat_sessions += 1
+            logger.info(
+                f"Deleted {deleted_chat_sessions} chat sessions for notebook {self.id}"
+            )
+
+            # 4. Delete the notebook record itself
             await super().delete()
             logger.info(f"Deleted notebook {self.id}")
 
@@ -296,6 +317,7 @@ class Notebook(ObjectModel):
                 "deleted_notes": deleted_notes,
                 "deleted_sources": deleted_sources,
                 "unlinked_sources": unlinked_sources,
+                "deleted_chat_sessions": deleted_chat_sessions,
             }
 
         except Exception as e:
@@ -332,6 +354,35 @@ class SourceInsight(ObjectModel):
     table_name: ClassVar[str] = "source_insight"
     insight_type: str
     content: str
+
+    @classmethod
+    async def get_for_sources(
+        cls, source_ids: List[str]
+    ) -> Dict[str, List["SourceInsight"]]:
+        """
+        Batch-fetch insights for many sources in a single query.
+
+        Building notebook/chat context otherwise calls get_insights() once
+        per source - fine for one source, but O(n) round trips (each paying
+        its own connection setup - no pooling in the repository layer) when
+        a caller loops over every source in a notebook.
+        """
+        grouped: Dict[str, List[SourceInsight]] = {sid: [] for sid in source_ids if sid}
+        if not grouped:
+            return grouped
+        try:
+            result = await repo_query(
+                "SELECT * FROM source_insight WHERE source IN $source_ids",
+                {"source_ids": [ensure_record_id(sid) for sid in grouped]},
+            )
+        except Exception as e:
+            logger.error(f"Error batch-fetching insights for sources: {str(e)}")
+            logger.exception(e)
+            raise DatabaseOperationError("Failed to fetch insights for sources")
+        for row in result:
+            key = str(row.get("source"))
+            grouped.setdefault(key, []).append(cls(**row))
+        return grouped
 
     async def get_source(self) -> "Source":
         try:
@@ -440,28 +491,27 @@ class Source(ObjectModel):
             return None
 
     async def get_context(
-        self, context_size: Literal["short", "long"] = "short"
+        self,
+        context_size: Literal["short", "long"] = "short",
+        insights: Optional[List["SourceInsight"]] = None,
     ) -> Dict[str, Any]:
-        insights_list = await self.get_insights()
-        insights = [insight.model_dump() for insight in insights_list]
-        asset_url = None
-        if self.asset:
-            asset_url = self.asset.url or self.asset.file_path
+        # Callers looping over many sources can batch-fetch insights up front
+        # via SourceInsight.get_for_sources() and pass them in here, instead
+        # of paying a separate query per source.
+        insight_objects = (
+            insights if insights is not None else await self.get_insights()
+        )
+        insights = [insight.model_dump() for insight in insight_objects]
         if context_size == "long":
-            return dict(
+            context = dict(
                 id=self.id,
                 title=self.title,
                 insights=insights,
                 full_text=self.full_text,
-                asset_url=asset_url,
             )
         else:
-            return dict(
-                id=self.id,
-                title=self.title,
-                insights=insights,
-                asset_url=asset_url,
-            )
+            context = dict(id=self.id, title=self.title, insights=insights)
+        return await extensions.apply_filters("source.context", context, source=self)  # KMITL hook
 
     async def get_embedded_chunks(self) -> int:
         try:
@@ -496,6 +546,7 @@ class Source(ObjectModel):
     async def add_to_notebook(self, notebook_id: str) -> Any:
         if not notebook_id:
             raise InvalidInputError("Notebook ID must be provided")
+        await Notebook.get(notebook_id)  # raises NotFoundError if invalid/missing
         return await self.relate("reference", notebook_id)
 
     async def vectorize(self) -> str:
@@ -544,7 +595,7 @@ class Source(ObjectModel):
             logger.exception(e)
             raise DatabaseOperationError(e)
 
-    async def add_insight(self, insight_type: str, content: str) -> Optional[str]:
+    async def add_insight(self, insight_type: str, content: str) -> str:
         """
         Submit insight creation as an async command (fire-and-forget).
 
@@ -561,10 +612,17 @@ class Source(ObjectModel):
             content: The insight content text
 
         Returns:
-            command_id for optional tracking, or None if submission failed
+            command_id for optional tracking
 
         Raises:
             InvalidInputError: If insight_type or content is empty
+            DatabaseOperationError: If submitting the command fails. Matches
+                vectorize()'s contract - callers (transformation.py, source.py)
+                run inside surreal-commands jobs whose outer exception
+                handling already retries transient failures, so a swallowed
+                submission failure here previously meant a transformation
+                could report success while the insight was silently never
+                persisted.
         """
         if not insight_type or not content:
             raise InvalidInputError("Insight type and content must be provided")
@@ -588,8 +646,10 @@ class Source(ObjectModel):
             return str(command_id)
 
         except Exception as e:
-            logger.error(f"Error submitting create_insight for source {self.id}: {e}")
-            return None
+            logger.exception(
+                f"Error submitting create_insight for source {self.id}: {e}"
+            )
+            raise DatabaseOperationError(e)
 
     def _prepare_save_data(self) -> dict:
         """Override to ensure command field is always RecordID format for database"""
@@ -665,26 +725,37 @@ class Note(ObjectModel):
         after saving, instead of inline embedding.
 
         Returns:
-            Optional[str]: The command_id if embedding was submitted, None otherwise
+            Optional[str]: The command_id if embedding was submitted, None
+                otherwise (either no content to embed, or submission failed)
         """
         # Call parent save (without embedding)
         await super().save()
 
-        # Submit embedding command (fire-and-forget) if note has content
+        # Submit embedding command (fire-and-forget) if note has content.
+        # Unlike Source.vectorize()/add_insight() (explicit, dedicated calls
+        # whose whole point is the submission), this runs automatically
+        # inside save() - the note itself is already durably saved above,
+        # so a submission hiccup here shouldn't fail an otherwise-successful
+        # save with a 500. Best-effort: log and move on.
         if self.id and self.content and self.content.strip():
-            command_id = submit_command(
-                "open_notebook",
-                "embed_note",
-                {"note_id": str(self.id)},
-            )
-            logger.debug(f"Submitted embed_note command {command_id} for {self.id}")
-            return command_id
+            try:
+                command_id = submit_command(
+                    "open_notebook",
+                    "embed_note",
+                    {"note_id": str(self.id)},
+                )
+                logger.debug(f"Submitted embed_note command {command_id} for {self.id}")
+                return command_id
+            except Exception as e:
+                logger.error(f"Failed to submit embed_note command for {self.id}: {e}")
+                return None
 
         return None
 
     async def add_to_notebook(self, notebook_id: str) -> Any:
         if not notebook_id:
             raise InvalidInputError("Notebook ID must be provided")
+        await Notebook.get(notebook_id)  # raises NotFoundError if invalid/missing
         return await self.relate("artifact", notebook_id)
 
     def get_context(
@@ -720,53 +791,71 @@ class ChatSession(ObjectModel):
         return await self.relate("refers_to", source_id)
 
 
-# -----------------------------------------------------------------------------
-# GlobalChatSession — independent of any notebook; used by the /search Ask tab
-# -----------------------------------------------------------------------------
+async def resolve_notebook_scope(notebook_ids: List[str]) -> List[str]:
+    """Validate a notebook scope before it reaches text_search / vector_search.
 
-class GlobalChatSession(ObjectModel):
+    Every id must be a well-formed `notebook:<key>` id naming an existing
+    notebook: a typo would otherwise silently return an empty result set that
+    is indistinguishable from "no matches". Existence is checked with one query
+    for the whole list. Returns the ids unchanged (empty list = whole knowledge
+    base). Raises InvalidInputError for malformed ids, NotFoundError for
+    unknown notebooks.
     """
-    A chat session that exists outside of any notebook.
-    Used by the persistent Chat UI on the Ask tab of the /search page.
+    if not notebook_ids:
+        return []
 
-    User isolation is via owner_id (set from auth token at creation).
-    LangGraph checkpoints persist messages across requests using the session ID
-    as thread_id, so the same chat_graph.checkpointer used by ChatSession
-    handles both tables transparently.
-    """
-    table_name: ClassVar[str] = "global_chat_session"
-    nullable_fields: ClassVar[set[str]] = {"title", "model_override", "owner_id"}
-    title: Optional[str] = None
-    model_override: Optional[str] = None
-    owner_id: Optional[str] = None
-
-    @classmethod
-    async def get_global_sessions(cls, owner_id: str) -> List["GlobalChatSession"]:
-        """
-        Return all global chat sessions for a given owner, ordered by updated desc.
-        Falls back to sessions with no owner_id (legacy / pre-migration).
-        """
+    # Only notebook ids are accepted: a source or note id would fail the typed
+    # record<notebook> parameter inside SurrealDB instead of returning cleanly,
+    # and "notebook:" with an empty key would blow up in RecordID.parse.
+    record_ids: List[RecordID] = []
+    invalid: List[str] = []
+    for nb_id in notebook_ids:
+        if not nb_id.startswith("notebook:") or not nb_id[len("notebook:") :]:
+            invalid.append(nb_id)
+            continue
         try:
-            results = await repo_query(
-                """
-                SELECT * FROM global_chat_session
-                WHERE owner_id = $owner_id
-                    OR owner_id = NONE
-                ORDER BY updated DESC
-                """,
-                {"owner_id": owner_id}
-            )
-            return [
-                cls(**src)
-                for src in results
-            ] if results else []
-        except RuntimeError:
-            # Table may not exist yet — return empty list until migration runs
-            return []
+            record_ids.append(ensure_record_id(nb_id))
+        except Exception:
+            invalid.append(nb_id)
+    if invalid:
+        raise InvalidInputError(f"Invalid notebook id(s): {', '.join(invalid)}")
+
+    try:
+        rows = await repo_query(
+            "SELECT id FROM notebook WHERE id IN $ids", {"ids": record_ids}
+        )
+    except Exception as e:
+        # Same contract as text_search / vector_search: log the raw driver
+        # error here, surface a typed error to the API layer.
+        logger.error(f"Error resolving notebook scope: {str(e)}")
+        logger.exception(e)
+        raise DatabaseOperationError("Failed to resolve notebook scope")
+    # The driver returns ids as RecordID objects (unhashable, and never equal
+    # to the request strings), so normalize to strings before comparing.
+    found = {str(row["id"]) for row in rows}
+    missing = [nb_id for nb_id in notebook_ids if nb_id not in found]
+    if missing:
+        raise NotFoundError(f"Notebook(s) not found: {', '.join(missing)}")
+    return notebook_ids
+
+
+def _scope_record_ids(notebook_ids: Optional[List[str]]) -> Optional[List[RecordID]]:
+    """Normalize a notebook scope for fn::text_search / fn::vector_search.
+
+    Returns None for an empty scope (global search) so the SurrealQL functions
+    take their unfiltered path, otherwise the ids as RecordIDs.
+    """
+    if not notebook_ids:
+        return None
+    return [ensure_record_id(nb_id) for nb_id in notebook_ids]
 
 
 async def text_search(
-    keyword: str, results: int, source: bool = True, note: bool = True
+    keyword: str,
+    results: int,
+    source: bool = True,
+    note: bool = True,
+    notebook_ids: Optional[List[str]] = None,
 ):
     if not keyword:
         raise InvalidInputError("Search keyword cannot be empty")
@@ -774,9 +863,15 @@ async def text_search(
         search_results = await repo_query(
             """
             select *
-            from fn::text_search($keyword, $results, $source, $note)
+            from fn::text_search($keyword, $results, $source, $note, $notebook_ids)
             """,
-            {"keyword": keyword, "results": results, "source": source, "note": note},
+            {
+                "keyword": keyword,
+                "results": results,
+                "source": source,
+                "note": note,
+                "notebook_ids": _scope_record_ids(notebook_ids),
+            },
         )
         return search_results
     except RuntimeError as e:
@@ -789,7 +884,9 @@ async def text_search(
                 f"Highlight position overflow, falling back to vector search: {str(e)}"
             )
             try:
-                return await vector_search(keyword, results, source, note)
+                return await vector_search(
+                    keyword, results, source, note, notebook_ids=notebook_ids
+                )
             except Exception as ve:
                 # Both search paths failed (e.g. no embedding model configured).
                 # Surface the failure instead of returning [] — an empty list would
@@ -813,18 +910,16 @@ async def vector_search(
     source: bool = True,
     note: bool = True,
     minimum_score=0.2,
+    notebook_ids: Optional[List[str]] = None,
 ):
     if not keyword:
         raise InvalidInputError("Search keyword cannot be empty")
     try:
-        from open_notebook.cache.service import cache_service
         from open_notebook.utils.embedding import generate_embedding
 
-        # Try cache first (key = hash of search params)
-        cache_config = {"q": keyword, "r": results, "s": source, "n": note, "ms": minimum_score}
-        cached = await cache_service.get_vector_search_results(
-            notebook_id="global", query=str(cache_config), limit=results
-        )
+        # KMITL hook: an installed cache may already hold these results
+        cache_key = {"q": keyword, "r": results, "s": source, "n": note, "ms": minimum_score}
+        cached = await extensions.cache_get("vector_search", cache_key)
         if cached is not None:
             return cached
 
@@ -832,7 +927,7 @@ async def vector_search(
         embed = await generate_embedding(keyword)
         search_results = await repo_query(
             """
-            SELECT * FROM fn::vector_search($embed, $results, $source, $note, $minimum_score);
+            SELECT * FROM fn::vector_search($embed, $results, $source, $note, $minimum_score, $notebook_ids);
             """,
             {
                 "embed": embed,
@@ -840,80 +935,22 @@ async def vector_search(
                 "source": source,
                 "note": note,
                 "minimum_score": minimum_score,
+                "notebook_ids": _scope_record_ids(notebook_ids),
             },
         )
-
-        # Cache the results
-        await cache_service.set_vector_search_results(
-            notebook_id="global",
-            query=str(cache_config),
-            results=search_results or [],
+        # SurrealDB fn::vector_search declares ORDER BY similarity DESC, but the
+        # SELECT * FROM fn::... wrapper can still return rows out of rank order.
+        # Enforce descending similarity (stable by id for ties) before returning.
+        results = sorted(
+            search_results or [],
+            key=lambda item: (
+                -float(item.get("similarity") or 0.0),
+                str(item.get("id") or ""),
+            ),
         )
-
-        return search_results
+        await extensions.cache_set("vector_search", cache_key, results)  # KMITL hook
+        return results
     except Exception as e:
         logger.error(f"Error performing vector search: {str(e)}")
-        logger.exception(e)
-        raise DatabaseOperationError(e)
-
-
-async def vector_search_in_notebook(
-    keyword: str,
-    notebook_id: str,
-    results: int = 8,
-    source: bool = True,
-    note: bool = True,
-    minimum_score: float = 0.2,
-) -> List[Dict[str, Any]]:
-    """
-    Perform vector search scoped to a single notebook.
-
-    Resolves the notebook's sources via the reference table and notes via the
-    artifact table so that only content belonging to that notebook is searched.
-
-    Args:
-        keyword:      The search query text (will be embedded on the fly).
-        notebook_id:  SurrealDB record ID string for the notebook.
-        results:      Maximum number of results per notebook.
-        source:       Include source chunks.
-        note:         Include note content.
-        minimum_score: Minimum cosine similarity threshold (0-1).
-
-    Returns:
-        List of result dicts with keys: id, title, parent_id, similarity, matches.
-    """
-    if not keyword:
-        raise InvalidInputError("Search keyword cannot be empty")
-    if not notebook_id:
-        raise InvalidInputError("Notebook ID cannot be empty")
-    try:
-        from open_notebook.utils.embedding import generate_embedding
-
-        embed = await generate_embedding(keyword)
-        search_results = await repo_query(
-            """
-            SELECT * FROM fn::vector_search_in_notebook(
-                $embed,
-                $results,
-                $sources,
-                $show_notes,
-                $min_similarity,
-                $notebook_id
-            );
-            """,
-            {
-                "embed": embed,
-                "results": results,
-                "sources": source,
-                "show_notes": note,
-                "min_similarity": minimum_score,
-                "notebook_id": ensure_record_id(notebook_id),
-            },
-        )
-        return search_results or []
-    except Exception as e:
-        logger.error(
-            f"Error performing notebook-scoped vector search for {notebook_id}: {str(e)}"
-        )
         logger.exception(e)
         raise DatabaseOperationError(e)

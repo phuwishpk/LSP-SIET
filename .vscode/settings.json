@@ -1,4 +1,5 @@
 {
   "markdown.extension.completion.enabled": false,
-  "markdown.extension.tableFormatter.enabled": false
+  "markdown.extension.tableFormatter.enabled": false,
+  "python.terminal.useEnvFile": true
 }

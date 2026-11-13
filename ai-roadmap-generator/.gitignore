@@ -18,6 +18,9 @@
 # production
 /build
 
+# typescript (tsc --incremental output)
+*.tsbuildinfo
+
 # misc
 .DS_Store
 *.pem

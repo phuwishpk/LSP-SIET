@@ -46,10 +46,12 @@ Create a new folder `open-notebook-external-ollama` and add these files:
 services:
   surrealdb:
     image: surrealdb/surrealdb:v2
-    command: start --user root --pass password --bind 0.0.0.0:8000 rocksdb:/mydata/mydatabase.db
+    command: start --user root --pass password rocksdb:/mydata/mydatabase.db
     user: root
     ports:
-      - "8000:8000"
+      # Localhost only — the database uses default credentials, so never
+      # publish this port on 0.0.0.0
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./surreal_data:/mydata
 
@@ -107,7 +109,7 @@ Wait 10-15 seconds for services to start.
 
 ## Step 5: Configure Ollama Provider (1 min)
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **Ollama**
 4. Give it a name (e.g., "Local Ollama")
@@ -122,7 +124,7 @@ Wait 10-15 seconds for services to start.
 
 ## Step 6: Configure Models (1 min)
 
-1. Go to **Settings** → **Models**
+1. Go to **Manage** → **Models**
 2. Set:
    - **Language Model**: `ollama/mistral` (or whichever model you downloaded)
    - **Embedding Model**: `ollama/nomic-embed-text`

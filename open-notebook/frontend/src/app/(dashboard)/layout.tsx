@@ -1,17 +1,15 @@
 'use client'
 
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useRouter } from 'next/navigation'
+import { useVersionCheck } from '@/lib/hooks/use-version-check'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { ErrorBoundary } from '@/components/common/ErrorBoundary'
 import { ModalProvider } from '@/components/providers/ModalProvider'
 import { CreateDialogsProvider } from '@/lib/hooks/use-create-dialogs'
 import { CommandPalette } from '@/components/common/CommandPalette'
-import { usePathname } from 'next/navigation'
-import { useAuthStore } from '@/lib/stores/auth-store'
-import { canAccessRoute, isStaff, type Role } from '@/lib/roles'
-import { clearPostLoginPath, rememberPostLoginPath } from '@/lib/auth-redirect'
+import { getSlot, useGate, useRouteGate } from '@/lib/extensions'
 
 export default function DashboardLayout({
   children,
@@ -20,13 +18,16 @@ export default function DashboardLayout({
 }) {
   const { isAuthenticated, isLoading } = useAuth()
   const router = useRouter()
-  const pathname = usePathname()
-  const role = useAuthStore((s) => s.user?.role) as Role
   const [hasCheckedAuth, setHasCheckedAuth] = useState(false)
-  const allowed = canAccessRoute(role, pathname ?? '/')
+  // KMITL hooks: extensions may keep a user out of a page or hide features
+  const routeGate = useRouteGate(usePathname() ?? '/')
+  const showCommandPalette = useGate('command-palette')
+  // KMITL hooks: a top bar above every page, and an overlay such as a consent dialog
+  const Navbar = getSlot('dashboard.navbar')
+  const Overlay = getSlot('dashboard.overlay')
 
-  // NOTE: the upstream "new Open Notebook version available" toast
-  // (useVersionCheck) is intentionally disabled for the KMITL workspace.
+  // Check for version updates once per session
+  useVersionCheck(useGate('version-check'))
 
   useEffect(() => {
     // Mark that we've completed the initial auth check
@@ -36,25 +37,21 @@ export default function DashboardLayout({
       // Redirect to login if not authenticated
       if (!isAuthenticated) {
         // Store the current path to redirect back after login
-        rememberPostLoginPath(window.location.pathname + window.location.search)
+        const currentPath = window.location.pathname + window.location.search
+        sessionStorage.setItem('redirectAfterLogin', currentPath)
         router.push('/login')
-      } else {
-        // Reached a page while signed in: the remembered target is used up.
-        clearPostLoginPath()
       }
     }
   }, [isAuthenticated, isLoading, router])
 
-  // The API refuses these routes for students (api/auth_roles.py); send them
-  // back to the community instead of rendering a page full of 403s.
   useEffect(() => {
-    if (!isLoading && isAuthenticated && !allowed) {
-      router.replace('/community')
+    if (!isLoading && isAuthenticated && routeGate.redirect) {
+      router.replace(routeGate.redirect)
     }
-  }, [isLoading, isAuthenticated, allowed, router])
+  }, [isAuthenticated, isLoading, routeGate.redirect, router])
 
   // Show loading spinner during initial auth check or while loading
-  if (isLoading || !hasCheckedAuth) {
+  if (isLoading || !hasCheckedAuth || !routeGate.ready) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <LoadingSpinner />
@@ -63,17 +60,29 @@ export default function DashboardLayout({
   }
 
   // Don't render anything if not authenticated (during redirect)
-  if (!isAuthenticated || !allowed) {
+  if (!isAuthenticated || routeGate.redirect) {
     return null
   }
 
   return (
     <ErrorBoundary>
       <CreateDialogsProvider>
-        {children}
+        {Navbar ? (
+          <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground">
+            {/* The navbar's menus open over the page; the page scrolls under it. */}
+            <div className="relative z-[100] shrink-0">
+              <Navbar />
+            </div>
+            <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
+              {children}
+            </div>
+          </div>
+        ) : (
+          children
+        )}
         <ModalProvider />
-        {/* The palette lists notebooks and staff-only create actions. */}
-        {isStaff(role) && <CommandPalette />}
+        {Overlay && <Overlay />}
+        {showCommandPalette && <CommandPalette />}
       </CreateDialogsProvider>
     </ErrorBoundary>
   )

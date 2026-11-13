@@ -1,0 +1,558 @@
+'use client'
+
+import { useState } from 'react'
+import {
+  Bookmark,
+  BookOpen,
+  Flame,
+  Hash,
+  Library,
+  MessagesSquare,
+  Newspaper,
+  LogOut,
+  MoreVertical,
+  Plus,
+  ShieldCheck,
+  Trash2,
+  Users,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Badge } from '@/components/ui/badge'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
+  useCourses,
+  useCreateCourse,
+  useDeleteCourse,
+  useJoinCourse,
+} from '@siet/platform/lib/hooks/use-community'
+import type { Course, RoomKind } from '@siet/platform/lib/api/community'
+import { useAuthStore } from '@/lib/stores/auth-store'
+import { cn } from '@/lib/utils'
+
+export type FeedView =
+  | 'all'
+  | 'mine'
+  | 'saved'
+  | 'materials'
+  | 'popular'
+  | 'library'
+  | 'rules'
+
+interface CourseSidebarProps {
+  view: FeedView
+  courseId: number | null
+  isStaff: boolean
+  onSelectView: (view: FeedView) => void
+  onSelectCourse: (courseId: number | null) => void
+}
+
+export function CourseSidebar({
+  view,
+  courseId,
+  isStaff,
+  onSelectView,
+  onSelectCourse,
+}: CourseSidebarProps) {
+  const { data: courses, isLoading } = useCourses()
+  const me = useAuthStore((s) => s.user)
+  const join = useJoinCourse()
+  const remove = useDeleteCourse()
+  const [createKind, setCreateKind] = useState<RoomKind | null>(null)
+  const [pendingDelete, setPendingDelete] = useState<Course | null>(null)
+  const [pendingLeave, setPendingLeave] = useState<Course | null>(null)
+
+  // Official course rooms are run by staff; discussion rooms are opened by
+  // whoever wants to talk about something. They share one table, so split here.
+  const courseRooms = (courses ?? []).filter((c) => c.kind !== 'club')
+  const clubRooms = (courses ?? []).filter((c) => c.kind === 'club')
+  const selected = (courses ?? []).find((c) => c.id === courseId) ?? null
+  // Admins manage every room; everyone else manages the rooms they opened —
+  // including the course rooms a teacher created.
+  const canManageSelected =
+    selected !== null &&
+    (me?.role === 'admin' || Number(me?.id ?? -1) === selected.created_by)
+
+  const NavButton = ({
+    active,
+    icon: Icon,
+    label,
+    onClick,
+    badge,
+    className,
+  }: {
+    active: boolean
+    icon: React.ComponentType<{ className?: string }>
+    label: string
+    onClick: () => void
+    badge?: React.ReactNode
+    className?: string
+  }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        'flex min-h-11 w-full min-w-0 items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
+        active
+          ? 'bg-rose-50/80 font-bold text-rose-700 shadow-2xs border-l-4 border-rose-600 pl-2.5 dark:bg-rose-950/40 dark:text-rose-200 dark:border-rose-500'
+          : 'text-foreground hover:bg-accent',
+        className
+      )}
+    >
+      <Icon className="h-4 w-4 shrink-0" />
+      <span className="min-w-0 flex-1 truncate text-left">{label}</span>
+      {badge}
+    </button>
+  )
+
+  const RoomList = ({
+    rooms,
+    icon,
+    showCode,
+  }: {
+    rooms: Course[]
+    icon: React.ComponentType<{ className?: string }>
+    showCode: boolean
+  }) => {
+    const joined = rooms.filter((c) => c.joined)
+    const others = rooms.filter((c) => !c.joined)
+    const label = (c: Course) => (showCode ? `${c.code} ${c.name}` : c.name)
+    const open = (c: Course) => {
+      onSelectCourse(c.id)
+    }
+    return (
+      <>
+        {joined.length > 0 && (
+          <div className="space-y-0.5">
+            {joined.map((c) => (
+              <div key={c.id} className="group/item flex items-center justify-between gap-1.5">
+                <NavButton
+                  active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
+                  icon={icon}
+                  label={label(c)}
+                  onClick={() => open(c)}
+                  className="flex-1 min-w-0"
+                  badge={
+                    c.post_count > 0 ? (
+                      <span className="text-[10px] text-muted-foreground shrink-0">
+                        {view === 'mine' ? `${c.post_count} โพสต์` : c.post_count}
+                      </span>
+                    ) : null
+                  }
+                />
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 min-w-7 flex-shrink-0 shrink-0 rounded-lg p-0 text-muted-foreground opacity-60 hover:opacity-100 hover:bg-accent hover:text-foreground focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-rose-500 transition-opacity"
+                      aria-label={`ตัวเลือกสำหรับห้อง ${label(c)}`}
+                      title={`ตัวเลือกสำหรับห้อง ${label(c)}`}
+                    >
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="community-theme w-48 p-1">
+                    <DropdownMenuItem
+                      className="cursor-pointer gap-2 rounded-lg text-xs text-destructive focus:bg-destructive/10 focus:text-destructive"
+                      disabled={join.isPending}
+                      onClick={() => setPendingLeave(c)}
+                    >
+                      <LogOut className="h-3.5 w-3.5" />
+                      <span>ออกจาก{c.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'}</span>
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </div>
+            ))}
+          </div>
+        )}
+        {others.length > 0 && (
+          <div className="mt-2 space-y-0.5">
+            <p className="px-3 text-xs text-muted-foreground">ห้องอื่น ๆ (กด + เพื่อเข้าร่วม)</p>
+            {others.map((c) => (
+              <div key={c.id} className="flex items-center justify-between gap-2">
+                <NavButton
+                  active={(view === 'all' || view === 'mine') && courseId !== null && courseId === c.id}
+                  icon={icon}
+                  label={label(c)}
+                  onClick={() => open(c)}
+                  className="flex-1 min-w-0"
+                />
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 w-7 min-w-7 flex-shrink-0 shrink-0 rounded-lg p-0 text-muted-foreground hover:border-rose-300 hover:bg-rose-50 hover:text-rose-600 focus-visible:ring-2 focus-visible:ring-rose-500 dark:hover:border-rose-700 dark:hover:bg-rose-950/40 dark:hover:text-rose-300"
+                  disabled={join.isPending}
+                  onClick={() => join.mutate({ courseId: c.id, join: true })}
+                  aria-label={`เข้าร่วมห้อง ${label(c)}`}
+                  title={`เข้าร่วมห้อง ${label(c)}`}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            ))}
+          </div>
+        )}
+      </>
+    )
+  }
+
+  return (
+    <aside className="space-y-4">
+      <nav className="space-y-0.5 rounded-xl border bg-card p-3 shadow-sm">
+        <p className="mb-2 px-2 text-sm font-semibold text-foreground">พื้นที่การเรียนของฉัน</p>
+        <NavButton
+          active={view === 'all' && courseId === null}
+          icon={Newspaper}
+          label="ฟีดสาธารณะ"
+          onClick={() => onSelectView('all')}
+        />
+        <div className="hidden">
+          <NavButton
+            active={view === 'popular'}
+            icon={Flame}
+            label="ยอดนิยม"
+            onClick={() => onSelectView('popular')}
+          />
+        </div>
+        <NavButton
+          active={view === 'mine'}
+          icon={Users}
+          label="ชั้นเรียนของฉัน"
+          onClick={() => onSelectView('mine')}
+        />
+        <NavButton
+          active={view === 'library'}
+          icon={BookOpen}
+          label={isStaff ? 'คลังเอกสาร / เพิ่มเนื้อหา' : 'คลังเอกสาร & สไลด์เรียน'}
+          onClick={() => onSelectView('library')}
+        />
+        <NavButton
+          active={view === 'materials'}
+          icon={Library}
+          label="คลังสื่ออาจารย์"
+          onClick={() => onSelectView('materials')}
+        />
+        <NavButton
+          active={view === 'saved'}
+          icon={Bookmark}
+          label="สรุปที่บันทึกไว้"
+          onClick={() => onSelectView('saved')}
+        />
+        <NavButton
+          active={view === 'rules'}
+          icon={ShieldCheck}
+          label="กฎชุมชน"
+          onClick={() => onSelectView('rules')}
+        />
+      </nav>
+
+      {/* ------------------------------------------------ official course rooms */}
+      <div className="rounded-xl border bg-card p-3 shadow-sm">
+        <p className="mb-2 px-2 text-sm font-semibold text-foreground">
+          {view === 'mine' ? 'กิจกรรมในชั้นเรียนของฉัน' : 'ชั้นเรียนของฉัน'}
+        </p>
+        <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">ห้องวิชา</p>
+        {isLoading && (
+          <div className="space-y-1 px-3">
+            <Skeleton className="h-7 w-full" />
+            <Skeleton className="h-7 w-full" />
+          </div>
+        )}
+        <RoomList
+          rooms={view === 'mine' ? courseRooms.filter((course) => course.joined) : courseRooms}
+          icon={Hash}
+          showCode
+        />
+        {!isLoading &&
+          (view === 'mine' ? !courseRooms.some((course) => course.joined) : courseRooms.length === 0) && (
+          <p className="px-3 text-xs text-muted-foreground">
+            {isStaff ? 'ยังไม่มีห้องวิชา — สร้างห้องแรกได้เลย' : 'ยังไม่มีห้องวิชา'}
+          </p>
+          )}
+        {isStaff && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 h-11 w-full justify-start gap-2 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setCreateKind('course')}
+          >
+            <Plus className="h-3.5 w-3.5" /> สร้างห้องวิชาใหม่
+          </Button>
+        )}
+        {/* Student discussion rooms share the enrolled-rooms card. */}
+        <div className="mt-4 border-t border-border pt-3">
+          <p className="mb-1 px-2 text-xs font-medium text-muted-foreground">
+            ห้องพูดคุย
+          </p>
+          <RoomList rooms={clubRooms} icon={MessagesSquare} showCode={false} />
+          {!isLoading && clubRooms.length === 0 && (
+            <p className="px-3 text-xs text-muted-foreground">
+              ยังไม่มีห้องพูดคุย — เปิดห้องแรกได้เลย
+            </p>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="mt-2 h-11 w-full justify-start gap-2 text-xs focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => setCreateKind('club')}
+          >
+            <Plus className="h-3.5 w-3.5" /> เปิดห้องพูดคุยใหม่
+          </Button>
+        </div>
+      </div>
+
+      {selected && (selected.joined || canManageSelected) && (
+        <div className="space-y-1">
+          {selected.joined && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-11 w-full justify-start px-3 text-xs text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setPendingLeave(selected)}
+            >
+              ออกจาก{selected.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'}นี้
+            </Button>
+          )}
+          {canManageSelected && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-11 w-full justify-start gap-2 px-3 text-xs text-destructive hover:text-destructive focus-visible:ring-2 focus-visible:ring-ring"
+              onClick={() => setPendingDelete(selected)}
+            >
+              <Trash2 className="h-3.5 w-3.5" /> ปิดห้องนี้
+            </Button>
+          )}
+        </div>
+      )}
+
+      <CreateRoomDialog
+        kind={createKind}
+        onClose={() => setCreateKind(null)}
+        onCreated={(room) => {
+          onSelectCourse(room.id)
+        }}
+      />
+      <AlertDialog open={pendingLeave !== null} onOpenChange={(o) => !o && setPendingLeave(null)}>
+        <AlertDialogContent className="community-theme">
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              ออกจาก{pendingLeave?.kind === 'club' ? 'ห้องพูดคุย' : 'ห้องวิชา'} “{pendingLeave ? (pendingLeave.kind === 'club' ? pendingLeave.name : `${pendingLeave.code} ${pendingLeave.name}`) : ''}” ?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {pendingLeave?.code ? `วิชา ${pendingLeave.code} ${pendingLeave.name}` : pendingLeave?.name} จะถูกย้ายกลับไปอยู่ในหมวด "ห้องอื่น ๆ" คุณสามารถกลับมาเข้าร่วมได้ตลอดเวลา
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={join.isPending}
+              onClick={() => {
+                if (!pendingLeave) return
+                const courseToLeave = pendingLeave
+                setPendingLeave(null)
+                join.mutate(
+                  { courseId: courseToLeave.id, join: false },
+                  {
+                    onSuccess: () => {
+                      if (courseId === courseToLeave.id) {
+                        onSelectCourse(null)
+                      }
+                    },
+                  }
+                )
+              }}
+            >
+              ออกจากห้อง
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+        <AlertDialogContent className="community-theme">
+          <AlertDialogHeader>
+            <AlertDialogTitle>ปิดห้อง “{pendingDelete?.name}” ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              สมาชิกทุกคนจะออกจากห้องนี้ โพสต์ที่เคยอยู่ในห้องจะไม่ถูกลบ แต่จะย้ายไปอยู่ในฟีดรวมแทน
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>ยกเลิก</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (!pendingDelete) return
+                const id = pendingDelete.id
+                setPendingDelete(null)
+                remove.mutate(id, { onSuccess: () => onSelectCourse(null) })
+              }}
+            >
+              ปิดห้อง
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </aside>
+  )
+}
+
+/**
+ * One dialog for both room types. A discussion room only asks for a name –
+ * the server generates its handle – while a course room needs its real code.
+ */
+function CreateRoomDialog({
+  kind,
+  onClose,
+  onCreated,
+}: {
+  kind: RoomKind | null
+  onClose: () => void
+  onCreated: (room: Course) => void
+}) {
+  const create = useCreateCourse()
+  const [code, setCode] = useState('')
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const isClub = kind === 'club'
+
+  const reset = () => {
+    setCode('')
+    setName('')
+    setDescription('')
+  }
+
+  const disabled =
+    create.isPending || name.trim().length < 2 || (!isClub && code.trim().length < 2)
+
+  return (
+    <Dialog
+      open={kind !== null}
+      onOpenChange={(o) => {
+        if (!o) {
+          reset()
+          onClose()
+        }
+      }}
+    >
+      <DialogContent className="community-theme w-full max-w-lg sm:max-w-lg rounded-2xl p-6 shadow-xl border border-slate-200/90 dark:border-border">
+        <DialogHeader className="space-y-1.5 pb-1">
+          <DialogTitle className="text-lg font-bold tracking-tight">
+            {isClub ? 'เปิดห้องพูดคุยใหม่' : 'สร้างห้องวิชาใหม่'}
+          </DialogTitle>
+          <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
+            {isClub
+              ? 'ห้องพูดคุยเปิดได้ทุกคน เพื่อน ๆ จะเห็นในแถบซ้ายและเข้าร่วมได้ทันที (ไม่มีคลังความรู้ของห้อง)'
+              : 'นักศึกษาจะเห็นห้องนี้ในแถบด้านซ้ายและเข้าร่วมได้ทันที'}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-3.5 py-2">
+          {!isClub && (
+            <div className="space-y-1.5">
+              <Label htmlFor="room-code" className="text-xs font-semibold">รหัสวิชา</Label>
+              <Input
+                id="room-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                placeholder="เช่น CS401"
+                className="h-10 rounded-xl"
+              />
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label htmlFor="room-name" className="text-xs font-semibold">{isClub ? 'ชื่อห้อง' : 'ชื่อวิชา'}</Label>
+            <Input
+              id="room-name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder={isClub ? 'เช่น ติวเลข 1 ก่อนสอบ' : 'เช่น Software Engineering'}
+              className="h-10 rounded-xl"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="room-desc" className="text-xs font-semibold">คำอธิบาย (ไม่บังคับ)</Label>
+            <Input
+              id="room-desc"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="คำอธิบายสั้น ๆ เกี่ยวกับห้องนี้"
+              className="h-10 rounded-xl"
+            />
+          </div>
+        </div>
+        <DialogFooter className="pt-2 sm:justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="rounded-xl"
+            onClick={() => {
+              reset()
+              onClose()
+            }}
+          >
+            ยกเลิก
+          </Button>
+          <Button
+            disabled={disabled}
+            className="rounded-xl bg-pink-600 text-white hover:bg-pink-700"
+            onClick={() =>
+              create.mutate(
+                {
+                  kind: isClub ? 'club' : 'course',
+                  name: name.trim(),
+                  code: isClub ? undefined : code.trim(),
+                  description: description.trim() || undefined,
+                },
+                {
+                  onSuccess: (room) => {
+                    reset()
+                    onClose()
+                    onCreated(room)
+                  },
+                }
+              )
+            }
+          >
+            {isClub ? 'เปิดห้อง' : 'สร้างห้องวิชา'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+export function CourseBadge({ code, name }: { code?: string | null; name?: string | null }) {
+  if (!code && !name) return null
+  return (
+    <Badge variant="outline" className="gap-1 font-normal">
+      <Hash className="h-3 w-3" />
+      {code} {name}
+    </Badge>
+  )
+}

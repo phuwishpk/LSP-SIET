@@ -85,6 +85,10 @@ The [ai-prompter](https://github.com/lfnovo/ai-prompter) library (>= 0.4.0) uses
 - If using Jinja2 directly (outside ai-prompter), always use `jinja2.sandbox.SandboxedEnvironment`
 - Never pass user-provided strings to `jinja2.Environment` or `jinja2.Template` directly
 
+### Third-party libraries with the same shape
+
+The `podcast_creator` library's `configure("templates", {...})` compiles the given string directly as Jinja2 template source (`Prompter(template_text=...)` in its `config.py`) - the identical pattern to the vulnerability above. `commands/podcast_commands.py` never calls it (confirmed: podcast generation always uses the file-based `prompts/podcast/*.jinja` templates in this repo), so this is currently dormant, not exploitable. If a "custom podcast template" feature is ever added, route user/profile text through a fixed, developer-authored template with the text passed in as a plain variable - do not wire it into `configure("templates", ...)`.
+
 ---
 
 ## File Handling (Path Traversal and Local File Inclusion)
@@ -140,13 +144,13 @@ Never pass user-provided file paths directly to file reading or content extracti
 
 Open Notebook currently uses simple password-based middleware (`PasswordAuthMiddleware`). This is suitable for single-user self-hosted deployments but should be hardened for production:
 
-- Change the default password (`OPEN_NOTEBOOK_PASSWORD`)
+- Set `OPEN_NOTEBOOK_PASSWORD` explicitly - there is no hardcoded default password; if it's unset, auth is fully disabled (all requests pass through unchecked)
 - Change the default encryption key (`OPEN_NOTEBOOK_ENCRYPTION_KEY`)
 - Consider deploying behind a reverse proxy with proper authentication (OAuth, OIDC)
 
 ### CORS
 
-The default CORS configuration allows all origins (`allow_origins=["*"]`). This is tracked for improvement in [#730](https://github.com/lfnovo/open-notebook/issues/730). For production deployments, restrict origins to only the frontend URL.
+The default CORS configuration allows all origins (`allow_origins=["*"]`). `allow_credentials` is tied to that: `False` for the default wildcard (avoids Starlette reflecting any Origin alongside credentials), automatically `True` once `CORS_ORIGINS` is explicitly scoped to specific origins. For production deployments, still restrict `CORS_ORIGINS` to only the frontend URL.
 
 ---
 
@@ -156,9 +160,10 @@ The default CORS configuration allows all origins (`allow_origins=["*"]`). This 
 
 `OPEN_NOTEBOOK_ENCRYPTION_KEY` is used to encrypt API keys stored in SurrealDB. In production:
 
-- Set a strong, unique key (do not use the default)
+- Set a strong, unique, high-entropy key (do not use the default, a short word, or a reused password). The key is stretched with PBKDF2-HMAC-SHA256 (600k iterations), which slows brute force but cannot save a guessable passphrase — entropy is the actual security.
 - Use Docker secrets via `OPEN_NOTEBOOK_ENCRYPTION_KEY_FILE` when possible
 - Never log or expose this value
+- After upgrading, run the one-shot `POST /api/credentials/migrate-encryption` pass to rewrite pre-existing keys into the versioned format. Back up the database first: the new format is forward-breaking — versions predating the migration cannot read it (see CHANGELOG).
 
 ### Environment variables
 

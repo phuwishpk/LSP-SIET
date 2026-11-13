@@ -67,7 +67,7 @@ templates playground.
 1. Copy to your project folder as `docker-compose.yml`
 2. Run: `docker compose up -d`
 3. Pull a model: `docker exec open_notebook-ollama-1 ollama pull mistral`
-4. Configure in UI: Settings → API Keys → Add Ollama (URL: `http://ollama:11434`)
+4. Configure in UI: Manage → Models → Add Ollama (URL: `http://ollama:11434`)
 
 **Recommended models:**
 - **LLM**: `mistral`, `llama3.1`, `qwen2.5`
@@ -144,11 +144,10 @@ volumes:
 ### Add Reverse Proxy
 See [Reverse Proxy Guide](../docs/5-CONFIGURATION/reverse-proxy.md)
 
-### Add Basic Auth
+### Add Password Protection
 Add to `open_notebook` service environment:
 ```yaml
-- BASIC_AUTH_USERNAME=admin
-- BASIC_AUTH_PASSWORD=your-secure-password
+- OPEN_NOTEBOOK_PASSWORD=your-secure-password
 ```
 
 ---

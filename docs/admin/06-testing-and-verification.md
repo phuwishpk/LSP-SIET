@@ -40,8 +40,8 @@ C=kmitl_open_notebook_api; S=/tmp/stage_admin
 docker exec $C mkdir -p $S
 docker exec $C cp -r /app/api /app/open_notebook /app/tests $S/
 # ทับด้วยไฟล์ที่แก้
-for f in api/routers/admin.py open_notebook/community/repository.py open_notebook/community/library.py \
-         open_notebook/domain/features.py tests/test_admin_consoles.py; do
+for f in community/siet_community/routers/admin.py community/siet_community/repository.py siet-platform/siet_platform/library.py \
+         siet-platform/siet_platform/features/domain.py tests/test_admin_consoles.py; do
   docker cp -q open-notebook/$f $C:$S/$f
 done
 # pytest ไม่อยู่ใน image (--no-dev) ติดตั้งลง /tmp/pt ครั้งเดียว
@@ -109,7 +109,7 @@ await page.getByRole('tab', { name: 'เอกสารที่ AI อ่าน
 สิ่งที่ควรจับทุกครั้ง: `page.on('console')` error, `page.on('response')` ที่ `/api/` และ status ≥ 400,
 sidebar entry ที่มี class `bg-sidebar-accent` (ต้องมีอันเดียว = หน้าปัจจุบัน), ขนาด dialog
 (`sm:max-w-lg` — ถ้ากว้างเกือบเต็มจอแปลว่ามีข้อความไม่ตัดบรรทัดดันอยู่), และ `document.body.classList`
-ไม่มี `theme-siet` หลังออกจาก `/admin`
+ยังมี `community-theme` หลังย้ายไปหน้าอื่นใน dashboard (เช่น `/teacher` → `/notebooks`)
 
 แถวข้อมูลมี `data-post-id`, `data-comment-id`, `data-document-id`, `data-quiz-id`, `data-roadmap-id`
 ให้ selector จับได้โดยไม่พึ่งข้อความ; ปุ่มยืนยันใน `AlertDialog` ชื่อ "ลบถาวร" — ใน automation ให้กด "ยกเลิก"

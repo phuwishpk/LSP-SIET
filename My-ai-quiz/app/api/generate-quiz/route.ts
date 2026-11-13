@@ -1,133 +1,97 @@
-import { google } from '@ai-sdk/google';
-import { generateObject } from 'ai';
-import { z } from 'zod';
+/**
+ * POST /quiz/api/generate-quiz - make a quiz with SIET Space's AI Quiz.
+ *
+ * Forwards to `POST /api/community/study/quiz` with the caller's token, so the
+ * quiz is written by the system's model (Gemini) from the chosen knowledge
+ * (RAG), costs the system's points, and is saved to the user's quiz sessions.
+ * The answer is turned into the shape the player in this app reads.
+ */
 
-export const maxDuration = 30;
+import { toAppQuestion, type SystemQuestion } from '../../lib/quizFormat';
 
-// Used only when the request does not carry a KMITL workspace token (i.e. the
-// app was opened directly instead of through SIET Space). Override with
-// QUIZ_FALLBACK_MODEL if the Gemini model line changes.
-const MODEL_ID = (process.env.QUIZ_FALLBACK_MODEL || 'gemini-2.5-flash').trim();
+export const maxDuration = 60;
 
-const quizSchema = z.object({
-  quiz: z.array(
-    z.object({
-      id: z.number().describe('Question number starting from 1'),
-      question: z.string().describe('The quiz question in Thai'),
-      options: z.array(z.string()).length(4).describe('Four answer options in Thai'),
-      correctAnswer: z.string().describe('The correct answer and it must match one option exactly'),
-      explanation: z.string().describe('A clear explanation in Thai'),
-    })
-  ),
-});
+type Difficulty = 'easy' | 'medium' | 'hard';
+type QuestionType = 'mcq' | 'fill' | 'matching' | 'mixed';
 
-function createFallbackQuiz(topic: string, count: number) {
-  const safeCount = Math.max(1, Math.min(count, 5));
-
-  return Array.from({ length: safeCount }, (_, index) => ({
-    id: index + 1,
-    question: `คำถามตัวอย่างที่ ${index + 1}: สิ่งสำคัญที่สุดของ ${topic} คืออะไร?`,
-    options: [
-      `แนวคิดพื้นฐานของ ${topic}`,
-      `รายละเอียดที่ไม่เกี่ยวข้อง`,
-      `คำตอบที่ไม่ถูกต้อง`,
-      `ตัวเลือกสุ่มเพื่อให้ครบ 4 ตัว`,
-    ],
-    correctAnswer: `แนวคิดพื้นฐานของ ${topic}`,
-    explanation: `นี่คือตัวอย่างคำอธิบายสำหรับหัวข้อ ${topic} เนื่องจากระบบ AI ยังไม่ถูกตั้งค่าให้ใช้งานในเครื่องนี้`,
-  }));
+interface GenerateQuizRequest {
+  topic?: string;
+  difficulty?: Difficulty;
+  count?: number;
+  questionType?: QuestionType;
+  // knowledge scope, as in POST /community/study/quiz
+  scope?: string;
+  course_id?: number;
+  document_ids?: number[];
+  notebook_ids?: string[];
+  source_ids?: string[];
 }
 
+const PASS_HEADERS = ['x-points-required', 'x-points-balance', 'x-points-kind', 'retry-after'];
+
 export async function POST(req: Request) {
-  try {
-    const body = await req.json();
-    const topic = typeof body?.topic === 'string' ? body.topic.trim() : '';
-    const count = Number(body?.count ?? 3);
-
-    if (!topic) {
-      return Response.json({ error: 'Please enter a quiz topic' }, { status: 400 });
-    }
-
-    if (!Number.isInteger(count) || count < 1 || count > 10) {
-      return Response.json({ error: 'Question count must be between 1 and 10' }, { status: 400 });
-    }
-
-    const workspaceApiUrl = process.env.OPEN_NOTEBOOK_API_URL;
-    const authorization = req.headers.get('authorization');
-    if (workspaceApiUrl && authorization) {
-      const workspaceResponse = await fetch(
-        `${workspaceApiUrl.replace(/\/$/, '')}/api/features/quiz/generate`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: authorization,
-          },
-          body: JSON.stringify({
-            topic,
-            question_count: count,
-            language: 'th',
-          }),
-        }
-      );
-      const workspaceData = await workspaceResponse.json();
-      if (!workspaceResponse.ok) {
-        return Response.json(
-          { error: workspaceData?.detail || 'Open Notebook RAG request failed' },
-          { status: workspaceResponse.status }
-        );
-      }
-      const quiz = (workspaceData?.session?.questions ?? []).map((question: {
-        id: number;
-        question: string;
-        options: { text: string }[];
-        correct_answer: string;
-        explanation: string;
-      }) => ({
-        id: question.id,
-        question: question.question,
-        options: question.options.map((option) => option.text),
-        correctAnswer: question.correct_answer,
-        explanation: question.explanation,
-      }));
-      return Response.json({
-        quiz,
-        // Open Notebook session id – lets the UI share this quiz to SIET Space.
-        session_id: workspaceData?.session?.id ?? null,
-        cached: Boolean(workspaceData?.cached),
-      });
-    }
-
-    const apiKey = process.env.GOOGLE_GENERATIVE_AI_API_KEY || process.env.GEMINI_API_KEY;
-
-    if (!apiKey) {
-      return Response.json(
-        {
-          error:
-            'ยังไม่ได้ตั้งค่า AI สำหรับโหมดเดี่ยว กรุณาเข้าใช้งานผ่าน SIET Space เพื่อให้ระบบใช้โมเดลของเวิร์กสเปซ ' +
-            '(หรือผู้ดูแลตั้งค่า GOOGLE_GENERATIVE_AI_API_KEY ให้แอปนี้)',
-        },
-        { status: 503 }
-      );
-    }
-
-    try {
-      const result = await generateObject({
-        model: google(MODEL_ID),
-        schema: quizSchema,
-        prompt: `Create a multiple-choice quiz about "${topic}" with ${count} questions in Thai. Each question must have 4 options, one correct answer, and a clear explanation. Make sure the correct answer matches one of the provided options exactly.`,
-      });
-
-      return Response.json(result.object);
-    } catch (error) {
-      console.error(error);
-      return Response.json(
-        { error: 'AI service is currently unavailable. Please try again later or check your Gemini quota/API key.' },
-        { status: 502 }
-      );
-    }
-  } catch (error) {
-    console.error(error);
-    return Response.json({ error: 'Failed to generate the quiz. Please try again.' }, { status: 500 });
+  const base = process.env.OPEN_NOTEBOOK_API_URL;
+  if (!base) {
+    return Response.json({ detail: 'OPEN_NOTEBOOK_API_URL is not set for the quiz app' }, { status: 500 });
   }
+  const authorization = req.headers.get('authorization');
+  if (!authorization) {
+    return Response.json({ detail: 'กรุณาเปิดแอปนี้จาก SIET Space เพื่อเข้าสู่ระบบก่อน' }, { status: 401 });
+  }
+
+  const body: GenerateQuizRequest = await req.json().catch(() => ({}));
+  const topic = (body.topic || '').trim();
+  if (!topic) {
+    return Response.json({ detail: 'กรุณาบอกหัวข้อที่อยากทำแบบทดสอบ' }, { status: 400 });
+  }
+  const payload = {
+    topic: topic.slice(0, 500),
+    question_count: Math.max(1, Math.min(Number(body.count) || 5, 20)),
+    language: 'th',
+    difficulty: body.difficulty || 'medium',
+    question_type: body.questionType || 'mixed',
+    scope: body.scope || 'auto',
+    course_id: body.course_id ?? null,
+    document_ids: body.document_ids || [],
+    notebook_ids: body.notebook_ids || [],
+    source_ids: body.source_ids || [],
+  };
+
+  let upstream: Response;
+  try {
+    upstream = await fetch(`${base.replace(/\/$/, '')}/api/community/study/quiz`, {
+      method: 'POST',
+      headers: { Authorization: authorization, 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+      cache: 'no-store',
+    });
+  } catch (error) {
+    return Response.json(
+      { detail: `เชื่อมต่อ SIET Space ไม่ได้: ${error instanceof Error ? error.message : String(error)}` },
+      { status: 502 }
+    );
+  }
+  const data = await upstream.json().catch(() => null);
+  if (!upstream.ok) {
+    const headers = new Headers();
+    for (const name of PASS_HEADERS) {
+      const value = upstream.headers.get(name);
+      if (value) headers.set(name, value);
+    }
+    return Response.json(data ?? { detail: 'สร้างแบบทดสอบไม่สำเร็จ' }, { status: upstream.status, headers });
+  }
+
+  const questions: SystemQuestion[] = Array.isArray(data?.questions) ? data.questions : [];
+  return Response.json({
+    session_id: data?.session_id ?? null,
+    topic: data?.topic ?? topic,
+    difficulty: data?.difficulty ?? payload.difficulty,
+    question_type: data?.question_type ?? payload.question_type,
+    scope_label: data?.scope_label ?? '',
+    grounded: Boolean(data?.grounded),
+    cached: Boolean(data?.cached),
+    charged: data?.charged ?? 0,
+    balance: data?.balance ?? null,
+    questions: questions.map(toAppQuestion),
+  });
 }

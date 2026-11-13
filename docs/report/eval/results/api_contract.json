@@ -1,0 +1,2580 @@
+{
+ "summary": {
+  "openapi_operations": 237,
+  "client_call_sites": 257,
+  "client_unique_calls": 232,
+  "routes_used_by_frontend": 217,
+  "routes_without_caller": 20,
+  "broken_unique_calls": 15,
+  "per_app": {
+   "main app": {
+    "call_sites": 243,
+    "unique": 228,
+    "broken_sites": 15
+   },
+   "roadmap app": {
+    "call_sites": 12,
+    "unique": 11,
+    "broken_sites": 0
+   },
+   "quiz app": {
+    "call_sites": 2,
+    "unique": 2,
+    "broken_sites": 0
+   }
+  }
+ },
+ "per_module": {
+  "/api/admin": {
+   "routes": 41,
+   "used": 41
+  },
+  "/api/auth": {
+   "routes": 4,
+   "used": 3
+  },
+  "/api/capabilities": {
+   "routes": 1,
+   "used": 1
+  },
+  "/api/chat": {
+   "routes": 16,
+   "used": 16
+  },
+  "/api/commands": {
+   "routes": 5,
+   "used": 1
+  },
+  "/api/community": {
+   "routes": 66,
+   "used": 66
+  },
+  "/api/config": {
+   "routes": 11,
+   "used": 1
+  },
+  "/api/credentials": {
+   "routes": 14,
+   "used": 13
+  },
+  "/api/embed": {
+   "routes": 1,
+   "used": 1
+  },
+  "/api/embeddings": {
+   "routes": 2,
+   "used": 2
+  },
+  "/api/features": {
+   "routes": 8,
+   "used": 8
+  },
+  "/api/insights": {
+   "routes": 3,
+   "used": 2
+  },
+  "/api/languages": {
+   "routes": 1,
+   "used": 1
+  },
+  "/api/models": {
+   "routes": 13,
+   "used": 13
+  },
+  "/api/notebooks": {
+   "routes": 8,
+   "used": 8
+  },
+  "/api/notes": {
+   "routes": 5,
+   "used": 5
+  },
+  "/api/providers": {
+   "routes": 1,
+   "used": 1
+  },
+  "/api/recently-viewed": {
+   "routes": 1,
+   "used": 1
+  },
+  "/api/search": {
+   "routes": 4,
+   "used": 2
+  },
+  "/api/settings": {
+   "routes": 2,
+   "used": 2
+  },
+  "/api/sources": {
+   "routes": 17,
+   "used": 16
+  },
+  "/api/transformations": {
+   "routes": 8,
+   "used": 8
+  },
+  "/api/users": {
+   "routes": 5,
+   "used": 5
+  }
+ },
+ "broken": [
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 35,
+   "method": "GET",
+   "path": "/api/podcasts/episodes",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 40,
+   "method": "DELETE",
+   "path": "/api/podcasts/episodes/{p}",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 44,
+   "method": "POST",
+   "path": "/api/podcasts/episodes/{p}/retry",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 51,
+   "method": "GET",
+   "path": "/api/episode-profiles",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 56,
+   "method": "POST",
+   "path": "/api/episode-profiles",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 64,
+   "method": "PUT",
+   "path": "/api/episode-profiles/{p}",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 72,
+   "method": "DELETE",
+   "path": "/api/episode-profiles/{p}",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 76,
+   "method": "POST",
+   "path": "/api/episode-profiles/{p}/duplicate",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 83,
+   "method": "GET",
+   "path": "/api/speaker-profiles",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 88,
+   "method": "POST",
+   "path": "/api/speaker-profiles",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 96,
+   "method": "PUT",
+   "path": "/api/speaker-profiles/{p}",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 104,
+   "method": "DELETE",
+   "path": "/api/speaker-profiles/{p}",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 108,
+   "method": "POST",
+   "path": "/api/speaker-profiles/{p}/duplicate",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 115,
+   "method": "POST",
+   "path": "/api/podcasts/generate",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 22,
+   "method": "GET",
+   "path": "/api/models/{p}",
+   "problem": "method mismatch"
+  }
+ ],
+ "unused_routes": [
+  "DELETE /api/commands/jobs/{job_id}",
+  "GET /api/auth/legacy-status",
+  "GET /api/commands/jobs",
+  "GET /api/commands/registry/debug",
+  "GET /api/config/answer-cache/analytics",
+  "GET /api/config/answer-cache/circuit-breaker/status",
+  "GET /api/config/answer-cache/thresholds/history",
+  "GET /api/config/redis",
+  "POST /api/commands/jobs",
+  "POST /api/config/answer-cache/circuit-breaker/close",
+  "POST /api/config/answer-cache/circuit-breaker/open",
+  "POST /api/config/answer-cache/report-quality-failure",
+  "POST /api/config/answer-cache/thresholds/history/clear",
+  "POST /api/config/answer-cache/thresholds/reset",
+  "POST /api/config/redis/reset-metrics",
+  "POST /api/credentials/migrate-encryption",
+  "POST /api/insights/{insight_id}/save-as-note",
+  "POST /api/search/ask/notebooks",
+  "POST /api/search/ask/simple",
+  "POST /api/sources/json"
+ ],
+ "calls": [
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/app/api/search/ask/route.ts",
+   "line": 8,
+   "method": "POST",
+   "path": "/api/search/ask",
+   "via": "fetch",
+   "route": "/api/search/ask"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/app/api/sources/[sourceId]/chat/sessions/[sessionId]/messages/route.ts",
+   "line": 14,
+   "method": "POST",
+   "path": "/api/sources/{p}/chat/sessions/{p}/messages",
+   "via": "fetch",
+   "route": "/api/sources/{source_id}/chat/sessions/{session_id}/messages"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/components/common/ConnectionGuard.tsx",
+   "line": 59,
+   "method": "GET",
+   "path": "/api/config",
+   "via": "fetch",
+   "route": "/api/config"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/config.ts",
+   "line": 114,
+   "method": "GET",
+   "path": "/api/config",
+   "via": "fetch",
+   "route": "/api/config"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/config.ts",
+   "line": 119,
+   "method": "GET",
+   "path": "/api/config",
+   "via": "fetch",
+   "route": "/api/config"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/source-chat.ts",
+   "line": 16,
+   "method": "POST",
+   "path": "/api/sources/{p}/chat/sessions",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/chat/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/source-chat.ts",
+   "line": 24,
+   "method": "GET",
+   "path": "/api/sources/{p}/chat/sessions",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/chat/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/source-chat.ts",
+   "line": 31,
+   "method": "GET",
+   "path": "/api/sources/{p}/chat/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/chat/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/source-chat.ts",
+   "line": 38,
+   "method": "PUT",
+   "path": "/api/sources/{p}/chat/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/chat/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/source-chat.ts",
+   "line": 46,
+   "method": "DELETE",
+   "path": "/api/sources/{p}/chat/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/chat/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/source-chat.ts",
+   "line": 56,
+   "method": "POST",
+   "path": "/api/sources/{p}/chat/sessions/{p}/messages",
+   "via": "fetch",
+   "route": "/api/sources/{source_id}/chat/sessions/{session_id}/messages"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/insights.ts",
+   "line": 34,
+   "method": "GET",
+   "path": "/api/sources/{p}/insights",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/insights"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/insights.ts",
+   "line": 39,
+   "method": "GET",
+   "path": "/api/insights/{p}",
+   "via": "apiClient",
+   "route": "/api/insights/{insight_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/insights.ts",
+   "line": 44,
+   "method": "POST",
+   "path": "/api/sources/{p}/insights",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/insights"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/insights.ts",
+   "line": 52,
+   "method": "DELETE",
+   "path": "/api/insights/{p}",
+   "via": "apiClient",
+   "route": "/api/insights/{insight_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/insights.ts",
+   "line": 56,
+   "method": "GET",
+   "path": "/api/commands/jobs/{p}",
+   "via": "apiClient",
+   "route": "/api/commands/jobs/{job_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 13,
+   "method": "GET",
+   "path": "/api/notebooks",
+   "via": "apiClient",
+   "route": "/api/notebooks"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 18,
+   "method": "GET",
+   "path": "/api/recently-viewed",
+   "via": "apiClient",
+   "route": "/api/recently-viewed"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 25,
+   "method": "GET",
+   "path": "/api/notebooks/{p}",
+   "via": "apiClient",
+   "route": "/api/notebooks/{notebook_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 30,
+   "method": "POST",
+   "path": "/api/notebooks",
+   "via": "apiClient",
+   "route": "/api/notebooks"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 35,
+   "method": "PUT",
+   "path": "/api/notebooks/{p}",
+   "via": "apiClient",
+   "route": "/api/notebooks/{notebook_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 40,
+   "method": "GET",
+   "path": "/api/notebooks/{p}/delete-preview",
+   "via": "apiClient",
+   "route": "/api/notebooks/{notebook_id}/delete-preview"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 47,
+   "method": "DELETE",
+   "path": "/api/notebooks/{p}",
+   "via": "apiClient",
+   "route": "/api/notebooks/{notebook_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 54,
+   "method": "POST",
+   "path": "/api/notebooks/{p}/sources/{p}",
+   "via": "apiClient",
+   "route": "/api/notebooks/{notebook_id}/sources/{source_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notebooks.ts",
+   "line": 59,
+   "method": "DELETE",
+   "path": "/api/notebooks/{p}/sources/{p}",
+   "via": "apiClient",
+   "route": "/api/notebooks/{notebook_id}/sources/{source_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/search.ts",
+   "line": 8,
+   "method": "POST",
+   "path": "/api/search",
+   "via": "apiClient",
+   "route": "/api/search"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/search.ts",
+   "line": 19,
+   "method": "POST",
+   "path": "/api/search/ask",
+   "via": "fetch",
+   "route": "/api/search/ask"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/settings.ts",
+   "line": 6,
+   "method": "GET",
+   "path": "/api/settings",
+   "via": "apiClient",
+   "route": "/api/settings"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/settings.ts",
+   "line": 11,
+   "method": "PUT",
+   "path": "/api/settings",
+   "via": "apiClient",
+   "route": "/api/settings"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/capabilities.ts",
+   "line": 10,
+   "method": "GET",
+   "path": "/api/capabilities",
+   "via": "apiClient",
+   "route": "/api/capabilities"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 23,
+   "method": "GET",
+   "path": "/api/sources",
+   "via": "apiClient",
+   "route": "/api/sources"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 28,
+   "method": "GET",
+   "path": "/api/sources/{p}",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 67,
+   "method": "POST",
+   "path": "/api/sources",
+   "via": "apiClient",
+   "route": "/api/sources"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 72,
+   "method": "PUT",
+   "path": "/api/sources/{p}",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 77,
+   "method": "DELETE",
+   "path": "/api/sources/{p}",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 81,
+   "method": "GET",
+   "path": "/api/sources/{p}/status",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/status"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 92,
+   "method": "POST",
+   "path": "/api/sources",
+   "via": "apiClient",
+   "route": "/api/sources"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 101,
+   "method": "POST",
+   "path": "/api/sources/{p}/retry",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/retry"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/sources.ts",
+   "line": 106,
+   "method": "GET",
+   "path": "/api/sources/{p}/download",
+   "via": "apiClient",
+   "route": "/api/sources/{source_id}/download"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 16,
+   "method": "GET",
+   "path": "/api/chat/sessions",
+   "via": "apiClient",
+   "route": "/api/chat/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 24,
+   "method": "POST",
+   "path": "/api/chat/sessions",
+   "via": "apiClient",
+   "route": "/api/chat/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 32,
+   "method": "GET",
+   "path": "/api/chat/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/chat/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 39,
+   "method": "PUT",
+   "path": "/api/chat/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/chat/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 47,
+   "method": "DELETE",
+   "path": "/api/chat/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/chat/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 52,
+   "method": "POST",
+   "path": "/api/chat/execute",
+   "via": "apiClient",
+   "route": "/api/chat/execute"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/chat.ts",
+   "line": 63,
+   "method": "POST",
+   "path": "/api/chat/context",
+   "via": "apiClient",
+   "route": "/api/chat/context"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/providers.ts",
+   "line": 18,
+   "method": "GET",
+   "path": "/api/providers",
+   "via": "apiClient",
+   "route": "/api/providers"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notes.ts",
+   "line": 6,
+   "method": "GET",
+   "path": "/api/notes",
+   "via": "apiClient",
+   "route": "/api/notes"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notes.ts",
+   "line": 11,
+   "method": "GET",
+   "path": "/api/notes/{p}",
+   "via": "apiClient",
+   "route": "/api/notes/{note_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notes.ts",
+   "line": 16,
+   "method": "POST",
+   "path": "/api/notes",
+   "via": "apiClient",
+   "route": "/api/notes"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notes.ts",
+   "line": 21,
+   "method": "PUT",
+   "path": "/api/notes/{p}",
+   "via": "apiClient",
+   "route": "/api/notes/{note_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/notes.ts",
+   "line": 26,
+   "method": "DELETE",
+   "path": "/api/notes/{p}",
+   "via": "apiClient",
+   "route": "/api/notes/{note_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 35,
+   "method": "GET",
+   "path": "/api/podcasts/episodes",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 40,
+   "method": "DELETE",
+   "path": "/api/podcasts/episodes/{p}",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 44,
+   "method": "POST",
+   "path": "/api/podcasts/episodes/{p}/retry",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 51,
+   "method": "GET",
+   "path": "/api/episode-profiles",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 56,
+   "method": "POST",
+   "path": "/api/episode-profiles",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 64,
+   "method": "PUT",
+   "path": "/api/episode-profiles/{p}",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 72,
+   "method": "DELETE",
+   "path": "/api/episode-profiles/{p}",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 76,
+   "method": "POST",
+   "path": "/api/episode-profiles/{p}/duplicate",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 83,
+   "method": "GET",
+   "path": "/api/speaker-profiles",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 88,
+   "method": "POST",
+   "path": "/api/speaker-profiles",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 96,
+   "method": "PUT",
+   "path": "/api/speaker-profiles/{p}",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 104,
+   "method": "DELETE",
+   "path": "/api/speaker-profiles/{p}",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 108,
+   "method": "POST",
+   "path": "/api/speaker-profiles/{p}/duplicate",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 115,
+   "method": "POST",
+   "path": "/api/podcasts/generate",
+   "via": "apiClient",
+   "problem": "no such route"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/podcasts.ts",
+   "line": 123,
+   "method": "GET",
+   "path": "/api/languages",
+   "via": "apiClient",
+   "route": "/api/languages"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 13,
+   "method": "GET",
+   "path": "/api/transformations",
+   "via": "apiClient",
+   "route": "/api/transformations"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 18,
+   "method": "GET",
+   "path": "/api/transformations/{p}",
+   "via": "apiClient",
+   "route": "/api/transformations/{transformation_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 23,
+   "method": "POST",
+   "path": "/api/transformations",
+   "via": "apiClient",
+   "route": "/api/transformations"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 28,
+   "method": "PUT",
+   "path": "/api/transformations/{p}",
+   "via": "apiClient",
+   "route": "/api/transformations/{transformation_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 33,
+   "method": "DELETE",
+   "path": "/api/transformations/{p}",
+   "via": "apiClient",
+   "route": "/api/transformations/{transformation_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 37,
+   "method": "POST",
+   "path": "/api/transformations/execute",
+   "via": "apiClient",
+   "route": "/api/transformations/execute"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 42,
+   "method": "GET",
+   "path": "/api/transformations/default-prompt",
+   "via": "apiClient",
+   "route": "/api/transformations/default-prompt"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/transformations.ts",
+   "line": 47,
+   "method": "PUT",
+   "path": "/api/transformations/default-prompt",
+   "via": "apiClient",
+   "route": "/api/transformations/default-prompt"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 124,
+   "method": "GET",
+   "path": "/api/credentials/status",
+   "via": "apiClient",
+   "route": "/api/credentials/status"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 132,
+   "method": "GET",
+   "path": "/api/credentials/env-status",
+   "via": "apiClient",
+   "route": "/api/credentials/env-status"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 141,
+   "method": "GET",
+   "path": "/api/credentials",
+   "via": "apiClient",
+   "route": "/api/credentials"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 149,
+   "method": "GET",
+   "path": "/api/credentials/by-provider/{p}",
+   "via": "apiClient",
+   "route": "/api/credentials/by-provider/{provider}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 157,
+   "method": "GET",
+   "path": "/api/credentials/{p}",
+   "via": "apiClient",
+   "route": "/api/credentials/{credential_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 165,
+   "method": "POST",
+   "path": "/api/credentials",
+   "via": "apiClient",
+   "route": "/api/credentials"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 173,
+   "method": "PUT",
+   "path": "/api/credentials/{p}",
+   "via": "apiClient",
+   "route": "/api/credentials/{credential_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 187,
+   "method": "DELETE",
+   "path": "/api/credentials/{p}",
+   "via": "apiClient",
+   "route": "/api/credentials/{credential_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 198,
+   "method": "POST",
+   "path": "/api/credentials/{p}/test",
+   "via": "apiClient",
+   "route": "/api/credentials/{credential_id}/test"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 208,
+   "method": "POST",
+   "path": "/api/credentials/{p}/discover",
+   "via": "apiClient",
+   "route": "/api/credentials/{credential_id}/discover"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 221,
+   "method": "POST",
+   "path": "/api/credentials/{p}/register-models",
+   "via": "apiClient",
+   "route": "/api/credentials/{credential_id}/register-models"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 232,
+   "method": "POST",
+   "path": "/api/credentials/migrate-from-provider-config",
+   "via": "apiClient",
+   "route": "/api/credentials/migrate-from-provider-config"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/credentials.ts",
+   "line": 242,
+   "method": "POST",
+   "path": "/api/credentials/migrate-from-env",
+   "via": "apiClient",
+   "route": "/api/credentials/migrate-from-env"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/embedding.ts",
+   "line": 62,
+   "method": "POST",
+   "path": "/api/embed",
+   "via": "apiClient",
+   "route": "/api/embed"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/embedding.ts",
+   "line": 71,
+   "method": "POST",
+   "path": "/api/embeddings/rebuild",
+   "via": "apiClient",
+   "route": "/api/embeddings/rebuild"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/embedding.ts",
+   "line": 76,
+   "method": "GET",
+   "path": "/api/embeddings/rebuild/{p}/status",
+   "via": "apiClient",
+   "route": "/api/embeddings/rebuild/{command_id}/status"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 17,
+   "method": "GET",
+   "path": "/api/models",
+   "via": "apiClient",
+   "route": "/api/models"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 22,
+   "method": "GET",
+   "path": "/api/models/{p}",
+   "via": "apiClient",
+   "problem": "method mismatch"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 27,
+   "method": "POST",
+   "path": "/api/models",
+   "via": "apiClient",
+   "route": "/api/models"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 32,
+   "method": "DELETE",
+   "path": "/api/models/{p}",
+   "via": "apiClient",
+   "route": "/api/models/{model_id}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 36,
+   "method": "GET",
+   "path": "/api/models/defaults",
+   "via": "apiClient",
+   "route": "/api/models/defaults"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 41,
+   "method": "PUT",
+   "path": "/api/models/defaults",
+   "via": "apiClient",
+   "route": "/api/models/defaults"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 46,
+   "method": "GET",
+   "path": "/api/models/providers",
+   "via": "apiClient",
+   "route": "/api/models/providers"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 55,
+   "method": "GET",
+   "path": "/api/models/discover/{p}",
+   "via": "apiClient",
+   "route": "/api/models/discover/{provider}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 63,
+   "method": "POST",
+   "path": "/api/models/sync/{p}",
+   "via": "apiClient",
+   "route": "/api/models/sync/{provider}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 71,
+   "method": "POST",
+   "path": "/api/models/sync",
+   "via": "apiClient",
+   "route": "/api/models/sync"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 79,
+   "method": "GET",
+   "path": "/api/models/count/{p}",
+   "via": "apiClient",
+   "route": "/api/models/count/{provider}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 87,
+   "method": "GET",
+   "path": "/api/models/by-provider/{p}",
+   "via": "apiClient",
+   "route": "/api/models/by-provider/{provider}"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 95,
+   "method": "POST",
+   "path": "/api/models/auto-assign",
+   "via": "apiClient",
+   "route": "/api/models/auto-assign"
+  },
+  {
+   "app": "main app",
+   "file": "open-notebook/frontend/src/lib/api/models.ts",
+   "line": 103,
+   "method": "POST",
+   "path": "/api/models/{p}/test",
+   "via": "apiClient",
+   "route": "/api/models/{model_id}/test"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/stores/auth-store.ts",
+   "line": 89,
+   "method": "GET",
+   "path": "/api/auth/status",
+   "via": "fetch",
+   "route": "/api/auth/status"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community-search.ts",
+   "line": 67,
+   "method": "GET",
+   "path": "/api/community/search",
+   "via": "apiClient",
+   "route": "/api/community/search"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 97,
+   "method": "GET",
+   "path": "/api/community/categories",
+   "via": "apiClient",
+   "route": "/api/community/categories"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 99,
+   "method": "GET",
+   "path": "/api/community/courses/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 101,
+   "method": "PATCH",
+   "path": "/api/community/courses/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 103,
+   "method": "POST",
+   "path": "/api/community/courses/{p}/archive",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/archive"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 105,
+   "method": "POST",
+   "path": "/api/community/courses/{p}/restore",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/restore"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 108,
+   "method": "DELETE",
+   "path": "/api/community/courses/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 110,
+   "method": "POST",
+   "path": "/api/community/courses/{p}/join",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/join"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 112,
+   "method": "GET",
+   "path": "/api/community/courses/{p}/members",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/members"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 114,
+   "method": "PATCH",
+   "path": "/api/community/courses/{p}/members/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/members/{member_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 116,
+   "method": "DELETE",
+   "path": "/api/community/courses/{p}/members/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/members/{member_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 128,
+   "method": "GET",
+   "path": "/api/admin/categories",
+   "via": "apiClient",
+   "route": "/api/admin/categories"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 130,
+   "method": "POST",
+   "path": "/api/admin/categories",
+   "via": "apiClient",
+   "route": "/api/admin/categories"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 132,
+   "method": "PATCH",
+   "path": "/api/admin/categories/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/categories/{category_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/courses.ts",
+   "line": 135,
+   "method": "DELETE",
+   "path": "/api/admin/categories/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/categories/{category_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 474,
+   "method": "GET",
+   "path": "/api/community/me",
+   "via": "apiClient",
+   "route": "/api/community/me"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 476,
+   "method": "GET",
+   "path": "/api/community/wallet",
+   "via": "apiClient",
+   "route": "/api/community/wallet"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 478,
+   "method": "GET",
+   "path": "/api/community/courses",
+   "via": "apiClient",
+   "route": "/api/community/courses"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 480,
+   "method": "POST",
+   "path": "/api/community/courses",
+   "via": "apiClient",
+   "route": "/api/community/courses"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 482,
+   "method": "PATCH",
+   "path": "/api/community/courses/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 484,
+   "method": "DELETE",
+   "path": "/api/community/courses/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 487,
+   "method": "GET",
+   "path": "/api/community/teacher/overview",
+   "via": "apiClient",
+   "route": "/api/community/teacher/overview"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 489,
+   "method": "GET",
+   "path": "/api/community/teacher/quiz-results",
+   "via": "apiClient",
+   "route": "/api/community/teacher/quiz-results"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 492,
+   "method": "POST",
+   "path": "/api/community/courses/{p}/join",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/join"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 493,
+   "method": "DELETE",
+   "path": "/api/community/courses/{p}/join",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/join"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 497,
+   "method": "GET",
+   "path": "/api/community/posts",
+   "via": "apiClient",
+   "route": "/api/community/posts"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 502,
+   "method": "GET",
+   "path": "/api/community/posts/{p}",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 514,
+   "method": "POST",
+   "path": "/api/community/posts",
+   "via": "apiClient",
+   "route": "/api/community/posts"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 522,
+   "method": "PUT",
+   "path": "/api/community/posts/{p}",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 528,
+   "method": "DELETE",
+   "path": "/api/community/posts/{p}",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 531,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/reactions",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/reactions"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 537,
+   "method": "GET",
+   "path": "/api/community/posts/{p}/comments",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/comments"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 540,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/comments",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/comments"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 547,
+   "method": "DELETE",
+   "path": "/api/community/posts/{p}/comments/{p}",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/comments/{comment_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 552,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/save",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/save"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 554,
+   "method": "GET",
+   "path": "/api/community/saved-collections",
+   "via": "apiClient",
+   "route": "/api/community/saved-collections"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 556,
+   "method": "POST",
+   "path": "/api/community/saved-collections",
+   "via": "apiClient",
+   "route": "/api/community/saved-collections"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 559,
+   "method": "POST",
+   "path": "/api/community/saved-collections/{p}/posts/{p}",
+   "via": "apiClient",
+   "route": "/api/community/saved-collections/{collection_id}/posts/{post_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 565,
+   "method": "DELETE",
+   "path": "/api/community/saved-collections/{p}/posts/{p}",
+   "via": "apiClient",
+   "route": "/api/community/saved-collections/{collection_id}/posts/{post_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 571,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/share",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/share"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 581,
+   "method": "GET",
+   "path": "/api/community/posts/{p}/attachment",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/attachment"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 587,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/quiz/start",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/quiz/start"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 590,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/quiz/submit",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/quiz/submit"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 597,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/quiz/import",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/quiz/import"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 603,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/roadmap/follow",
+   "via": "apiClient",
+   "route": "/api/community/posts/{post_id}/roadmap/follow"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 610,
+   "method": "GET",
+   "path": "/api/community/leaderboard",
+   "via": "apiClient",
+   "route": "/api/community/leaderboard"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 616,
+   "method": "GET",
+   "path": "/api/community/roadmaps/popular",
+   "via": "apiClient",
+   "route": "/api/community/roadmaps/popular"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 619,
+   "method": "GET",
+   "path": "/api/community/roadmaps/mine",
+   "via": "apiClient",
+   "route": "/api/community/roadmaps/mine"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 622,
+   "method": "GET",
+   "path": "/api/community/notifications",
+   "via": "apiClient",
+   "route": "/api/community/notifications"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 625,
+   "method": "POST",
+   "path": "/api/community/notifications/read",
+   "via": "apiClient",
+   "route": "/api/community/notifications/read"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 627,
+   "method": "GET",
+   "path": "/api/community/search",
+   "via": "apiClient",
+   "route": "/api/community/search"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 630,
+   "method": "GET",
+   "path": "/api/community/materials",
+   "via": "apiClient",
+   "route": "/api/community/materials"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 635,
+   "method": "POST",
+   "path": "/api/community/ask",
+   "via": "apiClient",
+   "route": "/api/community/ask"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 638,
+   "method": "GET",
+   "path": "/api/community/ask/history",
+   "via": "apiClient",
+   "route": "/api/community/ask/history"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 640,
+   "method": "GET",
+   "path": "/api/community/ask/history/{p}",
+   "via": "apiClient",
+   "route": "/api/community/ask/history/{conversation_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 642,
+   "method": "PATCH",
+   "path": "/api/community/ask/history/{p}",
+   "via": "apiClient",
+   "route": "/api/community/ask/history/{conversation_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/community.ts",
+   "line": 644,
+   "method": "DELETE",
+   "path": "/api/community/ask/history/{p}",
+   "via": "apiClient",
+   "route": "/api/community/ask/history/{conversation_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 494,
+   "method": "GET",
+   "path": "/api/admin/overview",
+   "via": "apiClient",
+   "route": "/api/admin/overview"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 495,
+   "method": "GET",
+   "path": "/api/admin/usage",
+   "via": "apiClient",
+   "route": "/api/admin/usage"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 496,
+   "method": "GET",
+   "path": "/api/admin/llm-throttle",
+   "via": "apiClient",
+   "route": "/api/admin/llm-throttle"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 499,
+   "method": "GET",
+   "path": "/api/admin/roadmaps",
+   "via": "apiClient",
+   "route": "/api/admin/roadmaps"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 501,
+   "method": "DELETE",
+   "path": "/api/admin/roadmaps/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/roadmaps/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 503,
+   "method": "GET",
+   "path": "/api/admin/roadmaps/shared",
+   "via": "apiClient",
+   "route": "/api/admin/roadmaps/shared"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 505,
+   "method": "GET",
+   "path": "/api/admin/roadmaps/stats",
+   "via": "apiClient",
+   "route": "/api/admin/roadmaps/stats"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 508,
+   "method": "GET",
+   "path": "/api/admin/quizzes",
+   "via": "apiClient",
+   "route": "/api/admin/quizzes"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 510,
+   "method": "DELETE",
+   "path": "/api/admin/quizzes/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/quizzes/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 512,
+   "method": "GET",
+   "path": "/api/admin/quizzes/shared",
+   "via": "apiClient",
+   "route": "/api/admin/quizzes/shared"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 514,
+   "method": "GET",
+   "path": "/api/admin/quizzes/stats",
+   "via": "apiClient",
+   "route": "/api/admin/quizzes/stats"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 517,
+   "method": "GET",
+   "path": "/api/admin/community/stats",
+   "via": "apiClient",
+   "route": "/api/admin/community/stats"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 519,
+   "method": "GET",
+   "path": "/api/admin/comments",
+   "via": "apiClient",
+   "route": "/api/admin/comments"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 520,
+   "method": "DELETE",
+   "path": "/api/admin/comments/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/comments/{comment_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 523,
+   "method": "GET",
+   "path": "/api/admin/rag/stats",
+   "via": "apiClient",
+   "route": "/api/admin/rag/stats"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 530,
+   "method": "GET",
+   "path": "/api/admin/rag/documents",
+   "via": "apiClient",
+   "route": "/api/admin/rag/documents"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 531,
+   "method": "POST",
+   "path": "/api/admin/rag/documents/{p}/retry",
+   "via": "apiClient",
+   "route": "/api/admin/rag/documents/{doc_id}/retry"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 532,
+   "method": "DELETE",
+   "path": "/api/admin/rag/documents/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/rag/documents/{doc_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 535,
+   "method": "GET",
+   "path": "/api/admin/users",
+   "via": "apiClient",
+   "route": "/api/admin/users"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 538,
+   "method": "GET",
+   "path": "/api/admin/users/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/users/{user_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 541,
+   "method": "PATCH",
+   "path": "/api/admin/users/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/users/{user_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 545,
+   "method": "POST",
+   "path": "/api/admin/users/{p}/points",
+   "via": "apiClient",
+   "route": "/api/admin/users/{user_id}/points"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 552,
+   "method": "POST",
+   "path": "/api/admin/users/{p}/reset-password",
+   "via": "apiClient",
+   "route": "/api/admin/users/{user_id}/reset-password"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 556,
+   "method": "POST",
+   "path": "/api/admin/users",
+   "via": "apiClient",
+   "route": "/api/admin/users"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 558,
+   "method": "DELETE",
+   "path": "/api/admin/users/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/users/{user_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 562,
+   "method": "POST",
+   "path": "/api/admin/users/bulk-delete",
+   "via": "apiClient",
+   "route": "/api/admin/users/bulk-delete"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 576,
+   "method": "GET",
+   "path": "/api/admin/posts",
+   "via": "apiClient",
+   "route": "/api/admin/posts"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 578,
+   "method": "DELETE",
+   "path": "/api/admin/posts/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/posts/{post_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 580,
+   "method": "POST",
+   "path": "/api/admin/posts/{p}/restore",
+   "via": "apiClient",
+   "route": "/api/admin/posts/{post_id}/restore"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 582,
+   "method": "GET",
+   "path": "/api/admin/courses",
+   "via": "apiClient",
+   "route": "/api/admin/courses"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 585,
+   "method": "GET",
+   "path": "/api/admin/points/log",
+   "via": "apiClient",
+   "route": "/api/admin/points/log"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 587,
+   "method": "GET",
+   "path": "/api/admin/health",
+   "via": "apiClient",
+   "route": "/api/admin/health"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 590,
+   "method": "POST",
+   "path": "/api/admin/import/courses",
+   "via": "apiClient",
+   "route": "/api/admin/import/courses"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/admin.ts",
+   "line": 592,
+   "method": "POST",
+   "path": "/api/admin/import/users",
+   "via": "apiClient",
+   "route": "/api/admin/import/users"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 120,
+   "method": "POST",
+   "path": "/api/features/quiz/generate",
+   "via": "apiClient",
+   "route": "/api/features/quiz/generate"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 128,
+   "method": "GET",
+   "path": "/api/features/quiz/sessions",
+   "via": "apiClient",
+   "route": "/api/features/quiz/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 136,
+   "method": "GET",
+   "path": "/api/features/quiz/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/features/quiz/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 143,
+   "method": "DELETE",
+   "path": "/api/features/quiz/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/features/quiz/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 147,
+   "method": "POST",
+   "path": "/api/features/roadmap/generate",
+   "via": "apiClient",
+   "route": "/api/features/roadmap/generate"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 155,
+   "method": "GET",
+   "path": "/api/features/roadmap/sessions",
+   "via": "apiClient",
+   "route": "/api/features/roadmap/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 163,
+   "method": "GET",
+   "path": "/api/features/roadmap/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/features/roadmap/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/features.ts",
+   "line": 170,
+   "method": "DELETE",
+   "path": "/api/features/roadmap/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/features/roadmap/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 107,
+   "method": "POST",
+   "path": "/api/community/reports",
+   "via": "apiClient",
+   "route": "/api/community/reports"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 110,
+   "method": "GET",
+   "path": "/api/community/reports/mine",
+   "via": "apiClient",
+   "route": "/api/community/reports/mine"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 117,
+   "method": "GET",
+   "path": "/api/community/courses/{p}/reports",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/reports"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 119,
+   "method": "POST",
+   "path": "/api/community/courses/{p}/reports/{p}",
+   "via": "apiClient",
+   "route": "/api/community/courses/{course_id}/reports/{report_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 123,
+   "method": "GET",
+   "path": "/api/admin/reports",
+   "via": "apiClient",
+   "route": "/api/admin/reports"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 125,
+   "method": "POST",
+   "path": "/api/admin/reports/{p}",
+   "via": "apiClient",
+   "route": "/api/admin/reports/{report_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/moderation.ts",
+   "line": 127,
+   "method": "GET",
+   "path": "/api/admin/audit",
+   "via": "apiClient",
+   "route": "/api/admin/audit"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 137,
+   "method": "GET",
+   "path": "/api/community/library",
+   "via": "apiClient",
+   "route": "/api/community/library"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 140,
+   "method": "GET",
+   "path": "/api/community/library/{p}",
+   "via": "apiClient",
+   "route": "/api/community/library/{doc_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 144,
+   "method": "GET",
+   "path": "/api/community/knowledge",
+   "via": "apiClient",
+   "route": "/api/community/knowledge"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 155,
+   "method": "POST",
+   "path": "/api/community/library",
+   "via": "apiClient",
+   "route": "/api/community/library"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 159,
+   "method": "DELETE",
+   "path": "/api/community/library/{p}",
+   "via": "apiClient",
+   "route": "/api/community/library/{doc_id}"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 162,
+   "method": "POST",
+   "path": "/api/community/library/{p}/retry",
+   "via": "apiClient",
+   "route": "/api/community/library/{doc_id}/retry"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 166,
+   "method": "POST",
+   "path": "/api/community/study/quiz",
+   "via": "apiClient",
+   "route": "/api/community/study/quiz"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/library.ts",
+   "line": 175,
+   "method": "POST",
+   "path": "/api/community/study/roadmap",
+   "via": "apiClient",
+   "route": "/api/community/study/roadmap"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 135,
+   "method": "GET",
+   "path": "/api/auth/status",
+   "via": "fetch",
+   "route": "/api/auth/status"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 138,
+   "method": "POST",
+   "path": "/api/users/login",
+   "via": "fetch",
+   "route": "/api/users/login"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 141,
+   "method": "POST",
+   "path": "/api/users/register",
+   "via": "fetch",
+   "route": "/api/users/register"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 144,
+   "method": "POST",
+   "path": "/api/users/logout",
+   "via": "fetch",
+   "route": "/api/users/logout"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 147,
+   "method": "GET",
+   "path": "/api/users/me",
+   "via": "fetch",
+   "route": "/api/users/me"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 151,
+   "method": "GET",
+   "path": "/api/auth/google/start",
+   "via": "fetch",
+   "route": "/api/auth/google/start"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 155,
+   "method": "POST",
+   "path": "/api/auth/google/exchange",
+   "via": "fetch",
+   "route": "/api/auth/google/exchange"
+  },
+  {
+   "app": "main app",
+   "file": "siet-platform/frontend/src/lib/api/auth.ts",
+   "line": 158,
+   "method": "POST",
+   "path": "/api/users/me/consent-pdpa",
+   "via": "fetch",
+   "route": "/api/users/me/consent-pdpa"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/components/admin/rag/RagDocumentsPanel.tsx",
+   "line": 179,
+   "method": "GET",
+   "path": "/api/community/library/{p}/download",
+   "via": "fetch",
+   "route": "/api/community/library/{doc_id}/download"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/hooks/useGlobalChat.ts",
+   "line": 206,
+   "method": "GET",
+   "path": "/api/sources",
+   "via": "fetch",
+   "route": "/api/sources"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/hooks/useGlobalChat.ts",
+   "line": 212,
+   "method": "GET",
+   "path": "/api/notes",
+   "via": "fetch",
+   "route": "/api/notes"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/hooks/useGlobalChat.ts",
+   "line": 249,
+   "method": "POST",
+   "path": "/api/chat/context",
+   "via": "fetch",
+   "route": "/api/chat/context"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/hooks/useGlobalChat.ts",
+   "line": 275,
+   "method": "GET",
+   "path": "/api/sources",
+   "via": "fetch",
+   "route": "/api/sources"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/hooks/useGlobalChat.ts",
+   "line": 281,
+   "method": "GET",
+   "path": "/api/notes",
+   "via": "fetch",
+   "route": "/api/notes"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/hooks/useGlobalChat.ts",
+   "line": 403,
+   "method": "POST",
+   "path": "/api/chat/global/execute/stream",
+   "via": "fetch",
+   "route": "/api/chat/global/execute/stream"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 13,
+   "method": "POST",
+   "path": "/api/chat/sessions/{p}/auto-title",
+   "via": "apiClient",
+   "route": "/api/chat/sessions/{session_id}/auto-title"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 23,
+   "method": "GET",
+   "path": "/api/chat/global/sessions",
+   "via": "apiClient",
+   "route": "/api/chat/global/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 30,
+   "method": "POST",
+   "path": "/api/chat/global/sessions",
+   "via": "apiClient",
+   "route": "/api/chat/global/sessions"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 38,
+   "method": "GET",
+   "path": "/api/chat/global/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/chat/global/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 45,
+   "method": "PUT",
+   "path": "/api/chat/global/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/chat/global/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 53,
+   "method": "DELETE",
+   "path": "/api/chat/global/sessions/{p}",
+   "via": "apiClient",
+   "route": "/api/chat/global/sessions/{session_id}"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 57,
+   "method": "POST",
+   "path": "/api/chat/global/sessions/{p}/auto-title",
+   "via": "apiClient",
+   "route": "/api/chat/global/sessions/{session_id}/auto-title"
+  },
+  {
+   "app": "main app",
+   "file": "kmitl-rag/frontend/src/lib/api/global-chat.ts",
+   "line": 64,
+   "method": "POST",
+   "path": "/api/chat/global/execute",
+   "via": "apiClient",
+   "route": "/api/chat/global/execute"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/components/ShareDialog.jsx",
+   "line": 21,
+   "method": "GET",
+   "path": "/api/community/courses",
+   "via": "ws proxy",
+   "route": "/api/community/courses"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/components/ShareDialog.jsx",
+   "line": 48,
+   "method": "POST",
+   "path": "/api/community/posts",
+   "via": "ws proxy",
+   "route": "/api/community/posts"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/components/MyRoadmaps.jsx",
+   "line": 31,
+   "method": "GET",
+   "path": "/api/community/roadmaps/mine",
+   "via": "ws proxy",
+   "route": "/api/community/roadmaps/mine"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/components/MyRoadmaps.jsx",
+   "line": 46,
+   "method": "DELETE",
+   "path": "/api/community/roadmaps/mine/{p}",
+   "via": "ws proxy",
+   "route": "/api/community/roadmaps/mine/{session_id}"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/components/CreateForm.jsx",
+   "line": 95,
+   "method": "POST",
+   "path": "/api/community/study/roadmap",
+   "via": "ws proxy",
+   "route": "/api/community/study/roadmap"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/lib/knowledge.js",
+   "line": 23,
+   "method": "GET",
+   "path": "/api/community/courses",
+   "via": "ws proxy",
+   "route": "/api/community/courses"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/lib/knowledge.js",
+   "line": 82,
+   "method": "POST",
+   "path": "/api/community/library",
+   "via": "ws proxy",
+   "route": "/api/community/library"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/lib/knowledge.js",
+   "line": 89,
+   "method": "GET",
+   "path": "/api/community/library/{p}",
+   "via": "ws proxy",
+   "route": "/api/community/library/{doc_id}"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/lib/workspace-context.jsx",
+   "line": 21,
+   "method": "GET",
+   "path": "/api/community/me",
+   "via": "ws proxy",
+   "route": "/api/community/me"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/pages/roadmap/[id].jsx",
+   "line": 54,
+   "method": "GET",
+   "path": "/api/community/roadmaps/mine/{p}",
+   "via": "ws proxy",
+   "route": "/api/community/roadmaps/mine/{session_id}"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/pages/roadmap/[id].jsx",
+   "line": 81,
+   "method": "POST",
+   "path": "/api/community/roadmaps/mine/{p}/expand",
+   "via": "ws proxy",
+   "route": "/api/community/roadmaps/mine/{session_id}/expand"
+  },
+  {
+   "app": "roadmap app",
+   "file": "ai-roadmap-generator/src/pages/roadmap/[id].jsx",
+   "line": 98,
+   "method": "POST",
+   "path": "/api/community/posts/{p}/roadmap/sync",
+   "via": "ws proxy",
+   "route": "/api/community/posts/{post_id}/roadmap/sync"
+  },
+  {
+   "app": "quiz app",
+   "file": "My-ai-quiz/app/api/me/route.ts",
+   "line": 12,
+   "method": "GET",
+   "path": "/api/users/me",
+   "via": "fetch",
+   "route": "/api/users/me"
+  },
+  {
+   "app": "quiz app",
+   "file": "My-ai-quiz/app/api/share-quiz/route.ts",
+   "line": 24,
+   "method": "POST",
+   "path": "/api/community/posts",
+   "via": "fetch",
+   "route": "/api/community/posts"
+  }
+ ]
+}

@@ -1,0 +1,83 @@
+TOTAL                                                                            18741   8932    52%
+Coverage JSON written to file /Users/phuwish/kmitlAI/docs/report/eval/results/backend-coverage.json
+=========================== short test summary info ============================
+FAILED tests/test_auth.py::TestNonAsciiPassword::test_accepts_utf8_password
+FAILED tests/test_chat_routers_characterization.py::test_create_source_chat_session_missing_source_returns_404
+FAILED tests/test_chat_routers_characterization.py::test_list_source_chat_sessions_missing_source_returns_404
+FAILED tests/test_chat_routers_characterization.py::test_get_source_chat_session_missing_session_returns_404
+FAILED tests/test_chat_routers_characterization.py::test_get_source_chat_session_missing_relation_behavior
+FAILED tests/test_chat_routers_characterization.py::test_delete_source_chat_session_missing_relation_behavior
+FAILED tests/test_chat_routers_characterization.py::test_send_message_missing_relation_returns_404
+FAILED tests/test_chat_routers_characterization.py::test_get_source_chat_session_happy_path_shapes
+FAILED tests/test_clear_description.py::test_update_notebook_description[payload0-]
+FAILED tests/test_clear_description.py::test_update_notebook_description[payload1-]
+FAILED tests/test_clear_description.py::test_update_notebook_description[payload2-new text]
+FAILED tests/test_clear_description.py::test_update_notebook_description[payload3-old text]
+FAILED tests/test_crud_404.py::test_delete_notebook_missing_returns_404 - Ass...
+FAILED tests/test_crud_404.py::test_update_notebook_missing_returns_404 - Ass...
+FAILED tests/test_crud_404.py::test_delete_preview_missing_returns_404 - Asse...
+FAILED tests/test_crud_404.py::test_add_source_missing_notebook_returns_404
+FAILED tests/test_crud_404.py::test_remove_source_missing_notebook_returns_404
+FAILED tests/test_crud_404.py::test_get_note_missing_returns_404 - AssertionE...
+FAILED tests/test_crud_404.py::test_update_note_missing_returns_404 - Asserti...
+FAILED tests/test_crud_404.py::test_delete_note_missing_returns_404 - Asserti...
+FAILED tests/test_empty_model_reply.py::test_notebook_chat_failed_turn_is_rolled_back_and_retry_is_clean
+FAILED tests/test_error_message_sanitization.py::TestSourcesRouterDoesNotLeakExceptionText::test_list_sources_failure_returns_generic_message
+FAILED tests/test_error_message_sanitization.py::TestSourcesRouterDoesNotLeakExceptionText::test_delete_source_failure_returns_generic_message
+FAILED tests/test_error_message_sanitization.py::TestSourcesRouterDoesNotLeakExceptionText::test_update_source_failure_returns_generic_message
+FAILED tests/test_error_message_sanitization.py::TestInvalidInputErrorsStillReturnTheirOwnSafeMessage::test_update_source_invalid_input_still_returns_its_message
+FAILED tests/test_notes_api.py::TestNoteCreation::test_create_note_returns_command_id
+FAILED tests/test_notes_api.py::TestNoteCreation::test_create_note_command_id_none_when_no_content_embedding
+FAILED tests/test_notes_api.py::TestNoteUpdate::test_update_note_returns_command_id
+FAILED tests/test_notes_api.py::TestNoteUpdate::test_update_note_command_id_none_when_no_embedding
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[updated desc-updated desc]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[name asc-name asc]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[created-created]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[  Name   DESC -name desc]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[updated; DROP TABLE notebook]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[name) FETCH (SELECT * FROM credential]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[updated LIMIT 1]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[name desc extra]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[archived desc]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[id]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[name asc, updated desc]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[updated sideways]
+FAILED tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[]
+FAILED tests/test_podcast_audio_containment.py::TestStreamEndpointRejectsInvalidAudio::test_returns_403_for_legacy_absolute_audio_file
+FAILED tests/test_podcast_audio_containment.py::TestStreamEndpointRejectsInvalidAudio::test_returns_403_for_relative_traversal
+FAILED tests/test_podcast_audio_containment.py::TestStreamEndpointRejectsInvalidAudio::test_returns_404_for_missing_audio_inside_root
+FAILED tests/test_podcast_audio_containment.py::TestStreamEndpointRejectsInvalidAudio::test_serves_audio_file_from_relative_path
+FAILED tests/test_podcast_audio_containment.py::TestListAndGetOmitAudioUrlWhenInvalid::test_list_episodes_omits_audio_url_for_legacy_absolute_file
+FAILED tests/test_podcast_audio_containment.py::TestListAndGetOmitAudioUrlWhenInvalid::test_list_episodes_sets_audio_url_for_valid_relative_file
+FAILED tests/test_podcast_audio_containment.py::TestListAndGetOmitAudioUrlWhenInvalid::test_get_episode_omits_audio_url_for_legacy_absolute_file
+FAILED tests/test_podcast_audio_containment.py::TestDeleteAndRetryRefuseInvalidUnlink::test_delete_episode_does_not_unlink_legacy_absolute_file
+FAILED tests/test_podcast_audio_containment.py::TestDeleteAndRetryRefuseInvalidUnlink::test_delete_episode_unlinks_relative_in_root_file
+FAILED tests/test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_returns_mixed_items_newest_first
+FAILED tests/test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_honors_limit
+FAILED tests/test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_empty_when_no_view_history
+FAILED tests/test_recently_viewed_api.py::TestRecentlyViewedApi::test_get_notebook_stamps_last_viewed_at
+FAILED tests/test_recently_viewed_api.py::TestRecentlyViewedApi::test_get_source_stamps_last_viewed_at
+FAILED tests/test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_reorders_after_notebook_is_viewed_again
+FAILED tests/test_source_path_containment.py::TestDownloadEndpointRejectsSiblingDirectoryBypass::test_download_returns_403_for_sibling_directory_file
+FAILED tests/test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_link_source_persists_url_asset
+FAILED tests/test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_upload_source_persists_file_asset
+FAILED tests/test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_text_source_has_no_asset
+FAILED tests/test_sources_api.py::TestRetrySourceProcessing::test_retry_finds_notebooks_and_requeues
+FAILED tests/test_sources_api.py::TestRetrySourceProcessing::test_retry_400_only_when_truly_unlinked
+FAILED tests/test_sources_api.py::TestGetSourceNotFound::test_get_missing_source_returns_404
+FAILED tests/test_sources_api.py::TestTitleSortUsesAlias::test_sort_by_title_orders_by_alias
+FAILED tests/test_sources_api.py::TestTitleSortUsesAlias::test_all_sort_fields_return_200
+FAILED tests/test_sources_api.py::TestTitleSortUsesAlias::test_invalid_sort_field_returns_400
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[source_chat]
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[sources]
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[notebooks]
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[notes]
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[episode_profiles]
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[podcasts]
+FAILED tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[speaker_profiles]
+FAILED tests/test_typed_exceptions_reach_handlers.py::TestUnsupportedTypeErrorPropagation::test_unsupported_type_maps_to_415
+FAILED tests/test_typed_exceptions_reach_handlers.py::TestUntypedExceptionsStillSanitized::test_runtime_error_stays_generic_500
+FAILED tests/test_upload_type_mitigations.py::TestDownloadsAlwaysServedAsOctetStream::test_html_file_download_is_octet_stream_not_text_html
+FAILED tests/test_upload_type_mitigations.py::TestDownloadsAlwaysServedAsOctetStream::test_svg_file_download_is_octet_stream_not_svg_xml
+FAILED test_moderation.py::test_room_owner_settles_reports_in_own_room_only
+79 failed, 1288 passed, 6 warnings in 22.74s

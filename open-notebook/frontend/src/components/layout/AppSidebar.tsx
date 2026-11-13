@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useSidebarStore } from '@/lib/stores/sidebar-store'
 import { useCreateDialogs } from '@/lib/hooks/use-create-dialogs'
+import { getSlot, useGate, useNavigationExtensions } from '@/lib/extensions'
 import {
   Tooltip,
   TooltipContent,
@@ -29,6 +30,7 @@ import { Separator } from '@/components/ui/separator'
 import {
   Book,
   Search,
+  Mic,
   Bot,
   Shuffle,
   Settings,
@@ -39,102 +41,71 @@ import {
   Plus,
   Wrench,
   Command,
-  GraduationCap,
-  ShieldCheck,
-  Sparkles,
-  Users,
-  Coins,
-  MessageSquare,
-  BrainCircuit,
-  Map,
-  Database,
 } from 'lucide-react'
-import { useAuthStore } from '@/lib/stores/auth-store'
-import { isAdmin, isStaff, type Role } from '@/lib/roles'
 
-const getNavigation = (t: TFunction, role: Role) => [
+const getNavigation = (t: TFunction) => [
   {
-    title: t('navigation.community', 'SIET Space'),
+    title: t('navigation.collect'),
     items: [
-      { name: t('navigation.communityFeed', 'ชุมชน (Community)'), href: '/community', icon: Users },
+      { name: t('navigation.sources'), href: '/sources', icon: FileText, iconClass: 'text-sage' },
     ],
   },
-  ...(isStaff(role)
-    ? [
-        {
-          title: t('navigation.collect'),
-          items: [{ name: t('navigation.sources'), href: '/sources', icon: FileText }],
-        },
-      ]
-    : []),
-  ...(isStaff(role)
-    ? [
-        {
-          title: t('navigation.process'),
-          items: [
-            { name: t('navigation.notebooks'), href: '/notebooks', icon: Book },
-            { name: t('navigation.askAndSearch'), href: '/search', icon: Search },
-          ],
-        },
-      ]
-    : []),
+  {
+    title: t('navigation.process'),
+    items: [
+      { name: t('navigation.notebooks'), href: '/notebooks', icon: Book, iconClass: 'text-teal' },
+      { name: t('navigation.askAndSearch'), href: '/search', icon: Search, iconClass: undefined },
+    ],
+  },
   {
     title: t('navigation.create'),
     items: [
-      { name: t('navigation.features', 'AI Features'), href: '/features', icon: Sparkles },
+      { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic, iconClass: 'text-mauve' },
     ],
   },
-  // The admin consoles, one group per area. What belongs to no single area
-  // (accounts, points, AI cost, health) stays under "จัดการระบบ" in Manage.
-  ...(isAdmin(role)
-    ? [
-        {
-          title: t('navigation.manageCommunity', 'จัดการ Community'),
-          items: [
-            { name: t('navigation.adminCommunity', 'Community'), href: '/admin/community', icon: MessageSquare },
-          ],
-        },
-        {
-          title: t('navigation.manageAi', 'จัดการ AI'),
-          items: [
-            { name: t('navigation.adminRag', 'RAG AI'), href: '/admin/rag', icon: Database },
-            { name: t('navigation.adminRoadmap', 'AI Roadmap'), href: '/admin/roadmap', icon: Map },
-          ],
-        },
-        {
-          title: t('navigation.manageQuiz', 'จัดการ Quiz'),
-          items: [{ name: t('navigation.adminQuiz', 'Quiz'), href: '/admin/quiz', icon: BrainCircuit }],
-        },
-      ]
-    : []),
-  ...(isStaff(role) ? [{
+  {
     title: t('navigation.manage'),
     items: [
-      { name: t('navigation.teacherConsole', 'จัดการการสอน'), href: '/teacher', icon: GraduationCap },
-      ...(isAdmin(role) ? [{ name: t('navigation.models'), href: '/settings/api-keys', icon: Bot }] : []),
-      { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
-      ...(isAdmin(role)
-        ? [
-            { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },
-            { name: t('navigation.settings'), href: '/settings', icon: Settings },
-            { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
-          ]
-        : []),
+      { name: t('navigation.models'), href: '/settings/models', icon: Bot, iconClass: undefined },
+      { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle, iconClass: undefined },
+      { name: t('navigation.settings'), href: '/settings', icon: Settings, iconClass: undefined },
+      { name: t('navigation.advanced'), href: '/advanced', icon: Wrench, iconClass: undefined },
     ],
-  }]
-    : []),
-]
+  },
+] as const
 
-type CreateTarget = 'source' | 'notebook'
+// The tri-hue mark recomposed in the owned palette: fern / gold / teal.
+function LogoPebbles({ className }: { className?: string }) {
+  return (
+    <span className={cn('flex items-center gap-[3px]', className)} aria-hidden="true">
+      <span className="size-[9px] rounded-[3px] bg-fern" />
+      <span className="size-[9px] rounded-[3px] bg-gold" />
+      <span className="size-[9px] rounded-[3px] bg-teal" />
+    </span>
+  )
+}
+
+type CreateTarget = 'source' | 'notebook' | 'podcast'
 
 export function AppSidebar() {
   const { t } = useTranslation()
-  const authUser = useAuthStore((s) => s.user)
-  const navigation = getNavigation(t, authUser?.role as Role)
+  // KMITL hooks: extensions reshape the navigation, gate podcasts, fill the footer
+  const navigation = useNavigationExtensions(getNavigation(t))
+  const showPodcasts = useGate('podcasts')
+  const SidebarFooter = getSlot<{ collapsed: boolean }>('sidebar.footer')
   const pathname = usePathname()
   const { logout } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()
-  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
+  const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
+
+  // The active item is the longest href that prefixes the current path.
+  // Longest-wins keeps `/settings` from also highlighting on `/settings/models`
+  // (the Models page is a URL child of the Settings page but a distinct item).
+  const activeHref = navigation
+    .map((section) => section.items)
+    .flat()
+    .filter((item) => pathname === item.href || pathname?.startsWith(`${item.href}/`))
+    .sort((a, b) => b.href.length - a.href.length)[0]?.href
 
   const [createMenuOpen, setCreateMenuOpen] = useState(false)
   const [isMac, setIsMac] = useState(true) // Default to Mac for SSR
@@ -144,13 +115,6 @@ export function AppSidebar() {
     setIsMac(navigator.platform.toLowerCase().includes('mac'))
   }, [])
 
-  // Entries can share a prefix (/admin and /admin/quiz, /settings and
-  // /settings/api-keys): only the longest match is the page being shown.
-  const activeHref = navigation
-    .flatMap((section) => section.items.map((item) => item.href))
-    .filter((href) => pathname === href || pathname?.startsWith(`${href}/`))
-    .sort((a, b) => b.length - a.length)[0]
-
   const handleCreateSelection = (target: CreateTarget) => {
     setCreateMenuOpen(false)
 
@@ -158,6 +122,8 @@ export function AppSidebar() {
       openSourceDialog()
     } else if (target === 'notebook') {
       openNotebookDialog()
+    } else if (target === 'podcast') {
+      openPodcastDialog()
     }
   }
 
@@ -223,7 +189,7 @@ export function AppSidebar() {
                         onClick={() => setCreateMenuOpen(true)}
                         variant="default"
                         size="sm"
-                        className="w-full justify-center px-2 bg-primary hover:bg-primary/90 text-primary-foreground border-0"
+                        className="w-full justify-center px-2 font-display font-bold"
                         aria-label={t('common.create')}
                       >
                         <Plus className="h-4 w-4" />
@@ -238,7 +204,7 @@ export function AppSidebar() {
                     onClick={() => setCreateMenuOpen(true)}
                     variant="default"
                     size="sm"
-                    className="w-full justify-start bg-primary hover:bg-primary/90 text-primary-foreground border-0"
+                    className="w-full justify-start font-display font-bold"
                    >
                     <Plus className="h-4 w-4 mr-2" />
                     {t('common.create')}
@@ -271,6 +237,18 @@ export function AppSidebar() {
                    <Book className="h-4 w-4" />
                   {t('common.notebook')}
                 </DropdownMenuItem>
+                {showPodcasts && (
+                  <DropdownMenuItem
+                    onSelect={(event) => {
+                      event.preventDefault()
+                      handleCreateSelection('podcast')
+                    }}
+                    className="gap-2"
+                  >
+                     <Mic className="h-4 w-4" />
+                    {t('common.podcast')}
+                  </DropdownMenuItem>
+                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -282,7 +260,7 @@ export function AppSidebar() {
               )}
               <div className="space-y-1">
                 {!isCollapsed && (
-                  <h3 className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-sidebar-foreground/60">
+                  <h3 className="mb-1.5 px-3 text-[10.5px] font-bold uppercase tracking-[0.14em] text-sidebar-foreground/40">
                     {section.title}
                   </h3>
                 )}
@@ -291,14 +269,15 @@ export function AppSidebar() {
                   const isActive = item.href === activeHref
                   const button = (
                     <Button
-                      variant={isActive ? 'secondary' : 'ghost'}
+                      variant="ghost"
                       className={cn(
-                        'w-full gap-3 text-sidebar-foreground sidebar-menu-item',
-                        isActive && 'bg-sidebar-accent text-sidebar-accent-foreground',
+                        'w-full gap-2.5 text-[13px] font-medium text-sidebar-foreground/80 sidebar-menu-item relative',
+                        isActive &&
+                          'bg-popover font-semibold text-sidebar-foreground ring-1 ring-inset ring-border before:absolute before:-left-1.5 before:top-[7px] before:bottom-[7px] before:w-[3px] before:rounded-[2px] before:bg-fern',
                         isCollapsed ? 'justify-center px-2' : 'justify-start'
                       )}
                     >
-                      <item.icon className="h-4 w-4" />
+                      <item.icon className={cn('h-4 w-4 opacity-85', item.iconClass)} />
                       {!isCollapsed && <span>{item.name}</span>}
                     </Button>
                   )
@@ -333,20 +312,7 @@ export function AppSidebar() {
             isCollapsed && 'px-2'
           )}
         >
-          {/* Points wallet (students only) */}
-          {authUser && !authUser.points_exempt && (
-            <Link
-              href="/community"
-              className={cn(
-                'flex items-center gap-2 rounded-md border border-amber-300/60 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
-                isCollapsed && 'justify-center px-0'
-              )}
-              title="กระเป๋าแต้ม"
-            >
-              <Coins className="h-3.5 w-3.5" />
-              {!isCollapsed && <span>{authUser.points_balance ?? 0} PT</span>}
-            </Link>
-          )}
+          {SidebarFooter && <SidebarFooter collapsed={isCollapsed} />}
 
           {/* Command Palette hint */}
           {!isCollapsed && (
@@ -416,7 +382,7 @@ export function AppSidebar() {
           ) : (
             <Button
               variant="outline"
-              className="w-full justify-start gap-3 sidebar-menu-item"
+              className="w-full justify-start gap-2 sidebar-menu-item"
               onClick={logout}
               aria-label={t('common.signOut')}
              >

@@ -191,8 +191,8 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
                         <Label htmlFor="url">{t('sources.urlLabel')}</Label>
                         {urlCount > 0 && (
                           <Badge variant={isOverLimit ? "destructive" : "secondary"}>
-                            {t('sources.urlsCount').replace('{count}', urlCount.toString())}
-                            {isOverLimit && ` (${t('sources.maxItems').replace('{count}', MAX_BATCH_SIZE.toString())})`}
+                            {t('sources.urlsCount', { count: urlCount })}
+                            {isOverLimit && ` (${t('sources.maxItems', { count: MAX_BATCH_SIZE })})`}
                           </Badge>
                         )}
                       </div>
@@ -220,7 +220,7 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
                             {urlValidationErrors.map((error, idx) => (
                               <li key={idx} className="text-xs text-destructive flex items-start gap-2">
                                 <span className="font-mono bg-destructive/20 px-1 rounded">
-                                  {t('sources.lineLabel').replace('{line}', error.line.toString())}
+                                  {t('sources.lineLabel', { line: error.line.toString() })}
                                 </span>
                                 <span className="truncate">{error.url}</span>
                               </li>
@@ -240,8 +240,8 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
                         <Label htmlFor="file">{t('sources.fileLabel')}</Label>
                         {fileCount > 0 && (
                           <Badge variant={isOverLimit ? "destructive" : "secondary"}>
-                            {t('sources.filesCount').replace('{count}', fileCount.toString())}
-                            {isOverLimit && ` (${t('sources.maxItems').replace('{count}', MAX_BATCH_SIZE.toString())})`}
+                            {t('sources.filesCount', { count: fileCount })}
+                            {isOverLimit && ` (${t('sources.maxItems', { count: MAX_BATCH_SIZE })})`}
                           </Badge>
                         )}
                       </div>
@@ -250,13 +250,13 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
                         type="file"
                         multiple
                         {...register('file')}
-                        accept=".pdf,.doc,.docx,.pptx,.ppt,.xlsx,.xls,.txt,.md,.epub,.mp4,.avi,.mov,.wmv,.mp3,.wav,.m4a,.aac,.jpg,.jpeg,.png,.tiff,.zip,.tar,.gz,.html"
+                        accept=".pdf,.doc,.docx,.pptx,.ppt,.xlsx,.xls,.odt,.ods,.odp,.txt,.md,.epub,.mp4,.avi,.mov,.wmv,.mp3,.wav,.m4a,.aac,.jpg,.jpeg,.png,.tiff,.zip,.tar,.gz,.html,.htm"
                       />
                       <p className="text-xs text-muted-foreground mt-1">
                         {t('sources.selectMultipleFilesHint')}
                       </p>
                       {fileCount > 1 && fileInput instanceof FileList && (
-                        <div className="mt-2 p-3 bg-muted rounded-md">
+                        <div className="mt-2 p-3 rounded-md border border-border">
                           <p className="text-xs font-medium mb-2">{t('sources.selectedFiles')}</p>
                           <ul className="space-y-1 max-h-32 overflow-y-auto">
                             {Array.from(fileInput).map((file, idx) => (
@@ -276,7 +276,7 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
                       )}
                       {isOverLimit && selectedType === 'upload' && (
                         <p className="text-sm text-destructive mt-1">
-                          {t('sources.maxFilesAllowed').replace('{count}', MAX_BATCH_SIZE.toString())}
+                          {t('sources.maxFilesAllowed', { count: MAX_BATCH_SIZE })}
                         </p>
                       )}
                     </div>
@@ -286,11 +286,10 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
                     <div>
                       <Label htmlFor="content" className="mb-2 block">{t('sources.textContentLabel')}</Label>
                       {hasHtmlContent && (
-                        <div className="mb-2 p-2 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800 rounded-md">
-                          <p className="text-sm text-blue-700 dark:text-blue-300">
-                            {t('sources.htmlDetected')}
-                          </p>
-                        </div>
+                        <p className="mb-2 flex items-center gap-2 text-sm text-teal">
+                          <span className="h-1.5 w-1.5 rounded-full bg-teal" aria-hidden="true" />
+                          {t('sources.htmlDetected')}
+                        </p>
                       )}
                       <Textarea
                         id="content"
@@ -338,11 +337,11 @@ export function SourceTypeStep({ control, register, setValue, errors, urlValidat
 
       {/* Batch mode indicator */}
       {isBatchMode && (
-        <div className="p-4 bg-primary/5 border border-primary/20 rounded-lg">
+        <div className="p-4 rounded-md border border-border">
           <div className="flex items-center gap-2 mb-2">
             <Badge variant="default">{t('common.batchMode')}</Badge>
             <span className="text-sm font-medium">
-              {t('sources.batchCount').replace('{count}', itemCount.toString()).replace('{type}', selectedType === 'link' ? t('sources.addUrl') : t('sources.uploadFile'))}
+              {t('sources.batchCount', { count: itemCount, type: selectedType === 'link' ? t('sources.addUrl') : t('sources.uploadFile') })}
             </span>
           </div>
           <p className="text-xs text-muted-foreground">

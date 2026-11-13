@@ -1,0 +1,548 @@
+{
+ "generated_at": "2026-10-23T12:31:11.174Z",
+ "app": "http://localhost:28502",
+ "summary": {
+  "anonymous": {
+   "pages": 1,
+   "passed": 1,
+   "api_calls": 3,
+   "failed_calls": 0,
+   "js_errors": 0,
+   "ms_median": 2555
+  },
+  "anonymous (guard)": {
+   "pages": 1,
+   "passed": 1,
+   "api_calls": 3,
+   "failed_calls": 0,
+   "js_errors": 0,
+   "ms_median": 2367
+  },
+  "student": {
+   "pages": 13,
+   "passed": 13,
+   "api_calls": 124,
+   "failed_calls": 0,
+   "js_errors": 0,
+   "ms_median": 2420
+  },
+  "student (guard)": {
+   "pages": 3,
+   "passed": 3,
+   "api_calls": 30,
+   "failed_calls": 0,
+   "js_errors": 0,
+   "ms_median": 2463
+  },
+  "teacher": {
+   "pages": 9,
+   "passed": 7,
+   "api_calls": 123,
+   "failed_calls": 6,
+   "js_errors": 6,
+   "ms_median": 2454
+  },
+  "teacher (guard)": {
+   "pages": 1,
+   "passed": 1,
+   "api_calls": 14,
+   "failed_calls": 0,
+   "js_errors": 0,
+   "ms_median": 2537
+  },
+  "admin": {
+   "pages": 9,
+   "passed": 9,
+   "api_calls": 140,
+   "failed_calls": 0,
+   "js_errors": 0,
+   "ms_median": 2846
+  }
+ },
+ "rows": [
+  {
+   "role": "anonymous",
+   "url": "http://localhost:28502/login",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/login",
+   "ms": 2555,
+   "api_calls": 3,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "anonymous",
+   "url": "http://localhost:28502/community",
+   "guard": true,
+   "status": 200,
+   "final": "http://localhost:28502/login",
+   "ms": 2367,
+   "api_calls": 3,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/dashboard",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/dashboard",
+   "ms": 2466,
+   "api_calls": 8,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community",
+   "ms": 2631,
+   "api_calls": 12,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community?view=mine",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community?view=mine",
+   "ms": 2405,
+   "api_calls": 12,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community?view=saved",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community?view=saved",
+   "ms": 2367,
+   "api_calls": 11,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community?view=library",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community?view=library",
+   "ms": 2420,
+   "api_calls": 11,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community?view=materials",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community?view=materials",
+   "ms": 2422,
+   "api_calls": 10,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community?view=rules",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community?view=rules",
+   "ms": 2369,
+   "api_calls": 9,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community?course=1953",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community?course=1953",
+   "ms": 2456,
+   "api_calls": 12,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community/search?q=IT46",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community/search?q=IT46",
+   "ms": 3650,
+   "api_calls": 9,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community/ask",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community/ask",
+   "ms": 2554,
+   "api_calls": 11,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/community/profile/me",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community/profile/me",
+   "ms": 2417,
+   "api_calls": 10,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/features",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/features",
+   "ms": 2379,
+   "api_calls": 9,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/admin",
+   "guard": true,
+   "status": 200,
+   "final": "http://localhost:28502/community",
+   "ms": 2463,
+   "api_calls": 10,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/teacher",
+   "guard": true,
+   "status": 200,
+   "final": "http://localhost:28502/community",
+   "ms": 2465,
+   "api_calls": 10,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:28502/notebooks",
+   "guard": true,
+   "status": 200,
+   "final": "http://localhost:28502/community",
+   "ms": 2431,
+   "api_calls": 10,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/teacher",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/teacher",
+   "ms": 2865,
+   "api_calls": 14,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/teacher/courses/1953",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/teacher/courses/1953",
+   "ms": 2472,
+   "api_calls": 17,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/community",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/community",
+   "ms": 2469,
+   "api_calls": 16,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/features",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/features",
+   "ms": 2428,
+   "api_calls": 13,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/notebooks",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/notebooks",
+   "ms": 2454,
+   "api_calls": 14,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/sources",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/sources",
+   "ms": 2404,
+   "api_calls": 13,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/search",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/search",
+   "ms": 2407,
+   "api_calls": 16,
+   "failed": [
+    {
+     "status": 403,
+     "method": "GET",
+     "path": "/api/models"
+    },
+    {
+     "status": 403,
+     "method": "GET",
+     "path": "/api/models/defaults"
+    },
+    {
+     "status": 403,
+     "method": "GET",
+     "path": "/api/models"
+    },
+    {
+     "status": 403,
+     "method": "GET",
+     "path": "/api/models/defaults"
+    }
+   ],
+   "errors": [
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+   ],
+   "ok": false
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/transformations",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/transformations",
+   "ms": 2479,
+   "api_calls": 15,
+   "failed": [
+    {
+     "status": 403,
+     "method": "GET",
+     "path": "/api/models"
+    },
+    {
+     "status": 403,
+     "method": "GET",
+     "path": "/api/models"
+    }
+   ],
+   "errors": [
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "Failed to load resource: the server responded with a status of 403 (Forbidden)"
+   ],
+   "ok": false
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:28502/admin",
+   "guard": true,
+   "status": 200,
+   "final": "http://localhost:28502/community",
+   "ms": 2537,
+   "api_calls": 14,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/admin",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/admin",
+   "ms": 3068,
+   "api_calls": 17,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/admin/community",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/admin/community",
+   "ms": 3103,
+   "api_calls": 15,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/admin/rag",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/admin/rag",
+   "ms": 2785,
+   "api_calls": 15,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/admin/roadmap",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/admin/roadmap",
+   "ms": 3063,
+   "api_calls": 15,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/admin/quiz",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/admin/quiz",
+   "ms": 2846,
+   "api_calls": 15,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/settings",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/settings",
+   "ms": 2773,
+   "api_calls": 15,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/settings/models",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/settings/models",
+   "ms": 2916,
+   "api_calls": 18,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/advanced",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/advanced",
+   "ms": 2812,
+   "api_calls": 14,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "admin",
+   "url": "http://localhost:28502/notebooks",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:28502/notebooks",
+   "ms": 2751,
+   "api_calls": 16,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "teacher",
+   "url": "http://localhost:23002/roadmap?token=<jwt>&theme=light",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:23002/roadmap",
+   "ms": 2433,
+   "api_calls": 5,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  },
+  {
+   "role": "student",
+   "url": "http://localhost:23001/quiz?token=<jwt>&theme=light",
+   "guard": false,
+   "status": 200,
+   "final": "http://localhost:23001/quiz?token=<jwt>",
+   "ms": 2408,
+   "api_calls": 0,
+   "failed": [],
+   "errors": [],
+   "ok": true
+  }
+ ]
+}

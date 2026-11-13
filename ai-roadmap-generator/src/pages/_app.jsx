@@ -1,37 +1,52 @@
+import { useEffect, useMemo, useState } from 'react'
 import Head from 'next/head'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import '@/styles/app.css'
-import TopBar from '@/components/TopBar'
-import { communityUrl } from '@/lib/workspace'
+import { Navbar } from '@shared/components/Navbar'
+import { communityUrl, getToken, returnUrl } from '@/lib/workspace'
 import { useWorkspace, WorkspaceProvider } from '@/lib/workspace-context'
 
 function Shell({ Component, pageProps }) {
-  const { status } = useWorkspace()
+  const { status, user, balance, exempt } = useWorkspace()
+  // The navbar shows this app's session (see NavbarProps.user).
+  const navbarUser = useMemo(() => (user ? { ...user, points_exempt: exempt } : null), [user, exempt])
+  // The logo leaves the app back to the SIET Space page the user came from (the
+  // hand-off's `return`, kept in sessionStorage once signed in - so not on the server).
+  const [backUrl, setBackUrl] = useState()
+  useEffect(() => {
+    if (status === 'ready') setBackUrl(returnUrl())
+  }, [status])
 
-  if (status === 'loading') {
-    return (
-      <main className="center-screen">
-        <p className="muted">กำลังเข้าสู่ระบบ…</p>
-      </main>
-    )
-  }
-  if (status === 'blocked') {
-    return (
-      <main className="center-screen">
-        <h1 className="h2">เข้าสู่ระบบไม่สำเร็จ</h1>
-        <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ SIET Space ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
-        <a className="btn btn-primary" href={communityUrl()}>
-          ไปที่ SIET Space
-        </a>
-      </main>
-    )
-  }
   return (
-    <>
-      <TopBar />
-      <Component {...pageProps} />
-    </>
+    <div className="flex h-screen flex-col overflow-hidden bg-[var(--bg)] text-[var(--text)] antialiased font-sans">
+      <div className="relative z-[100] shrink-0" style={{ height: '64px', minHeight: '64px' }}>
+        <Navbar
+          user={navbarUser}
+          pointsBalance={balance}
+          token={getToken()}
+          communityUrl={communityUrl()}
+          homeUrl={backUrl}
+        />
+      </div>
+      <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
+        {status === 'loading' ? (
+          <main className="center-screen">
+            <p className="muted">กำลังเข้าสู่ระบบ…</p>
+          </main>
+        ) : status === 'blocked' ? (
+          <main className="center-screen">
+            <h1 className="h2">เข้าสู่ระบบไม่สำเร็จ</h1>
+            <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ SIET Space ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
+            <a className="btn btn-primary" href={communityUrl()}>
+              ไปที่ SIET Space
+            </a>
+          </main>
+        ) : (
+          <Component {...pageProps} />
+        )}
+      </div>
+    </div>
   )
 }
 

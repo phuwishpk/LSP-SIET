@@ -1,5 +1,13 @@
 import type { NextConfig } from "next";
 
+// Next.js dev server blocks cross-origin requests (including the HMR
+// websocket) from any host not in this list, to guard against DNS
+// rebinding. Set NEXT_ALLOWED_DEV_ORIGINS (comma-separated hostnames, no
+// protocol/port) to access the dev server from a LAN IP or custom hostname.
+const allowedDevOrigins = process.env.NEXT_ALLOWED_DEV_ORIGINS
+  ? process.env.NEXT_ALLOWED_DEV_ORIGINS.split(",").map((s) => s.trim()).filter(Boolean)
+  : undefined;
+
 const nextConfig: NextConfig = {
   // Enable standalone output for optimized Docker deployment
   output: "standalone",
@@ -8,11 +16,13 @@ const nextConfig: NextConfig = {
   // runs for over an hour. Type errors still show in `next dev` / `tsc --noEmit`.
   // (Next 16 no longer lints during build, so there is no `eslint` option.)
   typescript: { ignoreBuildErrors: true },
+  ...(allowedDevOrigins && allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
 
   // Experimental features
   // Keep the Next.js rewrite proxy limit aligned with the FastAPI upload limit.
   // Otherwise Next.js truncates large multipart requests before they reach the API.
   experimental: {
+    externalDir: true,
     proxyClientMaxBodySize: `${process.env.OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB || '2048'}mb`,
   } as NextConfig['experimental'],
 
@@ -31,6 +41,18 @@ const nextConfig: NextConfig = {
       {
         source: '/api/:path*',
         destination: `${internalApiUrl}/api/:path*`,
+      },
+    ]
+  },
+
+  // Redirect the legacy credentials route to the canonical "Models" route so
+  // existing bookmarks and links keep working.
+  async redirects() {
+    return [
+      {
+        source: '/settings/api-keys',
+        destination: '/settings/models',
+        permanent: true,
       },
     ]
   },

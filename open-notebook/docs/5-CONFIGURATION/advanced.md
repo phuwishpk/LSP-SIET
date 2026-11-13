@@ -43,16 +43,18 @@ For high-concurrency deployments, use `exponential_jitter` to prevent thundering
 # Client timeout (default: 300 seconds)
 API_CLIENT_TIMEOUT=300
 
-# LLM timeout (default: 60 seconds)
-ESPERANTO_LLM_TIMEOUT=60
+# LLM timeout (default: 180 seconds)
+ESPERANTO_LLM_TIMEOUT=180
 ```
+
+`ESPERANTO_LLM_TIMEOUT` limits each model call (chat, Ask, transformations, podcast outline and transcript) and applies to every provider, including Ollama. Open Notebook sets it to 180 seconds when you don't; set it yourself to change it. Speech-to-text and text-to-speech have their own, longer timeouts.
 
 **Guideline:** Set `API_CLIENT_TIMEOUT` > `ESPERANTO_LLM_TIMEOUT` + buffer
 
 ```
-Example:
-  ESPERANTO_LLM_TIMEOUT=120
-  API_CLIENT_TIMEOUT=180  # 120 + 60 second buffer
+Example (slow local models):
+  ESPERANTO_LLM_TIMEOUT=420
+  API_CLIENT_TIMEOUT=600  # 420 + 180 second buffer
 ```
 
 ---
@@ -164,7 +166,7 @@ Access API directly: `http://localhost:5056/docs`
 services:
   surrealdb:
     ports:
-      - "8001:8000"  # Change from 8000 to 8001
+      - "127.0.0.1:8001:8000"  # Change from 8000 to 8001 (localhost only)
     environment:
       - SURREAL_URL=ws://surrealdb:8001/rpc  # Update connection URL
 ```
@@ -197,7 +199,7 @@ ESPERANTO_SSL_VERIFY=false
 
 ### Use Different Providers for Different Tasks
 
-Configure multiple AI providers via **Settings → API Keys**. Each provider gets its own credential:
+Configure multiple AI providers via **Manage → Models**. Each provider gets its own credential:
 
 1. Add a credential for your main language model provider (e.g., OpenAI, Anthropic)
 2. Add a credential for embeddings (e.g., Voyage AI, or use the same provider)
@@ -208,7 +210,7 @@ Configure multiple AI providers via **Settings → API Keys**. Each provider get
 
 When using OpenAI-Compatible providers, you can configure per-service URLs in a single credential:
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential** → Select **OpenAI-Compatible**
 3. Configure separate URLs for LLM, Embedding, TTS, and STT
 4. Click **Save**, then **Test Connection**
@@ -250,7 +252,7 @@ Restrict access to your Open Notebook:
 
 ## Web Scraping & Content Extraction
 
-Open Notebook uses multiple services for content extraction:
+Open Notebook uses multiple engines for content extraction. Which one runs is chosen in **Settings → Content Processing** (see the user-guide page on [Content Processing Engines](../3-USER-GUIDE/content-processing-engines.md)); the variables below configure them.
 
 ### Firecrawl
 
@@ -258,6 +260,15 @@ For advanced web scraping:
 
 ```env
 FIRECRAWL_API_KEY=your-key
+
+# Optional: self-hosted Firecrawl instance
+FIRECRAWL_API_URL=https://firecrawl.internal.example.com
+
+# Optional: bypass anti-bot protection (basic | stealth | auto)
+CCORE_FIRECRAWL_PROXY=auto
+
+# Optional: ms to wait for JavaScript to render (default 3000)
+CCORE_FIRECRAWL_WAIT_FOR=3000
 ```
 
 Get key from: https://firecrawl.dev/
@@ -272,6 +283,18 @@ JINA_API_KEY=your-key
 
 Get key from: https://jina.ai/
 
+### Crawl4AI
+
+Renders JavaScript pages in a local Chromium browser — no API key required. Crawl4AI is **optional**: enable it with `OPEN_NOTEBOOK_ENABLE_CRAWL4AI=true` and it installs on first startup (the Chromium download is cached on your data volume). To offload rendering to a remote Crawl4AI server instead — no local install needed:
+
+```env
+CRAWL4AI_API_URL=http://crawl4ai.example.com:11235
+# Required by Crawl4AI Docker >= 0.9.0 (bearer token for external connections)
+CRAWL4AI_API_TOKEN=your-crawl4ai-token
+```
+
+See [Content Processing Engines → Optional engines](../3-USER-GUIDE/content-processing-engines.md#optional-engines-docling--crawl4ai) for details.
+
 ---
 
 ## Environment Variable Groups
@@ -281,7 +304,7 @@ Get key from: https://jina.ai/
 OPEN_NOTEBOOK_ENCRYPTION_KEY    # Required for storing credentials
 ```
 
-AI provider API keys are configured via **Settings → API Keys** (not environment variables).
+AI provider API keys are configured via **Manage → Models** (not environment variables).
 
 ### Database
 ```env
@@ -315,7 +338,7 @@ ESPERANTO_LLM_TIMEOUT
 TTS_BATCH_SIZE
 ```
 
-> **Note:** `ELEVENLABS_API_KEY` is deprecated. Configure ElevenLabs via **Settings → API Keys**.
+> **Note:** `ELEVENLABS_API_KEY` is deprecated. Configure ElevenLabs via **Manage → Models**.
 
 ### Debugging
 ```env

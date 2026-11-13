@@ -75,7 +75,7 @@ export default function MyRoadmaps() {
             <h3 className="card-title">{item.title}</h3>
             <div className="chips">
               <span className="muted small">
-                {item.node_count} ด่าน{whenLabel(item.created_at) && ` · ${whenLabel(item.created_at)}`}
+                {item.node_count} หัวข้อ{whenLabel(item.created_at) && ` · ${whenLabel(item.created_at)}`}
               </span>
               {item.origin === 'followed' ? (
                 <span className="chip chip-violet">เดินตามจากฟีด</span>

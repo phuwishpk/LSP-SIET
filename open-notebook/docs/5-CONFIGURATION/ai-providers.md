@@ -11,7 +11,7 @@ Complete setup instructions for each AI provider via the **Settings UI**.
 Open Notebook uses a **credential-based system** for managing AI providers:
 
 1. **Get your API key** from the provider's website
-2. **Open Settings** → **API Keys** → **Add Credential**
+2. Open **Manage** → **Models** → **Add Credential**
 3. **Test the connection** to verify it works
 4. **Discover & Register Models** to make them available
 5. **Start using** the provider in your notebooks
@@ -33,7 +33,7 @@ Open Notebook uses a **credential-based system** for managing AI providers:
 4. Add $5+ credits to account
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **OpenAI**
 4. Give it a name (e.g., "My OpenAI Key")
@@ -61,7 +61,7 @@ Heavy use: $50-100+/month
 ```
 
 **Troubleshooting:**
-- "Invalid API key" → Check key starts with "sk-proj-" and test the connection in Settings
+- "Invalid API key" → Check key starts with "sk-proj-" and test the connection in Manage → Models
 - "Rate limit exceeded" → Wait or upgrade account
 - "Model not available" → Try gpt-4o-mini instead, or re-discover models
 
@@ -78,7 +78,7 @@ Heavy use: $50-100+/month
 4. Create new API key (starts with "sk-ant-")
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **Anthropic**
 4. Give it a name, paste your API key
@@ -109,9 +109,23 @@ Opus: $10-50+/month
 - Fast processing
 
 **Troubleshooting:**
-- "Invalid API key" → Check it starts with "sk-ant-" and test in Settings
+- "Invalid API key" → Check it starts with "sk-ant-" and test in Manage → Models
 - "Overloaded" → Anthropic is busy, retry later
 - "Model unavailable" → Re-discover models from the credential
+
+---
+
+### Anthropic Compatible
+
+Use this provider for services that implement the Anthropic Messages API at a custom URL.
+
+1. Go to **Manage** → **Models**
+2. Add an **Anthropic Compatible** credential
+3. Enter the provider's API key and base URL (the API root, with or without a trailing `/v1`)
+4. Save and test the connection
+5. Discover models, or search for and manually register a model if the endpoint does not list them
+
+Only language models are supported for Anthropic-compatible credentials.
 
 ---
 
@@ -125,7 +139,7 @@ Opus: $10-50+/month
 3. Create new API key
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **Google Gemini**
 4. Give it a name, paste your API key
@@ -133,13 +147,15 @@ Opus: $10-50+/month
 6. Click **Discover Models** → **Register Models**
 
 **Available Models:**
-- `gemini-2.0-flash-exp` — Latest experimental, fastest (recommended)
-- `gemini-2.0-flash` — Stable version, fast, cheap
+- `gemini-2.5-pro` — Strongest, best for long context (1M tokens)
+- `gemini-3.5-flash` — Fast, good for general use
+- `gemini-3.1-flash-lite` — Fastest and cheapest
+- `gemini-2.5-flash` — Previous-gen stable, cheaper
 
 **Recommended:**
-- For general use: `gemini-2.0-flash-exp` (best value, latest)
-- For cheap: `gemini-1.5-flash` (very cheap)
-- For complex/long context: `gemini-1.5-pro-latest` (2M token context)
+- For general use: `gemini-3.5-flash` (best value, latest)
+- For cheap: `gemini-3.1-flash-lite` (very cheap)
+- For complex/long context: `gemini-2.5-pro` (1M token context)
 
 **Advantages:**
 - Very long context (1M tokens)
@@ -163,7 +179,7 @@ Opus: $10-50+/month
 3. Create new API key
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **Groq**
 4. Give it a name, paste your API key
@@ -207,7 +223,7 @@ Opus: $10-50+/month
 4. Create new API key
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **OpenRouter**
 4. Give it a name, paste your API key
@@ -217,15 +233,22 @@ Opus: $10-50+/month
 **Available Models (100+ options):**
 - OpenAI: `openai/gpt-4o`, `openai/o1`
 - Anthropic: `anthropic/claude-sonnet-4.5`, `anthropic/claude-3.5-haiku`
-- Google: `google/gemini-2.0-flash-exp`, `google/gemini-1.5-pro`
+- Google: `google/gemini-3.5-flash`, `google/gemini-2.5-pro`
 - Meta: `meta-llama/llama-3.3-70b-instruct`, `meta-llama/llama-3.1-405b-instruct`
 - Mistral: `mistralai/mistral-large-2411`
 - DeepSeek: `deepseek/deepseek-chat`
 - And many more...
 
+**Speech Models (Text-to-Speech & Speech-to-Text):**
+OpenRouter also exposes audio models. Discovery seeds working defaults; add any
+other `vendor/model` id manually via the custom-model input.
+- Text-to-Speech: `microsoft/mai-voice-2` (uses Microsoft neural voice names such
+  as `en-US-AvaNeural`, not OpenAI's `alloy`/`nova` set)
+- Speech-to-Text: `openai/whisper-1`, `openai/whisper-large-v3`
+
 **Recommended:**
 - For quality: `anthropic/claude-sonnet-4.5` (best overall)
-- For speed/cost: `google/gemini-2.0-flash-exp` (very fast, cheap)
+- For speed/cost: `google/gemini-2.5-flash` (very fast, cheap)
 - For open-source: `meta-llama/llama-3.3-70b-instruct`
 - For reasoning: `openai/o1`
 
@@ -260,7 +283,7 @@ Heavy use: Depends on models chosen
 4. Create a new API key
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **DashScope (Qwen)**
 4. Give it a name, paste your API key
@@ -294,7 +317,7 @@ Heavy use: Depends on models chosen
 4. Create a new API key
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **MiniMax**
 4. Give it a name, paste your API key
@@ -302,19 +325,169 @@ Heavy use: Depends on models chosen
 6. Click **Discover Models** → **Register Models**
 
 **Available Models:**
-- `MiniMax-M2.5` — Most capable, 204K context
-- `MiniMax-M2.5-highspeed` — Faster variant, 204K context
+- Language: `MiniMax-M3` (1M-token context), `MiniMax-M2.5` and `MiniMax-M2.5-highspeed` (204K)
+- Text-to-speech: `speech-2.8-hd` (quality) and `speech-2.8-turbo` (faster). Discover Models lists both
 
 **Recommended:**
-- For quality: `MiniMax-M2.5` (best overall)
-- For speed: `MiniMax-M2.5-highspeed` (faster responses)
+- Chat and transformations: `MiniMax-M3`
+- Podcasts: `speech-2.8-hd` as the speaker profile's voice model
+
+**Text-to-speech voices:**
+In a speaker profile, set the **Voice ID** to a MiniMax voice id, for example `English_Graceful_Lady`. System voices, and voices you cloned or generated in your MiniMax account, all work. The ids are listed in the MiniMax platform's voice library.
+
+**Region:**
+MiniMax API keys are region-specific. Mainland China keys need the credential's **Base URL** set to `https://api.minimax.cn/v1`. The default is the international `https://api.minimax.io/v1`, and the same Base URL is used for chat and text-to-speech. Env-based setups use `MINIMAX_BASE_URL` (migrated into the credential's Base URL).
 
 **Advantages:**
-- Very long context (204K tokens)
+- Very long context (1M tokens on M3)
+- Chat and podcast voices from one key
 - Competitive pricing
 
 **Troubleshooting:**
-- "Invalid API key" → Check the key in the MiniMax platform
+- "Invalid API key" → Check the key in the MiniMax platform, and that its region matches the Base URL
+- "Model not available" → Re-discover models from the credential
+- Podcast fails with a voice error → Check the speaker's Voice ID against your account's voices
+
+---
+
+### Cohere
+
+**Cost:** Usage-based
+
+**Get Your API Key:**
+1. Go to https://dashboard.cohere.com/api-keys
+2. Create an account (if needed)
+3. Create a new API key
+
+**Configure in Open Notebook:**
+1. Go to **Manage** → **Models**
+2. Click **Add Credential**
+3. Select provider: **Cohere**
+4. Give it a name, paste your API key
+5. Click **Save**, then **Test Connection**
+6. Click **Discover Models** → **Register Models**
+
+**Available Models:**
+- `command-a-03-2025` — Latest Command language model
+- `embed-v4.0` — Latest embedding model (assign the **Embedding** type when registering)
+
+**Notes:**
+- Cohere uses its native v2 API (`/v2/chat`, `/v2/embed`), not an OpenAI-compatible endpoint.
+- Reranking is not yet available in Open Notebook (tracked separately).
+
+**Troubleshooting:**
+- "Invalid API key" → Check the key in the Cohere dashboard
+- "Model not available" → Re-discover models from the credential
+
+---
+
+### Novita
+
+**Cost:** Pay-per-model (competitive)
+
+**Get Your API Key:**
+1. Go to https://novita.ai/settings/key-management
+2. Create an account (if needed)
+3. Create a new API key
+
+**Configure in Open Notebook:**
+1. Go to **Manage** → **Models**
+2. Click **Add Credential**
+3. Select provider: **Novita**
+4. Give it a name, paste your API key
+5. Click **Save**, then **Test Connection**
+6. Click **Discover Models** → **Register Models**
+
+**Notes:**
+- Novita is an OpenAI-compatible gateway (`https://api.novita.ai/openai`) for open-weight LLMs.
+
+**Troubleshooting:**
+- "Invalid API key" → Check the key in the Novita console
+- "Model not available" → Re-discover models from the credential
+
+---
+
+### SiliconFlow
+
+**Cost:** Pay-per-model (competitive; some small models are free)
+
+**Get Your API Key:**
+1. Go to https://cloud.siliconflow.com/account/ak (mainland China accounts: https://cloud.siliconflow.cn/account/ak)
+2. Create an account (if needed)
+3. Create a new API key
+
+**Configure in Open Notebook:**
+1. Go to **Manage** → **Models**
+2. Click **Add Credential**
+3. Select provider: **SiliconFlow**
+4. Give it a name, paste your API key
+5. **Mainland China account?** Set **Base URL** to `https://api.siliconflow.cn/v1` (the default is the global `https://api.siliconflow.com/v1`)
+6. Click **Save**, then **Test Connection**
+7. Click **Discover Models** → **Register Models**
+
+**Notes:**
+- Hosted DeepSeek, Qwen, GLM and Kimi models behind one OpenAI-compatible key.
+- Language models only for now. Embedding, speech-to-text and text-to-speech through SiliconFlow need support in Esperanto first.
+- Env-based setup: `SILICONFLOW_API_KEY`, plus `SILICONFLOW_BASE_URL` for a mainland China account (migrated into the credential's Base URL).
+
+**Troubleshooting:**
+- "Invalid API key" → Check that the key matches the endpoint: keys from `siliconflow.cn` don't work against the global `.com` endpoint, and vice versa
+- "Model not available" → Re-discover models from the credential
+
+---
+
+### Z.ai
+
+**Cost:** Pay-per-token
+
+**Get Your API Key:**
+1. Go to https://z.ai/manage-apikey/apikey-list
+2. Create an account (if needed)
+3. Create a new API key
+
+**Configure in Open Notebook:**
+1. Go to **Manage** → **Models**
+2. Click **Add Credential**
+3. Select provider: **Z.ai**
+4. Give it a name, paste your API key
+5. Click **Save**, then **Test Connection**
+6. Click **Discover Models** → **Register Models**
+
+**Notes:**
+- Z.ai's GLM models (for example `glm-5.2`, also used for the connection test, and `glm-4.5-flash`) are available through an OpenAI-compatible API (`https://api.z.ai/api/paas/v4`). Register the models you want after **Discover Models**.
+- Language models only.
+- Env-based setup: `ZAI_API_KEY`, plus `ZAI_BASE_URL` to point at a different Z.ai endpoint (migrated into the credential's Base URL).
+
+**Troubleshooting:**
+- "Invalid API key" → Check the key in the Z.ai console
+- A model is missing from Discover Models → Type its id (e.g. `glm-4.5-flash`) in the search box and use **Add**
+- "Model not available" → Re-discover models from the credential
+
+---
+
+### PayPerQ (PPQ)
+
+**Cost:** Pay-as-you-go across the providers it routes to
+
+**Get Your API Key:**
+1. Go to https://ppq.ai
+2. Create an account (if needed)
+3. Create a new API key
+
+**Configure in Open Notebook:**
+1. Go to **Manage** → **Models**
+2. Click **Add Credential**
+3. Select provider: **PayPerQ**
+4. Give it a name, paste your API key
+5. Click **Save**, then **Test Connection**
+6. Click **Discover Models** → **Register Models**
+
+**Notes:**
+- PPQ is a multi-modality OpenAI-compatible gateway (`https://api.ppq.ai/v1`) offering language, embedding, speech-to-text and text-to-speech models.
+- Discovered models are classified by name; adjust the model type when registering if a model lands in the wrong slot.
+
+**Troubleshooting:**
+- "Invalid API key" → Check the key in the PPQ dashboard
 - "Model not available" → Re-discover models from the credential
 
 ---
@@ -331,7 +504,7 @@ Heavy use: Depends on models chosen
 3. Download a model: `ollama pull mistral`
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **Ollama**
 4. Give it a name (e.g., "Local Ollama")
@@ -349,7 +522,7 @@ See [Ollama Setup Guide](ollama.md) for detailed network configuration.
 Ollama models default to a **8,192-token** context window. This default is intentionally
 conservative so models run reliably on consumer GPUs (≈8GB VRAM) without running out of memory.
 If your hardware can handle more, set an optional **Context Window (num_ctx)** value on the
-Ollama credential (Settings → API Keys → edit the Ollama credential). It applies to all models
+Ollama credential (Manage → Models → edit the Ollama credential). It applies to all models
 that use that credential. Leave it empty to keep the default.
 
 - Raise it (e.g. `32768`) when ingesting large documents or using long chat histories.
@@ -401,6 +574,32 @@ CPU-only:
 
 ---
 
+### oMLX (Apple Silicon)
+
+**Cost:** Free (electricity only)
+
+**Requirements:** Apple Silicon Mac. oMLX runs on the host (not in Linux containers).
+
+**Setup oMLX:**
+1. Install from [oMLX](https://omlx.ai/) / [jundot/omlx](https://github.com/jundot/omlx)
+2. Run on port **11435** (oMLX’s default `8000` conflicts with SurrealDB):
+   ```bash
+   OMLX_PORT=11435 omlx serve
+   ```
+3. Load models in the oMLX admin UI
+
+**Configure in Open Notebook:**
+1. Go to **Manage** → **Models**
+2. Click **Add Credential**
+3. Select provider: **oMLX**
+4. Base URL defaults to `http://localhost:11435/v1` (use `http://host.docker.internal:11435/v1` if Open Notebook is in Docker)
+5. API key is optional (only if you started oMLX with `--api-key`)
+6. Click **Save**, then **Test Connection** → **Discover Models** → **Register Models**
+
+See [oMLX Setup Guide](omlx.md) for port conflict details and troubleshooting.
+
+---
+
 ### LM Studio (Local Alternative)
 
 **Cost:** Free
@@ -413,7 +612,7 @@ CPU-only:
 5. Start server (default port: 1234)
 
 **Configure in Open Notebook:**
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **OpenAI-Compatible**
 4. Give it a name (e.g., "LM Studio")
@@ -438,7 +637,7 @@ CPU-only:
 
 For Text Generation UI, vLLM, or other OpenAI-compatible endpoints:
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select provider: **OpenAI-Compatible**
 4. Enter the base URL for your endpoint (e.g., `http://localhost:8000/v1`)
@@ -460,7 +659,7 @@ See [OpenAI-Compatible Setup](openai-compatible.md) for detailed instructions.
 1. Create Azure OpenAI service in Azure portal
 2. Deploy GPT-4/3.5-turbo model
 3. Get your endpoint and key
-4. Go to **Settings** → **API Keys**
+4. Go to **Manage** → **Models**
 5. Click **Add Credential**
 6. Select provider: **Azure OpenAI**
 7. Fill in: API Key, Endpoint, API Version
@@ -517,7 +716,7 @@ Use OpenAI
 1. **Choose your provider** from above
 2. **Get API key** (if cloud) or install locally (if Ollama)
 3. **Set `OPEN_NOTEBOOK_ENCRYPTION_KEY`** in your docker-compose.yml (required for storing credentials)
-4. **Open Settings** → **API Keys** → **Add Credential**
+4. Open **Manage** → **Models** → **Add Credential**
 5. **Test Connection** to verify it works
 6. **Discover & Register Models** to make them available
 7. **Verify it works** with a test chat
@@ -532,7 +731,7 @@ Done!
 
 > **Deprecated**: Configuring AI provider API keys via environment variables is deprecated. Use the Settings UI instead. Environment variables may still work as a fallback but are no longer the recommended approach.
 
-If you are migrating from an older version that used environment variables, go to **Settings** → **API Keys** and click the **Migrate to Database** button to import your existing keys into the credential system.
+If you are migrating from an older version that used environment variables, go to **Manage** → **Models** and click the **Migrate to Database** button to import your existing keys into the credential system.
 
 ---
 

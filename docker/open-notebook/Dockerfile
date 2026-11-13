@@ -6,6 +6,7 @@
 # Layout assumption:
 #   <root>/
 #     open-notebook/                <- Python app + frontend source
+#     siet-platform/ kmitl-rag/ community/  <- SIET packages (copied to /<dir>)
 #     docker/open-notebook/         <- this Dockerfile + supervisord.conf + wait-for-api.sh
 #
 # Multi-stage build that produces a single image running the FastAPI
@@ -40,6 +41,14 @@ WORKDIR /app
 # Copy Python dependency files first for better layer caching
 COPY open-notebook/pyproject.toml open-notebook/uv.lock ./
 COPY open-notebook/open_notebook/__init__.py ./open_notebook/__init__.py
+# The SIET packages are editable path dependencies at ../<dir> relative to /app
+# (docs/ARCHITECTURE.md). Only their metadata here; the sources come later.
+COPY siet-platform/pyproject.toml /siet-platform/pyproject.toml
+COPY siet-platform/siet_platform/__init__.py /siet-platform/siet_platform/__init__.py
+COPY kmitl-rag/pyproject.toml /kmitl-rag/pyproject.toml
+COPY kmitl-rag/kmitl_rag/__init__.py /kmitl-rag/kmitl_rag/__init__.py
+COPY community/pyproject.toml /community/pyproject.toml
+COPY community/siet_community/__init__.py /community/siet_community/__init__.py
 
 RUN uv sync --frozen --no-dev
 
@@ -61,15 +70,24 @@ RUN npm config set registry ${NPM_REGISTRY} \
  && npm config set fetch-retry-maxtimeout 120000
 # Retry npm ci to survive transient registry ECONNRESETs, which are common on
 # the QEMU-emulated arm64 leg of the multi-arch build.
-RUN i=0; until npm ci; do \
+RUN (i=0; until npm ci; do \
       i=$((i+1)); \
-      if [ "$i" -ge 5 ]; then echo "npm ci failed after $i attempts"; exit 1; fi; \
-      echo "npm ci failed (attempt $i); retrying in 15s"; sleep 15; \
-    done
+      if [ "$i" -ge 3 ]; then echo "npm ci failed, falling back to npm install"; npm install --no-audit --no-fund; break; fi; \
+      echo "npm ci failed (attempt $i); retrying in 10s"; sleep 10; \
+    done)
 
 # Copy the application only after both dependency layers are ready.
 WORKDIR /app
 COPY open-notebook/ /app/
+COPY siet-platform/ /siet-platform/
+COPY kmitl-rag/ /kmitl-rag/
+COPY community/ /community/
+COPY shared/ /shared/
+
+# SIET frontend packages are compiled into this app (tsconfig paths @siet/*,
+# @shared/*) and resolve their imports through the app's node_modules.
+RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done \
+ && ln -sfn /app/frontend/node_modules /shared/node_modules
 
 WORKDIR /app/frontend
 RUN npm run build
@@ -93,6 +111,10 @@ WORKDIR /app
 
 COPY --from=builder /app/.venv /app/.venv
 COPY --from=builder /app /app
+COPY --from=builder /siet-platform /siet-platform
+COPY --from=builder /kmitl-rag /kmitl-rag
+COPY --from=builder /community /community
+COPY --from=builder /shared /shared
 COPY --from=builder /app/tiktoken-cache /app/tiktoken-cache
 
 ENV UV_NO_SYNC=1 \

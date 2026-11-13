@@ -1,0 +1,31 @@
+$ python3 integration_test.py --course 1953
+PASS 200       8ms [auth] public auth status
+PASS 401     277ms [auth] login with a wrong password
+PASS 403       3ms [rbac] teacher -> admin console refused
+PASS 200      16ms [rbac] google sign-in 65039901@kmitl.ac.th -> student
+PASS 200      19ms [rbac] google sign-in 65019901@kmitl.ac.th -> pending
+PASS 403       6ms [rbac] pending account -> community refused
+PASS 200       8ms [rbac] pending account -> own profile allowed
+PASS 403       7ms [rbac] google sign-in it46.outsider@gmail.com -> refused (domain)
+PASS 403       6ms [courses] join with a wrong code refused
+PASS 400       5ms [courses] archived room refuses new members
+PASS 200       9ms [library] course member downloads a PDF
+PASS 403       6ms [library] student cannot publish into the course library
+PASS 404       7ms [feed] private post is hidden from others (404)
+PASS 200      19ms [moderation] room owner hides the post
+PASS 200       7ms [moderation] the room owner's action is in the audit log
+PASS 200       7ms [moderation] admin audit log
+PASS 403       7ms [moderation] suspended student cannot sign in
+PASS 200      24ms [rag] ask the course library
+PASS 200    3013ms [quiz] teacher generates a quiz from the course library
+PASS 200      17ms [quiz] student submits answers (graded by the server)
+PASS 200     514ms [roadmap] teacher generates a roadmap from the course library
+PASS 200 [external-apps] roadmap app proxy: my roadmaps
+PASS 200 [external-apps] roadmap app proxy: who am I
+PASS 404 [external-apps] roadmap app proxy blocks non-allowlisted paths
+PASS 200       7ms [roadmap] the shared post keeps its copy of the plan
+PASS 200 [external-apps] quiz app bridge /quiz/api/me -> /api/users/me
+PASS 200     167ms [notebooks] delete the notebook
+PASS 201      13ms [admin] create a category
+...
+TOTAL {'steps': 135, 'passed': 135}

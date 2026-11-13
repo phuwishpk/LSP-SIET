@@ -26,9 +26,11 @@ Create a new folder `open-notebook` and add this file:
 services:
   surrealdb:
     image: surrealdb/surrealdb:v2
-    command: start --user root --pass password --bind 0.0.0.0:8000 rocksdb:/mydata/mydatabase.db
+    command: start --user root --pass password rocksdb:/mydata/mydatabase.db
     ports:
-      - "8000:8000"
+      # Localhost only — the database uses default credentials, so never
+      # publish this port on 0.0.0.0
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./surreal_data:/mydata
     # Removed the healthcheck because the v2 image is too minimal to run wget/curl
@@ -85,7 +87,7 @@ You should see the Open Notebook interface!
 
 ## Step 4: Configure Your AI Provider (1 min)
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select your provider (e.g., Anthropic, Google, Groq, OpenRouter)
 4. Give it a name, paste your API key
@@ -101,19 +103,18 @@ Your provider's models are now available!
 
 ## Step 5: Configure Your Model (1 min)
 
-1. Go to **Settings** (gear icon)
-2. Navigate to **Models**
-3. Select your provider's model:
+1. In the sidebar, open **Manage** → **Models**
+2. Select your provider's model:
 
 | Provider | Recommended Model | Notes |
 |----------|-------------------|-------|
 | **OpenRouter** | `anthropic/claude-3.5-sonnet` | Access 100+ models |
 | **Anthropic** | `claude-3-5-sonnet-latest` | Best reasoning |
-| **Google** | `gemini-2.0-flash` | Large context, fast |
+| **Google** | `gemini-3.5-flash` | Large context, fast |
 | **Groq** | `llama-3.3-70b-versatile` | Ultra-fast |
 | **Mistral** | `mistral-large-latest` | Strong European option |
 
-4. Click **Save**
+3. Click **Save**
 
 ---
 
@@ -165,7 +166,7 @@ Your provider's models are now available!
 
 ### "Model not found" Error
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Test Connection** on your credential
 3. If valid, click **Discover Models** → **Register Models**
 4. Check you have credits/access for the model

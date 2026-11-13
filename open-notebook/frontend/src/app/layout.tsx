@@ -1,5 +1,10 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans_Thai, Inter, Noto_Sans_Thai } from "next/font/google";
+import {
+  Bricolage_Grotesque,
+  Instrument_Sans,
+  Spline_Sans_Mono,
+} from "next/font/google";
+import { sietFontVariables } from "@siet/platform/lib/fonts"; // KMITL
 import "./globals.css";
 import "katex/dist/katex.min.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -10,20 +15,20 @@ import { ConnectionGuard } from "@/components/common/ConnectionGuard";
 import { themeScript } from "@/lib/theme-script";
 import { I18nProvider } from "@/components/providers/I18nProvider";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-
-// Thai faces for the SIET theme (`.theme-siet` in globals.css). Only the CSS
-// variables are set here; without preload the files are fetched by the pages
-// that actually use the family. Noto Sans Thai is a variable font and must stay
-// without a weight list: Turbopack fails to resolve its files when one is given.
-const plexThai = IBM_Plex_Sans_Thai({
-  weight: ["400", "500", "600"],
-  variable: "--font-ibm-plex-thai",
-  preload: false,
+const instrumentSans = Instrument_Sans({
+  subsets: ["latin"],
+  variable: "--font-instrument-sans",
 });
-const notoThai = Noto_Sans_Thai({
-  variable: "--font-noto-thai",
-  preload: false,
+
+const bricolageGrotesque = Bricolage_Grotesque({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+  variable: "--font-bricolage",
+});
+
+const splineSansMono = Spline_Sans_Mono({
+  subsets: ["latin"],
+  variable: "--font-spline-mono",
 });
 
 export const metadata: Metadata = {
@@ -41,7 +46,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className={`${inter.className} ${inter.variable} ${plexThai.variable} ${notoThai.variable}`}>
+      <body
+        className={`${instrumentSans.variable} ${bricolageGrotesque.variable} ${splineSansMono.variable} font-sans ${sietFontVariables}`}
+      >
         <ErrorBoundary>
           <ThemeProvider>
             <QueryProvider>

@@ -56,15 +56,13 @@ export function EmbeddingModelChangeDialog({
       <AlertDialogContent className="max-w-lg">
         <AlertDialogHeader>
           <div className="flex items-center gap-2 mb-2">
-            <AlertTriangle className="h-5 w-5 text-yellow-500" />
+            <AlertTriangle className="h-5 w-5 text-warn" />
             <AlertDialogTitle>{t('models.embeddingChangeTitle')}</AlertDialogTitle>
           </div>
           <AlertDialogDescription asChild>
             <div className="space-y-3 text-base text-muted-foreground">
               <p>
-                {t('models.embeddingChangeConfirm')
-                  .replace('{from}', oldModelName || '...')
-                  .replace('{to}', newModelName || '...')}
+                {t('models.embeddingChangeConfirm', { from: oldModelName || '...', to: newModelName || '...' })}
               </p>
 
               <div className="bg-muted p-4 rounded-md space-y-2">

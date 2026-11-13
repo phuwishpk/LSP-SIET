@@ -1,8 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { render, screen, fireEvent } from '@testing-library/react'
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
+import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import { useSidebarStore } from '@/lib/stores/sidebar-store'
+
+// KMITL: open-notebook's own navigation, without the SIET extensions
+// (their sidebar is tested in @siet/platform)
+vi.mock('@/lib/extensions.installed', () => ({ installed: [] }))
 
 // Mock Tooltip components to avoid Radix UI async issues in tests
 vi.mock('@/components/ui/tooltip', () => ({
@@ -12,25 +17,25 @@ vi.mock('@/components/ui/tooltip', () => ({
   TooltipContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
 
-// The current path decides which entry is highlighted.
-const mockPathname = vi.fn(() => '')
-vi.mock('next/navigation', () => ({
-  useRouter: () => ({ push: vi.fn(), replace: vi.fn(), prefetch: vi.fn() }),
-  usePathname: () => mockPathname(),
-  useSearchParams: () => new URLSearchParams(),
-}))
-
-// The navigation is role-aware (see lib/roles.ts): students only get the
-// community, everything else belongs to staff. The store decides which.
-const mockRole = vi.fn<() => string | undefined>(() => 'teacher')
-vi.mock('@/lib/stores/auth-store', () => ({
-  useAuthStore: (selector: (state: unknown) => unknown) =>
-    selector({ user: { id: '1', username: 'teacher1', role: mockRole() } }),
-}))
-
 describe('AppSidebar', () => {
+  afterEach(() => {
+    vi.mocked(usePathname).mockReturnValue('')
+  })
+
+  it('highlights only Models (not Settings) on the Models page', () => {
+    vi.mocked(usePathname).mockReturnValue('/settings/models')
+
+    const { container } = render(<AppSidebar />)
+
+    const modelsButton = container.querySelector('a[href="/settings/models"] button')
+    const settingsButton = container.querySelector('a[href="/settings"] button')
+
+    expect(modelsButton?.className).toContain('font-semibold')
+    expect(settingsButton?.className).toContain('font-medium')
+    expect(settingsButton?.className).not.toContain('font-semibold')
+  })
+
   it('renders correctly when expanded', () => {
-    mockRole.mockReturnValue('teacher')
     render(<AppSidebar />)
 
     // With mocked t() returning keys, check for translation key strings
@@ -39,71 +44,24 @@ describe('AppSidebar', () => {
     expect(screen.getByText('navigation.notebooks')).toBeDefined()
   })
 
-  it('hides the staff areas from students', () => {
-    mockRole.mockReturnValue('student')
+  it('uses consistent spacing for expanded footer actions', () => {
     render(<AppSidebar />)
 
-    expect(screen.getByText('navigation.communityFeed')).toBeDefined()
-    expect(screen.queryByText('navigation.sources')).toBeNull()
-    expect(screen.queryByText('navigation.notebooks')).toBeNull()
-    expect(screen.queryByText('navigation.teacherConsole')).toBeNull()
-    expect(screen.queryByText('navigation.adminConsole')).toBeNull()
-  })
+    const themeButton = screen.getByText('common.theme').closest('button')
+    const languageButton = screen.getByText('common.language').closest('button')
+    const signOutButton = screen.getByRole('button', { name: 'common.signOut' })
 
-  it('gives admins the console and model settings', () => {
-    mockRole.mockReturnValue('admin')
-    render(<AppSidebar />)
+    expect(themeButton?.className.split(/\s+/)).toContain('px-3')
 
-    expect(screen.getByText('navigation.teacherConsole')).toBeDefined()
-    expect(screen.getByText('navigation.adminConsole')).toBeDefined()
-    expect(screen.getByText('navigation.models')).toBeDefined()
-  })
-
-  it('groups the admin consoles into community, AI and quiz', () => {
-    mockRole.mockReturnValue('admin')
-    render(<AppSidebar />)
-
-    const linksUnder = (heading: string) =>
-      Array.from(screen.getByText(heading).parentElement?.querySelectorAll('a') ?? []).map((a) => [
-        a.textContent,
-        a.getAttribute('href'),
-      ])
-    expect(linksUnder('navigation.manageCommunity')).toEqual([['navigation.adminCommunity', '/admin/community']])
-    expect(linksUnder('navigation.manageAi')).toEqual([
-      ['navigation.adminRag', '/admin/rag'],
-      ['navigation.adminRoadmap', '/admin/roadmap'],
-    ])
-    expect(linksUnder('navigation.manageQuiz')).toEqual([['navigation.adminQuiz', '/admin/quiz']])
-    // what belongs to no single area stays with the other management links
-    expect(linksUnder('navigation.manage').map(([, href]) => href)).toContain('/admin')
-  })
-
-  it('keeps the admin groups away from teachers', () => {
-    mockRole.mockReturnValue('teacher')
-    render(<AppSidebar />)
-
-    expect(screen.getByText('navigation.teacherConsole')).toBeDefined()
-    for (const key of ['navigation.manageCommunity', 'navigation.manageAi', 'navigation.manageQuiz', 'navigation.adminConsole']) {
-      expect(screen.queryByText(key)).toBeNull()
+    for (const button of [themeButton, languageButton, signOutButton]) {
+      expect(button?.className.split(/\s+/)).toContain('gap-2')
     }
-  })
 
-  it('marks only the most specific entry as the current page', () => {
-    mockRole.mockReturnValue('admin')
-    mockPathname.mockReturnValue('/admin/quiz')
-    render(<AppSidebar />)
-
-    const isCurrent = (key: string) =>
-      /(^|\s)bg-sidebar-accent(\s|$)/.test(screen.getByText(key).closest('button')?.className ?? '')
-    // /admin is a prefix of /admin/quiz, but it is not the page being shown
-    expect(isCurrent('navigation.adminQuiz')).toBe(true)
-    expect(isCurrent('navigation.adminConsole')).toBe(false)
-    expect(isCurrent('navigation.adminRoadmap')).toBe(false)
-    mockPathname.mockReturnValue('')
+    expect(themeButton?.querySelector(':scope > span.relative.size-4')).not.toBeNull()
+    expect(signOutButton.className.split(/\s+/)).not.toContain('gap-3')
   })
 
   it('toggles collapse state when clicking handle', () => {
-    mockRole.mockReturnValue('teacher')
     const toggleCollapse = vi.fn()
     vi.mocked(useSidebarStore).mockReturnValue({
       isCollapsed: false,

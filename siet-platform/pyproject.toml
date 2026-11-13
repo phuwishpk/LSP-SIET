@@ -1,0 +1,26 @@
+[project]
+name = "siet-platform"
+version = "0.1.0"
+description = "SIET Space platform layer on top of open-notebook: workspace accounts and JWT auth, roles, points, provider throttling and usage, Redis caches, the course library and the AI quiz/roadmap features."
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "redis[hiredis]>=5.0.0",
+    "pyjwt>=2.9.0",
+    "bcrypt>=4.2.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiomysql>=0.2.0",
+    "filetype>=1.2.0",
+]
+
+[project.entry-points."open_notebook.extensions"]
+siet_platform = "siet_platform.extension"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["siet_platform*"]
+
+[tool.setuptools.package-data]
+siet_platform = ["migrations/*.surrealql", "prompts/**/*.jinja"]

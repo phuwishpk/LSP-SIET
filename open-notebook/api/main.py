@@ -3,6 +3,13 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+# Keep the internal SurrealDB websocket out of any configured HTTP proxy
+# (issue #1160). Must run after load_dotenv() (so a proxy set in .env is
+# already visible) and before the DB is touched.
+from open_notebook.utils.proxy import ensure_internal_no_proxy
+
+ensure_internal_no_proxy()
+
 import asyncio
 import os
 from contextlib import asynccontextmanager
@@ -14,33 +21,32 @@ from loguru import logger
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from api.auth import PasswordAuthMiddleware
-from api.auth_jwt import get_current_user, jwt_auth_enabled
-from api.auth_roles import RoleAccessMiddleware
+from api.middleware import MaxBodySizeMiddleware, get_max_upload_size_bytes
 from api.routers import (
+    auth,
+    capabilities,
     chat,
     config,
-    context,
     credentials,
     embedding,
     embedding_rebuild,
+    episode_profiles,
     insights,
     languages,
     models,
     notebooks,
     notes,
+    podcasts,
+    providers,
     search,
     settings,
     source_chat,
     sources,
+    speaker_profiles,
     transformations,
 )
-from api.routers import admin as admin_router
 from api.routers import commands as commands_router
-from api.routers import community as community_router
-from api.routers import features as features_router
-from api.routers import google_auth as google_auth_router
-from api.routers import users as users_router
-from open_notebook.community.throttle import ProviderBusy
+from open_notebook import extensions
 from open_notebook.database.async_migrate import AsyncMigrationManager
 from open_notebook.exceptions import (
     AuthenticationError,
@@ -51,6 +57,7 @@ from open_notebook.exceptions import (
     NotFoundError,
     OpenNotebookError,
     RateLimitError,
+    UnsupportedTypeException,
 )
 from open_notebook.utils.encryption import get_secret_from_env
 
@@ -67,6 +74,14 @@ def _parse_cors_origins(raw: str) -> list[str]:
 _cors_origins_raw = os.getenv("CORS_ORIGINS")
 CORS_ALLOWED_ORIGINS = _parse_cors_origins(_cors_origins_raw or "*")
 CORS_IS_DEFAULT_WILDCARD = _cors_origins_raw is None
+# Keyed on the parsed list, not on whether the env var was set: an operator
+# who explicitly sets CORS_ORIGINS=* must get the same wildcard treatment as
+# the default, or credentials would combine with a wildcard origin - the
+# exact reflect-any-Origin behavior this flag exists to prevent.
+CORS_ALLOW_CREDENTIALS = "*" not in CORS_ALLOWED_ORIGINS
+
+# Parsed once at module load; OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB changes require a restart.
+MAX_UPLOAD_SIZE_BYTES = get_max_upload_size_bytes()
 
 DATABASE_STARTUP_RETRY_ATTEMPTS = 12
 DATABASE_STARTUP_RETRY_INITIAL_DELAY_SECONDS = 1
@@ -86,13 +101,17 @@ def _cors_headers(request: Request) -> dict[str, str]:
     browsers reject `Access-Control-Allow-Origin: *` combined with
     credentials). Omits `Access-Control-Allow-Origin` for disallowed
     origins so the browser blocks the error body from leaking cross-origin.
+    Only claims Access-Control-Allow-Credentials when the real CORSMiddleware
+    would (see its allow_credentials comment above) - otherwise error
+    responses would grant credentialed access the success path doesn't.
     """
     origin = request.headers.get("origin")
     headers: dict[str, str] = {
-        "Access-Control-Allow-Credentials": "true",
         "Access-Control-Allow-Methods": "*",
         "Access-Control-Allow-Headers": "*",
     }
+    if CORS_ALLOW_CREDENTIALS:
+        headers["Access-Control-Allow-Credentials"] = "true"
 
     if origin and ("*" in CORS_ALLOWED_ORIGINS or origin in CORS_ALLOWED_ORIGINS):
         headers["Access-Control-Allow-Origin"] = origin
@@ -189,146 +208,17 @@ async def lifespan(app: FastAPI):
         # Fail fast - don't start the API with an outdated database schema
         raise RuntimeError(f"Failed to run database migrations: {str(e)}") from e
 
-    # Community / point-wallet schema (idempotent) – must run before seeding.
-    try:
-        from open_notebook.community.schema import ensure_schema
-
-        await ensure_schema()
-    except Exception as exc:
-        logger.error(f"Community MariaDB schema setup failed: {exc}")
-
-    # Seed: 1 admin + 5 students on MariaDB startup.
-    # Set WORKSPACE_SEED_ADMIN=false to disable.
-    try:
-        from open_notebook.domain.user import (
-            USER_ROLE_ADMIN,
-            USER_ROLE_STUDENT,
-            UserAlreadyExists,
-            create as create_user,
-            get_by_username,
-            update_password,
-            verify_password,
-        )
-
-        seed_enabled = os.getenv("WORKSPACE_SEED_ADMIN", "true").lower() not in {
-            "0",
-            "false",
-            "no",
-        }
-        if seed_enabled and jwt_auth_enabled():
-            seed_users = [
-                {
-                    "username": "admin1",
-                    "password": os.getenv("WORKSPACE_SEED_ADMIN_PASSWORD", "admin1"),
-                    "display_name": "Administrator",
-                    "role": USER_ROLE_ADMIN,
-                },
-                {
-                    "username": "student1",
-                    "password": "student1",
-                    "display_name": "Student 1",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student2",
-                    "password": "student2",
-                    "display_name": "Student 2",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student3",
-                    "password": "student3",
-                    "display_name": "Student 3",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student4",
-                    "password": "student4",
-                    "display_name": "Student 4",
-                    "role": USER_ROLE_STUDENT,
-                },
-                {
-                    "username": "student5",
-                    "password": "student5",
-                    "display_name": "Student 5",
-                    "role": USER_ROLE_STUDENT,
-                },
-            ]
-            for u in seed_users:
-                seed_password = u["password"]
-                existing = await get_by_username(u["username"])
-                if existing is None:
-                    try:
-                        await create_user(**u)
-                        logger.success(f"Seeded user '{u['username']}'")
-                    except UserAlreadyExists:
-                        pass
-                    except Exception as exc:
-                        logger.warning(f"Failed to seed user '{u['username']}': {exc}")
-                elif existing.id and not verify_password(seed_password, existing.password_hash):
-                    await update_password(existing.id, seed_password)
-                    logger.success(f"Updated seeded user '{u['username']}'")
-
-            # Demo data for the community: welcome allowance + sample course rooms.
-            try:
-                from open_notebook.community import points as community_points
-                from open_notebook.community import repository as community_repo
-
-                for u in seed_users:
-                    seeded = await get_by_username(u["username"])
-                    if seeded is not None:
-                        await community_points.ensure_welcome(seeded)
-                for code, name, desc in (
-                    ("CS101", "Data Structure", "โครงสร้างข้อมูลและอัลกอริทึมพื้นฐาน"),
-                    ("CS201", "Web Technology", "การพัฒนาเว็บ ฝั่งหน้าบ้านและหลังบ้าน"),
-                    ("CS301", "OS & Linux", "ระบบปฏิบัติการและการใช้งาน Linux"),
-                    ("CS302", "Computer Network", "เครือข่ายคอมพิวเตอร์และโปรโตคอล"),
-                ):
-                    await community_repo.ensure_course(code, name, desc)
-            except Exception as exc:
-                logger.warning(f"Community seed skipped: {exc}")
-    except Exception as exc:
-        logger.debug(f"Skipping default user seed: {exc}")
+    # KMITL hook: startup steps of installed extensions (their own migrations
+    # run here, right after open-notebook's)
+    await extensions.emit("app.startup")
 
     logger.success("API initialization completed successfully")
-
-    # Phase 5: start the periodic tuner only when explicitly enabled. The
-    # singleton remains available while disabled so hot-path threshold reads
-    # transparently fall back to static defaults.
-    try:
-        from open_notebook.cache.threshold_tuner import start_tuner_if_enabled
-
-        await start_tuner_if_enabled()
-    except Exception as exc:
-        logger.warning(f"Adaptive threshold tuner failed to start safely: {exc}")
-
-    # Phase 6.5: load persisted circuit-breaker state on startup
-    try:
-        from open_notebook.cache.circuit_breaker import init_circuit_breaker
-
-        await init_circuit_breaker()
-    except Exception as exc:
-        logger.warning(f"Circuit breaker init failed safely: {exc}")
 
     # Yield control to the application
     yield
 
-    try:
-        from open_notebook.cache.threshold_tuner import stop_tuner
-
-        await stop_tuner()
-    except Exception as exc:
-        logger.debug(f"Adaptive threshold tuner shutdown skipped: {exc}")
-
-    # Shutdown: close Redis connection
-    try:
-        from open_notebook.cache.redis_client import redis_client
-
-        await redis_client.close()
-        logger.info("Redis connection closed")
-    except Exception:
-        pass
-
+    # Shutdown: cleanup if needed
+    await extensions.emit("app.shutdown")  # KMITL hook
     logger.info("API shutdown complete")
 
 
@@ -337,6 +227,10 @@ app = FastAPI(
     description="API for Open Notebook - Research Assistant",
     lifespan=lifespan,
 )
+
+# KMITL hook: installed extensions add their middleware and routers here, so
+# they sit inside the password middleware and ahead of open-notebook's routes
+extensions.install_app(app)
 
 if CORS_IS_DEFAULT_WILDCARD:
     logger.warning(
@@ -348,24 +242,8 @@ if CORS_IS_DEFAULT_WILDCARD:
 else:
     logger.info(f"CORS allowed origins: {CORS_ALLOWED_ORIGINS}")
 
-# Role gate. Added BEFORE the password middleware so that it *runs after* it
-# (Starlette executes middleware in reverse registration order) and can read the
-# owner id that authentication resolved.
-app.add_middleware(
-    RoleAccessMiddleware,
-    exempt_paths=[
-        "/",
-        "/health",
-        "/docs",
-        "/openapi.json",
-        "/redoc",
-        "/api/config",
-    ],
-)
-
 # Add password authentication middleware first
-# Exclude auth + workspace user endpoints so the frontend can probe auth state
-# and complete the initial login without already having a token.
+# Exclude /api/auth/status and /api/config from authentication
 app.add_middleware(
     PasswordAuthMiddleware,
     excluded_paths=[
@@ -375,27 +253,38 @@ app.add_middleware(
         "/openapi.json",
         "/redoc",
         "/api/auth/status",
-        "/api/auth/legacy-status",
         "/api/config",
-        "/api/users/login",
-        "/api/users/register",
-        "/api/users/logout",
-        "/api/auth/google/start",
-        "/api/auth/google/exchange",
     ],
 )
 
-# Add CORS middleware last (so it processes first)
+# Reject oversized request bodies before they reach auth or routing - added
+# after PasswordAuthMiddleware (so it wraps around it) so a too-large request
+# is rejected before spending any work checking credentials.
+logger.info(
+    f"Max request body size: {MAX_UPLOAD_SIZE_BYTES / (1024 * 1024):g}MB "
+    "(set OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB to change)"
+)
+app.add_middleware(MaxBodySizeMiddleware, max_body_size=MAX_UPLOAD_SIZE_BYTES)
+
+# Add CORS middleware last (so it processes first, and so it can attach
+# CORS headers to a 413 raised by MaxBodySizeMiddleware)
+#
+# allow_credentials is tied to whether CORS_ORIGINS resolves to specific
+# origins: combining allow_origins=["*"] with allow_credentials=True makes
+# Starlette reflect the request's Origin header verbatim (browsers reject a
+# literal "*" alongside credentials), which defeats the origin allowlist.
+# The frontend never sends credentialed requests (withCredentials: false)
+# and auth is a Bearer header, not a cookie, so this isn't independently
+# exploitable today - but there's no reason to allow it for any wildcard
+# case. Once an operator explicitly scopes CORS_ORIGINS to real origins,
+# credentialed cross-origin requests to those origins are safe to allow.
 app.add_middleware(
     CORSMiddleware,
     allow_origins=CORS_ALLOWED_ORIGINS,
-    allow_credentials=True,
+    allow_credentials=CORS_ALLOW_CREDENTIALS,
     allow_methods=["*"],
     allow_headers=["*"],
 )
-# Note: body-size enforcement lives in api/middleware.py (MaxBodySizeMiddleware),
-# which is registered via api.main when running in the prebuilt image. The
-# OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB environment variable controls its limit.
 
 
 # Custom exception handler to ensure CORS headers are included in error responses
@@ -446,27 +335,10 @@ async def authentication_error_handler(request: Request, exc: AuthenticationErro
 
 @app.exception_handler(RateLimitError)
 async def rate_limit_error_handler(request: Request, exc: RateLimitError):
-    # The provider kept answering 429 even after the gate's retries: tell the
-    # client when to try again instead of leaving it to guess.
     return JSONResponse(
         status_code=429,
         content={"detail": str(exc)},
-        headers={**_cors_headers(request), "Retry-After": "15", "X-Points-Kind": "provider_rate_limit"},
-    )
-
-
-@app.exception_handler(ProviderBusy)
-async def provider_busy_handler(request: Request, exc: ProviderBusy):
-    # Our own queue stayed full for the whole timeout: a temporary overload,
-    # not a client fault, so 503 + Retry-After (clients retry automatically).
-    return JSONResponse(
-        status_code=503,
-        content={"detail": str(exc)},
-        headers={
-            **_cors_headers(request),
-            "Retry-After": str(exc.retry_after),
-            "X-Points-Kind": "llm_busy",
-        },
+        headers=_cors_headers(request),
     )
 
 
@@ -497,6 +369,17 @@ async def external_service_error_handler(request: Request, exc: ExternalServiceE
     )
 
 
+@app.exception_handler(UnsupportedTypeException)
+async def unsupported_type_error_handler(
+    request: Request, exc: UnsupportedTypeException
+):
+    return JSONResponse(
+        status_code=415,
+        content={"detail": str(exc)},
+        headers=_cors_headers(request),
+    )
+
+
 @app.exception_handler(OpenNotebookError)
 async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
     return JSONResponse(
@@ -507,13 +390,7 @@ async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
 
 
 # Include routers
-# NOTE: `/auth/status` is served by `users_router` and reports JWT auth state.
-# A second `api/routers/auth.py` used to define the same path but only checked
-# `OPEN_NOTEBOOK_PASSWORD`, so it always answered `{auth_enabled: false}` and
-# made the frontend think auth was off while login/register were 401-blocked.
-# It was never mounted here, and the module has since been deleted - do not
-# reintroduce a second auth status route.
-app.include_router(users_router.router, prefix="/api", tags=["users"])
+app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(config.router, prefix="/api", tags=["config"])
 app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])
 app.include_router(search.router, prefix="/api", tags=["search"])
@@ -525,18 +402,18 @@ app.include_router(
     embedding_rebuild.router, prefix="/api/embeddings", tags=["embeddings"]
 )
 app.include_router(settings.router, prefix="/api", tags=["settings"])
-app.include_router(context.router, prefix="/api", tags=["context"])
 app.include_router(sources.router, prefix="/api", tags=["sources"])
 app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(commands_router.router, prefix="/api", tags=["commands"])
+app.include_router(podcasts.router, prefix="/api", tags=["podcasts"])
+app.include_router(episode_profiles.router, prefix="/api", tags=["episode-profiles"])
+app.include_router(speaker_profiles.router, prefix="/api", tags=["speaker-profiles"])
 app.include_router(chat.router, prefix="/api", tags=["chat"])
 app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
+app.include_router(providers.router, prefix="/api", tags=["providers"])
+app.include_router(capabilities.router, prefix="/api", tags=["capabilities"])
 app.include_router(languages.router, prefix="/api", tags=["languages"])
-app.include_router(features_router.router, prefix="/api", tags=["features"])
-app.include_router(google_auth_router.router, prefix="/api", tags=["auth"])
-app.include_router(community_router.router, prefix="/api", tags=["community"])
-app.include_router(admin_router.router, prefix="/api", tags=["admin"])
 
 
 @app.get("/")
@@ -547,3 +424,7 @@ async def root():
 @app.get("/health")
 async def health():
     return {"status": "healthy"}
+
+
+# KMITL hook: installed extensions may override exception handlers or routes
+extensions.finalize_app(app)

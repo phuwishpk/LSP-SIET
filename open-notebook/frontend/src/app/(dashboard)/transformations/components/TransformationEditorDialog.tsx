@@ -117,7 +117,8 @@ export function TransformationEditorDialog({ open, onOpenChange, transformation 
         data: {
           name: data.name,
           title: data.title || undefined,
-          description: data.description || undefined,
+          // Send a cleared description as-is so the clear persists.
+          description: data.description ?? '',
           prompt: data.prompt,
           apply_default: Boolean(data.apply_default),
           model_id: data.model_id || null,
@@ -180,7 +181,7 @@ export function TransformationEditorDialog({ open, onOpenChange, transformation 
                     )}
                   />
                   {errors.name && (
-                    <p className="text-sm text-red-600 mt-1">{errors.name.message}</p>
+                    <p className="text-sm text-destructive mt-1">{errors.name.message}</p>
                   )}
                 </div>
 
@@ -295,7 +296,7 @@ export function TransformationEditorDialog({ open, onOpenChange, transformation 
                   )}
                 />
                 {errors.prompt && (
-                  <p className="text-sm text-red-600 mt-1">{errors.prompt.message}</p>
+                  <p className="text-sm text-destructive mt-1">{errors.prompt.message}</p>
                 )}
                  <p className="text-xs text-muted-foreground mt-3">
                    {t('transformations.promptHint')}

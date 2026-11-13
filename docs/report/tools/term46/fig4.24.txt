@@ -1,0 +1,16 @@
+$ npx tsc --noEmit -p .        # open-notebook/frontend + แพ็กเกจ @siet/*
+(ไม่มีข้อผิดพลาด, exit 0)
+$ npx vitest run
+ ✓ src/lib/api/insights.test.ts (5 tests) 159ms
+ ✓ src/components/search/NotebookScopeSelector.test.tsx (4 tests) 223ms
+ ✓ src/app/(dashboard)/search/page.test.tsx (1 test) 195ms
+ ✓ src/components/sources/AddExistingSourceDialog.test.tsx (1 test) 373ms
+ ✓ src/app/(dashboard)/transformations/components/TransformationEditorDialog.test.tsx (1 test) 252ms
+ ✓ src/components/layout/AppSidebar.test.tsx (5 tests) 317ms
+...
+ ❯ src/components/ui/markdown-editor.test.tsx (15 tests | 3 failed) 210ms
+ ❯ src/lib/locales/index.test.ts (27 tests | 1 failed) 10359ms
+...
+ Test Files  2 failed | 42 passed (44)
+      Tests  4 failed | 215 passed (219)
+   Duration  12.01s (transform 6.51s, setup 5.25s, import 49.07s, tests 15.89s, environment 23.56s)

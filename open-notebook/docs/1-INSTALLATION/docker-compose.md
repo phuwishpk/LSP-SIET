@@ -31,10 +31,21 @@ Create a file called `docker-compose.yml` with this content:
 services:
   surrealdb:
     image: surrealdb/surrealdb:v2
-    command: start --log info --user root --pass root rocksdb:/mydata/mydatabase.db
+    # Credentials default to root:root for a zero-config local setup. Before
+    # exposing this instance to a network, set SURREAL_USER / SURREAL_PASSWORD
+    # in a .env file (see .env.example) — they are applied here and to the
+    # open_notebook service below, so the two always stay in sync.
+    # List (exec) form so each interpolated value stays a single argument —
+    # a password containing spaces would otherwise be split into several.
+    command: ["start", "--log", "info", "--user", "${SURREAL_USER:-root}", "--pass", "${SURREAL_PASSWORD:-root}", "rocksdb:/mydata/mydatabase.db"]
     user: root  # Required for bind mounts on Linux
     ports:
-      - "8000:8000"
+      # Bound to localhost only: the open_notebook service reaches this over
+      # the internal compose network regardless, so the host port is purely
+      # for local debugging (e.g. Surrealist, `surreal sql`). Exposing this
+      # on 0.0.0.0 would let anyone who can reach the host connect with the
+      # default root:root credentials.
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./surreal_data:/mydata
     environment:
@@ -49,12 +60,15 @@ services:
       - "5055:5055"  # REST API
     environment:
       # REQUIRED: Change this to your own secret string
+      # This encrypts your API keys in the database
       - OPEN_NOTEBOOK_ENCRYPTION_KEY=change-me-to-a-secret-string
 
-      # Database connection (default values - no need to change)
+      # Database connection. SURREAL_USER / SURREAL_PASSWORD default to root:root
+      # for local use; override them in a .env file before exposing the instance
+      # (the same values configure the surrealdb service above).
       - SURREAL_URL=ws://surrealdb:8000/rpc
-      - SURREAL_USER=root
-      - SURREAL_PASSWORD=root
+      - SURREAL_USER=${SURREAL_USER:-root}
+      - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
       - SURREAL_NAMESPACE=open_notebook
       - SURREAL_DATABASE=open_notebook
     volumes:
@@ -67,6 +81,7 @@ services:
 
 **Edit the file:**
 - Replace `change-me-to-a-secret-string` with your own secret (any string works, e.g., `my-super-secret-key-123`)
+- (Optional) To use database credentials other than the default `root:root`, create a `.env` file next to `docker-compose.yml` with `SURREAL_USER=...` and `SURREAL_PASSWORD=...` — both services pick them up automatically ([.env.example](https://github.com/lfnovo/open-notebook/blob/main/.env.example) shows the full format)
 
 ---
 
@@ -111,7 +126,7 @@ You should see the Open Notebook interface!
 
 ## Step 4: Configure AI Provider (2 min)
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select your provider (e.g., OpenAI, Anthropic, Google)
 4. Give it a name, paste your API key
@@ -178,7 +193,7 @@ docker exec open-notebook-local-ollama-1 ollama pull mistral
 ```
 
 Configure Ollama in the Settings UI:
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential** → Select **Ollama**
 3. Enter base URL: `http://ollama:11434`
 4. Click **Save**, then **Test Connection**
@@ -277,7 +292,7 @@ Then access at `http://localhost:8503`
 
 ### Credential Issues
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Test Connection** on the credential
 3. If it fails, verify key at provider's website
 4. Check you have credits in your account
@@ -338,7 +353,7 @@ Each example includes detailed comments and usage instructions.
 ## Next Steps
 
 1. **Add Content**: Sources, notebooks, documents
-2. **Configure Models**: Settings → Models (choose your preferences)
+2. **Configure Models**: Manage → Models (choose your preferences)
 3. **Explore Features**: Chat, search, transformations
 4. **Read Guide**: [User Guide](../3-USER-GUIDE/index.md)
 

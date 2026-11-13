@@ -16,6 +16,7 @@ import {
 import {
   Book,
   Search,
+  Mic,
   Bot,
   Shuffle,
   Settings,
@@ -35,7 +36,8 @@ const getNavigationItems = (t: TFunction) => [
   { name: t('navigation.sources'), href: '/sources', icon: FileText, keywords: ['files', 'documents', 'upload'] },
   { name: t('navigation.notebooks'), href: '/notebooks', icon: Book, keywords: ['notes', 'research', 'projects'] },
   { name: t('navigation.askAndSearch'), href: '/search', icon: Search, keywords: ['find', 'query'] },
-  { name: t('navigation.models'), href: '/settings/api-keys', icon: Bot, keywords: ['ai', 'llm', 'providers', 'openai', 'anthropic'] },
+  { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic, keywords: ['audio', 'episodes', 'generate'] },
+  { name: t('navigation.models'), href: '/settings/models', icon: Bot, keywords: ['ai', 'llm', 'providers', 'openai', 'anthropic'] },
   { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle, keywords: ['prompts', 'templates', 'actions'] },
   { name: t('navigation.settings'), href: '/settings', icon: Settings, keywords: ['preferences', 'config', 'options'] },
   { name: t('navigation.advanced'), href: '/advanced', icon: Wrench, keywords: ['debug', 'system', 'tools'] },
@@ -44,6 +46,7 @@ const getNavigationItems = (t: TFunction) => [
 const getCreateItems = (t: TFunction) => [
   { name: t('common.newSource'), action: 'source', icon: FileText },
   { name: t('common.newNotebook'), action: 'notebook', icon: Book },
+  { name: t('common.newPodcast'), action: 'podcast', icon: Mic },
 ]
 
 const getThemeItems = (t: TFunction) => [
@@ -62,7 +65,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const router = useRouter()
-  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
+  const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
   const { setTheme } = useTheme()
   const { data: notebooks, isLoading: notebooksLoading } = useNotebooks(false)
 
@@ -123,8 +126,9 @@ export function CommandPalette() {
     handleSelect(() => {
       if (action === 'source') openSourceDialog()
       else if (action === 'notebook') openNotebookDialog()
+      else if (action === 'podcast') openPodcastDialog()
     })
-  }, [handleSelect, openSourceDialog, openNotebookDialog])
+  }, [handleSelect, openSourceDialog, openNotebookDialog, openPodcastDialog])
 
   const handleTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
     handleSelect(() => setTheme(theme))
@@ -183,7 +187,7 @@ export function CommandPalette() {
               forceMount
             >
               <Search className="h-4 w-4" />
-              <span>{t('searchPage.searchResultsFor').replace('{query}', query)}</span>
+              <span>{t('searchPage.searchResultsFor', { query: query })}</span>
             </CommandItem>
             <CommandItem
               value={`__ask__ ${query}`}
@@ -191,7 +195,7 @@ export function CommandPalette() {
               forceMount
             >
               <MessageCircleQuestion className="h-4 w-4" />
-              <span>{t('searchPage.askAbout').replace('{query}', query)}</span>
+              <span>{t('searchPage.askAbout', { query: query })}</span>
             </CommandItem>
           </CommandGroup>
         )}
@@ -270,7 +274,7 @@ export function CommandPalette() {
                 forceMount
               >
                 <Search className="h-4 w-4" />
-                <span>{t('searchPage.searchResultsFor').replace('{query}', query)}</span>
+                <span>{t('searchPage.searchResultsFor', { query: query })}</span>
               </CommandItem>
               <CommandItem
                 value={`__ask__ ${query}`}
@@ -278,7 +282,7 @@ export function CommandPalette() {
                 forceMount
               >
                 <MessageCircleQuestion className="h-4 w-4" />
-                <span>{t('searchPage.askAbout').replace('{query}', query)}</span>
+                <span>{t('searchPage.askAbout', { query: query })}</span>
               </CommandItem>
             </CommandGroup>
           </>

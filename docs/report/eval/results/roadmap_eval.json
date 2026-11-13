@@ -1,0 +1,886 @@
+{
+ "rows": [
+  {
+   "id": "RM1",
+   "description": "เตรียมตัวสอบกลางภาควิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน",
+   "scope": "course",
+   "web": "off",
+   "status": 200,
+   "seconds": 6.0,
+   "cached": false,
+   "grounding": {
+    "label": "อ้างอิง: คลังความรู้",
+    "library": true,
+    "scope_label": "คลังความรู้วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน (ทดสอบระบบ 4.6)",
+    "web": false,
+    "web_available": true,
+    "web_empty": false,
+    "web_mode": "off"
+   },
+   "web_sources": 0,
+   "check": {
+    "nodes": 15,
+    "main_nodes": 5,
+    "requested": null,
+    "count_within_request": true,
+    "edges": 14,
+    "bad_edges": 0,
+    "acyclic": true,
+    "unknown_stage": 0,
+    "stage_order_ok": true,
+    "stages_used": 4,
+    "empty_label": 0,
+    "empty_description": 0,
+    "thai_ratio": 1.0,
+    "nodes_with_library_source": 15,
+    "nodes_with_web_source": 0,
+    "topic_coverage": 1.0,
+    "topics_missing": []
+   },
+   "nodes": [
+    {
+     "id": "n1",
+     "label": "ภาพรวมรายวิชาและเกณฑ์การประเมิน",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n2",
+     "label": "พื้นฐานเว็บฟรอนต์เอนด์ (สัปดาห์ที่ 1-3)",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n3",
+     "label": "React และ Next.js (สัปดาห์ที่ 4-6)",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n4",
+     "label": "การเรียก API และการเชื่อมต่อข้อมูล (สัปดาห์ที่ 7)",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n5",
+     "label": "ทบทวนและประเมินความพร้อมสอบกลางภาค",
+     "category": "ทบทวน/ประเมิน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n6",
+     "label": "เกณฑ์การให้คะแนนและสัดส่วนสอบ",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n7",
+     "label": "ขอบเขตเนื้อหาการสอบกลางภาค",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n8",
+     "label": "HTML และ CSS เบื้องต้น",
+     "category": "แนวคิดหลัก",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n9",
+     "label": "JavaScript พื้นฐาน",
+     "category": "แนวคิดหลัก",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n10",
+     "label": "DOM และการจัดการเหตุการณ์",
+     "category": "แนวคิดหลัก",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n11",
+     "label": "คอมโพเนนต์ของ React",
+     "category": "แนวคิดหลัก",
+     "parent": "n3",
+     "level": 1
+    },
+    {
+     "id": "n12",
+     "label": "State และ Hooks",
+     "category": "แนวคิดหลัก",
+     "parent": "n3",
+     "level": 1
+    },
+    {
+     "id": "n13",
+     "label": "การกำหนดเส้นทางใน Next.js",
+     "category": "แนวคิดหลัก",
+     "parent": "n3",
+     "level": 1
+    },
+    {
+     "id": "n14",
+     "label": "การเรียก API ด้วย fetch",
+     "category": "ฝึกปฏิบัติ",
+     "parent": "n4",
+     "level": 1
+    },
+    {
+     "id": "n15",
+     "label": "ซ้อมทำโจทย์และทบทวนสัปดาห์ที่ 1-7",
+     "category": "ทบทวน/ประเมิน",
+     "parent": "n5",
+     "level": 1
+    }
+   ],
+   "expand": {
+    "status": 200,
+    "seconds": 3.2,
+    "added": 2,
+    "children_of_target": 2,
+    "labels": [
+     "ข้อมูลผู้สอนและช่องทางติดต่อ",
+     "เวลาเรียนและห้องเรียนรายวิชา"
+    ]
+   }
+  },
+  {
+   "id": "RM2",
+   "description": "เตรียมตัวสอบกลางภาควิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน",
+   "scope": "course",
+   "web": "auto",
+   "status": 200,
+   "seconds": 30.4,
+   "cached": false,
+   "grounding": {
+    "label": "อ้างอิง: คลังความรู้ + เว็บ",
+    "library": true,
+    "scope_label": "คลังความรู้วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน (ทดสอบระบบ 4.6)",
+    "web": true,
+    "web_available": true,
+    "web_empty": false,
+    "web_mode": "auto"
+   },
+   "web_sources": 47,
+   "check": {
+    "nodes": 14,
+    "main_nodes": 8,
+    "requested": null,
+    "count_within_request": true,
+    "edges": 13,
+    "bad_edges": 0,
+    "acyclic": true,
+    "unknown_stage": 0,
+    "stage_order_ok": true,
+    "stages_used": 5,
+    "empty_label": 0,
+    "empty_description": 0,
+    "thai_ratio": 1.0,
+    "nodes_with_library_source": 14,
+    "nodes_with_web_source": 13,
+    "topic_coverage": 1.0,
+    "topics_missing": []
+   },
+   "nodes": [
+    {
+     "id": "n1",
+     "label": "HTML และ CSS เบื้องต้น",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n2",
+     "label": "JavaScript พื้นฐาน",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n3",
+     "label": "DOM และการจัดการเหตุการณ์",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n4",
+     "label": "คอมโพเนนต์ของ React",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n5",
+     "label": "State และ Hooks",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n6",
+     "label": "การกำหนดเส้นทางใน Next.js",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n7",
+     "label": "การเรียก API ด้วย fetch",
+     "category": "ประยุกต์",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n8",
+     "label": "ทบทวนและประเมินผลสอบกลางภาค",
+     "category": "ทบทวน/ประเมิน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n9",
+     "label": "โครงสร้างแท็ก HTML และฟอร์ม",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n10",
+     "label": "CSS Selectors และ Box Model",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n11",
+     "label": "ตัวแปร เงื่อนไข และลูป",
+     "category": "พื้นฐาน",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n12",
+     "label": "ฟังก์ชันและอาร์เรย์",
+     "category": "พื้นฐาน",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n13",
+     "label": "JSX และการสร้าง Component",
+     "category": "แนวคิดหลัก",
+     "parent": "n4",
+     "level": 1
+    },
+    {
+     "id": "n14",
+     "label": "การส่งผ่าน Props",
+     "category": "แนวคิดหลัก",
+     "parent": "n4",
+     "level": 1
+    }
+   ],
+   "expand": {
+    "status": 200,
+    "seconds": 5.3,
+    "added": 1,
+    "children_of_target": 1,
+    "labels": [
+     "แนวคิดและภาพรวม HTML และ CSS"
+    ]
+   }
+  },
+  {
+   "id": "RM3",
+   "description": "เตรียมตัวไปฝึกงานภาคฤดูร้อนตามคู่มือการฝึกงาน IT46",
+   "scope": "course",
+   "web": "off",
+   "status": 200,
+   "seconds": 4.3,
+   "cached": false,
+   "grounding": {
+    "label": "อ้างอิง: คลังความรู้",
+    "library": true,
+    "scope_label": "คลังความรู้วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน (ทดสอบระบบ 4.6)",
+    "web": false,
+    "web_available": true,
+    "web_empty": false,
+    "web_mode": "off"
+   },
+   "web_sources": 0,
+   "check": {
+    "nodes": 8,
+    "main_nodes": 5,
+    "requested": 8,
+    "count_within_request": true,
+    "edges": 7,
+    "bad_edges": 0,
+    "acyclic": true,
+    "unknown_stage": 0,
+    "stage_order_ok": true,
+    "stages_used": 5,
+    "empty_label": 0,
+    "empty_description": 0,
+    "thai_ratio": 1.0,
+    "nodes_with_library_source": 8,
+    "nodes_with_web_source": 0,
+    "topic_coverage": 1.0,
+    "topics_missing": []
+   },
+   "nodes": [
+    {
+     "id": "n1",
+     "label": "คุณสมบัติและเงื่อนไขการฝึกงาน",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n2",
+     "label": "กระบวนการยื่นคำร้องและเอกสาร",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n3",
+     "label": "การปฏิบัติงานและบันทึกเวลา",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n4",
+     "label": "การประเมินผลและรายงาน",
+     "category": "ประยุกต์",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n5",
+     "label": "การติดต่อผู้ประสานงาน",
+     "category": "ทบทวน/ประเมิน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n6",
+     "label": "การจัดการเอกสาร IT46-F01 และ F02",
+     "category": "แนวคิดหลัก",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n7",
+     "label": "การลาและการนิเทศงาน",
+     "category": "ฝึกปฏิบัติ",
+     "parent": "n3",
+     "level": 1
+    },
+    {
+     "id": "n8",
+     "label": "เกณฑ์การตัดสินผล S/U",
+     "category": "ประยุกต์",
+     "parent": "n4",
+     "level": 1
+    }
+   ],
+   "expand": {
+    "status": 200,
+    "seconds": 3.2,
+    "added": 2,
+    "children_of_target": 2,
+    "labels": [
+     "ตรวจสอบสถานะชั้นปีและหน่วยกิตสะสม",
+     "ตรวจสอบเกรดเฉลี่ยสะสม (GPA)"
+    ]
+   }
+  },
+  {
+   "id": "RM4",
+   "description": "เรียนโครงสร้างข้อมูล Stack และ Queue ให้ทำ Lab 5 ได้",
+   "scope": "course",
+   "web": "auto",
+   "status": 200,
+   "seconds": 15.9,
+   "cached": false,
+   "grounding": {
+    "label": "อ้างอิง: คลังความรู้ + เว็บ",
+    "library": true,
+    "scope_label": "คลังความรู้วิชา IT46-201 การพัฒนาเว็บแอปพลิเคชัน (ทดสอบระบบ 4.6)",
+    "web": true,
+    "web_available": true,
+    "web_empty": false,
+    "web_mode": "auto"
+   },
+   "web_sources": 39,
+   "check": {
+    "nodes": 10,
+    "main_nodes": 6,
+    "requested": 10,
+    "count_within_request": true,
+    "edges": 9,
+    "bad_edges": 0,
+    "acyclic": true,
+    "unknown_stage": 0,
+    "stage_order_ok": true,
+    "stages_used": 5,
+    "empty_label": 0,
+    "empty_description": 0,
+    "thai_ratio": 1.0,
+    "nodes_with_library_source": 10,
+    "nodes_with_web_source": 10,
+    "topic_coverage": 1.0,
+    "topics_missing": []
+   },
+   "nodes": [
+    {
+     "id": "n1",
+     "label": "พื้นฐาน Stack และ LIFO",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n2",
+     "label": "แนวคิดหลักของ Queue และ Circular Buffer",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n3",
+     "label": "โครงสร้างขั้นสูง Priority Queue และ Deque",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n4",
+     "label": "เตรียมความพร้อมทำ Lab 5",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n5",
+     "label": "การประยุกต์ใช้งานจริงของ Stack และ Queue",
+     "category": "ประยุกต์",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n6",
+     "label": "ทบทวนความเข้าใจภาพรวมทั้งหมด",
+     "category": "ทบทวน/ประเมิน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n7",
+     "label": "เงื่อนไข Circular Queue ใน Lab",
+     "category": "แนวคิดหลัก",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n8",
+     "label": "ตัวอย่างการประเมิน Postfix Expression",
+     "category": "ประยุกต์",
+     "parent": "n5",
+     "level": 1
+    },
+    {
+     "id": "n9",
+     "label": "การส่งงานและเกณฑ์การตรวจ Lab 5",
+     "category": "ฝึกปฏิบัติ",
+     "parent": "n4",
+     "level": 1
+    },
+    {
+     "id": "n10",
+     "label": "ประเมินตนเองก่อนส่ง Lab",
+     "category": "ทบทวน/ประเมิน",
+     "parent": "n6",
+     "level": 1
+    }
+   ],
+   "expand": {
+    "status": 200,
+    "seconds": 87.5,
+    "added": 3,
+    "children_of_target": 3,
+    "labels": [
+     "ความหมายและหลักการ LIFO ของ Stack",
+     "การทำงานของ Push, Pop และ Peek",
+     "ตัวอย่างการใช้งาน Stack ในชีวิตจริง"
+    ]
+   }
+  },
+  {
+   "id": "RM5",
+   "description": "พื้นฐานการวิเคราะห์ข้อมูลด้วย Python สำหรับผู้เริ่มต้น",
+   "scope": "none",
+   "web": "auto",
+   "status": 200,
+   "seconds": 17.8,
+   "cached": false,
+   "grounding": {
+    "label": "อ้างอิง: เว็บ",
+    "library": false,
+    "scope_label": "ไม่ใช้คลังความรู้",
+    "web": true,
+    "web_available": true,
+    "web_empty": false,
+    "web_mode": "auto"
+   },
+   "web_sources": 37,
+   "check": {
+    "nodes": 12,
+    "main_nodes": 8,
+    "requested": 12,
+    "count_within_request": true,
+    "edges": 11,
+    "bad_edges": 0,
+    "acyclic": true,
+    "unknown_stage": 0,
+    "stage_order_ok": true,
+    "stages_used": 5,
+    "empty_label": 0,
+    "empty_description": 0,
+    "thai_ratio": 1.0,
+    "nodes_with_library_source": 0,
+    "nodes_with_web_source": 9,
+    "topic_coverage": 0.714,
+    "topics_missing": [
+     "numpy",
+     "clean"
+    ]
+   },
+   "nodes": [
+    {
+     "id": "n1",
+     "label": "ความรู้เบื้องต้นเกี่ยวกับ Python",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n2",
+     "label": "โครงสร้างข้อมูลใน Python",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n3",
+     "label": "การควบคุมทิศทางโปรแกรม",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n4",
+     "label": "การใช้งาน Pandas เบื้องต้น",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n5",
+     "label": "การจัดการและทำความสะอาดข้อมูล",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n6",
+     "label": "การสรุปและวิเคราะห์ข้อมูลเบื้องต้น",
+     "category": "ประยุกต์",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n7",
+     "label": "การสร้างกราฟแสดงผลข้อมูล",
+     "category": "ประยุกต์",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n8",
+     "label": "โครงการวิเคราะห์ข้อมูลขนาดเล็ก",
+     "category": "ทบทวน/ประเมิน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n9",
+     "label": "ชนิดข้อมูลและตัวดำเนินการ",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n10",
+     "label": "การอ่านและเขียนไฟล์ข้อมูล",
+     "category": "แนวคิดหลัก",
+     "parent": "n4",
+     "level": 1
+    },
+    {
+     "id": "n11",
+     "label": "การจัดการ Missing Values",
+     "category": "ฝึกปฏิบัติ",
+     "parent": "n5",
+     "level": 1
+    },
+    {
+     "id": "n12",
+     "label": "การใช้ Groupby และ Aggregation",
+     "category": "ประยุกต์",
+     "parent": "n6",
+     "level": 1
+    }
+   ],
+   "expand": {
+    "status": 200,
+    "seconds": 28.6,
+    "added": 3,
+    "children_of_target": 3,
+    "labels": [
+     "ไวยากรณ์พื้นฐานและโครงสร้างโค้ด",
+     "การประกาศและใช้งานตัวแปร",
+     "การเขียนโค้ดคำนวณเบื้องต้น"
+    ]
+   }
+  },
+  {
+   "id": "RM6",
+   "description": "การเขียนโปรแกรมเชิงวัตถุด้วยภาษา Java",
+   "scope": "none",
+   "web": "off",
+   "status": 200,
+   "seconds": 6.2,
+   "cached": false,
+   "grounding": {
+    "label": "ไม่ได้อ้างอิงคลังความรู้",
+    "library": false,
+    "scope_label": "ไม่ใช้คลังความรู้",
+    "web": false,
+    "web_available": true,
+    "web_empty": false,
+    "web_mode": "off"
+   },
+   "web_sources": 0,
+   "check": {
+    "nodes": 18,
+    "main_nodes": 9,
+    "requested": null,
+    "count_within_request": true,
+    "edges": 17,
+    "bad_edges": 0,
+    "acyclic": true,
+    "unknown_stage": 0,
+    "stage_order_ok": true,
+    "stages_used": 5,
+    "empty_label": 0,
+    "empty_description": 0,
+    "thai_ratio": 1.0,
+    "nodes_with_library_source": 0,
+    "nodes_with_web_source": 0,
+    "topic_coverage": 1.0,
+    "topics_missing": []
+   },
+   "nodes": [
+    {
+     "id": "n1",
+     "label": "ความรู้พื้นฐานเกี่ยวกับ Java",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n2",
+     "label": "ไวยากรณ์และโครงสร้างควบคุม",
+     "category": "พื้นฐาน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n3",
+     "label": "แนวคิดหลักของ OOP",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n4",
+     "label": "คลาสและออบเจ็กต์",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n5",
+     "label": "4 เสาหลักของ OOP",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n6",
+     "label": "การจัดการข้อผิดพลาด",
+     "category": "แนวคิดหลัก",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n7",
+     "label": "การปฏิบัติสร้างโปรแกรมขนาดเล็ก",
+     "category": "ฝึกปฏิบัติ",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n8",
+     "label": "หัวข้อขั้นสูงใน Java",
+     "category": "ประยุกต์",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n9",
+     "label": "ทบทวนและประเมินผล",
+     "category": "ทบทวน/ประเมิน",
+     "parent": null,
+     "level": 0
+    },
+    {
+     "id": "n10",
+     "label": "การติดตั้ง JDK และ IDE",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n11",
+     "label": "ความเข้าใจ JVM, JRE และ JDK",
+     "category": "พื้นฐาน",
+     "parent": "n1",
+     "level": 1
+    },
+    {
+     "id": "n12",
+     "label": "ตัวเตอรและชนิดข้อมูล",
+     "category": "พื้นฐาน",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n13",
+     "label": "คำสั่งควบคุมทิศทาง",
+     "category": "พื้นฐาน",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n14",
+     "label": "การสร้างและการเรียกใช้เมธอด",
+     "category": "พื้นฐาน",
+     "parent": "n2",
+     "level": 1
+    },
+    {
+     "id": "n15",
+     "label": "การห่อหุ้มข้อมูล (Encapsulation)",
+     "category": "แนวคิดหลัก",
+     "parent": "n5",
+     "level": 1
+    },
+    {
+     "id": "n16",
+     "label": "การสืบทอดคุณสมบัติ (Inheritance)",
+     "category": "แนวคิดหลัก",
+     "parent": "n5",
+     "level": 1
+    },
+    {
+     "id": "n17",
+     "label": "การพ้องรูป (Polymorphism)",
+     "category": "แนวคิดหลัก",
+     "parent": "n5",
+     "level": 1
+    },
+    {
+     "id": "n18",
+     "label": "นามธรรม (Abstraction)",
+     "category": "แนวคิดหลัก",
+     "parent": "n5",
+     "level": 1
+    }
+   ],
+   "expand": {
+    "status": 200,
+    "seconds": 2.1,
+    "added": 2,
+    "children_of_target": 2,
+    "labels": [
+     "ประวัติความเป็นมาและจุดเด่นของ Java",
+     "โครงสร้างพื้นฐานของโปรแกรม Java"
+    ]
+   }
+  }
+ ],
+ "usage": {
+  "roadmap/chat": {
+   "calls": 22,
+   "input_tokens": 11458,
+   "output_tokens": 15550,
+   "search_queries": 38,
+   "cost_usd": 0.042314
+  },
+  "roadmap_expand/chat": {
+   "calls": 10,
+   "input_tokens": 7432,
+   "output_tokens": 3095,
+   "search_queries": 8,
+   "cost_usd": 0.009967
+  },
+  "roadmap/embedding": {
+   "calls": 3,
+   "input_tokens": 63,
+   "output_tokens": 0,
+   "search_queries": 0,
+   "cost_usd": 9e-06
+  }
+ },
+ "summary": {
+  "requests": 6,
+  "errors": 0,
+  "structurally_valid": 6,
+  "nodes_mean": 12.8,
+  "topic_coverage_mean": 0.952,
+  "seconds": {
+   "RM1": 6.0,
+   "RM2": 30.4,
+   "RM3": 4.3,
+   "RM4": 15.9,
+   "RM5": 17.8,
+   "RM6": 6.2
+  },
+  "expand_ok": 6
+ }
+}

@@ -1,0 +1,89 @@
+{
+ "openapi_operations": 237,
+ "client_call_sites": 257,
+ "client_unique_calls": 232,
+ "routes_used_by_frontend": 217,
+ "routes_without_caller": 20,
+ "broken_unique_calls": 15,
+ "per_app": {
+  "main app": {
+   "call_sites": 243,
+   "unique": 228,
+   "broken_sites": 15
+  },
+  "roadmap app": {
+   "call_sites": 12,
+   "unique": 11,
+   "broken_sites": 0
+  },
+  "quiz app": {
+   "call_sites": 2,
+   "unique": 2,
+   "broken_sites": 0
+  }
+ }
+}
+
+per module (routes / used by a screen):
+  /api/admin                    41 /  41
+  /api/auth                      4 /   3
+  /api/capabilities              1 /   1
+  /api/chat                     16 /  16
+  /api/commands                  5 /   1
+  /api/community                66 /  66
+  /api/config                   11 /   1
+  /api/credentials              14 /  13
+  /api/embed                     1 /   1
+  /api/embeddings                2 /   2
+  /api/features                  8 /   8
+  /api/insights                  3 /   2
+  /api/languages                 1 /   1
+  /api/models                   13 /  13
+  /api/notebooks                 8 /   8
+  /api/notes                     5 /   5
+  /api/providers                 1 /   1
+  /api/recently-viewed           1 /   1
+  /api/search                    4 /   2
+  /api/settings                  2 /   2
+  /api/sources                  17 /  16
+  /api/transformations           8 /   8
+  /api/users                     5 /   5
+
+calls with no matching route:
+  GET    /api/podcasts/episodes                                  no such route    open-notebook/frontend/src/lib/api/podcasts.ts:35
+  DELETE /api/podcasts/episodes/{p}                              no such route    open-notebook/frontend/src/lib/api/podcasts.ts:40
+  POST   /api/podcasts/episodes/{p}/retry                        no such route    open-notebook/frontend/src/lib/api/podcasts.ts:44
+  GET    /api/episode-profiles                                   no such route    open-notebook/frontend/src/lib/api/podcasts.ts:51
+  POST   /api/episode-profiles                                   no such route    open-notebook/frontend/src/lib/api/podcasts.ts:56
+  PUT    /api/episode-profiles/{p}                               no such route    open-notebook/frontend/src/lib/api/podcasts.ts:64
+  DELETE /api/episode-profiles/{p}                               no such route    open-notebook/frontend/src/lib/api/podcasts.ts:72
+  POST   /api/episode-profiles/{p}/duplicate                     no such route    open-notebook/frontend/src/lib/api/podcasts.ts:76
+  GET    /api/speaker-profiles                                   no such route    open-notebook/frontend/src/lib/api/podcasts.ts:83
+  POST   /api/speaker-profiles                                   no such route    open-notebook/frontend/src/lib/api/podcasts.ts:88
+  PUT    /api/speaker-profiles/{p}                               no such route    open-notebook/frontend/src/lib/api/podcasts.ts:96
+  DELETE /api/speaker-profiles/{p}                               no such route    open-notebook/frontend/src/lib/api/podcasts.ts:104
+  POST   /api/speaker-profiles/{p}/duplicate                     no such route    open-notebook/frontend/src/lib/api/podcasts.ts:108
+  POST   /api/podcasts/generate                                  no such route    open-notebook/frontend/src/lib/api/podcasts.ts:115
+  GET    /api/models/{p}                                         method mismatch  open-notebook/frontend/src/lib/api/models.ts:22
+
+routes without a caller (20):
+   DELETE /api/commands/jobs/{job_id}
+   GET /api/auth/legacy-status
+   GET /api/commands/jobs
+   GET /api/commands/registry/debug
+   GET /api/config/answer-cache/analytics
+   GET /api/config/answer-cache/circuit-breaker/status
+   GET /api/config/answer-cache/thresholds/history
+   GET /api/config/redis
+   POST /api/commands/jobs
+   POST /api/config/answer-cache/circuit-breaker/close
+   POST /api/config/answer-cache/circuit-breaker/open
+   POST /api/config/answer-cache/report-quality-failure
+   POST /api/config/answer-cache/thresholds/history/clear
+   POST /api/config/answer-cache/thresholds/reset
+   POST /api/config/redis/reset-metrics
+   POST /api/credentials/migrate-encryption
+   POST /api/insights/{insight_id}/save-as-note
+   POST /api/search/ask/notebooks
+   POST /api/search/ask/simple
+   POST /api/sources/json

@@ -2,7 +2,7 @@
 Utils package for Open Notebook.
 
 To avoid circular imports, import functions directly:
-- from open_notebook.utils.context_builder import ContextBuilder
+- from open_notebook.utils.context_builder import build_notebook_context, build_source_context
 - from open_notebook.utils import token_count, compare_versions
 - from open_notebook.utils.chunking import chunk_text, detect_content_type, ContentType
 - from open_notebook.utils.embedding import generate_embedding, generate_embeddings
@@ -18,7 +18,6 @@ from .chunking import (
     detect_content_type_from_heuristics,
 )
 from .embedding import (
-    cached_generate_embeddings,
     generate_embedding,
     generate_embeddings,
     mean_pool_embeddings,
@@ -27,6 +26,7 @@ from .encryption import (
     decrypt_value,
     encrypt_value,
 )
+from .model_utils import full_model_dump
 from .text_utils import (
     clean_thinking_content,
     parse_thinking_content,
@@ -67,4 +67,6 @@ __all__ = [
     # Encryption utils
     "decrypt_value",
     "encrypt_value",
+    # Model utils
+    "full_model_dump",
 ]

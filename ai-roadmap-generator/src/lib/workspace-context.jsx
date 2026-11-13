@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from 'react'
 import { useRouter } from 'next/router'
 import { ws } from './api'
+import { watchTheme } from './theme'
 import { captureLaunchParams, getToken, LAUNCH_PARAMS, markSignedIn, redirectToLogin } from './workspace'
 
 const WorkspaceContext = createContext(null)
@@ -21,6 +22,9 @@ export function WorkspaceProvider({ children }) {
     setMe(data)
     return data
   }, [])
+
+  // Follow SIET Space's light / dark choice (the first paint is set in _document.js).
+  useEffect(() => watchTheme(), [])
 
   useEffect(() => {
     captureLaunchParams()

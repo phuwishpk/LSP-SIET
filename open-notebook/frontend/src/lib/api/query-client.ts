@@ -1,11 +1,14 @@
 import { QueryClient } from '@tanstack/react-query'
+import { isNotFoundError } from '@/lib/utils/error-handler'
 
 export const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
       staleTime: 5 * 60 * 1000, // 5 minutes
       gcTime: 10 * 60 * 1000, // 10 minutes
-      retry: 2,
+      // Retry transient failures, but never retry 404s: the item was
+      // deleted (or never existed) and retrying cannot change that.
+      retry: (failureCount, error) => !isNotFoundError(error) && failureCount < 2,
       refetchOnWindowFocus: false,
     },
     mutations: {
@@ -27,7 +30,9 @@ export const QUERY_KEYS = {
   sourceChatSession: (sourceId: string, sessionId: string) => ['source-chat', sourceId, 'sessions', sessionId] as const,
   notebookChatSessions: (notebookId: string) => ['notebook-chat', notebookId, 'sessions'] as const,
   notebookChatSession: (sessionId: string) => ['notebook-chat', 'sessions', sessionId] as const,
-  globalChatSessions: ['global-chat', 'sessions'] as const,
-  globalChatSession: (sessionId: string) => ['global-chat', 'sessions', sessionId] as const,
+  podcastEpisodes: ['podcasts', 'episodes'] as const,
+  podcastEpisode: (episodeId: string) => ['podcasts', 'episodes', episodeId] as const,
+  episodeProfiles: ['podcasts', 'episode-profiles'] as const,
+  speakerProfiles: ['podcasts', 'speaker-profiles'] as const,
   languages: ['languages'] as const,
 }

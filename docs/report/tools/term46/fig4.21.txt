@@ -1,0 +1,41 @@
+$ node e2e-4.6.mjs
+PASS   2555ms api=  3 fail=0 err=0 [anonymous] /login
+PASS   2367ms api=  3 fail=0 err=0 [anonymous] /community -> /login
+PASS   2466ms api=  8 fail=0 err=0 [student] /dashboard
+PASS   2631ms api= 12 fail=0 err=0 [student] /community
+PASS   2405ms api= 12 fail=0 err=0 [student] /community?view=mine
+PASS   2367ms api= 11 fail=0 err=0 [student] /community?view=saved
+PASS   2420ms api= 11 fail=0 err=0 [student] /community?view=library
+PASS   2422ms api= 10 fail=0 err=0 [student] /community?view=materials
+PASS   2369ms api=  9 fail=0 err=0 [student] /community?view=rules
+PASS   2456ms api= 12 fail=0 err=0 [student] /community?course=1953
+PASS   3650ms api=  9 fail=0 err=0 [student] /community/search?q=IT46
+PASS   2554ms api= 11 fail=0 err=0 [student] /community/ask
+PASS   2417ms api= 10 fail=0 err=0 [student] /community/profile/me
+PASS   2379ms api=  9 fail=0 err=0 [student] /features
+PASS   2463ms api= 10 fail=0 err=0 [student] /admin -> /community
+PASS   2465ms api= 10 fail=0 err=0 [student] /teacher -> /community
+PASS   2431ms api= 10 fail=0 err=0 [student] /notebooks -> /community
+PASS   2865ms api= 14 fail=0 err=0 [teacher] /teacher
+PASS   2472ms api= 17 fail=0 err=0 [teacher] /teacher/courses/1953
+PASS   2469ms api= 16 fail=0 err=0 [teacher] /community
+PASS   2428ms api= 13 fail=0 err=0 [teacher] /features
+PASS   2454ms api= 14 fail=0 err=0 [teacher] /notebooks
+PASS   2404ms api= 13 fail=0 err=0 [teacher] /sources
+FAIL   2407ms api= 16 fail=4 err=4 [teacher] /search
+       403 GET /api/models
+       403 GET /api/models/defaults
+FAIL   2479ms api= 15 fail=2 err=2 [teacher] /transformations
+       403 GET /api/models
+PASS   2537ms api= 14 fail=0 err=0 [teacher] /admin -> /community
+PASS   3068ms api= 17 fail=0 err=0 [admin] /admin
+PASS   3103ms api= 15 fail=0 err=0 [admin] /admin/community
+PASS   2785ms api= 15 fail=0 err=0 [admin] /admin/rag
+PASS   3063ms api= 15 fail=0 err=0 [admin] /admin/roadmap
+PASS   2846ms api= 15 fail=0 err=0 [admin] /admin/quiz
+PASS   2773ms api= 15 fail=0 err=0 [admin] /settings
+PASS   2916ms api= 18 fail=0 err=0 [admin] /settings/models
+PASS   2812ms api= 14 fail=0 err=0 [admin] /advanced
+PASS   2751ms api= 16 fail=0 err=0 [admin] /notebooks
+PASS   2433ms api=  5 fail=0 err=0 [teacher] :23002/roadmap?token=<jwt>
+PASS   2408ms api=  0 fail=0 err=0 [student] :23001/quiz?token=<jwt>

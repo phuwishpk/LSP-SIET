@@ -33,10 +33,12 @@ Create a new folder `open-notebook-local` and add this file:
 services:
   surrealdb:
     image: surrealdb/surrealdb:v2
-    command: start --user root --pass password --bind 0.0.0.0:8000 rocksdb:/mydata/mydatabase.db
+    command: start --user root --pass password rocksdb:/mydata/mydatabase.db
     user: root
     ports:
-      - "8000:8000"
+      # Localhost only — the database uses default credentials, so never
+      # publish this port on 0.0.0.0
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./surreal_data:/mydata
 
@@ -58,7 +60,7 @@ services:
       - SURREAL_DATABASE=open_notebook
 
       # Ollama (required when running Ollama via Docker, as in this compose file)
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_API_BASE=http://ollama:11434
     volumes:
       - ./notebook_data:/app/data
     depends_on:
@@ -270,12 +272,12 @@ docker exec open-notebook-local-ollama-1 ollama pull neural-chat
 1. Download LM Studio: https://lmstudio.ai
 2. Open the app, download a model from the library
 3. Go to "Local Server" tab, start server (port 1234)
-4. In Open Notebook, go to **Settings** → **API Keys**
+4. In Open Notebook, go to **Manage** → **Models**
 5. Click **Add Credential** → Select **OpenAI-Compatible**
 6. Enter base URL: `http://host.docker.internal:1234/v1`
 7. Enter API key: `lm-studio` (placeholder)
 8. Click **Save**, then **Test Connection**
-9. Configure in Settings → Models → Select your LM Studio model
+9. Configure in Manage → Models → Select your LM Studio model
 
 **Note**: LM Studio runs outside Docker, use `host.docker.internal` to connect.
 
@@ -283,7 +285,7 @@ docker exec open-notebook-local-ollama-1 ollama pull neural-chat
 
 ## Going Further
 
-- **Switch models**: Change in Settings → Models anytime
+- **Switch models**: Change in Manage → Models anytime
 - **Add more models**:
   - Ollama: Run `ollama pull <model>`, then re-discover models from the credential
   - LM Studio: Download from the app library

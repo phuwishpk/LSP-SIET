@@ -2,6 +2,7 @@ import i18n from 'i18next'
 import { initReactI18next } from 'react-i18next'
 import LanguageDetector from 'i18next-browser-languagedetector'
 import { resources } from './locales'
+import { extendI18n } from './extensions'
 
 i18n
   .use(LanguageDetector)
@@ -20,5 +21,8 @@ i18n
       caches: ['localStorage'],
     },
   })
+
+// KMITL hook: installed extensions add or override translations
+extendI18n(i18n)
 
 export default i18n

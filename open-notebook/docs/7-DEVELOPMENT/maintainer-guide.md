@@ -4,64 +4,109 @@ This guide is for project maintainers to help manage contributions effectively w
 
 ## Table of Contents
 
+- [Discussion Management](#discussion-management)
 - [Issue Management](#issue-management)
 - [Pull Request Review](#pull-request-review)
+- [Merging PR Batches](#merging-pr-batches)
 - [Common Scenarios](#common-scenarios)
 - [Communication Templates](#communication-templates)
 
+## Discussion Management
+
+Discussions are the intake and deliberation space for feature requests, ideas,
+behavior changes, product direction, design, architecture, and contribution
+proposals. An accepted idea becomes an Issue only when it is sufficiently clear
+to track and execute.
+
+### When a New Idea Discussion Is Created
+
+**1. Initial triage** (within 24-48 hours when possible)
+
+- Confirm that it is an idea or open-ended proposal rather than a reproducible bug.
+- Search Discussions, Issues, PRs, `VISION.md`, and decision records for related context.
+- Merge the signal into a canonical Discussion when the topic already exists; preserve links to the original author and contribution.
+- Replace `needs-triage` with `needs-vision` when the question is *whether/why* the project should pursue it, or `needs-design` when the problem is wanted but the *how* remains open.
+
+**2. Shape the conversation**
+
+Ask for missing evidence rather than an implementation plan by default:
+
+- What is the user trying to accomplish?
+- What is difficult today, and how do they work around it?
+- Who else has the same use case?
+- Which constraints, alternatives, or failure modes matter?
+- How would we validate that the outcome is better?
+
+For larger proposals, keep a synthesis in the Discussion body or a maintainer
+comment: what is known, what remains open, alternatives, and the decision owner.
+
+**3. Close the loop**
+
+Every mature Discussion ends with an explicit outcome:
+
+- **Accepted:** create one or more scoped Issues from the Discussion, replace inherited discovery labels with `ready`, link them in both directions, and close the Discussion as resolved.
+- **Experiment:** describe the bounded experiment and the evidence needed before a commitment.
+- **Parked:** state why it is not timely and what condition would reopen it.
+- **Declined:** explain the conflict with vision, scope, or maintenance cost.
+- **Superseded/duplicate:** link the canonical Discussion or initiative.
+
+Creating an Issue is the graduation event: it means the project has committed to
+track executable work, not merely that the idea received positive reactions.
+
 ## Issue Management
 
-### When a New Issue is Created
+### When a New Issue Is Created
 
-**1. Initial Triage** (within 24-48 hours)
+**1. Initial triage** (within 24-48 hours when possible)
 
-- Add appropriate labels:
-  - `bug`, `enhancement`, `documentation`, etc.
-  - `good first issue` for beginner-friendly tasks
-  - `needs-triage` until reviewed
-  - `help wanted` if you'd welcome community contributions
+- Public Issues arrive through the bug or installation forms with `needs-triage`.
+- Maintainers also create Issues when accepted Discussions graduate into executable work.
+- Add one **type** and one **area** label where they apply (see [Labels](#labels)).
 
-- Quick assessment:
-  - Is it clear and well-described?
-  - Is it aligned with project vision? (See [design-principles.md](design-principles.md))
-  - Does it duplicate an existing issue?
+Quick assessment:
 
-**2. Initial Response**
+- Is it a reproducible bug or an already approved work item?
+- Does it duplicate an existing Issue?
+- Does it need more reproduction details or environment information?
+- If it is an idea, feature request, or open-ended proposal, convert it to a Discussion and explain the workflow.
+
+**2. Initial response**
 
 ```markdown
 Thanks for opening this issue! We'll review it and get back to you soon.
 
 [If it's a bug] In the meantime, have you checked our troubleshooting guide?
-
-[If it's a feature] You might find our [design principles](design-principles.md) helpful for understanding what we're building toward.
 ```
 
-**3. Decision Making**
+**3. Bug triage**
 
 Ask yourself:
-- Does this align with our [design principles](design-principles.md)?
-- Is this something we want in the core project, or better as a plugin/extension?
-- Do we have the capacity to support this feature long-term?
-- Will this benefit most users, or just a specific use case?
 
-**4. Issue Assignment**
+- Can it be reproduced from the supplied steps and environment?
+- Is more information required from the reporter?
+- Is it already fixed, a duplicate, or rooted in an upstream dependency?
+- Is the expected behavior actually a product/design decision? If so, open or link a Discussion before defining the fix.
+
+**4. Issue assignment**
 
 If the contributor checked "I am a developer and would like to work on this":
 
-**For Accepted Issues:**
+**For triaged Issues:**
+
 ```markdown
-Great idea! This aligns well with our goals, particularly [specific design principle].
+Thanks for the clear report. We've confirmed this as work the project should track.
 
 I see you'd like to work on this. Before you start:
 
 1. Please share your proposed approach/solution
-2. Review our [Contributing Guide](contributing.md) and [Design Principles](design-principles.md)
+2. Review our [Contributing Guide](contributing.md) and [VISION.md](../../VISION.md)
 3. Once we agree on the approach, I'll assign this to you
 
 Looking forward to your thoughts!
 ```
 
-**For Issues Needing Clarification:**
+**For Issues needing clarification:**
+
 ```markdown
 Thanks for offering to work on this! Before we proceed, we need to clarify a few things:
 
@@ -71,44 +116,81 @@ Thanks for offering to work on this! Before we proceed, we need to clarify a few
 Once we have these details, we can discuss the best approach.
 ```
 
-**For Issues Not Aligned with Vision:**
+**For an idea opened as an Issue:**
+
 ```markdown
-Thank you for the suggestion and for offering to work on this!
+Thank you for the proposal! We use GitHub Discussions for feature requests,
+product/design/architecture ideas, and contribution proposals so the community
+can explore them before they become implementation commitments.
 
-After reviewing against our [design principles](design-principles.md), we've decided not to pursue this in the core project because [specific reason].
-
-However, you might be able to achieve this through [alternative approach, if applicable].
-
-We appreciate your interest in contributing! Feel free to check out our [open issues](link) for other ways to contribute.
+I'm converting this Issue to a Discussion. If the direction is accepted and
+sufficiently scoped, we'll create an approved Issue from it before implementation.
 ```
 
-### Labels to Use
+### Labels
 
-**Priority:**
-- `priority: critical` - Security issues, data loss bugs
-- `priority: high` - Major functionality broken
-- `priority: medium` - Annoying bugs, useful features
-- `priority: low` - Nice to have, edge cases
+The label set is curated — **don't invent labels**. If something doesn't fit, raise it instead of adding one. Assign **one state**, **one type**, and **one area** where each applies; multiple bundling/ecosystem labels are fine.
 
-**Status:**
-- `needs-triage` - Not yet reviewed by maintainer
-- `needs-info` - Waiting for more information from reporter
-- `needs-discussion` - Requires community/team discussion
-- `ready` - Approved and ready to be worked on
-- `in-progress` - Someone is actively working on this
-- `blocked` - Cannot proceed due to external dependency
+**Discovery states** — primarily used on Discussions. Historical Issues may retain
+these while the backlog is migrated; do not newly route feature proposals into Issues:
 
-**Type:**
-- `bug` - Something is broken
-- `enhancement` - New feature or improvement
-- `documentation` - Documentation improvements
-- `question` - General questions
-- `refactor` - Code cleanup/restructuring
+| Label | Meaning |
+|---|---|
+| `needs-triage` | New signal not yet classified |
+| `needs-vision` | Unsure if/how this fits — strategic call for the maintainers (against [VISION.md](../../VISION.md)) |
+| `needs-design` | Wanted, but the *how* isn't resolved — needs design/spec before it's ready |
 
-**Difficulty:**
-- `good first issue` - Good for newcomers
-- `help wanted` - Community contributions welcome
-- `advanced` - Requires deep codebase knowledge
+**Issue delivery states:**
+
+| Label | Meaning |
+|---|---|
+| `needs-triage` | New bug or installation report not yet triaged |
+| `needs-info` | Waiting on the reporter to confirm or provide more information |
+| `ready` | Approved and sufficiently specified — the dev loop can pick it up |
+| **Close** | Use GitHub's native close reasons (duplicate / not planned); link the canonical issue when duplicate/superseded |
+
+**Type** — what kind of work it is (apply one when clear):
+- `bug` · `enhancement` · `documentation`
+- `installation` is an intake label applied by the issue-creation workflow (not by triage); installation reports get routed to `area: deploy`.
+
+**Area** — which part of the system (apply always, one per issue):
+
+| Label | What goes here |
+|---|---|
+| `area: chat` | Conversation/chat, RAG retrieval, agentic responses, citations |
+| `area: search` | Full-text and semantic search |
+| `area: sources` | Source ingestion & processing (URLs, files, extraction, chunking) |
+| `area: notebooks` | Notebook features: notes, insights, transformations |
+| `area: providers` | AI provider integrations + model configuration |
+| `area: embeddings` | Embedding models, vectorization, semantic indexing |
+| `area: podcast` | Podcast / audio generation |
+| `area: database` | SurrealDB, persistence, schema, migrations |
+| `area: ui` | Frontend (Next.js), UX, visual issues |
+| `area: deploy` | Docker, deployment, k8s, reverse proxy, infra/setup |
+| `area: offline` | Airgapped/offline operation |
+| `area: i18n` | Internationalization / localization |
+
+**Bundling / epics:**
+- `umbrella` — a tracking issue grouping related work
+- `tracked-in-umbrella` — covered by an umbrella; follow the umbrella for progress
+- `bundled` — part of a thematic bundle
+- `upstream` — root cause lives in one of our libraries, not this repo
+
+**Ecosystem** — issues whose real home is an upstream library:
+- `esperanto` (model abstraction) · `content-core` (content extraction) · `podcast-creator` (podcast generation)
+
+**Community:**
+- `good first issue` — small, well-scoped, newcomer-friendly
+- `help wanted` — we'd welcome a contributor to take this
+
+### Consolidation: Discussion vs. umbrella
+
+When several open issues circle the same topic, pick the model by **how decided the work is** — not just by shared theme:
+
+- **Pre-vision / pre-design topic** → create or select **one canonical Discussion**, capture each request's signal (👍 counts, interested contributors) in its synthesis, and convert/link the related Issues or Discussions to it. A topic isn't N work items — it's one thinking space.
+- **Already decomposed into real parallel tasks** → use `umbrella` + `tracked-in-umbrella`. Children stay open because each is independently pickable (e.g. the multi-user umbrella #712).
+
+Rule of thumb: if work cannot start until *we* make a call, it belongs in a Discussion. If the call is made and the work splits into things a contributor could pick up today, it belongs in an umbrella with child Issues. **Never convert or close an Issue that has an active assignee/contributor or open PR without coordinating with them** — link it as a phase instead.
 
 ## Pull Request Review
 
@@ -116,14 +198,14 @@ We appreciate your interest in contributing! Feel free to check out our [open is
 
 **Before diving into code:**
 
-- [ ] Is there an associated approved issue?
+- [ ] Is there an associated approved Issue?
 - [ ] Does the PR reference the issue number?
 - [ ] Is the PR description clear about what changed and why?
 - [ ] Did the contributor check the relevant boxes in the PR template?
 - [ ] Are there tests? Screenshots (for UI changes)?
 
 **Red Flags** (may require closing PR):
-- No associated issue
+- No associated approved Issue on a non-trivial change (small obvious fixes are exempt; sizeable PRs should become drafts while an idea goes through Discussion or a bug goes through Issue triage)
 - Issue was not assigned to contributor
 - PR tries to solve multiple unrelated problems
 - Breaking changes without discussion
@@ -197,6 +279,16 @@ Have you considered [alternative approach]? It might be better because [reasons]
 What do you think?
 ```
 
+## Merging PR Batches
+
+Mechanics for landing a batch of approved PRs without stepping on each other:
+
+- **Squash-merge everything.** One commit per PR keeps `main` linear and makes reverts trivial.
+- **Expect CHANGELOG conflicts.** Every PR adds a bullet under `[Unreleased]`, so the Nth merge often flips its siblings to DIRTY. Resolve by rebasing the branch onto `main` and keeping **both** sides' bullets — they're independent entries, not competing edits — then `git push --force-with-lease`.
+- **Contributor forks:** rebase the fork's branch onto `origin/main`, skipping commits that are already upstream, and push with an explicit-OID lease: `git push --force-with-lease=<branch>:<headOID>`. This works whenever the contributor left "Allow edits by maintainers" (maintainerCanModify) enabled.
+- **Check for scheduled replacements first.** Before merging a fix into code that's slated to be replaced (e.g. the database layer migrating to surreal-basics, issue #1031), redirect the fix upstream or note it on the tracking issue instead of landing it in code that's about to disappear.
+- **Hunt for competing PRs.** Before merging a fix, search open PRs for others addressing the same bug — pick the best one and close the rest with a link, rather than merging the first one you review.
+
 ## Common Scenarios
 
 ### Scenario 1: Good Code, Wrong Approach
@@ -218,13 +310,13 @@ Let me know what you prefer!
 
 ### Scenario 2: PR Without Assigned Issue
 
-**Situation**: Contributor submitted PR without going through issue approval process.
+**Situation**: Contributor submitted a non-trivial PR without an approved and assigned Issue.
 
 **Response:**
 ```markdown
 Thanks for the PR! I appreciate you taking the time to contribute.
 
-However, to maintain project coherence, we require all PRs to be linked to an approved issue that was assigned to the contributor. This is explained in our [Contributing Guide](contributing.md).
+However, to maintain project coherence, we require non-trivial PRs to be linked to an approved Issue that was assigned to the contributor. Small obvious fixes remain exempt. This is explained in our [Contributing Guide](contributing.md).
 
 This helps us:
 - Ensure work aligns with project vision
@@ -232,14 +324,15 @@ This helps us:
 - Discuss approach before implementation
 
 Could you please:
-1. Create an issue describing this change
-2. Wait for it to be reviewed and assigned to you
-3. We can then reopen this PR or you can create a new one
+1. Mark this PR as draft
+2. Start a Discussion if this is a feature/design proposal, or an Issue if it fixes a reproducible bug
+3. Wait for an approved Issue to be scoped and assigned
+4. We can then continue with this PR
 
 Sorry for the inconvenience - this process helps us manage the project effectively.
 ```
 
-### Scenario 3: Feature Request Not Aligned with Vision
+### Scenario 3: Idea Discussion Not Aligned with Vision
 
 **Situation**: Well-intentioned feature that doesn't fit project goals.
 
@@ -247,7 +340,7 @@ Sorry for the inconvenience - this process helps us manage the project effective
 ```markdown
 Thank you for this suggestion! I can see how this would be useful for [specific use case].
 
-After reviewing against our [design principles](design-principles.md), we've decided not to include this in the core project because [specific reason - e.g., "it conflicts with our 'Simplicity Over Features' principle" or "it would require dependencies that conflict with our privacy-first approach"].
+After reviewing against our [vision and principles](https://github.com/lfnovo/open-notebook/blob/main/VISION.md), we've decided not to include this in the core project because [specific reason - e.g., "it conflicts with our 'Simplicity Over Features' principle" or "it would require dependencies that conflict with our privacy-first approach"].
 
 Some alternatives:
 - [If applicable] This could be built as a plugin/extension
@@ -313,7 +406,7 @@ Thank you for taking the time to contribute! We really appreciate it.
 
 After careful review, we've decided not to merge this PR because [specific reason related to design principles].
 
-This isn't a reflection on your code quality - it's about maintaining focus on our core goals as outlined in [design-principles.md](design-principles.md).
+This isn't a reflection on your code quality - it's about maintaining focus on our core goals as outlined in [VISION.md](https://github.com/lfnovo/open-notebook/blob/main/VISION.md).
 
 We'd love to have you contribute in other ways! Check out:
 - Good first issues
@@ -384,7 +477,7 @@ This will be included in the next release.
 
 ### Be Responsive
 
-- Respond to issues within 48 hours (even just to acknowledge)
+- Respond to new Discussions and Issues within 48 hours when possible (even just to acknowledge)
 - Review PRs within a week when possible
 - Keep contributors updated on status
 - Close stale issues/PRs to keep things tidy
@@ -392,7 +485,7 @@ This will be included in the next release.
 ## When in Doubt
 
 Ask yourself:
-1. Does this align with our [design principles](design-principles.md)?
+1. Does this align with our [vision and principles](../../VISION.md)?
 2. Will we be able to maintain this feature long-term?
 3. Does this benefit most users, or just an edge case?
 4. Is there a simpler alternative?
@@ -400,7 +493,7 @@ Ask yourself:
 
 If you're unsure, it's perfectly fine to:
 - Ask for input from other maintainers
-- Start a discussion issue
+- Start or link a GitHub Discussion
 - Sleep on it before making a decision
 
 ---

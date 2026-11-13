@@ -1,0 +1,10 @@
+$ docker compose -p kmitlai ps --format "table {{.Name}}	{{.Service}}	{{.Status}}"
+NAME                          SERVICE                 STATUS
+kmitl_ai_roadmap_generator    ai_roadmap_generator    Up 41 minutes
+kmitl_ai_roadmap_pocketbase   ai_roadmap_pocketbase   Up 32 hours (healthy)
+kmitl_mariadb                 mariadb                 Up 32 hours (healthy)
+kmitl_my_ai_quiz              my_ai_quiz              Up 41 minutes
+kmitl_open_notebook_api       open_notebook_api       Up 21 minutes
+kmitl_traefik                 traefik                 Up 32 hours
+kmitlai-redis-1               redis                   Up 32 hours (healthy)
+kmitlai-surrealdb-1           surrealdb               Up 16 hours

@@ -31,7 +31,9 @@ services:
     command: start --log info --user root --pass root rocksdb:/mydata/mydatabase.db
     user: root
     ports:
-      - "8000:8000"
+      # Localhost only — the database uses default credentials, so never
+      # publish this port on 0.0.0.0
+      - "127.0.0.1:8000:8000"
     volumes:
       - ./surreal_data:/mydata
     environment:
@@ -84,7 +86,7 @@ services:
       - SURREAL_DATABASE=open_notebook
 
       # Ollama connection (optional, can also configure via UI)
-      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_API_BASE=http://ollama:11434
     volumes:
       - ./notebook_data:/app/data
     depends_on:
@@ -122,13 +124,13 @@ volumes:
 # ==========================================
 #
 # 1. Configure Ollama:
-#    - Go to Settings → API Keys
+#    - Go to Manage → Models
 #    - Add Credential → Select "Ollama"
 #    - Base URL: http://ollama:11434
 #    - Save → Test Connection → Discover Models → Register Models
 #
 # 2. Configure Speaches (TTS/STT):
-#    - Go to Settings → API Keys
+#    - Go to Manage → Models
 #    - Add Credential → Select "OpenAI-Compatible"
 #    - Name: "Local Speaches"
 #    - Base URL for TTS: http://host.docker.internal:8969/v1  (macOS/Windows)

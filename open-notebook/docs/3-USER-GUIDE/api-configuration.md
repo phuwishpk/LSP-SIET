@@ -70,12 +70,12 @@ API keys stored in the database are encrypted using Fernet (AES-128-CBC + HMAC-S
 
 ## Accessing Credential Configuration
 
-1. Click **Settings** in the navigation bar
-2. Select **API Keys** tab
+1. In the sidebar, find the **Manage** section
+2. Click **Models**
 3. You'll see existing credentials and an **Add Credential** button
 
 ```
-Navigation: Settings → API Keys
+Navigation: Manage → Models
 ```
 
 ---
@@ -102,6 +102,7 @@ Navigation: Settings → API Keys
 | Provider | Required Fields | Notes |
 |----------|-----------------|-------|
 | Ollama | Base URL | Typically `http://localhost:11434` or `http://ollama:11434` |
+| oMLX | Base URL | Default `http://localhost:11435/v1` (avoids SurrealDB on 8000); API key optional |
 
 ### Enterprise
 
@@ -117,7 +118,7 @@ Navigation: Settings → API Keys
 
 ### Step 1: Add Credential
 
-1. Go to **Settings** → **API Keys**
+1. Go to **Manage** → **Models**
 2. Click **Add Credential**
 3. Select your provider
 4. Give it a descriptive name (e.g., "My OpenAI Key", "Work Anthropic")
@@ -206,6 +207,15 @@ For OpenAI, Anthropic, Google, Groq, Mistral, DeepSeek, xAI, OpenRouter:
 
 Ollama allows localhost and private IPs since it runs locally.
 
+### oMLX (Apple Silicon)
+
+1. Add credential with provider **oMLX**
+2. Base URL defaults to `http://localhost:11435/v1` (do not use port `8000` — that conflicts with SurrealDB)
+3. API key is optional
+4. Test connection → discover and register language/embedding models
+
+See [oMLX Setup](../5-CONFIGURATION/omlx.md) for install and Docker host networking notes.
+
 ### Azure OpenAI
 
 1. Add credential with provider **Azure OpenAI**
@@ -247,7 +257,7 @@ Google Cloud's enterprise AI platform:
 
 If you have existing API keys in environment variables (from a previous version):
 
-1. Open **Settings → API Keys**
+1. Open **Manage → Models**
 2. A banner appears: "Environment variables detected"
 3. Click **Migrate to Database**
 4. Keys are copied to the database (encrypted)
@@ -282,7 +292,7 @@ If you're upgrading from an older version that used the ProviderConfig system:
 
 - The migration happens automatically on first startup
 - Your existing configurations are converted to credentials
-- Check **Settings → API Keys** to verify the migration succeeded
+- Check **Manage → Models** to verify the migration succeeded
 - If you see issues, check the API logs for migration messages
 
 ---
@@ -302,7 +312,7 @@ API keys stored in the database are encrypted using Fernet (AES-128-CBC + HMAC-S
 
 | Setting | Default Value | Production Recommendation |
 |---------|---------------|---------------------------|
-| Password | `open-notebook-change-me` | Set `OPEN_NOTEBOOK_PASSWORD` |
+| Password | None - auth is fully disabled until set | Set `OPEN_NOTEBOOK_PASSWORD` |
 | Encryption Key | None (must be set) | Set `OPEN_NOTEBOOK_ENCRYPTION_KEY` to any secret string |
 
 **For production deployments, always set custom credentials.**
@@ -346,7 +356,7 @@ API keys stored in the database are encrypted using Fernet (AES-128-CBC + HMAC-S
 
 ### Provider Shows "Not Configured"
 
-1. Check if a credential exists for this provider (Settings → API Keys)
+1. Check if a credential exists for this provider (Manage → Models)
 2. Test the credential connection
 3. Verify key format matches provider requirements
 4. Re-discover and register models if needed

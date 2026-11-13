@@ -6,6 +6,8 @@ export interface SearchRequest {
   search_sources: boolean
   search_notes: boolean
   minimum_score: number
+  /** Restrict results to these notebooks; omit or empty for the whole knowledge base (#574, #87). */
+  notebook_ids?: string[]
 }
 
 export interface SearchResult {
@@ -35,6 +37,8 @@ export interface AskRequest {
   strategy_model: string
   answer_model: string
   final_answer_model: string
+  /** Restrict every search of the strategy to these notebooks; omit or empty for all (#574, #87). */
+  notebook_ids?: string[]
 }
 
 export interface AskResponse {
@@ -52,26 +56,10 @@ export interface StrategyData {
 }
 
 export interface AskStreamEvent {
-  type: 'strategy' | 'answer' | 'final_answer' | 'complete' | 'error' | 'resolved_notebooks'
+  type: 'strategy' | 'answer' | 'final_answer' | 'complete' | 'error'
   reasoning?: string
   searches?: Array<{ term: string; instructions: string }>
   content?: string
   final_answer?: string
   message?: string
-  // notebook-ask extended types
-  resolved?: NotebookContextBlock[]
-  failed_refs?: string[]
-  global_fallback_used?: boolean
-  out_of_rag?: boolean
-  notebook_id?: string
-  notebook_name?: string
-  chunk_count?: number
-  total_chars?: number
-}
-
-export interface NotebookContextBlock {
-  notebook_id: string
-  notebook_name: string
-  chunk_count: number
-  total_chars: number
 }

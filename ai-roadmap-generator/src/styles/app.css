@@ -1,28 +1,120 @@
+/* With preflight off (tailwind.config.js) `base` is only the --tw-* variables that
+   rings, shadows, filters and transforms are built from. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 :root {
-  --bg: #0c0c0c;
-  --surface: #111111;
-  --card: #161616;
-  --field: #141414;
-  --line: #2a2a2a;
-  --line-strong: #4a4a4a;
-  --text: #e6e6e6;
-  --text-strong: #f4f4f4;
-  --muted: #a8a8a8;
-  --accent: #2b6fde;
-  --accent-soft: #152238;
-  --accent-text: #b9d5ff;
-  --siet: #e11d48;
-  --danger: #f2a3af;
-  --danger-line: #5a2b33;
-  --danger-solid: #b4233c;
-  --green-bg: #14251f;
-  --green-line: #24483b;
-  --green-text: #8fddbb;
-  --violet-bg: #241b33;
-  --violet-line: #45326a;
-  --violet-text: #c9b4ff;
-  --gold: #f1d58a;
-  --topbar-h: 60px;
+  color-scheme: light;
+  --bg: #ffffff;
+  --surface: #ffffff;
+  --raised: #ffffff;
+  --card: #fafafa;
+  --field: #ffffff;
+  --hover: #f7f7f8;
+  --line: #e5e5e5;
+  --line-strong: #cfcfcf;
+  --text: #3c3c3c;
+  --text-strong: #202124;
+  --muted: #777777;
+  --link: #1cb0f6;
+  --accent: #ed4988;
+  --accent-hover: #d83a78;
+  --accent-pressed: #c92f6b;
+  --accent-soft: #fce7f0;
+  --accent-light: #f7b7d0;
+  --accent-text: #c92f6b;
+  --on-accent: #ffffff;
+  --siet: #ed4988;
+  --danger: #ff4b4b;
+  --danger-line: #ffb8b8;
+  --danger-solid: #ff4b4b;
+  --danger-hover: #e03b3b;
+  --warn-bg: #fff6df;
+  --warn-line: #f5d08a;
+  --warn-text: #7a5a00;
+  --green-bg: #e8f5ec;
+  --green-line: #b7e0c4;
+  --green-text: #2f7a4a;
+  --violet-bg: #f3e8ff;
+  --violet-line: #dcc5ff;
+  --violet-text: #7a3fd1;
+  --gold: #9a6b00;
+  --track: #eeeeee;
+  --lane: #fafafa;
+  --lane-alt: #fdf7f9;
+  --lane-line: #eeeeee;
+  --node-detail: #fafafa;
+  --node-detail-text: #555555;
+  --edge: #afafaf;
+  --backdrop: rgba(32, 33, 36, 0.45);
+  /* Stage colours (lib/roadmap-layout.js): text-safe on the light lanes. */
+  --stage-1: #1686bd;
+  --stage-2: #3e8a50;
+  --stage-3: #c66f00;
+  --stage-4: #9a4fe0;
+  --stage-5: #c92f6b;
+  --stage-6: #9a6b00;
+  --shadow-button: 0 4px 0 var(--accent-pressed);
+  --shadow-card: 0 2px 4px rgba(32, 33, 36, 0.04), 0 1px 2px rgba(32, 33, 36, 0.02);
+  /* The shared Navbar (shared/components/Navbar.tsx) is 64px high. */
+  --topbar-h: 64px;
+}
+
+/*
+ * Dark: as Community looks in dark mode - a zinc-950 page and zinc-900 bars
+ * (globals.css .dark) with the plum cards and pink of siet-theme.css
+ * (.dark .community-theme).
+ * The theme follows SIET Space - see lib/theme.js and the script in _document.js.
+ */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --bg: #09090b;
+  --surface: #18181b;
+  --raised: #2b2026;
+  --card: #2b2026;
+  --field: #2b2026;
+  --hover: #382630;
+  --line: #4b3441;
+  --line-strong: #59404e;
+  --text: #e8d9e0;
+  --text-strong: #f9edf2;
+  --muted: #c4aeb9;
+  --link: #7ccdf7;
+  --accent: #f472b6;
+  --accent-hover: #ec4899;
+  --accent-pressed: #db2777;
+  --accent-soft: #4a2b3c;
+  --accent-text: #f9a8d4;
+  --on-accent: #381126;
+  --danger: #ff8a8a;
+  --danger-line: #7a3a40;
+  --danger-solid: #e5484d;
+  --danger-hover: #d13a3f;
+  --warn-bg: #3a2c12;
+  --warn-line: #7a5a1a;
+  --warn-text: #f5d08a;
+  --green-bg: #1d3326;
+  --green-line: #2f5a3e;
+  --green-text: #8fd6a6;
+  --violet-bg: #2e2342;
+  --violet-line: #4d3a70;
+  --violet-text: #c9a8ff;
+  --gold: #e0b84a;
+  --track: #2b2026;
+  --lane: #141113;
+  --lane-alt: #1c151a;
+  --lane-line: #2b2026;
+  --node-detail: #211a1e;
+  --node-detail-text: #c4aeb9;
+  --edge: #7d6874;
+  --backdrop: rgba(0, 0, 0, 0.6);
+  --stage-1: #5cb8e6;
+  --stage-2: #74c48a;
+  --stage-3: #f0a24a;
+  --stage-4: #c08cf5;
+  --stage-5: #f472b6;
+  --stage-6: #e0b84a;
 }
 
 * {
@@ -34,13 +126,18 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
-  font-size: 14px;
+  font-family: 'Nunito', 'IBM Plex Sans Thai', 'Noto Sans Thai', system-ui, sans-serif;
   line-height: 1.55;
 }
 
+/* 14px text, but 1rem stays the browser's 16px as in SIET Space and AI Quiz:
+   the shared navbar's Tailwind sizes are in rem. */
+body {
+  font-size: 14px;
+}
+
 a {
-  color: #8fbcff;
+  color: var(--link);
 }
 
 a:hover {
@@ -56,7 +153,7 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid #8fbcff;
+  outline: 2px solid var(--link);
   outline-offset: 2px;
 }
 
@@ -86,7 +183,7 @@ textarea {
 
 .body {
   margin: 0;
-  color: #c6c6c6;
+  color: var(--text);
   text-wrap: pretty;
   white-space: pre-line;
 }
@@ -153,16 +250,16 @@ textarea {
   padding: 0 16px 0 8px;
   border: 1px solid var(--line-strong);
   border-radius: 22px;
-  color: #f2f2f2;
+  color: var(--text-strong);
   text-decoration: none;
   font-weight: 500;
   white-space: nowrap;
 }
 
 .back-button:hover {
-  color: #ffffff;
-  border-color: #6a6a6a;
-  background: #1a1a1a;
+  color: var(--text-strong);
+  border-color: var(--line-strong);
+  background: var(--hover);
 }
 
 .siet-mark {
@@ -180,7 +277,7 @@ textarea {
 .topbar-divider {
   width: 1px;
   height: 24px;
-  background: #2f2f2f;
+  background: var(--line);
 }
 
 .app-name {
@@ -193,19 +290,19 @@ textarea {
   border-radius: 8px;
   font-size: 15px;
   font-weight: 600;
-  color: #bdbdbd;
+  color: var(--muted);
   text-decoration: none;
   white-space: nowrap;
 }
 
 .app-name:hover {
-  background: #1a1a1a;
-  color: #ffffff;
+  background: var(--hover);
+  color: var(--text-strong);
 }
 
 /* Already on the roadmap home: a label, not a way to get there. */
 .app-name[aria-current='page'] {
-  color: #f2f2f2;
+  color: var(--text-strong);
   pointer-events: none;
 }
 
@@ -215,7 +312,7 @@ textarea {
   gap: 8px;
   height: 36px;
   padding: 0 14px;
-  border: 1px solid #3a3a3a;
+  border: 1px solid var(--line);
   border-radius: 18px;
   color: var(--gold);
   font-weight: 600;
@@ -234,8 +331,8 @@ textarea {
   width: 32px;
   height: 32px;
   border-radius: 16px;
-  background: #1f3b2f;
-  color: #9fe3c0;
+  background: var(--accent-soft);
+  color: var(--accent-text);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -244,7 +341,7 @@ textarea {
 }
 
 .who-name {
-  color: #d6d6d6;
+  color: var(--text);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -270,8 +367,8 @@ textarea {
 }
 
 .btn:hover:not(:disabled) {
-  background: #1c1c1c;
-  color: #ffffff;
+  background: var(--hover);
+  color: var(--text-strong);
 }
 
 .btn:disabled {
@@ -282,12 +379,21 @@ textarea {
 .btn-primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
+  color: var(--on-accent);
+  font-weight: 700;
+  border-radius: 12px;
+  box-shadow: 0 3px 0 var(--accent-pressed);
+  transition: all 0.14s ease;
 }
 
 .btn-primary:hover:not(:disabled) {
-  background: #3a7df0;
+  background: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
+.btn-primary:active:not(:disabled) {
+  transform: translateY(2px);
+  box-shadow: 0 1px 0 var(--accent-pressed);
 }
 
 .btn-outline-accent {
@@ -309,7 +415,7 @@ textarea {
 }
 
 .btn-danger-solid:hover:not(:disabled) {
-  background: #c92c47;
+  background: var(--danger-hover);
 }
 
 .btn-lg {
@@ -326,7 +432,7 @@ textarea {
   padding: 0;
   background: none;
   border: none;
-  color: #8fbcff;
+  color: var(--link);
   text-decoration: underline;
   cursor: pointer;
 }
@@ -341,9 +447,9 @@ textarea {
 .chip {
   padding: 2px 10px;
   border-radius: 10px;
-  background: #1c1c1c;
-  border: 1px solid #333333;
-  color: #c9c9c9;
+  background: var(--hover);
+  border: 1px solid var(--line);
+  color: var(--text);
   font-size: 12px;
   white-space: nowrap;
 }
@@ -380,7 +486,7 @@ textarea {
 .field > legend {
   padding: 0;
   font-weight: 600;
-  color: #d6d6d6;
+  color: var(--text);
 }
 
 .field > legend {
@@ -393,9 +499,9 @@ textarea {
   width: 100%;
   padding: 10px 12px;
   background: var(--field);
-  border: 1px solid #343434;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #ededed;
+  color: var(--text-strong);
 }
 
 .field select,
@@ -415,9 +521,68 @@ textarea {
   justify-content: space-between;
   gap: 12px;
   background: var(--field);
-  border: 1px solid #343434;
+  border: 1px solid var(--line);
   border-radius: 8px;
   overflow-wrap: anywhere;
+}
+
+.file-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.file-list {
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 260px;
+  overflow-y: auto;
+  background: var(--field);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+}
+
+.file-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.file-option:hover {
+  background: var(--card);
+}
+
+.file-option-on {
+  background: var(--accent-soft);
+}
+
+.file-option-on:hover {
+  background: var(--accent-soft);
+}
+
+.file-option input {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
+}
+
+.file-name {
+  flex: 1;
+  min-width: 0;
+  color: var(--text-strong);
+  overflow-wrap: anywhere;
+}
+
+.file-option .source-meta {
+  flex: none;
+  max-width: 40%;
+  text-align: right;
 }
 
 .attach-row {
@@ -438,17 +603,17 @@ textarea {
   min-height: 44px;
   padding: 0 16px;
   background: transparent;
-  border: 1px solid #343434;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #d0d0d0;
+  color: var(--text);
   cursor: pointer;
 }
 
 .segment-on {
   background: var(--accent-soft);
   border-color: var(--accent);
-  color: #ffffff;
-  font-weight: 600;
+  color: var(--accent-text);
+  font-weight: 800;
 }
 
 .segment:disabled {
@@ -467,14 +632,14 @@ textarea {
   margin: 0;
   padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid #3a3a3a;
-  background: #161616;
+  border: 1px solid var(--line);
+  background: var(--card);
 }
 
 .notice-warn {
-  border-color: #5c4a1c;
-  background: #231d0e;
-  color: #f0dca3;
+  border-color: var(--warn-line);
+  background: var(--warn-bg);
+  color: var(--warn-text);
 }
 
 .progress {
@@ -486,7 +651,7 @@ textarea {
 .progress-bar {
   height: 4px;
   border-radius: 2px;
-  background: #1f1f1f;
+  background: var(--track);
   overflow: hidden;
   position: relative;
 }
@@ -531,7 +696,7 @@ textarea {
 .home-list {
   padding: 32px;
   background: var(--surface);
-  border-left: 1px solid #222222;
+  border-left: 1px solid var(--line);
 }
 
 .mine {
@@ -546,7 +711,7 @@ textarea {
   flex-direction: column;
   gap: 12px;
   background: var(--card);
-  border: 1px solid #2b2b2b;
+  border: 1px solid var(--line);
   border-radius: 10px;
 }
 
@@ -554,7 +719,7 @@ textarea {
   margin: 0 0 6px;
   font-size: 14px;
   font-weight: 600;
-  color: #f0f0f0;
+  color: var(--text-strong);
 }
 
 .card-actions {
@@ -578,7 +743,7 @@ textarea {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  border-bottom: 1px solid #222222;
+  border-bottom: 1px solid var(--line);
 }
 
 .viewer-head .h2 {
@@ -612,7 +777,7 @@ textarea {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 8px;
-  color: #d6d6d6;
+  color: var(--text);
   font-weight: 500;
   text-decoration: none;
   white-space: nowrap;
@@ -623,9 +788,9 @@ textarea {
 }
 
 .home-back:hover {
-  background: #1c1c1c;
-  border-color: #6a6a6a;
-  color: #ffffff;
+  background: var(--hover);
+  border-color: var(--line-strong);
+  color: var(--text-strong);
 }
 
 .home-back:hover svg {
@@ -649,25 +814,29 @@ textarea {
   overflow: auto;
 }
 
+.graph-fit {
+  margin: 0 auto;
+}
+
 .graph {
   position: relative;
-  margin: 0 auto;
+  transform-origin: 0 0;
 }
 
 .lane {
   position: absolute;
   left: 0;
   right: 0;
-  background: #101010;
-  border-top: 1px solid #1f1f1f;
+  background: var(--lane);
+  border-top: 1px solid var(--lane-line);
 }
 
 .lane:last-of-type {
-  border-bottom: 1px solid #1f1f1f;
+  border-bottom: 1px solid var(--lane-line);
 }
 
 .lane-alt {
-  background: #0d0d0d;
+  background: var(--lane-alt);
 }
 
 .lane-label {
@@ -675,9 +844,13 @@ textarea {
   left: 16px;
   top: 12px;
   max-width: 144px;
-  font-size: 12px;
-  line-height: 16px;
-  font-weight: 600;
+  padding: 3px 11px;
+  font-size: 13px;
+  line-height: 17px;
+  font-weight: 800;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-radius: 999px;
 }
 
 .graph-lines {
@@ -689,13 +862,21 @@ textarea {
 }
 
 .line-solid {
-  stroke: #8c96a8;
+  stroke: var(--edge);
   stroke-width: 2;
   stroke-linecap: round;
 }
 
+.arrow-solid {
+  fill: var(--edge);
+}
+
+.arrow-dashed {
+  fill: var(--accent);
+}
+
 .line-dashed {
-  stroke: #7c8698;
+  stroke: var(--accent);
   stroke-width: 2;
   stroke-dasharray: 6 6;
   stroke-linecap: round;
@@ -708,15 +889,17 @@ textarea {
   align-items: center;
   justify-content: center;
   text-align: center;
-  background: #1b1b1b;
-  border: 1px solid #3a3a3a;
+  background: var(--raised);
+  border: 1px solid var(--line);
   border-radius: 10px;
-  color: #ededed;
+  color: var(--text-strong);
   cursor: pointer;
+  font-size: 15px;
+  font-weight: 600;
 }
 
 .node:hover {
-  border-color: #6a6a6a;
+  border-color: var(--line-strong);
 }
 
 .node-label {
@@ -729,24 +912,25 @@ textarea {
 
 .node-sub,
 .node-detail {
-  background: #141414;
-  border-color: #333333;
+  background: var(--raised);
+  border-color: var(--line);
   border-radius: 8px;
-  color: #cfcfcf;
-  font-size: 13px;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 500;
 }
 
 .node-detail {
-  background: #101010;
-  border-color: #2c2c2c;
-  color: #b8b8b8;
+  background: var(--node-detail);
+  border-color: var(--line);
+  color: var(--node-detail-text);
 }
 
 .node-selected,
 .node-selected:hover {
   background: var(--accent-soft);
   border: 2px solid var(--accent);
-  color: #ffffff;
+  color: var(--text-strong);
   font-weight: 600;
 }
 
@@ -756,7 +940,7 @@ textarea {
   flex-direction: column;
   gap: 20px;
   background: var(--surface);
-  border-left: 1px solid #222222;
+  border-left: 1px solid var(--line);
 }
 
 .panel-section {
@@ -786,14 +970,14 @@ textarea {
   justify-content: space-between;
   gap: 10px;
   background: var(--card);
-  border: 1px solid #2b2b2b;
+  border: 1px solid var(--line);
   border-radius: 8px;
-  color: #dadada;
+  color: var(--text);
 }
 
 .source-link {
   text-decoration: none;
-  color: #8fbcff;
+  color: var(--link);
 }
 
 .source-meta {
@@ -807,14 +991,14 @@ textarea {
 .dialog {
   width: min(560px, calc(100vw - 32px));
   padding: 0;
-  background: #141414;
-  border: 1px solid #2f2f2f;
+  background: var(--raised);
+  border: 1px solid var(--line);
   border-radius: 14px;
   color: var(--text);
 }
 
 .dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--backdrop);
 }
 
 .dialog-body {
@@ -846,7 +1030,7 @@ textarea {
 
   .panel {
     border-left: none;
-    border-top: 1px solid #222222;
+    border-top: 1px solid var(--line);
   }
 }
 
@@ -863,7 +1047,7 @@ textarea {
   .home-list {
     padding: 24px 16px;
     border-left: none;
-    border-top: 1px solid #222222;
+    border-top: 1px solid var(--line);
   }
 
   .viewer-head {
@@ -899,4 +1083,266 @@ textarea {
   .back-button {
     padding: 0 12px 0 8px;
   }
+}
+
+
+/* ---------------------------------------------------------------------------
+   SIET Pink (root DESIGN.md) — light theme additions
+   --------------------------------------------------------------------------- */
+h1, h2, h3, .h1, .h2, .h3, .card-title {
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+/* Primary action: 16px radius with a flat 4px lip in the pressed colour. */
+.btn-primary {
+  border-radius: 16px;
+  box-shadow: 0 4px 0 var(--accent-pressed);
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.btn-primary:disabled {
+  box-shadow: none;
+}
+.btn-primary:active:not(:disabled) {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+.btn-primary:focus-visible {
+  outline: 3px solid var(--link);
+  outline-offset: 3px;
+}
+
+/* Adventure-map nodes: pink = the node you are on, soft pink = its sub-steps. */
+.node {
+  border-radius: 12px;
+  border-width: 2px;
+}
+.node-selected {
+  background: var(--accent);
+  border-color: var(--accent-pressed);
+  color: var(--on-accent);
+}
+.node-selected:hover {
+  background: var(--accent-hover);
+  color: var(--on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary { transition: none; }
+}
+
+/* ==========================================================================
+   Shared Navbar & Shell Layout Utilities
+   ========================================================================== */
+.flex { display: flex; }
+.inline-flex { display: inline-flex; }
+.hidden { display: none; }
+.block { display: block; }
+.grid { display: grid; }
+.grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.flex-col { flex-direction: column; }
+.flex-row { flex-direction: row; }
+.flex-1 { flex: 1 1 0%; }
+.shrink-0 { flex-shrink: 0; }
+.min-h-0 { min-height: 0px; }
+.min-w-0 { min-width: 0px; }
+.h-full { height: 100%; }
+.h-screen { height: 100vh; }
+.w-full { width: 100%; }
+.h-14 { height: 3.5rem; }
+.w-80 { width: 20rem; }
+.max-w-md { max-width: 28rem; }
+
+.relative { position: relative; }
+.absolute { position: absolute; }
+.sticky { position: sticky; }
+.fixed { position: fixed; }
+.inset-0 { inset: 0; }
+.top-0 { top: 0px; }
+.right-0 { right: 0px; }
+.left-0 { left: 0px; }
+.bottom-0 { bottom: 0px; }
+.mt-1 { margin-top: 0.25rem; }
+.mt-2 { margin-top: 0.5rem; }
+.mt-3 { margin-top: 0.75rem; }
+.mb-1 { margin-bottom: 0.25rem; }
+.mb-2 { margin-bottom: 0.5rem; }
+.mx-2 { margin-left: 0.5rem; margin-right: 0.5rem; }
+
+.p-1 { padding: 0.25rem; }
+.p-2 { padding: 0.5rem; }
+.p-3 { padding: 0.75rem; }
+.p-4 { padding: 1rem; }
+.px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+.px-2\.5 { padding-left: 0.625rem; padding-right: 0.625rem; }
+.px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+.px-4 { padding-left: 1rem; padding-right: 1rem; }
+.py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+.py-1\.5 { padding-top: 0.375rem; padding-bottom: 0.375rem; }
+.py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+.py-2\.5 { padding-top: 0.625rem; padding-bottom: 0.625rem; }
+
+.items-center { align-items: center; }
+.justify-between { justify-content: space-between; }
+.justify-center { justify-content: center; }
+.justify-end { justify-content: flex-end; }
+.gap-1 { gap: 0.25rem; }
+.gap-1\.5 { gap: 0.375rem; }
+.gap-2 { gap: 0.5rem; }
+.gap-2\.5 { gap: 0.625rem; }
+.gap-3 { gap: 0.75rem; }
+.gap-4 { gap: 1rem; }
+
+.overflow-hidden { overflow: hidden; }
+.overflow-y-auto { overflow-y: auto; }
+.overflow-x-hidden { overflow-x: hidden; }
+
+.z-0 { z-index: 0; }
+.z-10 { z-index: 10; }
+.z-20 { z-index: 20; }
+.z-50 { z-index: 50; }
+.z-\[100\] { z-index: 100; }
+.z-\[110\] { z-index: 110; }
+
+.rounded-full { border-radius: 9999px; }
+.rounded-xl { border-radius: 0.75rem; }
+.rounded-2xl { border-radius: 1rem; }
+.rounded-lg { border-radius: 0.5rem; }
+.rounded-md { border-radius: 0.375rem; }
+
+.text-white { color: #ffffff; }
+.text-white\/40 { color: rgba(255, 255, 255, 0.4); }
+.text-white\/50 { color: rgba(255, 255, 255, 0.5); }
+.text-white\/60 { color: rgba(255, 255, 255, 0.6); }
+.text-white\/70 { color: rgba(255, 255, 255, 0.7); }
+.text-white\/80 { color: rgba(255, 255, 255, 0.8); }
+.text-white\/90 { color: rgba(255, 255, 255, 0.9); }
+.text-amber-300 { color: #fcd34d; }
+.text-amber-400 { color: #fbbf24; }
+.text-emerald-400 { color: #34d399; }
+.text-rose-400 { color: #fb7185; }
+
+.bg-white\/5 { background-color: rgba(255, 255, 255, 0.05); }
+.bg-white\/10 { background-color: rgba(255, 255, 255, 0.1); }
+.bg-white\/15 { background-color: rgba(255, 255, 255, 0.15); }
+.bg-white\/20 { background-color: rgba(255, 255, 255, 0.2); }
+.hover\:bg-white\/10:hover { background-color: rgba(255, 255, 255, 0.1); }
+.hover\:bg-white\/15:hover { background-color: rgba(255, 255, 255, 0.15); }
+.hover\:bg-white\/20:hover { background-color: rgba(255, 255, 255, 0.2); }
+
+.border-white\/5 { border-color: rgba(255, 255, 255, 0.05); }
+.border-white\/10 { border-color: rgba(255, 255, 255, 0.1); }
+.border-white\/15 { border-color: rgba(255, 255, 255, 0.15); }
+.border-white\/20 { border-color: rgba(255, 255, 255, 0.2); }
+
+.text-xs { font-size: 0.75rem; line-height: 1rem; }
+.text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+.text-base { font-size: 1rem; line-height: 1.5rem; }
+.font-normal { font-weight: 400; }
+.font-medium { font-weight: 500; }
+.font-semibold { font-weight: 600; }
+.font-bold { font-weight: 700; }
+.select-none { user-select: none; }
+.cursor-pointer { cursor: pointer; }
+.shadow-xl { box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1); }
+.shadow-2xl { box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); }
+.backdrop-blur-md { backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+.transition-all { transition-property: all; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+.transition-colors { transition-property: color, background-color, border-color; transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1); transition-duration: 150ms; }
+
+@media (min-width: 640px) {
+  .sm\:flex { display: flex; }
+  .sm\:hidden { display: none; }
+  .sm\:w-96 { width: 24rem; }
+}
+
+@media (min-width: 768px) {
+  .md\:px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+  .md\:mx-6 { margin-left: 1.5rem; margin-right: 1.5rem; }
+}
+
+
+/* ---- Community Theme & Popovers (Matches Community 3500) ---- */
+.community-theme {
+  --radius: 0.75rem;
+  --background: #ffffff;
+  --foreground: #263142;
+  --card: #ffffff;
+  --card-foreground: #263142;
+  --popover: #ffffff;
+  --popover-foreground: #263142;
+  --primary: #ed4988;
+  --primary-foreground: #ffffff;
+  --secondary: #fff1f5;
+  --secondary-foreground: #263142;
+  --muted: #f8fafc;
+  --muted-foreground: #707b8e;
+  --accent: #fce7f0;
+  --accent-foreground: #c92f6b;
+  --border: #f1f5f9;
+  --input: #f1f5f9;
+  --ring: #ed4988;
+}
+
+.dark .community-theme {
+  --background: #21181d;
+  --foreground: #f9edf2;
+  --card: #2b2026;
+  --card-foreground: #f9edf2;
+  --popover: #2b2026;
+  --popover-foreground: #f9edf2;
+  --primary: #f472b6;
+  --primary-foreground: #381126;
+  --secondary: #382630;
+  --secondary-foreground: #f9edf2;
+  --muted: #382630;
+  --muted-foreground: #c4aeb9;
+  --accent: #4a2b3c;
+  --accent-foreground: #fce7f3;
+  --border: #4b3441;
+  --input: #59404e;
+  --ring: #f472b6;
+}
+
+.field > label .muted {
+  font-weight: 400;
+}
+
+/* ==========================================================================
+   Shared navbar (shared/components/Navbar.tsx). It is written for Tailwind's
+   preflight, which this app turns off (tailwind.config.js), so it gets the same
+   base here - only inside the navbar. `:where()` keeps these below any utility
+   class; they come last to win over this file's element rules (a, button).
+   ========================================================================== */
+:where(.siet-navbar) * {
+  border: 0 solid;
+}
+
+:where(.siet-navbar) :where(p, ul, ol) {
+  margin: 0;
+}
+
+:where(.siet-navbar) :where(ul, ol) {
+  padding: 0;
+  list-style: none;
+}
+
+:where(.siet-navbar) :where(button, input) {
+  margin: 0;
+  padding: 0;
+  line-height: inherit;
+  background-color: transparent;
+  background-image: none;
+}
+
+:where(.siet-navbar) :where(img, svg) {
+  display: block;
+  vertical-align: middle;
+}
+
+:where(.siet-navbar) a,
+:where(.siet-navbar) a:hover {
+  color: inherit;
+  text-decoration: inherit;
 }

@@ -1,0 +1,2010 @@
+{
+ "base": "http://localhost:25055",
+ "calls": [
+  {
+   "module": "auth",
+   "step": "public auth status",
+   "method": "GET",
+   "path": "/api/auth/status",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "auth",
+   "step": "public runtime config",
+   "method": "GET",
+   "path": "/api/config",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 31.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "auth",
+   "step": "login with a wrong password",
+   "method": "POST",
+   "path": "/api/users/login",
+   "role": "anonymous",
+   "expected": [
+    401
+   ],
+   "status": 401,
+   "ms": 276.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "auth",
+   "step": "current user (admin)",
+   "method": "GET",
+   "path": "/api/users/me",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "auth",
+   "step": "current user (teacher)",
+   "method": "GET",
+   "path": "/api/users/me",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 3.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "auth",
+   "step": "current user (student)",
+   "method": "GET",
+   "path": "/api/users/me",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 3.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "auth",
+   "step": "PDPA consent",
+   "method": "POST",
+   "path": "/api/users/me/consent-pdpa",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "no token -> feed refused",
+   "method": "GET",
+   "path": "/api/community/posts",
+   "role": "anonymous",
+   "expected": [
+    401
+   ],
+   "status": 401,
+   "ms": 2.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "student -> admin console refused",
+   "method": "GET",
+   "path": "/api/admin/overview",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 2.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "student -> notebooks (staff only) refused",
+   "method": "GET",
+   "path": "/api/notebooks",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 2.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "student -> model settings refused",
+   "method": "GET",
+   "path": "/api/models",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 3.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "teacher -> admin console refused",
+   "method": "GET",
+   "path": "/api/admin/overview",
+   "role": "teacher",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 2.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "teacher -> notebooks allowed",
+   "method": "GET",
+   "path": "/api/notebooks",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 26.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "google start (state)",
+   "method": "GET",
+   "path": "/api/auth/google/start?next=/community",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 2.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "google sign-in 65039901@kmitl.ac.th -> student",
+   "method": "POST",
+   "path": "/api/auth/google/exchange",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 16.4,
+   "ok": true,
+   "note": "role=student"
+  },
+  {
+   "module": "rbac",
+   "step": "google start (state)",
+   "method": "GET",
+   "path": "/api/auth/google/start?next=/community",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 2.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "google sign-in 65019901@kmitl.ac.th -> pending",
+   "method": "POST",
+   "path": "/api/auth/google/exchange",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 19.2,
+   "ok": true,
+   "note": "role=pending"
+  },
+  {
+   "module": "rbac",
+   "step": "pending account -> community refused",
+   "method": "GET",
+   "path": "/api/community/posts",
+   "role": "anonymous",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 6.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "pending account -> own profile allowed",
+   "method": "GET",
+   "path": "/api/users/me",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 8.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "google start (state)",
+   "method": "GET",
+   "path": "/api/auth/google/start?next=/community",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rbac",
+   "step": "google sign-in it46.outsider@gmail.com -> refused (domain)",
+   "method": "POST",
+   "path": "/api/auth/google/exchange",
+   "role": "anonymous",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 6.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "list rooms",
+   "method": "GET",
+   "path": "/api/community/courses",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 14.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "room detail",
+   "method": "GET",
+   "path": "/api/community/courses/1953",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "categories",
+   "method": "GET",
+   "path": "/api/community/categories",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher opens a room with a join code",
+   "method": "POST",
+   "path": "/api/community/courses",
+   "role": "teacher",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 8.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "join with a wrong code refused",
+   "method": "POST",
+   "path": "/api/community/courses/1959/join",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 5.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "join with the right code",
+   "method": "POST",
+   "path": "/api/community/courses/1959/join",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher lists members",
+   "method": "GET",
+   "path": "/api/community/courses/1959/members",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher makes the student a TA",
+   "method": "PATCH",
+   "path": "/api/community/courses/1959/members/416",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "student cannot archive the room",
+   "method": "POST",
+   "path": "/api/community/courses/1959/archive",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 4.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher archives the room",
+   "method": "POST",
+   "path": "/api/community/courses/1959/archive",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "archived room refuses new members",
+   "method": "POST",
+   "path": "/api/community/courses/1959/join",
+   "role": "student",
+   "expected": [
+    400
+   ],
+   "status": 400,
+   "ms": 4.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher restores the room",
+   "method": "POST",
+   "path": "/api/community/courses/1959/restore",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher removes the member",
+   "method": "DELETE",
+   "path": "/api/community/courses/1959/members/416",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 8.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher console overview",
+   "method": "GET",
+   "path": "/api/community/teacher/overview",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "courses",
+   "step": "teacher quiz results",
+   "method": "GET",
+   "path": "/api/community/teacher/quiz-results",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "teacher adds a text document to the course library",
+   "method": "POST",
+   "path": "/api/community/library",
+   "role": "teacher",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 35.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "document processed (status=ready)",
+   "method": "GET",
+   "path": "/api/community/library/88",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "course member lists the library",
+   "method": "GET",
+   "path": "/api/community/library?course_id=1953",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "a pasted-text document has no file to download",
+   "method": "GET",
+   "path": "/api/community/library/88/download",
+   "role": "student",
+   "expected": [
+    404
+   ],
+   "status": 404,
+   "ms": 4.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "course member downloads a PDF",
+   "method": "GET",
+   "path": "/api/community/library/83/download",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 9.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "download with ?token= (link in a new tab)",
+   "method": "GET",
+   "path": "/api/community/library/83/download?token=<jwt>",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "student cannot publish into the course library",
+   "method": "POST",
+   "path": "/api/community/library",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 5.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "library",
+   "step": "knowledge list for the ask page",
+   "method": "GET",
+   "path": "/api/community/knowledge",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 269.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "student posts a summary to the course",
+   "method": "POST",
+   "path": "/api/community/posts",
+   "role": "student",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 19.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "course feed shows the post",
+   "method": "GET",
+   "path": "/api/community/posts?course_id=1953",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 8.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "post detail",
+   "method": "GET",
+   "path": "/api/community/posts/474",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "author edits the post",
+   "method": "PUT",
+   "path": "/api/community/posts/474",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 10.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "another student cannot edit it",
+   "method": "PUT",
+   "path": "/api/community/posts/474",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 5.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "react: helpful",
+   "method": "POST",
+   "path": "/api/community/posts/474/reactions",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 15.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "comment",
+   "method": "POST",
+   "path": "/api/community/posts/474/comments",
+   "role": "student",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 12.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "reply to a comment",
+   "method": "POST",
+   "path": "/api/community/posts/474/comments",
+   "role": "student",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 14.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "list comments (reply nested under its parent)",
+   "method": "GET",
+   "path": "/api/community/posts/474/comments",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.1,
+   "ok": true,
+   "note": "replies under the comment: 1"
+  },
+  {
+   "module": "feed",
+   "step": "save the post",
+   "method": "POST",
+   "path": "/api/community/posts/474/save",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 9.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "saved collections",
+   "method": "GET",
+   "path": "/api/community/saved-collections",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "share the post",
+   "method": "POST",
+   "path": "/api/community/posts/474/share",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 18.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "student posts a private note",
+   "method": "POST",
+   "path": "/api/community/posts",
+   "role": "student",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 47.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "private post is hidden from others (404)",
+   "method": "GET",
+   "path": "/api/community/posts/475",
+   "role": "student",
+   "expected": [
+    404
+   ],
+   "status": 404,
+   "ms": 6.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "feed",
+   "step": "owner still sees the private post",
+   "method": "GET",
+   "path": "/api/community/posts/475",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "student reports the post",
+   "method": "POST",
+   "path": "/api/community/reports",
+   "role": "student",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 13.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "the same person cannot report twice",
+   "method": "POST",
+   "path": "/api/community/reports",
+   "role": "student",
+   "expected": [
+    409
+   ],
+   "status": 409,
+   "ms": 8.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "my reports",
+   "method": "GET",
+   "path": "/api/community/reports/mine",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "room owner sees the room queue",
+   "method": "GET",
+   "path": "/api/community/courses/1953/reports",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "a student cannot see the room queue",
+   "method": "GET",
+   "path": "/api/community/courses/1953/reports",
+   "role": "student",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 4.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "room owner hides the post",
+   "method": "POST",
+   "path": "/api/community/courses/1953/reports/19",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 18.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "hidden post is gone for other students",
+   "method": "GET",
+   "path": "/api/community/posts/474",
+   "role": "student",
+   "expected": [
+    404
+   ],
+   "status": 404,
+   "ms": 5.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "the room owner's action is in the audit log",
+   "method": "GET",
+   "path": "/api/admin/audit?action=room.report",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.7,
+   "ok": true,
+   "note": "entries for this post: 1"
+  },
+  {
+   "module": "moderation",
+   "step": "admin report queue",
+   "method": "GET",
+   "path": "/api/admin/reports",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "admin audit log",
+   "method": "GET",
+   "path": "/api/admin/audit",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.5,
+   "ok": true,
+   "note": "latest action: room.report.hide_post"
+  },
+  {
+   "module": "moderation",
+   "step": "admin suspends a student (reason + end date)",
+   "method": "PATCH",
+   "path": "/api/admin/users/417",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 17.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "suspended student cannot sign in",
+   "method": "POST",
+   "path": "/api/users/login",
+   "role": "anonymous",
+   "expected": [
+    403
+   ],
+   "status": 403,
+   "ms": 7.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "admin lifts the suspension",
+   "method": "PATCH",
+   "path": "/api/admin/users/417",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 14.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "moderation",
+   "step": "student signs in again",
+   "method": "POST",
+   "path": "/api/users/login",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 272.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "search",
+   "step": "advanced search: posts",
+   "method": "GET",
+   "path": "/api/community/search?q=สรุป&kind=posts",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 9.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "search",
+   "step": "advanced search: courses",
+   "method": "GET",
+   "path": "/api/community/search?q=IT46&kind=courses",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 11.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "search",
+   "step": "advanced search: documents",
+   "method": "GET",
+   "path": "/api/community/search?q=เกณฑ์การให้คะแนน&kind=documents",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 14.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "search",
+   "step": "advanced search: users",
+   "method": "GET",
+   "path": "/api/community/search?q=it46&kind=users",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 14.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "points",
+   "step": "profile and balance",
+   "method": "GET",
+   "path": "/api/community/me",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 15.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "points",
+   "step": "wallet history",
+   "method": "GET",
+   "path": "/api/community/wallet",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 9.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notifications",
+   "step": "notifications (reaction / comment)",
+   "method": "GET",
+   "path": "/api/community/notifications",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 6.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notifications",
+   "step": "mark all as read",
+   "method": "POST",
+   "path": "/api/community/notifications/read",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 15.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rag",
+   "step": "ask the course library",
+   "method": "POST",
+   "path": "/api/community/ask",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 23.6,
+   "ok": true,
+   "note": "cites=6 answer_has_code=True"
+  },
+  {
+   "module": "rag",
+   "step": "chat history list",
+   "method": "GET",
+   "path": "/api/community/ask/history",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rag",
+   "step": "open a conversation",
+   "method": "GET",
+   "path": "/api/community/ask/history/61cb13ef64144fd28cf27973d8fa486d",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "rag",
+   "step": "delete the conversation",
+   "method": "DELETE",
+   "path": "/api/community/ask/history/61cb13ef64144fd28cf27973d8fa486d",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "quiz",
+   "step": "teacher generates a quiz from the course library",
+   "method": "POST",
+   "path": "/api/community/study/quiz",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 3012.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "quiz",
+   "step": "teacher shares the quiz to the course feed",
+   "method": "POST",
+   "path": "/api/community/posts",
+   "role": "teacher",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 33.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "quiz",
+   "step": "student starts the quiz",
+   "method": "POST",
+   "path": "/api/community/posts/476/quiz/start",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 12.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "quiz",
+   "step": "student submits answers (graded by the server)",
+   "method": "POST",
+   "path": "/api/community/posts/476/quiz/submit",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 17.5,
+   "ok": true,
+   "note": "score=3/3 questions=3"
+  },
+  {
+   "module": "roadmap",
+   "step": "teacher generates a roadmap from the course library",
+   "method": "POST",
+   "path": "/api/community/study/roadmap",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 513.9,
+   "ok": true,
+   "note": "nodes=5"
+  },
+  {
+   "module": "roadmap",
+   "step": "my roadmaps",
+   "method": "GET",
+   "path": "/api/community/roadmaps/mine",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 31.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "roadmap",
+   "step": "roadmap detail",
+   "method": "GET",
+   "path": "/api/community/roadmaps/mine/roadmap_session:03cx5lm6dm4sn4agz6y0",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 27.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "roadmap",
+   "step": "share the roadmap to the feed",
+   "method": "POST",
+   "path": "/api/community/posts",
+   "role": "teacher",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 47.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "roadmap",
+   "step": "student reads the roadmap post",
+   "method": "GET",
+   "path": "/api/community/posts/477",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "external-apps",
+   "step": "roadmap app page",
+   "method": "GET",
+   "path": "/roadmap/api/ws/",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 30.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "external-apps",
+   "step": "roadmap app proxy: my roadmaps",
+   "method": "GET",
+   "path": "/roadmap/api/ws/community/roadmaps/mine",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 49.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "external-apps",
+   "step": "roadmap app proxy: who am I",
+   "method": "GET",
+   "path": "/roadmap/api/ws/community/me",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 11.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "external-apps",
+   "step": "roadmap app proxy blocks non-allowlisted paths",
+   "method": "GET",
+   "path": "/roadmap/api/ws/admin/overview",
+   "role": "admin",
+   "expected": [
+    404
+   ],
+   "status": 404,
+   "ms": 2.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "roadmap",
+   "step": "owner deletes the roadmap",
+   "method": "DELETE",
+   "path": "/api/community/roadmaps/mine/roadmap_session:03cx5lm6dm4sn4agz6y0",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 44.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "roadmap",
+   "step": "the shared post keeps its copy of the plan",
+   "method": "GET",
+   "path": "/api/community/posts/477",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "external-apps",
+   "step": "quiz app page",
+   "method": "GET",
+   "path": "/quiz",
+   "role": "anonymous",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 22.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "external-apps",
+   "step": "quiz app bridge /quiz/api/me -> /api/users/me",
+   "method": "GET",
+   "path": "/quiz/api/me",
+   "role": "student",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 11.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "teacher creates a notebook",
+   "method": "POST",
+   "path": "/api/notebooks",
+   "role": "teacher",
+   "expected": [
+    200,
+    201
+   ],
+   "status": 200,
+   "ms": 30.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "add a text source",
+   "method": "POST",
+   "path": "/api/sources",
+   "role": "teacher",
+   "expected": [
+    200,
+    201
+   ],
+   "status": 200,
+   "ms": 1229.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "add a note",
+   "method": "POST",
+   "path": "/api/notes",
+   "role": "teacher",
+   "expected": [
+    200,
+    201
+   ],
+   "status": 200,
+   "ms": 121.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "notebook detail",
+   "method": "GET",
+   "path": "/api/notebooks/notebook:5ewlqe8kcrm0tetx7q45",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 79.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "notebook sources",
+   "method": "GET",
+   "path": "/api/sources?notebook_id=notebook:5ewlqe8kcrm0tetx7q45",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 50.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "notebook notes",
+   "method": "GET",
+   "path": "/api/notes?notebook_id=notebook:5ewlqe8kcrm0tetx7q45",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 44.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "text search",
+   "method": "POST",
+   "path": "/api/search",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 90.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "chat sessions of the notebook",
+   "method": "GET",
+   "path": "/api/chat/sessions?notebook_id=notebook:5ewlqe8kcrm0tetx7q45",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 42.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "delete the note",
+   "method": "DELETE",
+   "path": "/api/notes/note:mfdukbkllmpy05z4x73t",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 42.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "delete the source",
+   "method": "DELETE",
+   "path": "/api/sources/source:tix6t5g05hitgcahp2yj",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 141.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "notebooks",
+   "step": "delete the notebook",
+   "method": "DELETE",
+   "path": "/api/notebooks/notebook:5ewlqe8kcrm0tetx7q45",
+   "role": "teacher",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 166.9,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "overview",
+   "method": "GET",
+   "path": "/api/admin/overview",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "users",
+   "method": "GET",
+   "path": "/api/admin/users?q=it46",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "usage",
+   "method": "GET",
+   "path": "/api/admin/usage?days=7",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 11.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "health",
+   "method": "GET",
+   "path": "/api/admin/health",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 58.6,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "LLM throttle",
+   "method": "GET",
+   "path": "/api/admin/llm-throttle",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "points log",
+   "method": "GET",
+   "path": "/api/admin/points/log",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 8.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "community stats",
+   "method": "GET",
+   "path": "/api/admin/community/stats",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 7.5,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "rooms",
+   "method": "GET",
+   "path": "/api/admin/courses",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 9.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "categories",
+   "method": "GET",
+   "path": "/api/admin/categories",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "posts",
+   "method": "GET",
+   "path": "/api/admin/posts",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "comments",
+   "method": "GET",
+   "path": "/api/admin/comments",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 5.3,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "RAG stats",
+   "method": "GET",
+   "path": "/api/admin/rag/stats?days=7",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 12.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "RAG documents",
+   "method": "GET",
+   "path": "/api/admin/rag/documents",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.8,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "roadmaps",
+   "method": "GET",
+   "path": "/api/admin/roadmaps",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 50.0,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "quizzes",
+   "method": "GET",
+   "path": "/api/admin/quizzes",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 47.1,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "models",
+   "method": "GET",
+   "path": "/api/models",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 26.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "default models",
+   "method": "GET",
+   "path": "/api/models/defaults",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 23.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "credentials",
+   "method": "GET",
+   "path": "/api/credentials",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 43.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "settings",
+   "method": "GET",
+   "path": "/api/settings",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 4.2,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "create a category",
+   "method": "POST",
+   "path": "/api/admin/categories",
+   "role": "admin",
+   "expected": [
+    201
+   ],
+   "status": 201,
+   "ms": 12.7,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "rename the category",
+   "method": "PATCH",
+   "path": "/api/admin/categories/23",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 8.4,
+   "ok": true,
+   "note": ""
+  },
+  {
+   "module": "admin",
+   "step": "delete the category",
+   "method": "DELETE",
+   "path": "/api/admin/categories/23",
+   "role": "admin",
+   "expected": [
+    200
+   ],
+   "status": 200,
+   "ms": 10.5,
+   "ok": true,
+   "note": ""
+  }
+ ],
+ "generated_at": "2026-10-23 19:29:07",
+ "summary": {
+  "auth": {
+   "steps": 7,
+   "passed": 7,
+   "failed": 0,
+   "ms_median": 7.0,
+   "ms_max": 276.5
+  },
+  "rbac": {
+   "steps": 14,
+   "passed": 14,
+   "failed": 0,
+   "ms_median": 3.6,
+   "ms_max": 26.1
+  },
+  "courses": {
+   "steps": 15,
+   "passed": 15,
+   "failed": 0,
+   "ms_median": 5.9,
+   "ms_max": 14.0
+  },
+  "library": {
+   "steps": 8,
+   "passed": 8,
+   "failed": 0,
+   "ms_median": 6.5,
+   "ms_max": 269.0
+  },
+  "feed": {
+   "steps": 15,
+   "passed": 15,
+   "failed": 0,
+   "ms_median": 9.0,
+   "ms_max": 47.7
+  },
+  "moderation": {
+   "steps": 14,
+   "passed": 14,
+   "failed": 0,
+   "ms_median": 7.3,
+   "ms_max": 272.4
+  },
+  "search": {
+   "steps": 4,
+   "passed": 4,
+   "failed": 0,
+   "ms_median": 12.6,
+   "ms_max": 14.6
+  },
+  "points": {
+   "steps": 2,
+   "passed": 2,
+   "failed": 0,
+   "ms_median": 12.4,
+   "ms_max": 15.0
+  },
+  "notifications": {
+   "steps": 2,
+   "passed": 2,
+   "failed": 0,
+   "ms_median": 10.6,
+   "ms_max": 15.1
+  },
+  "rag": {
+   "steps": 4,
+   "passed": 4,
+   "failed": 0,
+   "ms_median": 6.4,
+   "ms_max": 23.6
+  },
+  "quiz": {
+   "steps": 4,
+   "passed": 4,
+   "failed": 0,
+   "ms_median": 25.2,
+   "ms_max": 3012.9
+  },
+  "roadmap": {
+   "steps": 7,
+   "passed": 7,
+   "failed": 0,
+   "ms_median": 31.9,
+   "ms_max": 513.9
+  },
+  "external-apps": {
+   "steps": 6,
+   "passed": 6,
+   "failed": 0,
+   "ms_median": 17.0,
+   "ms_max": 49.5
+  },
+  "notebooks": {
+   "steps": 11,
+   "passed": 11,
+   "failed": 0,
+   "ms_median": 79.4,
+   "ms_max": 1229.6
+  },
+  "admin": {
+   "steps": 22,
+   "passed": 22,
+   "failed": 0,
+   "ms_median": 8.7,
+   "ms_max": 58.6
+  }
+ },
+ "total": {
+  "steps": 135,
+  "passed": 135
+ }
+}

@@ -36,7 +36,35 @@ class RecentlyViewedResponse(BaseModel):
 
 
 # Search models
-class SearchRequest(BaseModel):
+class NotebookScopeMixin(BaseModel):
+    """Optional notebook scope shared by Search and Ask requests (#574, #87).
+
+    Both `notebook_id` (single, the shape #574 proposed and existing clients
+    already send) and `notebook_ids` (several) are accepted; `scope_notebook_ids`
+    merges them. An empty scope means the whole knowledge base.
+    """
+
+    notebook_id: Optional[str] = Field(
+        None, description="Restrict results to a single notebook"
+    )
+    notebook_ids: Optional[List[str]] = Field(
+        None,
+        max_length=50,
+        description="Restrict results to these notebooks (omit or empty for all)",
+    )
+
+    @property
+    def scope_notebook_ids(self) -> List[str]:
+        # Keep empty strings so validation rejects them instead of silently
+        # widening the scope to the whole knowledge base.
+        merged: List[str] = []
+        for nb_id in [self.notebook_id, *(self.notebook_ids or [])]:
+            if nb_id is not None and nb_id not in merged:
+                merged.append(nb_id)
+        return merged
+
+
+class SearchRequest(NotebookScopeMixin):
     query: str = Field(..., description="Search query")
     type: Literal["text", "vector"] = Field("text", description="Search type")
     limit: int = Field(100, description="Maximum number of results", ge=1, le=1000)
@@ -53,7 +81,7 @@ class SearchResponse(BaseModel):
     search_type: str = Field(..., description="Type of search performed")
 
 
-class AskRequest(BaseModel):
+class AskRequest(NotebookScopeMixin):
     question: str = Field(..., description="Question to ask the knowledge base")
     strategy_model: str = Field(..., description="Model ID for query strategy")
     answer_model: str = Field(..., description="Model ID for individual answers")
@@ -277,6 +305,9 @@ class SettingsResponse(BaseModel):
     default_content_processing_engine_url: Optional[str] = None
     default_embedding_option: Optional[str] = None
     auto_delete_files: Optional[str] = None
+    docling_ocr: Optional[bool] = None
+    docling_formulas: Optional[bool] = None
+    docling_vision: Optional[bool] = None
     youtube_preferred_languages: Optional[List[str]] = None
 
 
@@ -285,6 +316,9 @@ class SettingsUpdate(BaseModel):
     default_content_processing_engine_url: Optional[str] = None
     default_embedding_option: Optional[str] = None
     auto_delete_files: Optional[str] = None
+    docling_ocr: Optional[bool] = None
+    docling_formulas: Optional[bool] = None
+    docling_vision: Optional[bool] = None
     youtube_preferred_languages: Optional[List[str]] = None
 
 
@@ -301,7 +335,9 @@ class SourceCreate(BaseModel):
     )
     # New multi-notebook support
     notebooks: Optional[List[str]] = Field(
-        None, description="List of notebook IDs to add the source to"
+        None,
+        max_length=50,
+        description="List of notebook IDs to add the source to (max 50)",
     )
     # Required fields
     type: str = Field(..., description="Source type: link, upload, or text")
@@ -310,7 +346,9 @@ class SourceCreate(BaseModel):
     content: Optional[str] = Field(None, description="Text content for text type")
     title: Optional[str] = Field(None, description="Source title")
     transformations: Optional[List[str]] = Field(
-        default_factory=list, description="Transformation IDs to apply"
+        default_factory=list,
+        max_length=50,
+        description="Transformation IDs to apply (max 50)",
     )
     embed: bool = Field(False, description="Whether to embed content for vector search")
     delete_source: bool = Field(
@@ -382,38 +420,16 @@ class SourceListResponse(BaseModel):
     processing_info: Optional[Dict[str, Any]] = None
 
 
-# Context API models
-class ContextConfig(BaseModel):
-    sources: Dict[str, str] = Field(
-        default_factory=dict, description="Source inclusion config {source_id: level}"
-    )
-    notes: Dict[str, str] = Field(
-        default_factory=dict, description="Note inclusion config {note_id: level}"
-    )
-
-
-class ContextRequest(BaseModel):
-    notebook_id: str = Field(..., description="Notebook ID to get context for")
-    context_config: Optional[ContextConfig] = Field(
-        None, description="Context configuration"
-    )
-
-
-class ContextResponse(BaseModel):
-    notebook_id: str
-    sources: List[Dict[str, Any]] = Field(..., description="Source context data")
-    notes: List[Dict[str, Any]] = Field(..., description="Note context data")
-    total_tokens: Optional[int] = Field(None, description="Estimated token count")
-
-
 # Insights API models
 class SourceInsightResponse(BaseModel):
     id: str
     source_id: str
     insight_type: str
     content: str
-    created: str
-    updated: str
+    # Optional: insights created before migration 19 have no timestamps,
+    # and the API must return null for them (never the string "None").
+    created: Optional[str] = None
+    updated: Optional[str] = None
 
 
 class InsightCreationResponse(BaseModel):
@@ -566,11 +582,106 @@ class MigrationResult(BaseModel):
 
 # Notebook delete cascade models
 # Credential models
+
+# Kept in sync with the provider registry
+# (open_notebook/ai/provider_registry.py PROVIDERS — the backend source of
+# truth). A Literal can't be built at runtime, so this is the one remaining
+# manual copy; tests/test_credential_provider_validation.py enforces the sync.
+# The frontend consumes GET /api/providers at runtime and needs no edit.
+SupportedProvider = Literal[
+    "openai",
+    "anthropic",
+    "google",
+    "groq",
+    "mistral",
+    "deepseek",
+    "xai",
+    "openrouter",
+    "dashscope",
+    "minimax",
+    "novita",
+    "siliconflow",
+    "zai",
+    "ppq",
+    "cohere",
+    "voyage",
+    "elevenlabs",
+    "deepgram",
+    "ollama",
+    "omlx",
+    "azure",
+    "vertex",
+    "openai_compatible",
+    "anthropic_compatible",
+]
+
+
+class ProviderInfoResponse(BaseModel):
+    """Provider metadata from the provider registry."""
+
+    name: str = Field(..., description="Provider identifier (e.g. openai)")
+    display_name: str = Field(..., description="Human-friendly provider name")
+    modalities: List[str] = Field(
+        ..., description="Default modalities supported by the provider"
+    )
+    docs_url: Optional[str] = Field(
+        None, description="Where to get an API key / set the provider up"
+    )
+    env_configured: bool = Field(
+        ..., description="Whether the provider is configured via environment variables"
+    )
+
+
+class CapabilitiesResponse(BaseModel):
+    """Runtime availability of the opt-in heavy extraction engines.
+
+    Reflects what is actually importable/reachable in this container — not merely
+    what the OPEN_NOTEBOOK_ENABLE_* flags request — so the UI can gate engine
+    options honestly (e.g. still show "unavailable" while a first-boot install
+    is in progress). See docs/7-DEVELOPMENT/decisions/ADR-007-optin-runtimes.md.
+    """
+
+    docling_available: bool = Field(
+        ...,
+        description="Docling is installed: the docling document engine, OCR toggle and image sources work.",
+    )
+    crawl4ai_available: bool = Field(
+        ...,
+        description="Crawl4AI is usable: the local package is installed OR a remote server is configured.",
+    )
+    crawl4ai_remote_configured: bool = Field(
+        ...,
+        description="A remote Crawl4AI endpoint is configured via CRAWL4AI_API_URL (no local install needed).",
+    )
+
+
+def validate_url_key_provider_required_fields(
+    provider: Optional[str],
+    base_url: Optional[str],
+    api_key: Optional[str],
+) -> None:
+    """Shared required-field rule for providers that need BOTH a base URL and an
+    API key (currently anthropic_compatible).
+
+    Called from both the create path (CreateCredentialRequest validator, which sees
+    the full request payload) and the update path
+    (credentials_service.ensure_provider_required_fields, which runs against the
+    merged credential). Raises ValueError when a required field is missing.
+    """
+    if (provider or "").lower() == "anthropic_compatible":
+        if not base_url or not str(base_url).strip():
+            raise ValueError("Anthropic-compatible credentials require a base URL")
+        if not api_key or not str(api_key).strip():
+            raise ValueError("Anthropic-compatible credentials require an API key")
+
+
 class CreateCredentialRequest(BaseModel):
     """Request to create a new credential."""
 
     name: str = Field(..., description="Credential name")
-    provider: str = Field(..., description="Provider name (openai, anthropic, etc.)")
+    provider: SupportedProvider = Field(
+        ..., description="Provider name (openai, anthropic, etc.)"
+    )
     modalities: List[str] = Field(
         default_factory=list,
         description="Supported modalities (language, embedding, text_to_speech, speech_to_text)",
@@ -591,6 +702,13 @@ class CreateCredentialRequest(BaseModel):
     num_ctx: Optional[int] = Field(
         None, description="Context window size (Ollama only; defaults to 8192)"
     )
+
+    @model_validator(mode="after")
+    def _validate_provider_required_fields(self):
+        validate_url_key_provider_required_fields(
+            self.provider, self.base_url, self.api_key
+        )
+        return self
 
 
 class UpdateCredentialRequest(BaseModel):
@@ -703,183 +821,6 @@ class NotebookDeleteResponse(BaseModel):
     unlinked_sources: int = Field(
         ..., description="Number of sources unlinked from notebook"
     )
-
-
-# =============================================================================
-# AI Feature Modules (Quiz + Roadmap) – bundled add-ons
-# =============================================================================
-
-
-class QuizOptionPayload(BaseModel):
-    text: str = Field(..., description="Answer option text")
-    is_correct: bool = Field(
-        False, description="Whether this option is the correct answer"
+    deleted_chat_sessions: int = Field(
+        ..., description="Number of chat sessions deleted"
     )
-
-
-class QuizQuestionPayload(BaseModel):
-    id: int = Field(..., description="1-based question index")
-    question: str = Field(..., description="Question text")
-    options: List[QuizOptionPayload] = Field(
-        ..., description="Exactly 4 multiple-choice options"
-    )
-    correct_answer: str = Field(
-        ..., description="Correct answer (must match one option exactly)"
-    )
-    explanation: str = Field(..., description="Rationale for the correct answer")
-
-
-class QuizGenerateRequest(BaseModel):
-    topic: str = Field(..., min_length=1, max_length=500)
-    question_count: int = Field(5, ge=1, le=20)
-    language: str = Field("th", description="BCP-47 language code or short tag")
-    notebook_id: Optional[str] = Field(
-        None, description="Optional notebook to scope the quiz to"
-    )
-    model_id: Optional[str] = Field(
-        None, description="Optional override model ID (otherwise default chat model)"
-    )
-
-
-class QuizSessionResponse(BaseModel):
-    id: str
-    owner_id: str
-    topic: str
-    language: str
-    question_count: int
-    questions: List[Dict[str, Any]]
-    notebook_id: Optional[str] = None
-    model_id: Optional[str] = None
-    prompt_hash: str
-    created: str
-    updated: str
-
-
-class QuizSessionSummary(BaseModel):
-    id: str
-    topic: str
-    language: str
-    question_count: int
-    created: str
-
-
-class QuizGenerateResponse(BaseModel):
-    session: QuizSessionResponse
-    cached: bool = Field(False, description="True if the result was served from cache")
-
-
-class RoadmapNodePayload(BaseModel):
-    id: str
-    label: str
-    description: str = ""
-    category: str = "general"
-    order: int = 0
-
-
-class RoadmapEdgePayload(BaseModel):
-    source: str
-    target: str
-
-
-class RoadmapGenerateRequest(BaseModel):
-    description: str = Field(..., min_length=1, max_length=2000)
-    title: Optional[str] = Field(
-        None, max_length=200, description="Optional explicit title"
-    )
-    node_count: int = Field(15, ge=3, le=50)
-    language: str = Field("th", description="BCP-47 language code or short tag")
-    notebook_id: Optional[str] = None
-    model_id: Optional[str] = None
-
-
-class RoadmapSessionResponse(BaseModel):
-    id: str
-    owner_id: str
-    title: str
-    description: str
-    language: str
-    node_count: int
-    nodes: List[Dict[str, Any]]
-    edges: List[Dict[str, Any]]
-    notebook_id: Optional[str] = None
-    model_id: Optional[str] = None
-    prompt_hash: str
-    created: str
-    updated: str
-
-
-class RoadmapSessionSummary(BaseModel):
-    id: str
-    title: str
-    description: str
-    language: str
-    node_count: int
-    created: str
-
-
-class RoadmapGenerateResponse(BaseModel):
-    session: RoadmapSessionResponse
-    cached: bool = False
-
-
-# ---------------------------------------------------------------------------
-# Notebook-Ask models
-# ---------------------------------------------------------------------------
-
-
-class NotebookAskRequest(BaseModel):
-    """Request payload for the notebook-scoped Ask endpoint."""
-
-    question: str = Field(..., min_length=1, max_length=2000)
-    notebook_refs: List[str] = Field(
-        default_factory=list,
-        description=(
-            "List of notebook references. Each entry is either a record ID "
-            "(e.g. 'notebook:abc123') or a @slug string (e.g. '@my-research'). "
-            "Maximum 3 notebooks are accepted."
-        ),
-    )
-    language: str = Field("th", description="BCP-47 language code")
-    strategy_model: Optional[str] = Field(
-        None, description="Model ID for query-strategy (query-planning) step"
-    )
-    answer_model: Optional[str] = Field(
-        None, description="Model ID for per-chunk answering step"
-    )
-    final_answer_model: Optional[str] = Field(
-        None, description="Model ID for final answer generation"
-    )
-
-
-class NotebookContextBlockPayload(BaseModel):
-    """One notebook's RAG block, echoed back to the UI."""
-
-    notebook_id: str
-    notebook_name: str
-    chunk_count: int
-    total_chars: int
-
-
-class NotebookAskResolvedResponse(BaseModel):
-    """Metadata about which notebooks were resolved."""
-
-    resolved: List[NotebookContextBlockPayload] = Field(
-        default_factory=list,
-        description="Notebooks that yielded RAG chunks",
-    )
-    failed_refs: List[str] = Field(
-        default_factory=list,
-        description="References that could not be resolved",
-    )
-    global_fallback_used: bool = Field(
-        False,
-        description="True when the global knowledge-base fallback was used",
-    )
-    out_of_rag: bool = Field(
-        False,
-        description=(
-            "True when no RAG chunks were found anywhere – the answer "
-            "will come from the LLM's own knowledge with an (out of RAG source) label."
-        ),
-    )
-

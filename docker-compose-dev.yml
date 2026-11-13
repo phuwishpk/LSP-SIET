@@ -101,7 +101,8 @@ services:
     working_dir: /app
     command: >
       sh -c "export PYTHONPATH=/app &&
-             /app/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 5055 --reload"
+             /app/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 5055 --reload
+             --reload-dir /app --reload-dir /siet-platform --reload-dir /kmitl-rag --reload-dir /community"
     environment:
       - SURREAL_URL=ws://kmitlai_dev_surrealdb:8000/rpc
       - SURREAL_USER=${SURREAL_USER:-root}
@@ -131,6 +132,9 @@ services:
       - GOOGLE_OAUTH_ALLOWED_DOMAINS=${GOOGLE_OAUTH_ALLOWED_DOMAINS:-kmitl.ac.th}
       - GOOGLE_OAUTH_MOCK=${GOOGLE_OAUTH_MOCK:-0}
       - WORKSPACE_ADMIN_EMAILS=${WORKSPACE_ADMIN_EMAILS:-}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - TEACHER_EMAILS=${TEACHER_EMAILS:-}
+      - KMITL_FACULTY_CODE=${KMITL_FACULTY_CODE:-03}
       - NO_PROXY=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
       - no_proxy=kmitlai_dev_surrealdb,kmitlai_dev_redis,kmitlai_dev_mariadb,localhost,127.0.0.1,::1
     volumes:
@@ -141,6 +145,10 @@ services:
       - ./open-notebook/open_notebook:/app/open_notebook
       - ./open-notebook/commands:/app/commands
       - ./open-notebook/prompts:/app/prompts
+      # SIET packages, installed editable from /<dir> in the image
+      - ./siet-platform:/siet-platform
+      - ./kmitl-rag:/kmitl-rag
+      - ./community:/community
       - ./open-notebook/notebook_data:/app/data
     networks:
       - kmitlai_default
@@ -184,6 +192,13 @@ services:
     volumes:
       - ./open-notebook/frontend:/app
       - frontend_node_modules_dev:/app/node_modules
+      # SIET frontend packages (imported as @siet/*). Their node_modules symlink
+      # points at ../../open-notebook/frontend/node_modules, so mount it there too.
+      - ./siet-platform/frontend:/siet-platform/frontend
+      - ./kmitl-rag/frontend:/kmitl-rag/frontend
+      - ./community/frontend:/community/frontend
+      - ./shared:/shared
+      - frontend_node_modules_dev:/open-notebook/frontend/node_modules
     networks:
       - kmitlai_default
     ports:
@@ -193,7 +208,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # My-ai-quiz (Next.js) — external app linked from the dashboard "AI Quiz" card
+  # my-ai-quiz (Next.js) — external app linked from the dashboard "AI Quiz" card
   # Reuses the production-built image; connects to the dev API on the shared
   # bridge network via the container hostname `kmitlai_dev_open_notebook_api`.
   # ---------------------------------------------------------------------------

@@ -130,7 +130,10 @@ docs/custom_gpt
 doc_exports/
 
 specs/
-.claude
+# .claude: personal state stays local; skills and agents are shared project tooling
+.claude/*
+!.claude/skills
+!.claude/agents
 .sisyphus
 
 .playwright-mcp/
@@ -142,3 +145,16 @@ specs/
 .harness/
 
 .mcp.json
+
+# Local Docker Compose override (auto-merged by `docker compose up`).
+# Use it for host-specific tweaks like re-exposing the SurrealDB port;
+# see docker-compose.override.yml.example.
+docker-compose.override.yml
+
+# Local QA/debug artifacts
+screenshot-*.png
+history.txt
+
+# oss-maintainer local state
+.maintainer/profile.local.toml
+.maintainer/state/

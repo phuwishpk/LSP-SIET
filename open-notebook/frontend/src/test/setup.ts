@@ -8,7 +8,7 @@ vi.mock('next/navigation', () => ({
     replace: vi.fn(),
     prefetch: vi.fn(),
   }),
-  usePathname: () => '',
+  usePathname: vi.fn(() => ''),
   useSearchParams: () => new URLSearchParams(),
 }))
 
@@ -60,5 +60,6 @@ vi.mock('@/lib/hooks/use-create-dialogs', () => ({
   useCreateDialogs: vi.fn(() => ({
     openSourceDialog: vi.fn(),
     openNotebookDialog: vi.fn(),
+    openPodcastDialog: vi.fn(),
   })),
 }))
