@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { PinkOwlMascot, OwlMood } from '../../components/PinkOwlMascot';
+import { PinkOwlMascot, OwlMood } from '../../components/mascot';
 import { saveQuizHistory } from '../../lib/quizStorage';
 import {
   IconHeart,

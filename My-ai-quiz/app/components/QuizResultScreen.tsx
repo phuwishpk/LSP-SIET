@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { PinkOwlMascot } from './PinkOwlMascot';
+import { PinkOwlMascot } from './mascot';
 import {
   IconCheckCircle2,
   IconZap,
@@ -315,7 +315,7 @@ export function QuizResultScreen() {
                     <p className="text-[11px] text-slate-400">ประมวลผลจากข้อมูลการตอบของคุณ</p>
                   </div>
                 </div>
-                <PinkOwlMascot mood={accuracy >= 80 ? "celebrate" : "study"} size={90} />
+                <PinkOwlMascot mood={accuracy >= 80 ? "wave" : "study"} size={90} />
               </div>
 
               <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
