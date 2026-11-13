@@ -1253,6 +1253,15 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   outline-offset: 3px;
 }
 
+/* .node's border comes after .node-selected in this file: the selected node keeps its accent border. */
+.node.node-selected {
+  border-color: var(--accent);
+}
+
+.node.node-selected:hover {
+  border-color: var(--accent-hover);
+}
+
 .node-order {
   flex: 0 0 auto;
   display: inline-flex;

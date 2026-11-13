@@ -417,6 +417,26 @@ async def _fetch_google_profile(code: str) -> GoogleProfile:
         raise HTTPException(status_code=400, detail=f"Invalid Google profile: {exc}")
 
 
+async def _refuse_not_eligible(profile: GoogleProfile, reason: str) -> None:
+    """
+    Refuse a Google sign-in before any user row is written (PR #37): log it, then
+    403 ``access_denied_not_eligible:<email>:<name>``, which the sign-in pages
+    turn into /denied?email=&name=.
+    """
+    from siet_platform.audit import log_action
+
+    email = profile.email.strip().lower()
+    await log_action(
+        actor_id=0,
+        action="auth.login_failed",
+        target_type="auth",
+        target_id=email,
+        detail={"method": "google", "email": email, "reason": reason},
+    )
+    safe_name = (profile.name or "").replace(":", " ")
+    raise HTTPException(status_code=403, detail=f"access_denied_not_eligible:{email}:{safe_name}")
+
+
 @router.post("/exchange", response_model=GoogleTokenResponse)
 async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse:
     if not google_login_enabled():
@@ -444,11 +464,9 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
     if not profile.email or not profile.email_verified:
         raise HTTPException(status_code=403, detail="Google account e-mail is not verified")
     if not await _domain_allowed(profile.email, profile.hd):
-        domains = ", ".join(f"@{d}" for d in allowed_domains())
-        raise HTTPException(
-            status_code=403,
-            detail=f"Please sign in with your institutional account ({domains})",
-        )
+        # An e-mail outside the allowed domains (a personal Gmail) is refused the
+        # same way as any other ineligible account: no user row, the /denied page.
+        await _refuse_not_eligible(profile, "domain_not_allowed")
 
     # Check role eligibility BEFORE inserting into database
     # Non-eligible accounts (outside 030 student, teacher, or admin) are blocked at the gate.
@@ -459,19 +477,7 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
     existing = await _find_google_user(profile)
     approved = existing is not None and (existing.role or USER_ROLE_PENDING) != USER_ROLE_PENDING
     if role == USER_ROLE_PENDING and not approved:
-        from siet_platform.audit import log_action
-        await log_action(
-            actor_id=0,
-            action="auth.login_failed",
-            target_type="auth",
-            target_id=email,
-            detail={"method": "google", "email": email, "reason": "access_denied_not_eligible"},
-        )
-        safe_name = (profile.name or "").replace(":", " ")
-        raise HTTPException(
-            status_code=403,
-            detail=f"access_denied_not_eligible:{email}:{safe_name}",
-        )
+        await _refuse_not_eligible(profile, "access_denied_not_eligible")
 
     user, is_new = await _upsert_google_user(profile, derived=(role, student_id), existing=existing)
     welcome = await points.ensure_welcome(user)

@@ -33,6 +33,13 @@ function SietNavbar({ query = '', ...props }: AppNavbarProps & { query?: string 
   return (
     <Navbar
       activeRoute={pathname?.startsWith('/community/ask') ? 'rag' : pathname?.startsWith('/community') ? 'community' : undefined}
+      // The feed's left column (my rooms, library, saved) is a drawer below lg:
+      // the navbar's menu button opens it (PR #38's CommunityHeader did the same).
+      onOpenMenu={
+        pathname === '/community'
+          ? () => window.dispatchEvent(new CustomEvent('toggle-community-sidebar'))
+          : undefined
+      }
       {...props}
       user={user}
       token={token}

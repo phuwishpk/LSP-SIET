@@ -99,3 +99,15 @@ async def test_upsert_never_changes_an_approved_role(gate):
     await _exchange("67030001@kmitl.ac.th")
     assert gate["update_profile"].await_args.kwargs["role"] is None
 
+
+@pytest.mark.asyncio
+async def test_email_outside_the_allowed_domains_goes_to_denied_too(gate, monkeypatch):
+    """A personal Gmail is refused by the domain check: same /denied flow, no user row."""
+    monkeypatch.setattr(ga, "_domain_allowed", AsyncMock(return_value=False))
+    with pytest.raises(HTTPException) as err:
+        await _exchange("someone@gmail.com")
+    assert err.value.status_code == 403
+    assert err.value.detail.startswith("access_denied_not_eligible:someone@gmail.com:")
+    assert gate["log_action"].await_args.kwargs["detail"]["reason"] == "domain_not_allowed"
+    gate["create_sso_user"].assert_not_awaited()
+
