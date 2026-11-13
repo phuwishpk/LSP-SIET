@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { FileText, GraduationCap, HelpCircle, Library, Map, Paperclip, Sparkles, X, Lock, ShieldAlert } from 'lucide-react'
 import { toast } from 'sonner'
+import { FileTypeIcon } from './FileTypeIcon'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -386,9 +387,13 @@ export function CreatorBox({
                     <Paperclip className="h-3.5 w-3.5" /> แนบไฟล์ (PDF)
                   </Button>
                   {file && (
-                    <span className="flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs">
-                      {file.name} <span className="text-muted-foreground">{formatBytes(file.size)}</span>
-                      <button type="button" onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }}>
+                    <span className="community-file-preview flex items-center gap-2 border p-1.5 text-xs">
+                      <FileTypeIcon name={file.name} mime={file.type} />
+                      <span className="min-w-0">
+                        <span className="block max-w-48 truncate font-medium">{file.name}</span>
+                        <span className="text-muted-foreground">{formatBytes(file.size)}</span>
+                      </span>
+                      <button type="button" aria-label="ลบไฟล์แนบ" onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = '' }}>
                         <X className="h-3 w-3" />
                       </button>
                     </span>

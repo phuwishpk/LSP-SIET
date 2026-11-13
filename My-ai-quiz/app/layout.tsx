@@ -31,7 +31,7 @@ export default function RootLayout({
         <LaunchParams />
         <ThemeWatcher />
         <div className="relative z-[100] shrink-0" style={{ height: '64px', minHeight: '64px' }}>
-          <WorkspaceNavbar />
+          <WorkspaceNavbar activeRoute="quiz" />
         </div>
         <div className="relative z-0 flex-1 min-h-0 overflow-y-auto">
           {children}

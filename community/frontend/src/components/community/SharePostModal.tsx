@@ -8,8 +8,6 @@ import {
   Link2,
   LockKeyhole,
   MessageCircle,
-  FileText,
-  Play,
   Send,
   Sparkles,
   Users,
@@ -36,6 +34,7 @@ import { useAuthStore } from '@/lib/stores/auth-store'
 import { displayName, formatBytes, roleLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
 import type { CommunityPost } from '@siet/platform/lib/api/community'
 import { cn } from '@/lib/utils'
+import { FileTypeIcon } from './FileTypeIcon'
 
 type ShareAudience = 'public' | 'course' | 'private'
 
@@ -357,14 +356,8 @@ function OriginalPostPreview({ post }: { post: CommunityPost }) {
         </p>
       )}
       {post.attachment && (
-        <div className="flex items-center gap-2.5 rounded-xl border border-pink-100 bg-white p-2.5 dark:border-border dark:bg-zinc-800/60">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-pink-100 text-pink-600 dark:bg-pink-950/50 dark:text-pink-300">
-            {post.attachment.mime?.startsWith('video/') ? (
-              <Play className="h-4 w-4" aria-hidden="true" />
-            ) : (
-              <FileText className="h-4 w-4" aria-hidden="true" />
-            )}
-          </span>
+        <div className="community-file-preview flex items-center gap-2.5 border p-2.5">
+          <FileTypeIcon name={post.attachment.name} mime={post.attachment.mime} />
           <span className="min-w-0">
             <span className="block truncate text-xs font-medium">{post.attachment.name}</span>
             <span className="text-[10px] text-muted-foreground">

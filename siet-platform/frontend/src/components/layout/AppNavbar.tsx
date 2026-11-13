@@ -32,6 +32,7 @@ function SietNavbar({ query = '', ...props }: AppNavbarProps & { query?: string 
 
   return (
     <Navbar
+      activeRoute={pathname?.startsWith('/community/ask') ? 'rag' : pathname?.startsWith('/community') ? 'community' : undefined}
       {...props}
       user={user}
       token={token}

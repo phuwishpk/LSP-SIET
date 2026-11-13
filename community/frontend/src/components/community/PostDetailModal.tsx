@@ -2,8 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  FileText,
   Flag,
+  AlertCircle,
+  LoaderCircle,
   MessageCircle,
   MoreHorizontal,
   Play,
@@ -49,6 +50,7 @@ import { displayName, formatBytes, roleLabel, timeAgo } from '@siet/platform/lib
 import { cn } from '@/lib/utils'
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
+import { FileTypeIcon } from './FileTypeIcon'
 
 interface PostDetailModalProps {
   post: CommunityPost
@@ -283,9 +285,15 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
                     ) : (
                       <div className="flex flex-col items-center gap-2 text-white/70">
                         {videoError ? (
-                          <p className="text-xs">ไม่สามารถโหลดตัวอย่างวิดีโอได้</p>
+                          <p className="flex items-center gap-2 text-xs text-red-200" role="alert">
+                            <AlertCircle className="h-4 w-4" aria-hidden="true" />
+                            ไม่สามารถโหลดตัวอย่างวิดีโอได้
+                          </p>
                         ) : (
-                          <span className="animate-pulse text-xs">กำลังโหลดวิดีโอ…</span>
+                          <span className="flex items-center gap-2 text-xs" aria-live="polite">
+                            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                            กำลังโหลดวิดีโอ…
+                          </span>
                         )}
                       </div>
                     )}
@@ -307,7 +315,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
               ) : (
                 <button
                   type="button"
-                  className="flex w-full items-center gap-3 rounded-xl border border-pink-100 bg-[#FFF5F8] p-3 text-left transition-colors hover:bg-pink-50 dark:border-pink-900/40 dark:bg-pink-950/20 dark:hover:bg-pink-950/40"
+                  className="community-file-preview flex w-full items-center gap-3 rounded-xl border p-3 text-left transition-colors"
                   onClick={() => void communityApi.downloadAttachment(post.id).then(
                     (blob) => {
                       const url = URL.createObjectURL(blob)
@@ -320,9 +328,7 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
                     () => toast.error('ดาวน์โหลดไฟล์ไม่สำเร็จ')
                   )}
                 >
-                  <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-white text-pink-500 dark:bg-pink-950/50 dark:text-pink-300">
-                    <FileText className="h-5 w-5" />
-                  </span>
+                  <FileTypeIcon name={post.attachment.name} mime={post.attachment.mime} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-medium">{post.attachment.name}</span>
                     <span className="block text-xs text-muted-foreground">
@@ -377,14 +383,23 @@ export function PostDetailModal({ post, open, onOpenChange }: PostDetailModalPro
               </Select>
             </div>
 
-            {isLoading && <p className="py-4 text-center text-xs text-muted-foreground">กำลังโหลดความคิดเห็น…</p>}
+            {isLoading && (
+              <p className="community-feedback-loading flex items-center justify-center gap-2 py-4 text-xs" aria-live="polite">
+                <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+                กำลังโหลดความคิดเห็น…
+              </p>
+            )}
             {isError && (
-              <p className="py-4 text-center text-xs text-destructive">
+              <p className="community-feedback-error flex items-center justify-center gap-2 py-4 text-center text-xs" role="alert">
+                <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
                 โหลดความคิดเห็นไม่สำเร็จ ลองปิดแล้วเปิดโพสต์อีกครั้ง
               </p>
             )}
             {!isLoading && !isError && commentTree.roots.length === 0 && (
-              <p className="py-5 text-center text-xs text-muted-foreground">ยังไม่มีความคิดเห็น เป็นคนแรกที่แสดงความคิดเห็น</p>
+              <p className="community-feedback-empty flex items-center justify-center gap-2 py-5 text-center text-xs">
+                <MessageCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
+                ยังไม่มีความคิดเห็น เป็นคนแรกที่แสดงความคิดเห็น
+              </p>
             )}
             <div className="space-y-4">
               {commentTree.roots.map((comment) => {

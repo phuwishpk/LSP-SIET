@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Navbar } from '@shared/components/Navbar';
+import { Navbar, type NavbarRoute } from '@shared/components/Navbar';
 import { getWorkspaceToken, getWorkspaceUrl } from '../lib/workspace';
 import { useWorkspace } from '../lib/useWorkspace';
 
@@ -11,11 +11,12 @@ import { useWorkspace } from '../lib/useWorkspace';
  * balance follows each generation, and the links go back to the SIET Space this
  * app was opened from.
  */
-export function WorkspaceNavbar() {
+export function WorkspaceNavbar({ activeRoute }: { activeRoute?: NavbarRoute } = {}) {
   const { me } = useWorkspace();
   const user = useMemo(() => (me ? { ...me.user, points_exempt: me.exempt } : null), [me]);
   return (
     <Navbar
+      activeRoute={activeRoute}
       user={user}
       pointsBalance={me?.balance}
       token={getWorkspaceToken()}

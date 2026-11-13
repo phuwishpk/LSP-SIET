@@ -197,6 +197,7 @@ services:
       - ./siet-platform/frontend:/siet-platform/frontend
       - ./kmitl-rag/frontend:/kmitl-rag/frontend
       - ./community/frontend:/community/frontend
+      - ./shared:/shared
       - frontend_node_modules_dev:/open-notebook/frontend/node_modules
     networks:
       - kmitlai_default

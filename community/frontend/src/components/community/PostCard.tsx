@@ -48,6 +48,7 @@ import { RoadmapEmbed } from './RoadmapEmbed'
 import { PostDetailModal } from './PostDetailModal'
 import { SharePostModal } from './SharePostModal'
 import { ReportButton } from '../common/ReportButton'
+import { FileTypeIcon } from './FileTypeIcon'
 import { cn } from '@/lib/utils'
 
 const TYPE_META: Record<CommunityPost['type'], { label: string; icon: React.ComponentType<{ className?: string }>; className: string }> = {
@@ -146,7 +147,7 @@ export function PostCard({
         }
       }}
       className={cn(
-        'cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:translate-y-0 active:scale-[0.995] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
+        'community-feed-post cursor-pointer overflow-hidden rounded-2xl border bg-card shadow-xs transition-all duration-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md active:translate-y-0 active:scale-[0.995] motion-reduce:transform-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500',
         savedView ? 'border-pink-100 bg-white dark:bg-card' : 'border-border'
       )}
     >
@@ -172,14 +173,17 @@ export function PostCard({
                   {roleLabel(post.author.role)}
                 </Badge>
               )}
-              <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-medium', meta.className)}>
+              <span
+                data-post-type={post.type}
+                className={cn('community-post-type rounded-full px-2 py-0.5 text-[11px] font-medium', meta.className)}
+              >
                 {meta.label}
               </span>
               {post.course && (
                 <button
                   type="button"
                   onClick={() => post.course && onSelectCourse?.(post.course.id)}
-                  className="flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent"
+                  className="community-course-tag flex items-center gap-1 rounded-full border border-border bg-background px-2 py-0.5 text-[11px] text-muted-foreground transition-colors hover:bg-accent"
                 >
                   {post.course.kind === 'club' ? (
                     <MessagesSquare className="h-3 w-3" />
@@ -308,7 +312,7 @@ export function PostCard({
         {post.tags.length > 0 && (
           <div className="flex flex-wrap gap-1">
             {post.tags.map((tag) => (
-              <span key={tag} className="text-xs text-primary">
+              <span key={tag} className="community-content-tag text-xs text-primary">
                 #{tag}
               </span>
             ))}
@@ -319,15 +323,16 @@ export function PostCard({
           <button
             type="button"
             onClick={download}
-            className="flex w-full items-center gap-3 rounded-lg border border-border bg-muted/70 p-3 text-left transition-colors hover:bg-accent"
+            className="community-file-preview flex w-full items-center gap-3 rounded-lg border p-3 text-left transition-colors"
           >
-            <span className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10 text-primary">
-              <FileText className="h-5 w-5" />
-            </span>
+            <FileTypeIcon name={post.attachment.name} mime={post.attachment.mime} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{post.attachment.name}</span>
               <span className="block text-xs text-muted-foreground">
-                {formatBytes(post.attachment.size)} · กดเพื่อดาวน์โหลด
+                {post.attachment.mime?.includes('pdf')
+                  ? 'PDF'
+                  : post.attachment.mime ?? 'ไฟล์แนบ'}{' '}
+                · {formatBytes(post.attachment.size)} · กดเพื่อดาวน์โหลด
               </span>
             </span>
             <Download className="h-4 w-4 text-muted-foreground" />

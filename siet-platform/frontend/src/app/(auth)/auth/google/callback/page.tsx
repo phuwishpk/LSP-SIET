@@ -94,17 +94,17 @@ function GoogleCallback() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md rounded-2xl border-[#EAE6EA] shadow-[0_4px_16px_rgba(32,33,36,0.04)]">
         <CardHeader className="text-center">
           <CardTitle>เข้าสู่ระบบไม่สำเร็จ</CardTitle>
           <CardDescription>ไม่สามารถยืนยันตัวตนกับ Google Workspace ได้</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-start gap-2 text-sm text-red-600">
+          <div role="alert" className="flex items-start gap-2 rounded-xl bg-red-50 p-3 text-sm text-red-700">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
-          <Button asChild className="w-full">
+          <Button asChild className="min-h-11 w-full rounded-xl">
             <Link href="/login">กลับไปหน้าเข้าสู่ระบบ</Link>
           </Button>
         </CardContent>

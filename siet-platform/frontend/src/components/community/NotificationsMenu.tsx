@@ -24,7 +24,7 @@ export function NotificationsMenu({ onOpenPost }: { onOpenPost?: (postId: number
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative rounded-full" aria-label="การแจ้งเตือน">
+        <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B]" aria-label="การแจ้งเตือน">
           <Bell className="h-5 w-5" />
           {unread > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
@@ -33,13 +33,19 @@ export function NotificationsMenu({ onOpenPost }: { onOpenPost?: (postId: number
           )}
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="community-theme w-80 p-0">
+      <PopoverContent
+        align="end"
+        className="community-theme w-80 rounded-2xl border-[#EAE6EA] p-0 shadow-[0_4px_16px_rgba(32,33,36,0.04)]"
+      >
         <div className="border-b px-4 py-3">
           <p className="text-sm font-semibold">การแจ้งเตือน</p>
         </div>
         <ScrollArea className="max-h-80">
           {(data?.items.length ?? 0) === 0 ? (
-            <p className="p-4 text-sm text-muted-foreground">ยังไม่มีการแจ้งเตือน</p>
+            <div className="mx-4 my-3 flex items-center gap-2 rounded-2xl border border-[#EAE6EA] bg-[#FAF7F9] p-4 text-sm text-muted-foreground" role="status">
+              <Bell aria-hidden="true" className="h-4 w-4 shrink-0" />
+              <span>ยังไม่มีการแจ้งเตือน</span>
+            </div>
           ) : (
             <ul>
               {data?.items.map((n) => (

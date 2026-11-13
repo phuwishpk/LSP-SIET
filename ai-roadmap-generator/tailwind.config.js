@@ -4,6 +4,8 @@ const defaultTheme = require('tailwindcss/defaultTheme')
 module.exports = {
   content: [
     './src/**/*.{js,ts,jsx,tsx}',
+    // Every shared/ package by name: a bare ../shared/** would also walk
+    // shared/node_modules (a symlink to the main app's node_modules).
     '../shared/components/**/*.{js,ts,jsx,tsx}',
     '../shared/mascot/**/*.{js,ts,jsx,tsx}',
   ],

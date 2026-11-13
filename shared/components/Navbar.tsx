@@ -64,6 +64,9 @@ export interface WalletData {
   history?: WalletTransaction[]
 }
 
+/** Which app the navbar sits in (PR #38): marks the matching link as current. */
+export type NavbarRoute = 'community' | 'rag' | 'quiz' | 'roadmap'
+
 export interface NavbarProps {
   /**
    * The signed-in user (null: signed out) from a host app that keeps its own
@@ -74,14 +77,19 @@ export interface NavbarProps {
   /** The host app's token, for the points wallet; goes with `user`. */
   token?: string | null
   pointsBalance?: number
+  activeRoute?: NavbarRoute
   showPointsWallet?: boolean
   notificationsCount?: number
   /** The host app's own notifications menu, shown in place of the bell (which has no data of its own). */
   notifications?: React.ReactNode
+  /** Same as `notifications` (PR #38 name); `notifications` wins when both are given. */
+  notificationsSlot?: React.ReactNode
   communityUrl?: string
   /** Where the logo goes (default: SIET Space's feed). AI Roadmap: back to the page the user came from. */
   homeUrl?: string
   logoSrc?: string
+  /** A plain click on the logo goes to the host app's own home instead of loading `homeUrl`. */
+  onHome?: () => void
   onSearch?: (query: string) => void
   searchDefaultValue?: string
   searchPlaceholder?: string
@@ -110,7 +118,7 @@ export interface NavbarProps {
  * The navbar looks the same in every app, whatever the app's own base styles:
  * its font (DESIGN.md: Nunito, Thai through IBM Plex Sans Thai - SIET Space has
  * them as next/font variables, the AI apps load them from Google Fonts), its
- * 16px base, and px radii (SIET Space's theme makes `rounded-xl` 6px).
+ * 16px base, and px radii (SIET Space's theme makes `rounded-[12px]` 6px).
  */
 const NAVBAR_FONT =
   "var(--font-nunito, 'Nunito'), var(--font-ibm-plex-thai, 'IBM Plex Sans Thai'), var(--font-noto-thai, 'Noto Sans Thai'), system-ui, sans-serif"
@@ -298,12 +306,15 @@ export function Navbar({
   user: initialUser,
   token: hostToken,
   pointsBalance: initialPoints,
+  activeRoute,
   showPointsWallet = true,
   notificationsCount: initialNotificationsCount = 0,
-  notifications,
+  notifications: notificationsProp,
+  notificationsSlot,
   communityUrl,
   homeUrl,
   logoSrc,
+  onHome,
   onSearch,
   searchDefaultValue = '',
   searchPlaceholder = 'ค้นหาสรุป, ข้อสอบ, รายวิชา, เพื่อน…',
@@ -567,75 +578,39 @@ export function Navbar({
   const isPrivileged = user?.role === 'teacher' || user?.role === 'admin'
   const profileHref = buildCrossUrl(`${workspaceUrl}/community/profile/me`)
 
+  const notifications = notificationsProp ?? notificationsSlot
+
   return (
     <header
-      style={{
-        background: 'linear-gradient(to right, #420A2B, #6B0F3F, #8C1453)',
-        borderBottom: '2.5px solid #E91E63',
-        color: '#ffffff',
-        minHeight: '64px',
-        height: '64px',
-        fontFamily: NAVBAR_FONT,
-        fontSize: '16px',
-        lineHeight: 1.5,
-      }}
-      className={`siet-navbar sticky top-0 z-[100] w-full bg-gradient-to-r from-[#420A2B] via-[#6B0F3F] to-[#8C1453] text-white shadow-md shadow-black/10 select-none ${className}`}
+      id="siet-shared-navbar"
+      data-active-route={activeRoute}
+      className={`siet-navbar siet-shared-navbar sticky top-0 z-[100] w-full border-b border-[#EAE6EA] bg-white text-[#202124] shadow-[0_1px_0_#EAE6EA] select-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 ${className}`}
+      style={{ minHeight: '64px', height: '64px', fontFamily: NAVBAR_FONT, fontSize: '16px', lineHeight: 1.5 }}
     >
-      {/* Geometric Overlay Pattern (Journal of Industrial Education / JIE inspired) */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden" style={{ opacity: 0.18 }}>
-        <svg
-          className="absolute inset-0 h-full w-full"
-          xmlns="http://www.w3.org/2000/svg"
-          preserveAspectRatio="none"
-          viewBox="0 0 1440 64"
-          fill="none"
-          aria-hidden="true"
-        >
-          <defs>
-            <pattern
-              id="jie-geometric-pattern"
-              width="56"
-              height="56"
-              patternUnits="userSpaceOnUse"
-            >
-              <path
-                d="M0 28 L28 0 L56 28 L28 56 Z"
-                stroke="rgba(255,255,255,0.35)"
-                strokeWidth="0.8"
-                fill="none"
-              />
-              <path
-                d="M0 0 L56 56 M56 0 L0 56"
-                stroke="rgba(255,255,255,0.18)"
-                strokeWidth="0.5"
-              />
-              <polygon
-                points="28,0 56,28 28,28"
-                fill="rgba(255,255,255,0.06)"
-              />
-              <polygon
-                points="0,28 28,56 0,56"
-                fill="rgba(255,255,255,0.04)"
-              />
-            </pattern>
-          </defs>
-          <rect width="100%" height="100%" fill="url(#jie-geometric-pattern)" />
-          <polygon points="0,0 150,0 75,64 0,64" fill="rgba(255,255,255,0.05)" />
-          <polygon points="1050,0 1200,0 1275,64 1125,64" fill="rgba(255,255,255,0.04)" />
-          <polygon points="1320,0 1440,0 1440,64 1365,64" fill="rgba(255,255,255,0.06)" />
-        </svg>
-      </div>
+      <style>{`
+        #siet-shared-navbar :focus-visible {
+          outline: 2px solid #C92F6B !important;
+          outline-offset: 2px !important;
+        }
 
+        #siet-shared-navbar input:focus-visible {
+          border-color: #ED4988 !important;
+        }
+
+        .dark #siet-shared-navbar :focus-visible,
+        [data-theme='dark'] #siet-shared-navbar :focus-visible {
+          outline-color: #f472b6 !important;
+        }
+      `}</style>
       <div
-        className="relative z-[100] mx-auto flex h-16 max-w-[1440px] items-center gap-1.5 px-3 sm:gap-3 sm:px-5 lg:px-6"
+        className="relative z-[100] mx-auto flex h-16 max-w-[1440px] items-center gap-[6px] px-[12px] sm:gap-[12px] sm:px-[20px] lg:px-[24px]"
         style={{ height: '64px', minHeight: '64px', display: 'flex', alignItems: 'center' }}
       >
         {/* Mobile menu trigger - only rendered when onOpenMenu handler is provided */}
         {onOpenMenu && (
           <button
             type="button"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[8px] p-0 text-white hover:bg-white/15 hover:text-white lg:hidden transition-colors cursor-pointer bg-transparent border-0"
-            style={{ background: 'transparent', border: 'none' }}
+            className="flex h-[44px] w-[44px] min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-[12px] p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] lg:hidden transition-colors cursor-pointer bg-transparent border-0 dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
             onClick={handleOpenMenu}
             aria-label="เปิดเมนู"
           >
@@ -647,17 +622,19 @@ export function Navbar({
         <a
           href={buildCrossUrl(homeUrl || `${workspaceUrl}/community`)}
           title={homeUrl ? 'กลับไปหน้าที่เปิดมาใน SIET Space' : undefined}
-          className="flex shrink-0 items-center gap-2.5 rounded-[12px] px-1.5 py-1 text-left transition-colors hover:bg-white/10 no-underline"
+          onClick={(event) => openInHost(event, onHome)}
+          aria-current={activeRoute === 'community' ? 'page' : undefined}
+          className="flex min-h-[44px] shrink-0 items-center gap-[10px] rounded-[12px] px-[6px] py-[4px] text-left transition-colors hover:bg-[#FFF8FA] no-underline dark:hover:bg-zinc-800"
           style={{ textDecoration: 'none' }}
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-[12px] bg-white/15 p-1 ring-1 ring-white/25 shadow-xs backdrop-blur-xs">
+          <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[12px] border border-[#F7B7D0] bg-[#FCE7F0] p-[4px] dark:border-[#694255] dark:bg-[#382630]">
             {logoSrc ? (
               <img
                 src={logoSrc}
-                alt="nungsue logo"
+                alt="SIET Space"
                 width={32}
                 height={32}
-                className="h-7 w-7 object-contain drop-shadow-xs select-none"
+                className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
                 onError={(e) => {
                   e.currentTarget.src = OWL_LOGO_DATA_URI
                 }}
@@ -665,16 +642,16 @@ export function Navbar({
             ) : (
               <OwlLogo
                 size={32}
-                className="h-7 w-7 object-contain drop-shadow-xs select-none"
-                alt="nungsue logo"
+                className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
+                alt="SIET Space"
               />
             )}
           </div>
           <span className="hidden flex-col leading-none sm:flex">
-            <span className="text-base font-bold tracking-tight text-white drop-shadow-xs">
-              nungsue
+            <span className="text-[16px] font-bold tracking-tight text-[#202124] dark:text-zinc-100">
+              SIET Space
             </span>
-            <span className="text-[10px] font-medium text-pink-200/90" style={{ color: 'rgba(251, 207, 232, 0.9)' }}>
+            <span className="text-[10px] font-medium text-[#707070] dark:text-zinc-400">
               SIET learning community
             </span>
           </span>
@@ -683,51 +660,32 @@ export function Navbar({
         {/* Center capsule search bar */}
         <form
           onSubmit={handleSearchSubmit}
-          className="mx-1 min-w-[48px] w-auto max-w-xl flex-1 sm:mx-auto"
+          className="mx-[4px] min-w-[48px] w-full max-w-md flex-1 sm:mx-auto"
           role="search"
         >
           <div className="relative w-full flex items-center" style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
             <Search
               size={16}
-              className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 text-pink-200/90 transition-colors z-10 shrink-0"
-              style={{
-                position: 'absolute',
-                left: '14px',
-                top: '50%',
-                transform: 'translateY(-50%)',
-                width: '16px',
-                height: '16px',
-                color: 'rgba(251, 207, 232, 0.9)',
-                pointerEvents: 'none',
-                zIndex: 10,
-                flexShrink: 0,
-              }}
+              className="pointer-events-none absolute left-[14px] top-1/2 h-[16px] w-[16px] text-[#707070] transition-colors z-10 shrink-0 dark:text-zinc-400"
+              style={{ transform: 'translateY(-50%)' }}
             />
             <input
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              aria-label={searchPlaceholder || 'ค้นหาใน SIET Space'}
               placeholder={searchPlaceholder}
-              className="h-9 w-full cursor-text rounded-full border border-white/20 bg-white/10 pl-9 pr-10 text-xs text-white placeholder:text-pink-100/60 backdrop-blur-xs transition-all duration-200 hover:border-white/35 hover:bg-white/15 focus:border-[#E91E63] focus:bg-white/20 focus:ring-2 focus:ring-[#E91E63]/60 focus-visible:border-[#E91E63] focus-visible:ring-2 focus-visible:ring-[#E91E63]/60 sm:text-sm focus:outline-none"
-              style={{
-                height: '36px',
-                width: '100%',
-                borderRadius: '9999px',
-                paddingLeft: '38px',
-                paddingRight: '38px',
-                backgroundColor: 'rgba(255, 255, 255, 0.1)',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                color: '#ffffff',
-                outline: 'none',
-                boxSizing: 'border-box',
-                fontSize: '13px',
-              }}
+              className="h-[44px] w-full cursor-text rounded-full border border-solid border-[#EAE6EA] bg-[#FAF7F9] pl-[36px] pr-[48px] text-[12px] text-[#202124] placeholder:text-[#707070] transition-all duration-200 hover:border-[#D6D0D6] hover:bg-white focus:border-[#ED4988] focus-visible:border-[#ED4988] sm:text-[14px] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900"
             />
             {draft && (
               <button
                 type="button"
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 flex h-5 w-5 items-center justify-center rounded-full bg-white/20 text-pink-100 transition-all hover:bg-white/35 hover:text-white focus:outline-hidden focus:ring-1 focus:ring-pink-300 cursor-pointer z-10"
-                onClick={() => setDraft('')}
+                style={{ transform: 'translateY(-50%)' }}
+                className="absolute right-[2px] top-1/2 flex h-[44px] w-[44px] items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#707070] transition-colors hover:bg-[#FCE7F0] hover:text-[#C92F6B] focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] cursor-pointer z-10 dark:text-zinc-300 dark:hover:bg-zinc-700 dark:hover:text-pink-200"
+                  onClick={() => {
+                    setDraft('')
+                    onSearch?.('')
+                  }}
                 aria-label="ล้างการค้นหา"
               >
                 <X className="h-3 w-3" />
@@ -737,7 +695,7 @@ export function Navbar({
         </form>
 
         {/* Right side items */}
-        <div className="ml-auto flex shrink-0 items-center gap-1 sm:gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-[4px] sm:gap-[8px]">
           {/* Points Wallet Button & Popover */}
           {showPointsWallet && user && (
             <div className="relative z-[100]" ref={walletRef}>
@@ -753,24 +711,11 @@ export function Navbar({
                   }
                   if (onPointsClick) onPointsClick()
                 }}
-                className="group relative overflow-hidden flex items-center gap-1.5 rounded-full border border-amber-300/90 bg-gradient-to-r from-amber-50 via-amber-100/60 to-orange-50 px-3 py-1.5 text-amber-950 shadow-xs transition-all duration-200 hover:border-amber-400 hover:shadow-sm hover:scale-[1.03] active:scale-95 max-sm:gap-1 max-sm:px-2.5 dark:from-amber-950/60 dark:via-amber-900/40 dark:to-orange-950/30 dark:text-amber-200 dark:border-amber-600 cursor-pointer"
-                style={{
-                  borderRadius: '9999px',
-                  border: '1px solid rgba(252, 211, 77, 0.9)',
-                  background: 'linear-gradient(to right, #fffbeb, #fef3c7, #fff7ed)',
-                  color: '#451a03',
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '6px 12px',
-                  fontWeight: 600,
-                  fontSize: '12px',
-                  cursor: 'pointer',
-                }}
+                className="group relative flex min-h-[44px] min-w-[44px] items-center gap-[6px] rounded-full border border-[#E3D8FB] bg-[#F3E8FF] px-[12px] py-[8px] text-[12px] font-semibold text-[#6035C8] transition-colors duration-150 hover:border-[#C7B1F5] hover:bg-[#EADBFF] active:scale-95 max-sm:gap-[4px] max-sm:px-[10px] cursor-pointer focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:border-[#604D82] dark:bg-[#382A4D] dark:text-[#DECAFF]"
                 aria-label="กระเป๋าแต้ม"
+                aria-expanded={isWalletOpen}
               >
-                {/* Kinetic Shimmer Wave */}
-                <span className="pointer-events-none absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/50 to-transparent transition-transform duration-700 ease-out group-hover:translate-x-full motion-reduce:hidden" />
-                <Coins size={16} className="h-4 w-4 text-amber-600 transition-transform duration-200 group-hover:rotate-12 group-hover:scale-110 dark:text-amber-400" style={{ width: 16, height: 16, color: '#d97706', flexShrink: 0 }} />
+                <Coins size={16} className="h-4 w-4 text-[#8A57FF] dark:text-[#DECAFF]" style={{ width: 16, height: 16, flexShrink: 0 }} />
                 {isExempt ? (
                   <span className="flex items-center gap-1 text-xs font-semibold">
                     <InfinityIcon className="h-3.5 w-3.5" /> <span className="max-sm:hidden">ไม่จำกัด</span>
@@ -784,19 +729,19 @@ export function Navbar({
 
               {/* Full Points Wallet Popover */}
               {isWalletOpen && (
-                <div className="community-theme absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-[16px] border border-slate-200/80 bg-white p-0 text-slate-800 shadow-2xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150" style={{ fontFamily: NAVBAR_FONT }}>
+                <div className="community-theme absolute right-0 top-full mt-2 w-96 max-w-[calc(100vw-2rem)] rounded-[16px] border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" style={{ fontFamily: NAVBAR_FONT }}>
                   {/* Top Stats */}
-                  <div className="border-b border-slate-100 dark:border-zinc-800 p-4">
-                    <p className="text-xs uppercase tracking-wide text-slate-400 dark:text-zinc-500 font-semibold">
+                  <div className="border-b border-slate-100 p-4 dark:border-zinc-800">
+                    <p className="text-xs uppercase tracking-wide text-slate-400 font-semibold dark:text-zinc-500">
                       Points Wallet
                     </p>
                     <div className="mt-1 flex items-end justify-between">
-                      <p className="text-3xl font-bold tabular-nums text-slate-900 dark:text-white">
+                      <p className="text-3xl font-bold tabular-nums text-[#6035C8] dark:text-[#DECAFF]">
                         {isExempt ? '∞' : balance}
                         <span className="ml-1 text-base font-medium text-slate-500 dark:text-zinc-400">แต้ม</span>
                       </p>
                       {isExempt && (
-                        <span className="rounded-full bg-slate-100 dark:bg-zinc-800 px-2.5 py-1 text-xs font-medium text-slate-700 dark:text-zinc-300">
+                        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700 dark:bg-zinc-800 dark:text-zinc-300">
                           อาจารย์/ผู้ดูแล ไม่ถูกตัดแต้ม
                         </span>
                       )}
@@ -809,7 +754,7 @@ export function Navbar({
                   </div>
 
                   {/* Rules and Earnings */}
-                  <div className="p-4 border-b border-slate-100 dark:border-zinc-800 max-h-72 overflow-y-auto">
+                  <div className="p-4 border-b border-slate-100 max-h-72 overflow-y-auto dark:border-zinc-800">
                     <p className="mb-2 text-xs font-semibold text-slate-500 dark:text-zinc-400">อัตราการตัดแต้ม</p>
                     <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs">
                       <div className="text-slate-600 dark:text-zinc-300">ถาม RAG AI 1 คำถาม</div>
@@ -885,7 +830,10 @@ export function Navbar({
                         <div className="h-6 w-full animate-pulse rounded-[6px] bg-slate-100 dark:bg-zinc-800" />
                       </div>
                     ) : !walletData?.history || walletData.history.length === 0 ? (
-                      <p className="text-xs text-slate-400 dark:text-zinc-500 py-1">ยังไม่มีรายการ</p>
+                      <div className="flex items-center gap-2 rounded-[16px] border border-[#EAE6EA] bg-slate-50 px-3 py-2 text-xs text-slate-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400" role="status">
+                        <Coins aria-hidden="true" className="h-4 w-4 shrink-0" />
+                        <span>ยังไม่มีรายการ</span>
+                      </div>
                     ) : (
                       <div className="max-h-56 overflow-y-auto space-y-2 pr-1">
                         {walletData.history.map((tx) => (
@@ -916,11 +864,11 @@ export function Navbar({
                     )}
                   </div>
 
-                  <div className="p-3 bg-slate-50 dark:bg-zinc-800/50 flex justify-end">
+                  <div className="p-3 bg-slate-50 flex justify-end dark:bg-zinc-800/50">
                     <button
                       type="button"
                       onClick={() => setIsWalletOpen(false)}
-                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 dark:text-zinc-300 dark:hover:text-white rounded-[8px] hover:bg-slate-200/60 dark:hover:bg-zinc-700/60 transition-colors cursor-pointer"
+                      className="px-3 py-1.5 text-xs font-medium text-slate-600 hover:text-slate-900 rounded-[8px] hover:bg-slate-200/60 transition-colors cursor-pointer dark:text-zinc-300 dark:hover:text-white dark:hover:bg-zinc-700/60"
                     >
                       ปิด
                     </button>
@@ -930,50 +878,47 @@ export function Navbar({
             </div>
           )}
 
-          {/* Notifications: the host app's menu, else the bell */}
-          {notifications ? (
-            <div className="relative z-[100] [&_button]:text-white [&_button]:hover:bg-white/15 [&_button]:hover:text-white">
-              {notifications}
-            </div>
-          ) : (
-          <div className="relative z-[100]" ref={notifRef}>
-            <button
-              type="button"
-              onClick={() => {
-                setIsNotificationsOpen(!isNotificationsOpen)
-                setIsDropdownOpen(false)
-                setIsWalletOpen(false)
-                if (onOpenNotifications) onOpenNotifications()
-              }}
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-white hover:bg-white/15 transition-colors cursor-pointer relative"
-              style={{ background: 'transparent', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              aria-label="การแจ้งเตือน"
-            >
-              <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
-              {unreadCount > 0 && (
-                <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </span>
-              )}
-            </button>
+          {/* Notifications Button & Dropdown */}
+          {notifications ?? (
+            <div className="relative z-[100]" ref={notifRef}>
+              <button
+                type="button"
+                onClick={() => {
+                  setIsNotificationsOpen(!isNotificationsOpen)
+                  setIsDropdownOpen(false)
+                  setIsWalletOpen(false)
+                  if (onOpenNotifications) onOpenNotifications()
+                }}
+                className="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] transition-colors cursor-pointer focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
+                aria-label="การแจ้งเตือน"
+                aria-expanded={isNotificationsOpen}
+              >
+                <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
+                {unreadCount > 0 && (
+                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+                    {unreadCount > 9 ? '9+' : unreadCount}
+                  </span>
+                )}
+              </button>
 
-            {isNotificationsOpen && (
-              <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-[16px] border border-slate-200/80 bg-white p-0 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150" style={{ fontFamily: NAVBAR_FONT }}>
-                <div className="border-b border-slate-100 dark:border-zinc-800 px-4 py-3 flex items-center justify-between">
-                  <p className="text-sm font-semibold">การแจ้งเตือน</p>
-                  <a
-                    href={buildCrossUrl(`${workspaceUrl}/community`)}
-                    className="text-xs text-pink-600 no-underline hover:text-pink-700 dark:text-pink-400"
-                  >
-                    ดูทั้งหมด
-                  </a>
+              {isNotificationsOpen && (
+                <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-[16px] border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" style={{ fontFamily: NAVBAR_FONT }}>
+                  <div className="border-b border-slate-100 px-4 py-3 flex items-center justify-between dark:border-zinc-800">
+                    <p className="text-sm font-semibold">การแจ้งเตือน</p>
+                    <a
+                      href={buildCrossUrl(`${workspaceUrl}/community`)}
+                      className="text-xs text-pink-600 no-underline hover:text-pink-700 dark:text-pink-400"
+                    >
+                      ดูทั้งหมด
+                    </a>
+                  </div>
+                  <div className="m-4 flex items-center justify-center gap-2 rounded-[16px] border border-[#EAE6EA] bg-[#FAF7F9] p-4 text-sm text-slate-500 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-400" role="status">
+                    <Bell aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    <span>ยังไม่มีการแจ้งเตือนใหม่</span>
+                  </div>
                 </div>
-                <div className="p-4 text-center text-sm text-slate-500 dark:text-zinc-400">
-                  ยังไม่มีการแจ้งเตือนใหม่
-                </div>
-              </div>
-            )}
-          </div>
+              )}
+            </div>
           )}
 
           {/* User Profile / Login */}
@@ -986,18 +931,18 @@ export function Navbar({
                   setIsWalletOpen(false)
                   setIsNotificationsOpen(false)
                 }}
-                className="flex h-9 shrink-0 items-center gap-2 rounded-full px-1.5 text-white hover:bg-white/15 transition-colors focus-visible:ring-2 focus-visible:ring-pink-300 cursor-pointer"
-                style={{ background: 'transparent', border: 'none', color: '#ffffff', display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' }}
+                className="flex h-[44px] min-h-[44px] shrink-0 items-center gap-[8px] rounded-full border-0 bg-transparent px-[6px] py-0 text-[#202124] hover:bg-[#FCE7F0] transition-colors focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] cursor-pointer dark:text-zinc-100 dark:hover:bg-zinc-800"
                 aria-label="เปิดเมนูบัญชีผู้ใช้"
+                aria-expanded={isDropdownOpen}
               >
                 {/* Avatar with initial or photo */}
                 <div
-                  className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-pink-100 text-[#6B0F3F] font-bold text-xs ring-1.5 ring-white/50 shadow-xs"
+                  className="relative flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[#FCE7F0] text-[#6B0F3F] font-bold text-xs ring-1.5 ring-[#F7B7D0]"
                   style={{
                     width: '28px',
                     height: '28px',
                     borderRadius: '9999px',
-                    backgroundColor: '#fce7f3',
+                    backgroundColor: '#FCE7F0',
                     color: '#6B0F3F',
                     display: 'flex',
                     alignItems: 'center',
@@ -1005,7 +950,7 @@ export function Navbar({
                     fontWeight: 700,
                     fontSize: '12px',
                     flexShrink: 0,
-                    border: '1.5px solid rgba(255, 255, 255, 0.5)',
+                    border: '1.5px solid #F7B7D0',
                   }}
                 >
                   {user.avatar_url ? (
@@ -1020,30 +965,19 @@ export function Navbar({
                   )}
                 </div>
                 <span
-                  className="max-w-[140px] truncate text-sm font-semibold text-white drop-shadow-xs"
-                  style={{
-                    color: '#ffffff',
-                    fontWeight: 600,
-                    fontSize: '14px',
-                    maxWidth: '140px',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                    display: 'inline-block',
-                  }}
+                  className="max-w-[140px] truncate text-[14px] font-semibold text-[#202124] dark:text-zinc-100"
                 >
                   {activeName}
                 </span>
                 <ChevronDown
                   size={14}
-                  className="h-3.5 w-3.5 text-pink-200 shrink-0"
-                  style={{ width: '14px', height: '14px', color: '#fbcfe8', flexShrink: 0 }}
+                  className="h-3.5 w-3.5 shrink-0 text-[#707070] dark:text-zinc-400"
                 />
               </button>
 
               {/* Profile Dropdown Menu */}
               {isDropdownOpen && (
-                <div className="community-theme absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-1rem)] rounded-[16px] border border-slate-200/80 bg-white p-2.5 text-slate-800 shadow-xl dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 z-[110] animate-in fade-in-0 zoom-in-95 duration-150" style={{ fontFamily: NAVBAR_FONT }}>
+                <div className="community-theme absolute right-0 top-full mt-2 w-[320px] max-w-[calc(100vw-1rem)] rounded-[16px] border border-[#EAE6EA] bg-white p-2.5 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" style={{ fontFamily: NAVBAR_FONT }}>
                   {/* User Profile Header */}
                   <div className="px-2.5 pb-3 pt-2">
                     <div className="flex items-center gap-3">
@@ -1079,18 +1013,18 @@ export function Navbar({
                   <a
                     href={profileHref}
                     onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenProfile) }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <UserRound className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                    <UserRound className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                     <span>ดูโปรไฟล์เต็ม</span>
                   </a>
 
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=library`)}
                     onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenLibrary) }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <BookOpen className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                    <BookOpen className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                     <span>คลังความรู้และไฟล์ของฉัน</span>
                   </a>
 
@@ -1098,15 +1032,15 @@ export function Navbar({
                     <a
                       href={buildCrossUrl(`${workspaceUrl}/settings`)}
                       onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenSettings) }}
-                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                      className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                     >
-                      <Settings className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                      <Settings className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                       <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
                     </a>
                   ) : (
                     <div
                       title="การตั้งค่าบัญชีสำหรับนักศึกษายังไม่พร้อมใช้งาน"
-                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500 cursor-not-allowed opacity-60"
+                      className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50/50 px-3 py-2 text-sm text-slate-400 cursor-not-allowed opacity-60 dark:border-zinc-800 dark:bg-zinc-800/30 dark:text-zinc-500"
                     >
                       <Settings className="h-4 w-4 shrink-0" />
                       <span>ตั้งค่าบัญชีและความเป็นส่วนตัว</span>
@@ -1116,9 +1050,9 @@ export function Navbar({
                   <a
                     href={buildCrossUrl(`${workspaceUrl}/community?view=rules`)}
                     onClick={(e) => { setIsDropdownOpen(false); openInHost(e, onOpenRules) }}
-                    className="mb-1 flex min-h-11 items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
+                    className="mb-1 flex min-h-[44px] items-center gap-2.5 rounded-[12px] border border-pink-100 bg-slate-50 px-3 py-2 text-sm text-slate-800 no-underline transition-colors hover:border-pink-200 hover:bg-pink-50 focus:bg-pink-50 dark:border-zinc-700 dark:bg-zinc-800/60 dark:text-zinc-100 dark:hover:bg-zinc-800"
                   >
-                    <CircleHelp className="h-4 w-4 text-pink-600 dark:text-pink-400 shrink-0" />
+                    <CircleHelp className="h-4 w-4 text-pink-600 shrink-0 dark:text-pink-400" />
                     <span>ช่วยเหลือและกฎชุมชน</span>
                   </a>
 
@@ -1128,18 +1062,28 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenQuiz() }}
-                    className="w-full flex items-center gap-2 rounded-[12px] border-0 bg-transparent px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    aria-current={activeRoute === 'quiz' ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 rounded-[12px] border-0 px-3 py-2 text-sm transition-colors cursor-pointer dark:text-zinc-100 ${
+                      activeRoute === 'quiz'
+                        ? 'bg-pink-50 text-[#C92F6B] dark:bg-pink-950/40 dark:text-pink-200'
+                        : 'bg-transparent text-slate-800 hover:bg-pink-50 dark:hover:bg-zinc-800'
+                    }`}
                   >
-                    <GraduationCap className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                    <GraduationCap className="h-4 w-4 text-emerald-600 shrink-0 dark:text-emerald-400" />
                     <span>แอป AI Quiz ↗</span>
                   </button>
 
                   <button
                     type="button"
                     onClick={() => { setIsDropdownOpen(false); handleOpenRoadmap() }}
-                    className="w-full flex items-center gap-2 rounded-[12px] border-0 bg-transparent px-3 py-2 text-sm text-slate-800 transition-colors hover:bg-pink-50 dark:text-zinc-100 dark:hover:bg-zinc-800 cursor-pointer"
+                    aria-current={activeRoute === 'roadmap' ? 'page' : undefined}
+                    className={`w-full flex items-center gap-2 rounded-[12px] border-0 px-3 py-2 text-sm transition-colors cursor-pointer dark:text-zinc-100 ${
+                      activeRoute === 'roadmap'
+                        ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-200'
+                        : 'bg-transparent text-slate-800 hover:bg-pink-50 dark:hover:bg-zinc-800'
+                    }`}
                   >
-                    <MapIcon className="h-4 w-4 text-orange-600 dark:text-orange-400 shrink-0" />
+                    <MapIcon className="h-4 w-4 text-orange-600 shrink-0 dark:text-orange-400" />
                     <span>แอป AI Roadmap</span>
                   </button>
 
@@ -1151,7 +1095,7 @@ export function Navbar({
                       <button
                         type="button"
                         onClick={onToggleTheme}
-                        className="w-full flex items-center justify-between border-0 bg-transparent px-2 py-1 text-sm text-slate-700 dark:text-zinc-200 cursor-pointer"
+                        className="w-full flex items-center justify-between border-0 bg-transparent px-2 py-1 text-sm text-slate-700 cursor-pointer dark:text-zinc-200"
                       >
                         <span className="flex items-center gap-2">
                           {isDark ? <Moon className="h-4 w-4 text-amber-400" /> : <Sun className="h-4 w-4 text-amber-500" />}
@@ -1166,7 +1110,7 @@ export function Navbar({
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="mt-2 w-full min-h-11 flex items-center gap-2 rounded-[12px] border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60 cursor-pointer"
+                    className="mt-2 w-full min-h-11 flex items-center gap-2 rounded-[12px] border border-rose-100 bg-rose-50 px-3 py-2.5 text-sm text-rose-700 transition-colors hover:bg-rose-100 cursor-pointer dark:border-rose-900 dark:bg-rose-950/50 dark:text-rose-200 dark:hover:bg-rose-900/60"
                   >
                     <LogOut className="h-4 w-4 shrink-0" />
                     <span>ออกจากระบบ</span>
@@ -1177,7 +1121,7 @@ export function Navbar({
           ) : (
             <a
               href={buildCrossUrl(`${workspaceUrl}/login`)}
-              className="flex items-center gap-1.5 rounded-full border border-white/30 bg-white/15 px-3.5 py-1.5 text-xs font-semibold text-white no-underline transition-all hover:bg-white/25 active:scale-95"
+              className="flex min-h-[44px] items-center gap-[6px] rounded-full border border-[#F7B7D0] bg-[#FCE7F0] px-[14px] py-[8px] text-[12px] font-semibold text-[#C92F6B] no-underline transition-colors hover:bg-[#F7B7D0] active:scale-95 focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:border-[#694255] dark:bg-[#382630] dark:text-[#F9C4DC] dark:hover:bg-[#4A2B3C]"
             >
               เข้าสู่ระบบ
             </a>

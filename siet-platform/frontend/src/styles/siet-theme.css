@@ -27,51 +27,52 @@
 }
 
 
-/* Community uses the blush-and-pink palette from the StudyTogether design. */
+/* Community overlays use the same SIET Pink tokens as the main workspace. */
 .community-theme {
-  --radius: 0.5rem;
-  --background: #fdf7f8;
-  --foreground: #263142;
+  --radius: 0.75rem;
+  --background: #faf7f9;
+  --surface-hover: #fff8fa;
+  --foreground: #202124;
   --card: #ffffff;
-  --card-foreground: #263142;
+  --card-foreground: #202124;
   --popover: #ffffff;
-  --popover-foreground: #263142;
-  --primary: #db2777;
-  --primary-foreground: #ffffff;
-  --secondary: #fff1f5;
-  --secondary-foreground: #263142;
-  --muted: #fff1f5;
-  --muted-foreground: #707b8e;
-  --accent: #fce7f3;
-  --accent-foreground: #831843;
-  --border: #fef3f5;
-  --input: #fef3f5;
-  --ring: #db2777;
-  --canvas: #fdf7f8;
-  --subtle-foreground: #8791a1;
-  --ai: #db2777;
-  --ai-soft: #fce7f3;
-  --ai-foreground: #ffffff;
+  --popover-foreground: #202124;
+  --primary: #ed4988;
+  --primary-foreground: #202124;
+  --secondary: #fce7f0;
+  --secondary-foreground: #202124;
+  --muted: #fff8fa;
+  --muted-foreground: #707070;
+  --accent: #fce7f0;
+  --accent-foreground: #c92f6b;
+  --border: #eae6ea;
+  --input: #d6d0d6;
+  --ring: #ed4988;
+  --canvas: #faf7f9;
+  --subtle-foreground: #707070;
+  --ai: #ed4988;
+  --ai-soft: #fce7f0;
+  --ai-foreground: #202124;
   --sidebar: #ffffff;
-  --sidebar-foreground: #263142;
-  --sidebar-primary: #db2777;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #fbcfe8;
-  --sidebar-accent-foreground: #831843;
-  --sidebar-border: #fef3f5;
-  --sidebar-ring: #db2777;
-  /* open-notebook's own action hue (active nav spine, default badge) */
-  --fern: #db2777;
-  --fern-deep: #be185d;
-  --fern-tint: #fce7f3;
+  --sidebar-foreground: #202124;
+  --sidebar-primary: #ed4988;
+  --sidebar-primary-foreground: #202124;
+  --sidebar-accent: #fce7f0;
+  --sidebar-accent-foreground: #c92f6b;
+  --sidebar-border: #eae6ea;
+  --sidebar-ring: #ed4988;
+  /* open-notebook's own action hue (active nav spine, default badge), in SIET Pink */
+  --fern: #ed4988;
+  --fern-deep: #c92f6b;
+  --fern-tint: #fce7f0;
   /* its green accents on notebook and source pages; gold (notes) stays amber */
-  --teal: #be185d;
-  --teal-deep: #9d174d;
-  --teal-tint: #fce7f3;
-  --sage: #db2777;
-  --sage-deep: #be185d;
-  --sage-tint: #fdf2f8;
-  font-family: var(--font-inter), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+  --teal: #d83a78;
+  --teal-deep: #c92f6b;
+  --teal-tint: #fce7f0;
+  --sage: #ed4988;
+  --sage-deep: #d83a78;
+  --sage-tint: #fff8fa;
+  font-family: var(--font-nunito), "Prompt", var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
 }
 
 .community-theme,
@@ -152,111 +153,900 @@
 }
 
 /*
- * SIET minimal theme: a clean light look on a white / grey / near-black base.
- * Purple (--ai) is the only accent and is kept for AI features and credits.
+ * SIET Pink workspace theme, mapped to the semantic tokens used by the host UI.
  *
- * Scoped, not global: it applies inside any element carrying `theme-siet`.
- * admin/layout.tsx puts it on its wrapper and, while an admin page is open, on
- * <body> too, because dialogs, menus and tooltips are portaled there.
+ * The dashboard shell applies this class so the navigation, navbar, content,
+ * and portaled admin controls share the same design tokens.
  */
 .theme-siet {
   --radius: 0.75rem;
-  --canvas: #f8f9fb;
-  --background: #ffffff;
-  --foreground: #262626;
+  --canvas: #faf7f9;
+  --background: #faf7f9;
+  --foreground: #202124;
   --card: #ffffff;
-  --card-foreground: #262626;
+  --card-foreground: #202124;
   --popover: #ffffff;
-  --popover-foreground: #262626;
-  --primary: #262626;
-  --primary-foreground: #ffffff;
-  --secondary: #f2f2f2;
-  --secondary-foreground: #262626;
-  --muted: #f2f2f2;
-  --muted-foreground: #686868;
-  --subtle-foreground: #8a8a8a;
-  --accent: #f2f2f2;
-  --accent-foreground: #262626;
-  --border: #e7e7e7;
-  --input: #e7e7e7;
-  --ring: #8a8a8a;
-  --ai: #7c3aed;
-  --ai-soft: #f3effe;
-  --ai-foreground: #ffffff;
+  --popover-foreground: #202124;
+  --primary: #ed4988;
+  --primary-foreground: #202124;
+  --primary-hover: #d83a78;
+  --secondary: #fce7f0;
+  --secondary-foreground: #202124;
+  --muted: #fff8fa;
+  --muted-foreground: #707070;
+  --subtle-foreground: #707070;
+  --accent: #fce7f0;
+  --accent-foreground: #c92f6b;
+  --border: #eae6ea;
+  --input: #d6d0d6;
+  --ring: #ed4988;
+  --ai: #ed4988;
+  --ai-soft: #fce7f0;
+  --ai-foreground: #202124;
   --sidebar: #ffffff;
-  --sidebar-foreground: #262626;
-  --sidebar-primary: #262626;
-  --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: #f2f2f2;
-  --sidebar-accent-foreground: #262626;
-  --sidebar-border: #e7e7e7;
-  --sidebar-ring: #8a8a8a;
+  --sidebar-foreground: #202124;
+  --sidebar-primary: #ed4988;
+  --sidebar-primary-foreground: #202124;
+  --sidebar-accent: #fce7f0;
+  --sidebar-accent-foreground: #c92f6b;
+  --sidebar-border: #eae6ea;
+  --sidebar-ring: #ed4988;
+  --font-display: var(--font-nunito), "Prompt", var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+  --shadow-card: 0 4px 16px rgba(32, 33, 36, 0.04);
+  --shadow-card-hover: 0 8px 24px rgba(237, 73, 136, 0.08);
+  color: var(--foreground);
+  background-color: var(--canvas);
+}
+
+/* Preserve the existing dark-mode preference while carrying the SIET pink accent. */
+.dark .theme-siet {
+  --canvas: #21181d;
+  --background: #21181d;
+  --surface-hover: #4a2b3c;
+  --foreground: #f9edf2;
+  --card: #2b2026;
+  --card-foreground: #f9edf2;
+  --popover: #2b2026;
+  --popover-foreground: #f9edf2;
+  --primary: #f472b6;
+  --primary-hover: #ec4899;
+  --primary-foreground: #381126;
+  --secondary: #382630;
+  --secondary-foreground: #f9edf2;
+  --muted: #382630;
+  --muted-foreground: #c4aeb9;
+  --subtle-foreground: #b9a2ae;
+  --accent: #4a2b3c;
+  --accent-foreground: #fce7f3;
+  --border: #4b3441;
+  --input: #59404e;
+  --ring: #f472b6;
+  --ai: #f472b6;
+  --ai-soft: #4a2b3c;
+  --ai-foreground: #381126;
+  --sidebar: #2b2026;
+  --sidebar-foreground: #f9edf2;
+  --sidebar-primary: #f472b6;
+  --sidebar-primary-foreground: #381126;
+  --sidebar-accent: #4a2b3c;
+  --sidebar-accent-foreground: #fce7f3;
+  --sidebar-border: #4b3441;
+  --sidebar-ring: #f472b6;
+}
+
+/* Nunito handles Latin; Prompt supplies Thai glyphs before the existing fallbacks. */
+.theme-siet,
+body.theme-siet {
+  font-family: var(--font-nunito), "Prompt", var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+}
+
+/* SIET surfaces: tonal separation at rest, restrained depth for content cards. */
+.theme-siet [data-slot='card'] {
+  border-color: var(--border);
+  border-radius: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+.theme-siet .app-sidebar {
+  box-shadow: 1px 0 0 var(--sidebar-border);
+}
+
+.theme-siet .app-sidebar .sidebar-menu-item {
+  border-radius: 0.75rem;
+  transition: background-color 140ms ease, color 140ms ease, box-shadow 140ms ease;
+}
+
+.theme-siet .app-sidebar .sidebar-menu-item.bg-popover {
+  background-color: var(--sidebar-accent);
+  color: var(--sidebar-accent-foreground);
+  box-shadow: inset 0 0 0 1px rgb(237 73 136 / 14%);
+}
+
+.theme-siet .app-sidebar .sidebar-menu-item.bg-popover::before {
+  background-color: var(--primary);
+}
+
+.theme-siet .app-sidebar .sidebar-menu-item:hover {
+  background-color: var(--surface-hover, #fff8fa) !important;
+}
+
+:is(.theme-siet, .community-theme, .theme-adventure) :is(button, a, input, textarea, select):focus-visible,
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) :is(button, a, input, textarea, select):focus-visible {
+  outline: 3px solid var(--ring, #c92f6b);
+  outline-offset: 2px;
+}
+
+:is(.theme-siet, .community-theme, .theme-adventure) [data-slot='button'].bg-primary {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 0 #c92f6b;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+:is(.theme-siet, .community-theme, .theme-adventure) [data-slot='button'].bg-primary:hover {
+  background-color: #c92f6b;
+  color: #ffffff;
+}
+
+:is(.theme-siet, .community-theme, .theme-adventure) [data-slot='button'].bg-primary:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-siet .app-sidebar .sidebar-menu-item,
+  :is(.theme-siet, .community-theme, .theme-adventure) [data-slot='button'].bg-primary {
+    transition: none;
+  }
+}
+
+/* Dashboard hero and feature launchers follow the SIET Pink component tokens. */
+.theme-siet .workspace-learning-hero {
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1.5rem 1.75rem;
+  border: 1px solid var(--primary-light, #f7b7d0);
+  border-radius: 1.25rem;
+  background: linear-gradient(135deg, #fff0f5 0%, #ffffff 100%);
+  box-shadow: var(--shadow-card);
+}
+
+.theme-siet .workspace-learning-hero h1 {
+  color: var(--foreground);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.02em;
+}
+
+.theme-siet .workspace-learning-hero p {
+  max-width: 65ch;
+  margin-top: 0.5rem;
+  color: var(--body, #3c3c3c);
+  line-height: 1.6;
+}
+
+.theme-siet .workspace-learning-hero > div > div:first-child {
+  color: #c92f6b;
+}
+
+.theme-siet .workspace-app-card {
+  border-radius: 1rem;
+  border-color: var(--border);
+  background-color: var(--card);
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.theme-siet .workspace-app-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-light, #f7b7d0);
+  box-shadow: var(--shadow-card-hover);
+}
+
+.theme-siet .workspace-app-icon {
+  border-radius: 0.75rem;
+}
+
+.theme-siet [data-workspace-app-icon='community'] {
+  background-color: #fce7f0;
+  color: #c92f6b;
+}
+
+.theme-siet [data-workspace-app-icon='notebook'] {
+  background-color: #e7f5fc;
+  color: #1686bd;
+}
+
+.theme-siet [data-workspace-app-icon='quiz'] {
+  background-color: #fce7f0;
+  color: #c92f6b;
+}
+
+.theme-siet [data-workspace-app-icon='roadmap'] {
+  background-color: #e6f7f1;
+  color: #007a56;
+}
+
+.theme-siet .workspace-app-icon svg {
+  color: currentColor;
+}
+
+.theme-siet .workspace-app-card[data-workspace-app-card='notebook'] .workspace-app-action {
+  border-color: rgb(28 176 246 / 35%);
+  color: #11789f;
+}
+
+.theme-siet .workspace-app-card[data-workspace-app-card='quiz'] .workspace-app-action {
+  border-color: rgb(237 73 136 / 35%);
+  color: #c92f6b;
+}
+
+.theme-siet .workspace-app-card[data-workspace-app-card='roadmap'] .workspace-app-action {
+  border-color: rgb(0 196 140 / 40%);
+  color: #007a56;
+}
+
+.theme-siet .workspace-app-card[data-workspace-app-card='community'] .workspace-app-action {
+  border-color: rgb(237 73 136 / 35%);
+  color: #c92f6b;
+}
+
+.theme-siet .workspace-app-card .workspace-app-action:hover {
+  background-color: var(--surface-hover, #fff8fa);
+}
+
+/* The community feed shares the system's card elevation and semantic chips. */
+.theme-siet .community-theme [data-slot='card'] {
+  border-radius: 1rem;
+  box-shadow: var(--shadow-card);
+}
+
+.theme-siet .community-theme .community-feed-post {
+  border-color: var(--border);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
+}
+
+.theme-siet .community-theme .community-feed-post:hover {
+  transform: translateY(-2px);
+  border-color: #f7b7d0;
+  box-shadow: var(--shadow-card-hover);
+}
+
+.theme-siet .community-theme .community-course-tag,
+.theme-siet .community-theme .community-content-tag {
+  border-color: transparent;
+  border-radius: 9999px;
+  background-color: #fce7f0;
+  color: #c92f6b;
+}
+
+.theme-siet .community-theme .community-content-tag {
+  display: inline-flex;
+  padding: 0.125rem 0.5rem;
+  font-weight: 600;
+}
+
+.theme-siet .community-theme .community-post-type[data-post-type='quiz'] {
+  border-color: transparent;
+  background-color: #fce7f0;
+  color: #c92f6b;
+}
+
+.theme-siet .community-theme .community-post-type[data-post-type='roadmap'] {
+  border-color: transparent;
+  background-color: #e6f7f1;
+  color: #007a56;
+}
+
+.theme-siet .community-theme .community-post-type[data-post-type='question'] {
+  border-color: transparent;
+  background-color: #e7f5fc;
+  color: #11789f;
+}
+
+.theme-siet .community-theme .community-rag-icon {
+  background-color: #e7f5fc;
+  color: #1686bd;
+}
+
+.theme-siet .community-theme .community-rag-card [data-slot='card-title'] {
   color: var(--foreground);
 }
 
-/* The theme is a light one; this keeps the dark-mode toggle usable inside it. */
-.dark .theme-siet {
-  --canvas: #141414;
-  --background: #1c1c1c;
-  --foreground: #f2f2f2;
-  --card: #1c1c1c;
-  --card-foreground: #f2f2f2;
-  --popover: #1c1c1c;
-  --popover-foreground: #f2f2f2;
-  --primary: #f2f2f2;
-  --primary-foreground: #1c1c1c;
-  --secondary: #2a2a2a;
-  --secondary-foreground: #f2f2f2;
-  --muted: #2a2a2a;
-  --muted-foreground: #a3a3a3;
-  --subtle-foreground: #8a8a8a;
-  --accent: #2a2a2a;
-  --accent-foreground: #f2f2f2;
-  --border: #333333;
-  --input: #3a3a3a;
-  --ring: #8a8a8a;
-  --ai: #9b78f8;
-  --ai-soft: rgb(155 120 248 / 16%);
-  --ai-foreground: #1c1c1c;
-  --sidebar: #1c1c1c;
-  --sidebar-foreground: #f2f2f2;
-  --sidebar-primary: #f2f2f2;
-  --sidebar-primary-foreground: #1c1c1c;
-  --sidebar-accent: #2a2a2a;
-  --sidebar-accent-foreground: #f2f2f2;
-  --sidebar-border: #333333;
-  --sidebar-ring: #8a8a8a;
+.theme-siet .community-theme .community-ai-tool-card {
+  min-height: 7rem;
+  border-radius: 1rem;
+  box-shadow: var(--shadow-card);
+  transition: transform 160ms ease, box-shadow 160ms ease, border-color 160ms ease;
 }
 
-/* Inter for Latin and UI; Thai glyphs fall through to IBM Plex Sans Thai, then
-   Noto Sans Thai. `body.theme-siet` outranks next/font's own class on <body>. */
-.theme-siet,
-body.theme-siet {
-  font-family: var(--font-inter), var(--font-ibm-plex-thai), var(--font-noto-thai), system-ui, sans-serif;
+.theme-siet .community-theme .community-ai-tool-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-card-hover);
 }
 
-/* Flat surfaces: a thin border separates, not a shadow. Only the drop shadow is
-   cleared, so focus rings (which share box-shadow) still show. */
-.theme-siet :is(
-  [data-slot='card'],
-  [data-slot='tabs-list'],
-  [data-slot='tabs-trigger'],
-  [data-slot='button'],
+.theme-siet .community-theme .community-ai-tool-card[data-ai-tool='quiz'] {
+  border-color: #f7b7d0;
+  background-color: #fff8fa;
+  color: #c92f6b;
+}
+
+.theme-siet .community-theme .community-ai-tool-card[data-ai-tool='roadmap'] {
+  border-color: #a9e8d4;
+  background-color: #f0fbf7;
+  color: #007a56;
+}
+
+.theme-siet .community-theme .community-ai-tool-icon,
+.theme-siet .community-theme .community-ai-tool-cost {
+  color: inherit;
+}
+
+.theme-siet .community-theme .community-ai-tool-card > div:last-child > span:first-child {
+  color: var(--foreground);
+}
+
+.theme-siet .community-theme .siet-points-pill {
+  min-width: 44px;
+  min-height: 44px;
+  border-color: #e3d8fb;
+  background-color: #f3e8ff;
+  color: #6035c8;
+}
+
+.theme-siet .community-theme .siet-points-icon {
+  color: #8a57ff;
+}
+
+.theme-siet .community-theme .siet-points-pill:hover {
+  border-color: #c7b1f5;
+  background-color: #eadbff;
+}
+
+.theme-siet .siet-sidebar-points {
+  border-color: #e3d8fb;
+  background-color: #f3e8ff;
+  color: #6035c8;
+}
+
+.theme-siet .siet-sidebar-points:hover {
+  border-color: #c7b1f5;
+  background-color: #eadbff;
+}
+
+.theme-siet .siet-sidebar-points svg {
+  color: #8a57ff;
+}
+
+.dark .theme-siet .workspace-learning-hero {
+  border-color: #694255;
+  background: linear-gradient(135deg, #382630 0%, #2b2026 100%);
+}
+
+.dark .theme-siet .workspace-learning-hero h1,
+.dark .theme-siet .workspace-learning-hero p {
+  color: var(--foreground);
+}
+
+.dark .theme-siet .community-theme .community-course-tag,
+.dark .theme-siet .community-theme .community-content-tag {
+  background-color: #4a2b3c;
+  color: #f9c4dc;
+}
+
+.dark .theme-siet .community-theme .community-ai-tool-card[data-ai-tool='quiz'] {
+  border-color: #694255;
+  background-color: #382630;
+}
+
+.dark .theme-siet .community-theme .community-ai-tool-card[data-ai-tool='roadmap'] {
+  border-color: #285d4f;
+  background-color: #203d35;
+  color: #8ce0c2;
+}
+
+.dark .theme-siet .community-theme .siet-points-pill {
+  border-color: #604d82;
+  background-color: #382a4d;
+  color: #decaff;
+}
+
+.dark .theme-siet .siet-sidebar-points {
+  border-color: #604d82;
+  background-color: #382a4d;
+  color: #decaff;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theme-siet .workspace-app-card,
+  .theme-siet .community-theme .community-feed-post,
+  .theme-siet .community-theme .community-ai-tool-card {
+    transition: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .theme-siet .workspace-learning-hero {
+    align-items: stretch;
+    flex-direction: column;
+    padding: 1.25rem;
+  }
+
+  .theme-siet .workspace-learning-hero > button {
+    align-self: flex-start;
+  }
+}
+
+/* SIET form, dialog, and feedback surfaces (including Radix portal content).
+ * The shared navbar (.siet-navbar) keeps its own pill-shaped search box. */
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content']) {
+  border: 1px solid #eae6ea;
+  border-radius: 1rem;
+  background-color: #ffffff;
+  color: #202124;
+  box-shadow: var(--shadow-card, 0 4px 16px rgba(32, 33, 36, 0.04));
+}
+
+[data-slot='sheet-content'] {
+  border-color: #eae6ea;
+  background-color: #ffffff;
+  color: #202124;
+  box-shadow: var(--shadow-card, 0 4px 16px rgba(32, 33, 36, 0.04));
+}
+
+:is([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay'], [data-slot='sheet-overlay']) {
+  background-color: rgb(32 33 36 / 42%);
+  backdrop-filter: blur(2px);
+}
+
+.community-theme:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) {
+  border-color: var(--border, #eae6ea);
+  background-color: var(--popover, #ffffff);
+  color: var(--popover-foreground, #202124);
+}
+
+:is(.theme-siet, .community-theme) :is(
+  input,
+  textarea,
+  select,
+  [data-slot='input'],
+  [data-slot='textarea']
+):not(.siet-navbar *) {
+  border-color: #eae6ea;
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  color: #202124;
+}
+
+:is(.theme-siet, .community-theme) [data-slot='select-trigger'],
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) [data-slot='select-trigger'] {
+  border-color: #eae6ea;
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  color: #202124;
+}
+
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) :is(
+  input,
+  textarea,
+  select,
   [data-slot='input'],
   [data-slot='textarea']
 ) {
-  --tw-shadow: 0 0 #0000;
+  border-color: #eae6ea;
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  color: #202124;
 }
 
-@layer base {
-  /* The minimal theme keeps the hover tint and drops the lift. This file comes
-     before open-notebook's rules, so :hover is doubled to outrank the
-     equally specific `.dark .sidebar-menu-item:hover`. */
-  .theme-siet .sidebar-menu-item:hover:hover {
-    scale: none;
-    box-shadow: none;
-  }
+:is(.theme-siet, .community-theme) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea']):not(.siet-navbar *)::placeholder {
+  color: #707070;
+  opacity: 1;
+}
 
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea'])::placeholder {
+  color: #707070;
+  opacity: 1;
+}
+
+:is(.theme-siet, .community-theme) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea']):not(.siet-navbar *):focus-visible {
+  border-color: #ed4988;
+  outline: 2px solid rgb(237 73 136 / 22%);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgb(237 73 136 / 14%);
+}
+
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea']):focus-visible {
+  border-color: #ed4988;
+  outline: 2px solid rgb(237 73 136 / 22%);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgb(237 73 136 / 14%);
+}
+
+:is(.theme-siet, .community-theme) [data-slot='select-trigger']:focus-visible,
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) [data-slot='select-trigger']:focus-visible {
+  border-color: #ed4988;
+  outline: 2px solid rgb(237 73 136 / 22%);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgb(237 73 136 / 14%);
+}
+
+:is(.theme-siet, .community-theme) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea']):not(.siet-navbar *)[aria-invalid='true'] {
+  border-color: #e53935;
+  outline-color: rgb(229 57 53 / 20%);
+  box-shadow: 0 0 0 3px rgb(229 57 53 / 12%);
+}
+
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea'])[aria-invalid='true'] {
+  border-color: #e53935;
+  outline-color: rgb(229 57 53 / 20%);
+  box-shadow: 0 0 0 3px rgb(229 57 53 / 12%);
+}
+
+:is(.theme-siet, .community-theme) [data-slot='button'].bg-primary,
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content']) [data-slot='button'].bg-primary {
+  border-radius: 0.75rem;
+  box-shadow: 0 4px 0 #c92f6b;
+  transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+
+:is(.theme-siet, .community-theme) [data-slot='button'].bg-primary:hover,
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content']) [data-slot='button'].bg-primary:hover {
+  background-color: #c92f6b;
+  color: #ffffff;
+}
+
+:is(.theme-siet, .community-theme) [data-slot='button'].bg-primary:active,
+:is([data-slot='dialog-content'], [data-slot='alert-dialog-content']) [data-slot='button'].bg-primary:active {
+  transform: translateY(4px);
+  box-shadow: none;
+}
+
+.community-file-preview {
+  border-color: #eae6ea;
+  border-radius: 0.75rem;
+  background-color: #fff8fa;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+button.community-file-preview:hover {
+  border-color: #f7b7d0;
+  background-color: #fff0f5;
+}
+
+.community-file-icon {
+  display: flex;
+  width: 3rem;
+  height: 3rem;
+  flex: 0 0 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  border-radius: 0.75rem;
+  background-color: #fce7f0;
+  color: #c92f6b;
+}
+
+.community-file-icon::after {
+  content: attr(data-file-type);
+  font-size: 0.5rem;
+  font-weight: 700;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.community-file-icon[data-file-type='image'],
+.community-file-icon[data-file-type='video'] {
+  background-color: #e7f5fc;
+  color: #11789f;
+}
+
+.community-file-icon[data-file-type='slides'] {
+  background-color: #fce7f0;
+  color: #c92f6b;
+}
+
+.community-file-icon[data-file-type='sheet'] {
+  background-color: #e6f7f1;
+  color: #007a56;
+}
+
+.community-file-icon[data-file-type='archive'] {
+  background-color: #fff3e0;
+  color: #8a4b08;
+}
+
+.community-feedback-loading {
+  color: #707070;
+}
+
+.community-feedback-error {
+  border-radius: 0.75rem;
+  background-color: #fff1f0;
+  color: #b42318;
+}
+
+.community-feedback-empty {
+  color: #707070;
+}
+
+.dark :is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) {
+  border-color: #4b3441;
+  background-color: #2b2026;
+  color: #f9edf2;
+}
+
+.dark :is([data-slot='dialog-overlay'], [data-slot='alert-dialog-overlay'], [data-slot='sheet-overlay']) {
+  background-color: rgb(12 8 10 / 58%);
+}
+
+.dark :is(.theme-siet, .community-theme) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea']):not(.siet-navbar *) {
+  border-color: #59404e;
+  background-color: #2b2026;
+  color: #f9edf2;
+}
+
+.dark :is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) :is(input, textarea, select, [data-slot='input'], [data-slot='textarea']) {
+  border-color: #59404e;
+  background-color: #2b2026;
+  color: #f9edf2;
+}
+
+.dark :is(.theme-siet, .community-theme) [data-slot='select-trigger'],
+.dark :is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) [data-slot='select-trigger'] {
+  border-color: #59404e;
+  background-color: #2b2026;
+  color: #f9edf2;
+}
+
+.dark .community-theme:is([data-slot='dialog-content'], [data-slot='alert-dialog-content'], [data-slot='sheet-content']) {
+  border-color: var(--border, #4b3441);
+  background-color: var(--popover, #2b2026);
+  color: var(--popover-foreground, #f9edf2);
+}
+
+.dark .community-file-preview {
+  border-color: #4b3441;
+  background-color: #2b2026;
+}
+
+.dark .community-file-icon {
+  background-color: #4a2b3c;
+  color: #f9c4dc;
+}
+
+.dark .community-file-icon[data-file-type='image'],
+.dark .community-file-icon[data-file-type='video'] {
+  background-color: #173a4b;
+  color: #9bdcf5;
+}
+
+.dark .community-file-icon[data-file-type='sheet'] {
+  background-color: #203d35;
+  color: #8ce0c2;
+}
+
+.dark .community-file-icon[data-file-type='archive'] {
+  background-color: #49351e;
+  color: #ffd18a;
+}
+
+.dark .community-feedback-error {
+  background-color: #4b2023;
+  color: #ffb4ab;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :is(.theme-siet, .community-theme) [data-slot='button'].bg-primary,
+  .community-file-preview {
+    transition: none;
+  }
+}
+
+.theme-siet {
+  --credit-accent: #8a57ff;
+  --credit-soft: #f3e8ff;
+  --credit-ink: #6035c8;
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-panel {
+  border-color: #d3ecf8;
+  border-radius: 1rem;
+  background-color: #ffffff;
+  box-shadow: var(--shadow-card, 0 4px 16px rgba(32, 33, 36, 0.04));
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-panel-header,
+.kmitl-rag-chat .kmitl-rag-chat-composer {
+  border-color: #d3ecf8;
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-panel-header h2 svg {
+  color: #0876aa;
+}
+
+.kmitl-rag-chat .kmitl-rag-avatar {
+  border: 1px solid #b9e5f8;
+  background-color: #e7f5fc;
+  color: #075985;
+}
+
+.kmitl-rag-chat .kmitl-rag-message-bubble {
+  border-color: #d3ecf8;
+  border-radius: 1rem;
+  background-color: #ffffff;
+  color: #202124;
+  line-height: 1.55;
+}
+
+.kmitl-rag-chat .kmitl-rag-message-human .kmitl-rag-message-bubble {
+  border-color: #b9e5f8;
+  background-color: #e7f5fc;
+  color: #123c4d;
+}
+
+.kmitl-rag-chat .kmitl-rag-message-ai .kmitl-rag-message-bubble {
+  box-shadow: 0 2px 8px rgba(28, 176, 246, 0.06);
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-input {
+  border-color: #c9e6f4;
+  border-radius: 0.75rem;
+  background-color: #ffffff;
+  color: #202124;
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-input::placeholder {
+  color: #647782;
+  opacity: 1;
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-input:focus-visible {
+  border-color: #075985;
+  outline: 3px solid #075985;
+  outline-offset: 1px;
+  box-shadow: 0 0 0 3px rgba(28, 176, 246, 0.14);
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-send {
+  border-radius: 0.75rem;
+  background-color: #0876aa;
+  color: #ffffff;
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-send:hover:not(:disabled) {
+  background-color: #075985;
+}
+
+.kmitl-rag-chat .kmitl-rag-chat-send:focus-visible {
+  outline: 3px solid #075985;
+  outline-offset: 2px;
+}
+
+.kmitl-rag-chat .kmitl-rag-status {
+  border-color: #c9e6f4;
+  background-color: #e7f5fc;
+}
+
+.kmitl-rag-chat .kmitl-rag-status > div {
+  color: #075985;
+}
+
+.kmitl-rag-reference-list {
+  border-color: #c9e6f4;
+}
+
+.kmitl-rag-reference-list :is(button, a) {
+  max-width: 100%;
+  min-height: 2rem;
+  border: 1px solid #c9e6f4;
+  border-radius: 0.625rem;
+  background-color: #f3faff;
+  color: #075985;
+  text-decoration: none;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.kmitl-rag-reference-list :is(button, a):hover {
+  border-color: #1cb0f6;
+  background-color: #e7f5fc;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.kmitl-rag-reference-list :is(button, a):focus-visible {
+  outline: 3px solid #075985;
+  outline-offset: 2px;
+}
+
+.kmitl-rag-reference-list details {
+  border: 1px solid #c9e6f4;
+  border-radius: 0.75rem;
+  background-color: #f7fbfe;
+  padding: 0.5rem 0.625rem;
+}
+
+.kmitl-rag-reference-list summary {
+  color: #075985;
+}
+
+.kmitl-rag-reference-list details[open] {
+  background-color: #f3faff;
+}
+
+.kmitl-rag-reference-list details > p {
+  border: 1px solid #d3ecf8;
+  border-radius: 0.5rem;
+  background-color: #ffffff;
+  color: #3c3c3c;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-chat-panel {
+  border-color: #254759;
+  background-color: #17252c;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-message-bubble {
+  border-color: #254759;
+  background-color: #1b2c35;
+  color: #eaf5fa;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-message-human .kmitl-rag-message-bubble {
+  border-color: #28627f;
+  background-color: #173a4b;
+  color: #e3f6ff;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-chat-input {
+  border-color: #31596b;
+  background-color: #17252c;
+  color: #eaf5fa;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-chat-input::placeholder {
+  color: #b4cbd5;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-status {
+  border-color: #28627f;
+  background-color: #173a4b;
+}
+
+.dark .kmitl-rag-chat .kmitl-rag-status > div {
+  color: #b6e8fc;
+}
+
+.dark .kmitl-rag-reference-list :is(button, a) {
+  border-color: #31596b;
+  background-color: #1b2c35;
+  color: #b6e8fc;
+}
+
+.dark .kmitl-rag-reference-list :is(button, a):hover,
+.dark .kmitl-rag-reference-list details[open] {
+  border-color: #1cb0f6;
+  background-color: #173a4b;
+}
+
+.dark .kmitl-rag-reference-list details {
+  border-color: #31596b;
+  background-color: #17252c;
+}
+
+.dark .kmitl-rag-reference-list details > p {
+  border-color: #31596b;
+  background-color: #1b2c35;
+  color: #d0e0e7;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kmitl-rag-chat .kmitl-rag-message-bubble,
+  .kmitl-rag-chat .kmitl-rag-chat-send,
+  .kmitl-rag-reference-list :is(button, a) {
+    transition: none;
+  }
 }
 
 /* The AI owl's thinking pose: a gentle nod while an answer is being written. */
@@ -290,7 +1080,7 @@ body.theme-siet {
   --popover: #ffffff;
   --popover-foreground: #202124;
   --primary: #ed4988;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #202124;
   --secondary: #fce7f0;
   --secondary-foreground: #202124;
   --muted: #f7f7f8;
@@ -300,19 +1090,19 @@ body.theme-siet {
   --accent-foreground: #202124;
   --border: #e5e5e5;
   --input: #e5e5e5;
-  --ring: #1cb0f6;
+  --ring: #075985;
   --destructive: #ff4b4b;
   --ai: #ed4988;
   --ai-soft: #fce7f0;
-  --ai-foreground: #ffffff;
+  --ai-foreground: #202124;
   --sidebar: #ffffff;
   --sidebar-foreground: #202124;
   --sidebar-primary: #ed4988;
-  --sidebar-primary-foreground: #ffffff;
+  --sidebar-primary-foreground: #202124;
   --sidebar-accent: #fce7f0;
   --sidebar-accent-foreground: #202124;
   --sidebar-border: #e5e5e5;
-  --sidebar-ring: #1cb0f6;
+  --sidebar-ring: #075985;
   /* gamification colours from DESIGN.md, for badges and status */
   --adventure-info: #1cb0f6;
   --adventure-success: #58a66a;
@@ -413,7 +1203,8 @@ body.theme-siet {
   box-shadow: none;
 }
 .theme-adventure [data-slot="button"].bg-primary:hover {
-  background-color: #d83a78;
+  background-color: #c92f6b;
+  color: #ffffff;
 }
 .dark .theme-adventure .adventure-button,
 .dark .theme-adventure [data-slot="button"].bg-primary:not(.no-lip) {

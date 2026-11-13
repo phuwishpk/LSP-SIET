@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { categoryColor } from '@/lib/roadmap-layout'
+import { BookOpen } from 'lucide-react'
 import { External, Plus } from './icons'
 
 function Sources({ sources }) {
@@ -89,11 +90,15 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
     return (
       <aside className="panel">
         <section className="panel-section">
+          <p className="panel-label">เป้าหมายการเรียนรู้</p>
           <h2 className="h3">{roadmap?.title}</h2>
           {roadmap?.description && <p className="body">{roadmap.description}</p>}
         </section>
         <PlanGrounding grounding={roadmap?.grounding} />
-        <p className="hint">กดที่หัวข้อในแผนเพื่อดูคำอธิบายและที่มา</p>
+        <div className="panel-empty-state" role="status">
+          <BookOpen aria-hidden="true" />
+          <span>กดที่หัวข้อในแผนเพื่อดูคำอธิบาย ที่มา และแหล่งความรู้ที่เกี่ยวข้อง</span>
+        </div>
       </aside>
     )
   }
@@ -101,7 +106,8 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
   const color = categoryColor(node.category)
   return (
     <aside className="panel">
-      <section className="panel-section">
+      <section className="panel-section panel-current-step">
+        <p className="panel-label">หัวข้อที่กำลังดู</p>
         <div className="chips">
           {node.category && (
             <span className="chip" style={{ color, borderColor: color }}>
@@ -111,7 +117,14 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
           <span className="chip">{mainIndex ? `หัวข้อที่ ${mainIndex}` : 'หัวข้อย่อย'}</span>
         </div>
         <h2 className="h3">{node.label}</h2>
-        {node.description ? <p className="body">{node.description}</p> : <p className="hint">หัวข้อนี้ยังไม่มีคำอธิบาย</p>}
+        {node.description ? (
+          <p className="body">{node.description}</p>
+        ) : (
+          <div className="panel-empty-state" role="status">
+            <BookOpen aria-hidden="true" />
+            <span>หัวข้อนี้ยังไม่มีคำอธิบาย</span>
+          </div>
+        )}
       </section>
 
       <Sources sources={node.sources} />
@@ -119,7 +132,8 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
       {childCount > 0 && <p className="hint">มีหัวข้อย่อย {childCount} หัวข้อแตกออกจากหัวข้อนี้</p>}
 
       {expand && (
-        <section className="panel-footer">
+        <section className="panel-footer panel-next-action">
+          <p className="panel-label">การดำเนินการถัดไป</p>
           <button
             type="button"
             className="btn btn-outline-accent btn-block"

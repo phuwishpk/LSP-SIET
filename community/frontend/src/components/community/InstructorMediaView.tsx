@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Bookmark, Check, Download, FileText, Play, Video } from 'lucide-react'
+import { AlertCircle, Bookmark, Check, Download, FileText, LoaderCircle, Play, Video } from 'lucide-react'
 import { Avatar } from '@siet/platform/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -11,6 +11,7 @@ import { communityApi, type CommunityPost, type Course } from '@siet/platform/li
 import { useToggleSave } from '@siet/platform/lib/hooks/use-community'
 import { displayName, formatBytes, roomLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
 import { toast } from 'sonner'
+import { FileTypeIcon } from './FileTypeIcon'
 
 interface InstructorMediaViewProps {
   posts: CommunityPost[]
@@ -80,22 +81,27 @@ export function InstructorMediaView({
       </div>
 
       {isLoading && (
-        <div className="space-y-4">
+        <div className="space-y-4" aria-live="polite">
+          <p className="community-feedback-loading flex items-center justify-center gap-2 text-sm">
+            <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />
+            กำลังโหลดสื่อการสอน…
+          </p>
           <Skeleton className="h-52 w-full rounded-2xl" />
           <Skeleton className="h-52 w-full rounded-2xl" />
         </div>
       )}
       {isError && (
         <Card className="rounded-2xl">
-          <CardContent className="p-8 text-center text-sm text-muted-foreground">
+          <CardContent className="community-feedback-error flex items-center justify-center gap-2 p-8 text-center text-sm" role="alert">
+            <AlertCircle className="h-4 w-4 shrink-0" aria-hidden="true" />
             โหลดสื่อการสอนไม่สำเร็จ ลองรีเฟรชอีกครั้ง
           </CardContent>
         </Card>
       )}
       {!isLoading && !isError && posts.length === 0 && (
         <Card className="rounded-2xl">
-          <CardContent className="flex flex-col items-center gap-2 p-10 text-center text-sm text-muted-foreground">
-            <FileText className="h-8 w-8" />
+          <CardContent className="community-feedback-empty flex flex-col items-center gap-2 p-10 text-center text-sm">
+            <FileText className="h-8 w-8" aria-hidden="true" />
             ยังไม่มีสื่อการสอนในวิชานี้
           </CardContent>
         </Card>
@@ -106,7 +112,14 @@ export function InstructorMediaView({
       {!isLoading && !isError && hasNextPage && (
         <div className="flex justify-center">
           <Button variant="outline" onClick={onLoadMore} disabled={isFetchingNextPage}>
-            {isFetchingNextPage ? 'กำลังโหลด…' : 'โหลดสื่อเพิ่มเติม'}
+            {isFetchingNextPage ? (
+              <>
+                <LoaderCircle className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                กำลังโหลด…
+              </>
+            ) : (
+              'โหลดสื่อเพิ่มเติม'
+            )}
           </Button>
         </div>
       )}
@@ -229,7 +242,8 @@ function MediaCard({ post }: { post: CommunityPost }) {
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-pink-600 shadow-sm">
                   <Play className="ml-0.5 h-5 w-5 fill-current" />
                 </span>
-                <span className="max-w-[85%] truncate text-xs font-medium">
+                <span className="flex max-w-[85%] items-center gap-2 truncate text-xs font-medium">
+                  {videoLoading && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
                   {videoLoading ? 'กำลังโหลดวิดีโอ…' : post.title || post.attachment.name}
                 </span>
               </button>
@@ -244,14 +258,15 @@ function MediaCard({ post }: { post: CommunityPost }) {
             </div>
           </div>
         ) : post.attachment ? (
-          <div className="flex items-center gap-3 rounded-xl bg-pink-50 p-3 dark:bg-pink-950/20">
-            <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white text-pink-600 dark:bg-pink-950/50 dark:text-pink-300">
-              <FileText className="h-5 w-5" />
-            </span>
+          <div className="community-file-preview flex items-center gap-3 rounded-xl border p-3">
+            <FileTypeIcon name={post.attachment.name} mime={post.attachment.mime} />
             <span className="min-w-0 flex-1">
               <span className="block truncate text-xs font-semibold">{post.attachment.name}</span>
               <span className="mt-0.5 block text-xs text-muted-foreground">
-                {post.attachment.mime || 'ไฟล์แนบ'}{post.attachment.size ? ` · ${formatBytes(post.attachment.size)}` : ''}
+                {post.attachment.mime?.includes('pdf')
+                  ? 'PDF'
+                  : post.attachment.mime || 'ไฟล์แนบ'}
+                {post.attachment.size ? ` · ${formatBytes(post.attachment.size)}` : ''}
               </span>
             </span>
           </div>
