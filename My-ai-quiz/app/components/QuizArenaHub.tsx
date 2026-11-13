@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import {
   IconGraduationCap,
@@ -62,12 +63,26 @@ export function QuizArenaHub() {
 
   const handleClaimReward = (questId: string, rewardName: string, questTitle: string) => {
     const success = claimQuestReward(questId);
+    // Always refresh: a failed claim (new day, claimed in another tab) must
+    // update the buttons instead of leaving a dead "รับรางวัล".
+    setQuests(getDailyQuests());
     if (success) {
-      setQuests(getDailyQuests());
       // Open celebratory owl modal
       setCelebrationReward({ rewardName, questTitle });
     }
   };
+
+  // The modal is a real dialog: Escape closes it and focus moves into it.
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!celebrationReward) return;
+    closeButtonRef.current?.focus();
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCelebrationReward(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [celebrationReward]);
 
   return (
     <div className="min-h-[calc(100vh-4rem)] flex-1 bg-[#f8fafc] text-[#0f172a] font-sans flex flex-col justify-between">
@@ -315,7 +330,7 @@ export function QuizArenaHub() {
             ].map((sub) => (
               <Link
                 key={sub.code}
-                href={`/solo?subject=${encodeURIComponent(`[${sub.code}] ${sub.name}`)}`}
+                href={`/solo?subject=${encodeURIComponent(`[${sub.code}] ${sub.name}`)}&topic=${encodeURIComponent(sub.topic)}`}
                 className="p-4 rounded-2xl border border-slate-200/90 hover:border-rose-300 hover:shadow-xs transition-all flex flex-col justify-between gap-3 group"
               >
                 <div>
@@ -352,9 +367,20 @@ export function QuizArenaHub() {
       </footer>
 
       {/* 4. Celebratory Owl Reward Popup Modal */}
-      {celebrationReward && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
-          <div className="relative bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 border border-rose-100 shadow-2xl animate-in zoom-in-95 duration-200">
+      {/* Portaled to <body>: the page sits in the layout's `relative z-0` box, below the navbar's z-[100]. */}
+      {celebrationReward && typeof document !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4"
+          onClick={(event) => {
+            if (event.target === event.currentTarget) setCelebrationReward(null);
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="quest-reward-title"
+            className="relative bg-white rounded-3xl max-w-sm w-full p-6 text-center space-y-4 border border-rose-100 shadow-2xl"
+          >
             {/* Mascot in Wave (Cheering) Mood */}
             <div className="relative flex justify-center pt-2">
               <div className="absolute -top-3 w-36 h-36 bg-rose-100/60 rounded-full blur-xl -z-10" />
@@ -366,7 +392,7 @@ export function QuizArenaHub() {
                 <IconTrophy className="w-3.5 h-3.5 text-amber-500" />
                 <span>สำเร็จภารกิจประจำวัน!</span>
               </span>
-              <h3 className="text-xl font-extrabold text-slate-900">
+              <h3 id="quest-reward-title" className="text-xl font-extrabold text-slate-900">
                 {celebrationReward.questTitle}
               </h3>
               <p className="text-xs text-slate-500 leading-relaxed">
@@ -383,6 +409,7 @@ export function QuizArenaHub() {
             </div>
 
             <button
+              ref={closeButtonRef}
               type="button"
               onClick={() => setCelebrationReward(null)}
               className="w-full py-3 rounded-2xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-sm shadow-md shadow-rose-600/25 transition-all cursor-pointer"
@@ -390,7 +417,8 @@ export function QuizArenaHub() {
               รับทราบ ลุยต่อเลย!
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

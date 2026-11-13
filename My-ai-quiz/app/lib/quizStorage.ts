@@ -13,12 +13,22 @@ export interface QuizHistoryItem {
 export interface DailyQuestsState {
   date: string; // YYYY-MM-DD
   quizzesCompleted: number; // Goal: 2
-  maxStreakAchieved: number; // Goal: 5
+  maxStreakAchieved: number; // Goal: 3
   claimedRewards: { [questId: string]: boolean };
 }
 
 const HISTORY_KEY = 'siet_quiz_history';
 const QUESTS_KEY = 'siet_daily_quests';
+const RENAMED_QUESTS: Record<string, string> = {
+  quest_quiz_count: 'quest_2_quizzes',
+  quest_combo_streak: 'quest_combo_3',
+};
+
+/** When each daily quest counts as done; a reward can only be claimed then. */
+export const QUEST_DONE: Record<string, (q: DailyQuestsState) => boolean> = {
+  quest_2_quizzes: (q) => q.quizzesCompleted >= 2,
+  quest_combo_3: (q) => q.maxStreakAchieved >= 3,
+};
 
 export function getTodayDateString(): string {
   const d = new Date();
@@ -72,7 +82,13 @@ export function getDailyQuests(): DailyQuestsState {
       localStorage.setItem(QUESTS_KEY, JSON.stringify(defaultState));
       return defaultState;
     }
-    return parsed;
+    // Quest ids were renamed (PR #39): a reward claimed today under the old id
+    // stays claimed, so it cannot be collected twice on the day of the update.
+    const claimed = { ...(parsed.claimedRewards || {}) };
+    for (const [oldId, newId] of Object.entries(RENAMED_QUESTS)) {
+      if (claimed[oldId]) claimed[newId] = true;
+    }
+    return { ...parsed, claimedRewards: claimed };
   } catch {
     return defaultState;
   }
@@ -90,8 +106,12 @@ export function updateQuestsAfterQuiz(item: { correctCount: number; maxCombo?: n
 }
 
 export function claimQuestReward(questId: string): boolean {
+  // Re-read today's state: a tab left open past midnight or a claim made in
+  // another tab must not pay out a quest that is not (or no longer) due.
   const quests = getDailyQuests();
   if (quests.claimedRewards[questId]) return false;
+  const done = QUEST_DONE[questId];
+  if (done && !done(quests)) return false;
   quests.claimedRewards[questId] = true;
   if (typeof window !== 'undefined') {
     localStorage.setItem(QUESTS_KEY, JSON.stringify(quests));

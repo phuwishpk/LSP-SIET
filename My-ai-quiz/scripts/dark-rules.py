@@ -21,18 +21,19 @@ CSS = os.path.join(APP, 'globals.css')
 
 TOKEN = re.compile(
     r'(?<![\w\-\[])((?:[a-z-]+:)*)(bg|text|border|from|via|to|ring|placeholder)-'
-    r'(white|black|slate|gray|rose|pink|amber|emerald|indigo|red|orange|\[#[0-9a-fA-F]{3,8}\])'
+    r'(white|black|slate|gray|rose|pink|amber|emerald|indigo|blue|red|orange|\[#[0-9a-fA-F]{3,8}\])'
     r'(?:-(\d{2,3}))?(?:/(\d{1,3}))?(?![\w\-\[])'
 )
 
 # Dark tints: the hue's -950 shade for pale fills, its -900 for lines, and light text shades.
 TINT = {'rose': (76, 5, 25), 'pink': (80, 7, 36), 'amber': (69, 26, 3), 'emerald': (2, 44, 34),
-        'indigo': (30, 27, 75), 'red': (69, 10, 10), 'orange': (67, 20, 7)}
+        'indigo': (30, 27, 75), 'blue': (23, 37, 84), 'red': (69, 10, 10), 'orange': (67, 20, 7)}
 LINE = {'rose': (136, 19, 55), 'pink': (131, 24, 67), 'amber': (120, 53, 15), 'emerald': (6, 78, 59),
-        'indigo': (55, 48, 163), 'red': (127, 29, 29), 'orange': (124, 45, 18)}
+        'indigo': (55, 48, 163), 'blue': (30, 58, 138), 'red': (127, 29, 29), 'orange': (124, 45, 18)}
 TEXT_LIGHT = {'rose': ('#fb7185', '#fda4af', '#fecdd3'), 'pink': ('#f472b6', '#f9a8d4', '#fbcfe8'),
               'amber': ('#fbbf24', '#fcd34d', '#fde68a'), 'emerald': ('#34d399', '#6ee7b7', '#a7f3d0'),
-              'indigo': ('#818cf8', '#a5b4fc', '#c7d2fe'), 'red': ('#f87171', '#fca5a5', '#fecaca'),
+              'indigo': ('#818cf8', '#a5b4fc', '#c7d2fe'), 'blue': ('#60a5fa', '#93c5fd', '#bfdbfe'),
+              'red': ('#f87171', '#fca5a5', '#fecaca'),
               'orange': ('#fb923c', '#fdba74', '#fed7aa')}
 NEUTRAL_BG = {50: '#1c1c20', 100: '#27272a', 200: '#3f3f46', 300: '#52525b', 400: '#52525b', 800: '#52525b', 900: '#3f3f46'}
 NEUTRAL_TEXT = {300: '#71717a', 400: '#8a8a93', 500: '#a1a1aa', 600: '#d4d4d8', 700: '#e4e4e7', 800: '#f4f4f5', 900: '#fafafa'}
