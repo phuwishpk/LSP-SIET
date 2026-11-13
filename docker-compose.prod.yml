@@ -1,0 +1,82 @@
+# =============================================================================
+# LSP-SIET production: ONE container (docker/allinone/Dockerfile).
+#
+#   https://lsp-siet.site  ->  Cloudflare Tunnel  ->  :80 (nginx in the container)
+#     /api -> FastAPI, /quiz -> AI Quiz, /roadmap -> AI Roadmap, / -> SIET Space
+#   MariaDB, SurrealDB and Redis run inside the same container; all data is in
+#   the lsp_data volume (/data).
+#
+# Deploy:   ./deploy/deploy.sh <image tag>        (see docs/RUNBOOK.md)
+# Migrate from the 7-container docker-compose.yml once: ./deploy/migrate-to-allinone.sh
+# The image is built by GitHub Actions (.github/workflows/image.yml), not here.
+# =============================================================================
+
+name: lsp-siet
+
+services:
+  lsp-siet:
+    image: ghcr.io/phuwishpk/lsp-siet:${LSP_SIET_TAG:-main}
+    container_name: ${LSP_SIET_CONTAINER:-lsp-siet}
+    restart: unless-stopped
+    ports:
+      - "${LSP_SIET_HTTP_BIND:-80}:80"
+    volumes:
+      - lsp_data:/data
+    # Design budget: ~900 MB idle, <= 1.5 GB busy on the 3.3 GB server. If the
+    # container ever hits the limit the kernel kills a Next app first
+    # (oom_score_adj in the run scripts) and s6 starts it again.
+    mem_limit: 1600m
+    stop_grace_period: 30s
+    logging:
+      driver: json-file
+      options: { max-size: "10m", max-file: "3" }
+    environment:
+      # --- secrets / site settings (from .env, same names as before) ---
+      - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
+      - JWT_SECRET=${JWT_SECRET:-}
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-root_password}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-workspace_password}
+      - SURREAL_USER=${SURREAL_USER:-root}
+      - SURREAL_PASSWORD=${SURREAL_PASSWORD:-root}
+      - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
+      - WORKSPACE_SEED_ADMIN=true
+      - WORKSPACE_SEED_ADMIN_USERNAME=admin1
+      - WORKSPACE_SEED_ADMIN_PASSWORD=${WORKSPACE_SEED_ADMIN_PASSWORD:-admin1}
+      - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=${OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB:-2048}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS=${OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS:-10000}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_ENABLED=${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_ENABLED:-0}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_INTERVAL=${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_INTERVAL:-300}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MIN=${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MIN:-0.94}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MAX=${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MAX:-0.99}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN=${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN:-0.85}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MAX=${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MAX:-0.97}
+      # --- URLs: one domain, path-based ---
+      - API_URL=${API_URL:-http://localhost}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
+      - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
+      - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
+      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost/quiz}
+      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost/roadmap}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost}
+      # --- sign-in ---
+      - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}
+      - GOOGLE_OAUTH_CLIENT_SECRET=${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      - GOOGLE_OAUTH_REDIRECT_URI=${GOOGLE_OAUTH_REDIRECT_URI:-}
+      - GOOGLE_OAUTH_ALLOWED_DOMAINS=${GOOGLE_OAUTH_ALLOWED_DOMAINS:-kmitl.ac.th}
+      - GOOGLE_OAUTH_MOCK=${GOOGLE_OAUTH_MOCK:-0}
+      - WORKSPACE_ADMIN_EMAILS=${WORKSPACE_ADMIN_EMAILS:-}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-}
+      - TEACHER_EMAILS=${TEACHER_EMAILS:-}
+      - KMITL_FACULTY_CODE=${KMITL_FACULTY_CODE:-03}
+      - ADMIN_CONTACT_NAME=${ADMIN_CONTACT_NAME:-}
+      - ADMIN_CONTACT_EMAIL=${ADMIN_CONTACT_EMAIL:-}
+      - ADMIN_CONTACT_TEL=${ADMIN_CONTACT_TEL:-}
+      - ADMIN_CONTACT_DEPT=${ADMIN_CONTACT_DEPT:-}
+      - AUDIT_LOG_RETENTION_DAYS=${AUDIT_LOG_RETENTION_DAYS:-}
+      # --- AI apps ---
+      - OPEN_NOTEBOOK_PASSWORD=${OPEN_NOTEBOOK_PASSWORD:-}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
+
+volumes:
+  lsp_data:

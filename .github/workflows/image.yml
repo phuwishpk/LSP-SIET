@@ -1,0 +1,79 @@
+# Build the LSP-SIET all-in-one image off the 3.3 GB server and publish it to
+# GHCR (private). The server only pulls it: ./deploy/deploy.sh sha-<commit>.
+# Design: docs/superpowers/specs/2026-11-14-single-container-deploy-design.md
+name: image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      platforms:
+        description: "Target platforms (the server is assumed to be linux/amd64)"
+        default: linux/amd64
+        required: false
+
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    # The production builds skip the type-check (next.config ignoreBuildErrors,
+    # added for the server); it runs here instead.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: SIET Space - typecheck
+        working-directory: open-notebook/frontend
+        run: |
+          npm ci --no-audit --no-fund
+          cd ../.. && make frontend-links && cd open-notebook/frontend
+          npx tsc --noEmit -p .
+      - name: AI Quiz - typecheck
+        working-directory: My-ai-quiz
+        run: |
+          npm ci --no-audit --no-fund
+          ln -sfn "$PWD/node_modules" ../shared/node_modules
+          npx tsc --noEmit -p .
+      - uses: astral-sh/setup-uv@v6
+      - name: SIET packages - tests
+        working-directory: open-notebook
+        env:
+          PYTHON_DOTENV_DISABLED: "1"
+        run: |
+          uv sync --frozen --python 3.12
+          uv run --no-sync python -m pytest -q ../siet-platform/tests ../kmitl-rag/tests ../community/tests
+
+  image:
+    needs: checks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - id: meta
+        run: echo "short=$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: docker/allinone/Dockerfile
+          platforms: ${{ github.event.inputs.platforms || 'linux/amd64' }}
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/lsp-siet:sha-${{ steps.meta.outputs.short }}
+            ghcr.io/${{ github.repository_owner }}/lsp-siet:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
