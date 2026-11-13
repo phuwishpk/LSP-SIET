@@ -28,6 +28,9 @@ PUBLIC_PATHS = {
     "/api/users/logout",
     "/api/auth/google/start",
     "/api/auth/google/exchange",
+    # Support contact shown on /denied to people who were refused a session
+    # (PR #37): they have no token, so the route must be reachable without one.
+    "/api/system/admin-info",
 }
 
 

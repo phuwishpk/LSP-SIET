@@ -597,16 +597,19 @@ async def audit_log(
 ) -> Dict[str, Any]:
     """Who changed what, newest first. Filter by action prefix, category, actor, dates, or search."""
     _require_admin(user)
-    return await audit.list_audit(
-        action=action,
-        category=category,
-        actor_id=actor_id,
-        date_from=date_from,
-        date_to=date_to,
-        query=q,
-        limit=limit,
-        offset=offset,
-    )
+    try:
+        return await audit.list_audit(
+            action=action,
+            category=category,
+            actor_id=actor_id,
+            date_from=date_from,
+            date_to=date_to,
+            query=q,
+            limit=limit,
+            offset=offset,
+        )
+    except ValueError:
+        raise HTTPException(status_code=400, detail="รูปแบบวันที่ไม่ถูกต้อง")
 
 
 @router.post("/audit/purge")
@@ -614,14 +617,18 @@ async def purge_audit_logs(
     days: Optional[int] = Query(default=None, ge=90, description="Retention threshold in days (minimum 90 days per Computer Crime Act)"),
     user: User = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """Purge audit logs older than retention threshold (enforcing >= 90 days legal minimum)."""
-    _require_admin(user)
-    purged = await audit.purge_expired_audit_logs(days)
-    effective_days = days or audit.get_retention_days()
+    """
+    Purge audit logs older than the retention period. ``days`` can only make the
+    purge keep *more* than AUDIT_LOG_RETENTION_DAYS, never less; the purge is
+    itself written to the audit log with the admin as actor.
+    """
+    admin_id = _require_admin(user)
+    retention = audit.effective_retention_days(days)
+    purged = await audit.purge_expired_audit_logs(days, actor_id=admin_id)
     return {
         "ok": True,
         "purged": purged,
-        "retention_days": effective_days,
+        "retention_days": retention,  # None = the operator keeps the log forever
         "legal_basis": "Computer Crime Act B.E. 2560 Section 26 (>= 90 days)",
     }
 

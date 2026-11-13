@@ -58,3 +58,16 @@ export function clearPostLoginPath() {
     /* nothing to clear */
   }
 }
+
+
+/**
+ * The Google login gate refuses ineligible accounts with
+ * `403 access_denied_not_eligible:<email>:<name>` (PR #37). Returns the /denied
+ * URL for such an error detail, or null for any other error.
+ */
+export function deniedPathForLoginError(detail?: string | null): string | null {
+  if (!detail || !detail.startsWith('access_denied_not_eligible')) return null
+  const [, email = '', ...rest] = detail.split(':')
+  const name = rest.join(':')
+  return `/denied?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`
+}

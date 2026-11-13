@@ -323,9 +323,10 @@ async def get_system_admin_info() -> dict:
     """
     import os
     admin_contact_name = os.getenv("ADMIN_CONTACT_NAME", "ศูนย์นวัตกรรมการเรียนรู้ คณะครุศาสตร์อุตสาหกรรมและเทคโนโลยี")
-    admin_contact_email = os.getenv("ADMIN_CONTACT_EMAIL", "siet-support@kmitl.ac.th")
+    # Defaults match FALLBACK_ADMIN_INFO in AccessDeniedScreen.tsx.
+    admin_contact_email = os.getenv("ADMIN_CONTACT_EMAIL", "siet_admin@kmitl.ac.th")
     admin_contact_dept = os.getenv("ADMIN_CONTACT_DEPT", "สถาบันเทคโนโลยีพระจอมเกล้าเจ้าคุณทหารลาดกระบัง")
-    admin_contact_tel = os.getenv("ADMIN_CONTACT_TEL", "02-329-8000")
+    admin_contact_tel = os.getenv("ADMIN_CONTACT_TEL", "02-329-8000 ต่อ 3030")
     return {
         "name": admin_contact_name,
         "email": admin_contact_email,

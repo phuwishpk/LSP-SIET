@@ -145,6 +145,8 @@ export default function AdminPage() {
                 {(['admin', 'teacher', 'student'] as UserRole[])
                   .map((r) => `${roleLabel(r)} ${data?.by_role?.[r] ?? 0}`)
                   .join(' · ')}
+                {/* Accounts left "pending" by the old approval flow (PR #37 removed it) */}
+                {data?.by_role?.pending ? ` · ${roleLabel('pending')} ${data.by_role.pending}` : ''}
                 {data?.by_role?.suspended ? ` · ระงับอยู่ ${data.by_role.suspended}` : ''}
               </CardDescription>
             </CardHeader>
@@ -174,6 +176,7 @@ export default function AdminPage() {
                   <option value="student">นักศึกษา</option>
                   <option value="teacher">อาจารย์</option>
                   <option value="admin">ผู้ดูแล</option>
+                  <option value="pending">ปฏิเสธสิทธิ์ (บัญชีเดิมที่ค้างรออนุมัติ)</option>
                   <option value="suspended">บัญชีที่ถูกระงับ</option>
                 </select>
               </div>

@@ -84,6 +84,30 @@ def _is_staff(user: User) -> bool:
     return (user.role or "") in {USER_ROLE_ADMIN, USER_ROLE_TEACHER}
 
 
+ROOM_POST_FORBIDDEN = (
+    "เฉพาะสมาชิกที่เข้าร่วมชั้นเรียนนี้หรือผู้สอนประจำวิชาเท่านั้นที่สามารถสร้างโพสต์ได้ กรุณาเข้าร่วมชั้นเรียนก่อน"
+)
+
+
+async def _require_room_post_access(course_id: int, user: User) -> Dict[str, Any]:
+    """
+    Posting into a room: the room must exist and be active, and the author must
+    be a member, the room's creator, or staff (teacher/admin). Every route that
+    can put a post into a room goes through here, so the rule has one home.
+    """
+    room = await repo.get_course(course_id)
+    if not room:
+        raise HTTPException(status_code=404, detail="Course not found")
+    if (room.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
+        raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว โพสต์เพิ่มไม่ได้")
+    uid = _uid(user)
+    if _is_staff(user) or int(room.get("created_by") or 0) == uid:
+        return room
+    if await repo.member_role(course_id, uid) is None:
+        raise HTTPException(status_code=403, detail=ROOM_POST_FORBIDDEN)
+    return room
+
+
 def _display(user: User) -> str:
     return user.display_name or user.username
 
@@ -819,20 +843,8 @@ async def create_post(
     if post_type == "material" and not _is_staff(user):
         raise HTTPException(status_code=403, detail="Only teachers can publish course materials")
     if course_id is not None and course_id > 0:
-        room = await repo.get_course(course_id)
-        if not room:
-            raise HTTPException(status_code=404, detail="Course not found")
-        if (room.get("status") or repo.STATUS_ACTIVE) == repo.STATUS_ARCHIVED:
-            raise HTTPException(status_code=400, detail="ห้องนี้ถูกเก็บถาวรแล้ว โพสต์เพิ่มไม่ได้")
-        # Restriction: Only enrolled members, room creator, or admins can post in a course room.
-        is_creator = room.get("created_by") == uid
-        is_admin_user = _role(user) == "admin"
-        is_member = await repo.member_role(course_id, uid) is not None
-        if not (is_creator or is_admin_user or is_member):
-            raise HTTPException(
-                status_code=403,
-                detail="เฉพาะสมาชิกที่เข้าร่วมชั้นเรียนนี้หรือผู้สอนประจำวิชาเท่านั้นที่สามารถสร้างโพสต์ได้ กรุณาเข้าร่วมชั้นเรียนก่อน",
-            )
+        # Only members, the room's creator, or staff may post in a room (PR #37).
+        await _require_room_post_access(course_id, user)
     if course_id is not None and course_id <= 0:
         course_id = None
     post_visibility = _clean_visibility(visibility, has_room=course_id is not None)
@@ -1944,6 +1956,10 @@ async def upload_library_document(
     await _guard_spam(user, "library")
     if course_id is not None and course_id <= 0:
         course_id = None
+    if share_to_feed and course_id and scope != library.SCOPE_COURSE:
+        # Sharing a personal upload into a room is posting into it: same rule
+        # as POST /posts (course scope is already limited to the room's staff).
+        await _require_room_post_access(course_id, user)
 
     # --- resolve scope + destination notebook -----------------------------
     if scope == library.SCOPE_COURSE:

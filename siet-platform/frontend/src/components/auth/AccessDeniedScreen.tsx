@@ -32,6 +32,16 @@ import {
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { PdpaConsentDialog } from '@siet/platform/components/auth/PdpaConsentDialog'
 
+
+// Shown when /api/system/admin-info cannot be reached. Keep in sync with the
+// ADMIN_CONTACT_* defaults in siet_platform/routers/users.py.
+const FALLBACK_ADMIN_INFO: AdminInfo = {
+  name: 'ผู้ดูแลระบบ',
+  email: 'siet_admin@kmitl.ac.th',
+  department: '',
+  telephone: '02-329-8000 ต่อ 3030',
+}
+
 export function AccessDeniedScreen() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -62,12 +72,7 @@ export function AccessDeniedScreen() {
         }
       } catch {
         if (active) {
-          setAdminInfo({
-            name: 'ผู้ดูแลระบบ',
-            email: 'siet_admin@kmitl.ac.th',
-            department: '',
-            telephone: '02-329-8000 ต่อ 3030',
-          })
+          setAdminInfo(FALLBACK_ADMIN_INFO)
         }
       }
     })()
@@ -278,13 +283,18 @@ export function AccessDeniedScreen() {
               <div className="flex items-center gap-2">
                 <Mail className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                 <span className="font-mono text-foreground font-medium">
-                  {adminInfo?.email || 'siet_admin@kmitl.ac.th'}
+                  {adminInfo?.email || FALLBACK_ADMIN_INFO.email}
                 </span>
               </div>
               <div className="flex items-center gap-2">
                 <Phone className="w-3.5 h-3.5 text-rose-500 shrink-0" />
-                <span>{adminInfo?.telephone || '02-329-8000 ต่อ 3030'}</span>
+                <span>{adminInfo?.telephone || FALLBACK_ADMIN_INFO.telephone}</span>
               </div>
+              {(adminInfo?.name || adminInfo?.department) && (
+                <div className="pt-0.5 leading-relaxed">
+                  {[adminInfo?.name, adminInfo?.department].filter(Boolean).join(' · ')}
+                </div>
+              )}
             </div>
           </div>
 

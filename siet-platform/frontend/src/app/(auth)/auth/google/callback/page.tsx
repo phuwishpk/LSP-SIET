@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { authApi } from '@siet/platform/lib/api/auth'
+import { deniedPathForLoginError } from '@siet/platform/lib/auth-redirect'
 import { getApiUrl } from '@/lib/config'
 import { useAuthStore } from '@/lib/stores/auth-store'
 
@@ -72,11 +73,9 @@ function GoogleCallback() {
         router.replace(data.next || '/community')
       } catch (err) {
         const detail = (err as { detail?: string; message?: string })?.detail || ''
-        if (detail.startsWith('access_denied_not_eligible')) {
-          const parts = detail.split(':')
-          const email = parts[1] || ''
-          const name = parts[2] || ''
-          router.replace(`/denied?email=${encodeURIComponent(email)}&name=${encodeURIComponent(name)}`)
+        const denied = deniedPathForLoginError(detail)
+        if (denied) {
+          router.replace(denied)
           return
         }
         setError(detail || (err as Error)?.message || 'เข้าสู่ระบบไม่สำเร็จ')

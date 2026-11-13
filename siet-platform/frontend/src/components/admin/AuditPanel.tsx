@@ -2,8 +2,10 @@
 
 /**
  * The admin audit log: every change an admin (or a room owner acting on a
- * report) made - who, what, to which record, when. Append-only; filter by
- * action prefix such as `user.` or `report.`.
+ * report) made - who, what, to which record, when. Filter by category, date
+ * range (the viewer's local days) and free text, which matches the action
+ * (`user.points`, `report.`) as well as the target and detail. Rows older than
+ * the retention period (90 days by default) are purged by the server.
  */
 import { useState } from 'react'
 import { Filter, RotateCcw, ScrollText, Search } from 'lucide-react'
@@ -27,7 +29,15 @@ const CATEGORIES = [
   { id: 'moderation', label: 'การจัดการรายงาน' },
   { id: 'course', label: 'ห้องเรียนและหมวดหมู่' },
   { id: 'ai', label: 'AI Quiz & Roadmap' },
+  { id: 'system', label: 'ระบบ (ล้างบันทึกเก่า)' },
 ]
+
+/** A local calendar day's first or last instant, as the UTC ISO time the server compares with. */
+function localDayBound(day: string, end: boolean): string | undefined {
+  if (!day) return undefined
+  const at = new Date(`${day}T${end ? '23:59:59.999' : '00:00:00'}`)
+  return Number.isNaN(at.getTime()) ? undefined : at.toISOString()
+}
 
 const ACTION_LABELS: Record<string, string> = {
   'auth.login': 'เข้าสู่ระบบสำเร็จ',
@@ -49,6 +59,7 @@ const ACTION_LABELS: Record<string, string> = {
   'roadmap.delete': 'ลบ Roadmap',
   'quiz.delete': 'ลบ Quiz',
   'room.purge': 'ลบห้องถาวร',
+  'audit.purge': 'ล้างบันทึกเก่าตามนโยบายเก็บรักษา',
 }
 
 function actionLabel(action: string): string {
@@ -69,8 +80,8 @@ export function AuditPanel() {
   const { data, isLoading } = useAuditLog({
     q: debounced.trim() || undefined,
     category: category !== 'all' ? category : undefined,
-    date_from: dateFrom ? `${dateFrom} 00:00:00` : undefined,
-    date_to: dateTo ? `${dateTo} 23:59:59` : undefined,
+    date_from: localDayBound(dateFrom, false),
+    date_to: localDayBound(dateTo, true),
     offset,
     limit: PAGE,
   })
@@ -104,7 +115,7 @@ export function AuditPanel() {
                 setFilter(e.target.value)
                 setOffset(0)
               }}
-              placeholder="ค้นหารายละเอียด หรือรหัส..."
+              placeholder="ค้นหาการกระทำ รายละเอียด หรือรหัส..."
               className="pl-8 text-xs"
             />
           </div>

@@ -272,13 +272,28 @@ async def _unique_username(base: str) -> str:
     return f"{base[:20]}-{secrets.token_hex(3)}"
 
 
-async def _upsert_google_user(profile: GoogleProfile) -> Tuple[User, bool]:
-    email = profile.email.strip().lower()
-    role, student_id = await derive_role(email)
-
+async def _find_google_user(profile: GoogleProfile) -> Optional[User]:
+    """The account this Google identity belongs to: linked ``google_sub`` first, then the e-mail."""
     user = await get_by_google_sub(profile.sub) if profile.sub else None
     if user is None:
-        user = await get_by_email(email)
+        user = await get_by_email(profile.email.strip().lower())
+    return user
+
+
+async def _upsert_google_user(
+    profile: GoogleProfile,
+    *,
+    derived: Optional[Tuple[str, Optional[str]]] = None,
+    existing: Optional[User] = None,
+) -> Tuple[User, bool]:
+    """
+    ``derived`` / ``existing`` let the login gate pass what it already looked up,
+    so a login costs one ``derive_role`` (and its allowed_teachers query).
+    """
+    email = profile.email.strip().lower()
+    role, student_id = derived if derived is not None else await derive_role(email)
+
+    user = existing if existing is not None else await _find_google_user(profile)
 
     if user is None:
         username = await _unique_username(_sanitize_username(email.split("@", 1)[0]))
@@ -306,6 +321,10 @@ async def _upsert_google_user(profile: GoogleProfile) -> Tuple[User, bool]:
     new_role = None
     if email in admin_emails() and user.role != USER_ROLE_ADMIN:
         new_role = USER_ROLE_ADMIN
+    elif user.role == USER_ROLE_PENDING and role != USER_ROLE_PENDING:
+        # Accounts left "pending" by the old approval flow become what their
+        # e-mail now qualifies for (e.g. a teacher added to allowed_teachers).
+        new_role = role
     updated = await update_profile(
         user.id or 0,
         email=email if user.email != email else None,
@@ -433,9 +452,13 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
 
     # Check role eligibility BEFORE inserting into database
     # Non-eligible accounts (outside 030 student, teacher, or admin) are blocked at the gate.
+    # An existing account whose role an admin already set (student/teacher/admin)
+    # is eligible: the role in the database is the source of truth, not the e-mail.
     email = profile.email.strip().lower()
     role, student_id = await derive_role(email)
-    if role == USER_ROLE_PENDING:
+    existing = await _find_google_user(profile)
+    approved = existing is not None and (existing.role or USER_ROLE_PENDING) != USER_ROLE_PENDING
+    if role == USER_ROLE_PENDING and not approved:
         from siet_platform.audit import log_action
         await log_action(
             actor_id=0,
@@ -450,7 +473,7 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
             detail=f"access_denied_not_eligible:{email}:{safe_name}",
         )
 
-    user, is_new = await _upsert_google_user(profile)
+    user, is_new = await _upsert_google_user(profile, derived=(role, student_id), existing=existing)
     welcome = await points.ensure_welcome(user)
     await touch_last_login(user.id or "")
     fresh = await get_by_id(user.id or 0) or user
