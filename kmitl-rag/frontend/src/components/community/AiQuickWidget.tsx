@@ -172,10 +172,10 @@ export function AiQuickWidget({
   const nextCost = sessionId ? 0 : mode === 'session' ? costs?.rag_session ?? 4 : costs?.rag_question ?? 1
 
   return (
-    <Card ref={cardRef} id="ai-quick-prompt" className="community-rag-card relative w-full border-border shadow-sm">
+    <Card ref={cardRef} id="ai-quick-prompt" className="relative w-full border-border shadow-sm">
       <CardHeader className="pb-2">
         <CardTitle className="flex items-center gap-2 text-sm">
-          <span className="community-rag-icon flex h-7 w-7 items-center justify-center rounded-xl">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-gradient-to-tr from-rose-600 to-pink-500 text-white shadow-2xs">
             <Bot className="h-4 w-4" />
           </span>
           ถาม KMITL RAG AI
