@@ -97,7 +97,7 @@ backend: `api/main.py`, `api/auth.py`, `api/routers/{chat,source_chat,notebooks,
 `open_notebook/utils/embedding.py`
 
 frontend: `(dashboard)/layout.tsx`, `(dashboard)/search/page.tsx`, `components/layout/{AppShell,AppSidebar}.tsx`,
-`components/sources/ChatPanel.tsx`, `lib/hooks/{use-create-dialogs,use-version-check,use-notebook-chat}.ts*`,
+`components/sources/ChatPanel.tsx`, `lib/hooks/{use-create-dialogs,use-notebook-chat}.ts*`,
 `lib/i18n.ts`, `app/globals.css`, `app/layout.tsx`, `components/layout/AppSidebar.test.tsx`, `(dashboard)/search/page.test.tsx` (mock รายชื่อแพ็กเกจเป็นว่าง)
 
 ตอนแก้ conflict: เอาโค้ดของ upstream เป็นหลัก แล้ววางบรรทัด hook กลับเข้าไปที่ตำแหน่งที่มีความหมายเดียวกัน

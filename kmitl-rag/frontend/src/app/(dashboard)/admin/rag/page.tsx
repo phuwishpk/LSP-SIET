@@ -7,6 +7,7 @@ import { AdminPageHeader } from '@siet/platform/components/admin/AdminPageHeader
 import { RagDocumentsPanel } from '@siet/kmitl-rag/components/admin/rag/RagDocumentsPanel'
 import { RagKnowledgePanel } from '@siet/kmitl-rag/components/admin/rag/RagKnowledgePanel'
 import { RagStatsPanel } from '@siet/kmitl-rag/components/admin/rag/RagStatsPanel'
+import { RebuildEmbeddingsPanel } from '@siet/kmitl-rag/components/admin/rag/RebuildEmbeddingsPanel'
 
 export default function AdminRagPage() {
   return (
@@ -24,6 +25,7 @@ export default function AdminRagPage() {
               <TabsTrigger value="overview">ภาพรวม</TabsTrigger>
               <TabsTrigger value="documents">เอกสารที่ AI อ่าน</TabsTrigger>
               <TabsTrigger value="knowledge">แหล่งความรู้</TabsTrigger>
+              <TabsTrigger value="rebuild">สร้าง Embedding ใหม่</TabsTrigger>
             </TabsList>
             <TabsContent value="overview" className="mt-4">
               <RagStatsPanel />
@@ -33,6 +35,11 @@ export default function AdminRagPage() {
             </TabsContent>
             <TabsContent value="knowledge" className="mt-4">
               <RagKnowledgePanel />
+            </TabsContent>
+            <TabsContent value="rebuild" className="mt-4">
+              <div className="max-w-4xl">
+                <RebuildEmbeddingsPanel />
+              </div>
             </TabsContent>
           </Tabs>
         </div>

@@ -24,11 +24,10 @@ export const STAFF_ROUTES = [
   '/notebooks',
   '/sources',
   '/search',
-  '/advanced',
   '/settings',
 ] as const
 
-export const ADMIN_ROUTES = ['/settings', '/advanced', '/admin'] as const
+export const ADMIN_ROUTES = ['/settings', '/admin'] as const
 
 export function canAccessRoute(role: Role, pathname: string): boolean {
   if (role === 'pending') {

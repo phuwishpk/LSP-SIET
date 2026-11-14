@@ -19,7 +19,6 @@ import {
   Bot,
   Settings,
   FileText,
-  Wrench,
   MessageCircleQuestion,
   Plus,
   Sun,
@@ -36,7 +35,6 @@ const getNavigationItems = (t: TFunction) => [
   { name: t('navigation.askAndSearch'), href: '/search', icon: Search, keywords: ['find', 'query'] },
   { name: t('navigation.models'), href: '/settings/models', icon: Bot, keywords: ['ai', 'llm', 'providers', 'openai', 'anthropic'] },
   { name: t('navigation.settings'), href: '/settings', icon: Settings, keywords: ['preferences', 'config', 'options'] },
-  { name: t('navigation.advanced'), href: '/advanced', icon: Wrench, keywords: ['debug', 'system', 'tools'] },
 ]
 
 const getCreateItems = (t: TFunction) => [

@@ -1,7 +1,6 @@
 'use client'
 
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useVersionCheck } from '@/lib/hooks/use-version-check'
 import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
@@ -25,9 +24,6 @@ export default function DashboardLayout({
   // KMITL hooks: a top bar above every page, and an overlay such as a consent dialog
   const Navbar = getSlot('dashboard.navbar')
   const Overlay = getSlot('dashboard.overlay')
-
-  // Check for version updates once per session
-  useVersionCheck(useGate('version-check'))
 
   useEffect(() => {
     // Mark that we've completed the initial auth check

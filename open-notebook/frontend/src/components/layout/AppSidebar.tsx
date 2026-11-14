@@ -37,7 +37,6 @@ import {
   Menu,
   FileText,
   Plus,
-  Wrench,
   Command,
 } from 'lucide-react'
 
@@ -60,7 +59,6 @@ const getNavigation = (t: TFunction) => [
     items: [
       { name: t('navigation.models'), href: '/settings/models', icon: Bot, iconClass: undefined },
       { name: t('navigation.settings'), href: '/settings', icon: Settings, iconClass: undefined },
-      { name: t('navigation.advanced'), href: '/advanced', icon: Wrench, iconClass: undefined },
     ],
   },
 ] as const

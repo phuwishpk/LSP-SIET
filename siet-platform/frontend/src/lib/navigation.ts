@@ -13,7 +13,6 @@ import {
   ShieldCheck,
   Sparkles,
   Users,
-  Wrench,
 } from 'lucide-react'
 
 import { isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
@@ -87,7 +86,6 @@ export const getWorkspaceNavigation = (t: TFunction, role: Role) => [
         ? [
             { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },
             { name: t('navigation.settings'), href: '/settings', icon: Settings },
-            { name: t('navigation.advanced'), href: '/advanced', icon: Wrench },
           ]
         : []),
     ],

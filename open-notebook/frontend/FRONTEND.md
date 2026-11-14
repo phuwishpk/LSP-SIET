@@ -28,11 +28,6 @@ src/app/
     ├── page.tsx                                  # / (Workspace landing)
     ├── dashboard/page.tsx                        # /dashboard (re-export Workspace)
     ├── admin/page.tsx                            # /admin
-    ├── advanced/
-    │   ├── page.tsx                              # /advanced
-    │   └── components/
-    │       ├── RebuildEmbeddings.tsx
-    │       └── SystemInfo.tsx
     ├── community/
     │   ├── page.tsx                              # /community
     │   └── ask/page.tsx                          # /community/ask
@@ -106,11 +101,6 @@ src/app/
 ├── src/components/layout/AppShell.tsx
 └── src/components/ui/{tabs,card,button,badge,input,label,skeleton,
     avatar,dialog,scroll-area}.tsx
-
-/advanced  [src/app/(dashboard)/advanced/page.tsx]
-├── ./components/RebuildEmbeddings.tsx
-├── ./components/SystemInfo.tsx
-└── src/components/layout/AppShell.tsx
 
 /community  [src/app/(dashboard)/community/page.tsx]
 ├── src/components/community/{CommunityHeader,CourseSidebar,CreatorBox,
@@ -220,7 +210,7 @@ src/app/
 
 - `src/app/(dashboard)/layout.tsx` ใช้ `useAuth()` ตรวจ session และ redirect ผู้ใช้ที่ยังไม่ login ไป `/login`
 - `src/lib/roles.ts` เป็นแหล่งกำหนดสิทธิ์ Route: `student` ถูก redirect จากหน้า Staff ไป `/community`; `teacher` และ `admin` เข้าหน้า Staff ได้
-- `/admin`, `/advanced`, `/settings` เป็น Admin-only; Staff route prefix อื่นได้แก่ `/teacher`, `/notebooks`, `/sources`, `/search` (`/transformations` ถูกลบแล้ว: `next.config.ts` redirect ไป `/`)
+- `/admin`, `/settings` เป็น Admin-only; Staff route prefix อื่นได้แก่ `/teacher`, `/notebooks`, `/sources`, `/search` (`/transformations` และ `/advanced` ถูกลบแล้ว: `next.config.ts` redirect ไป `/`; ปุ่ม Rebuild Embeddings ย้ายไปแท็บ "สร้าง Embedding ใหม่" ของ `/admin/rag`)
 
 ## 2. Frontend Project Tree Structure
 

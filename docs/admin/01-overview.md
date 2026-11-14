@@ -66,7 +66,7 @@ docs/figma-admin-plugin/                      ← ปลั๊กอิน Figma
 - **Backend เป็นผู้บังคับ**: `siet-platform/siet_platform/auth_roles.py` มี `ADMIN_PREFIXES` ที่รวม `/api/admin` ไว้
   middleware จะตอบ 403 ให้ทุก path ใต้ prefix นี้ถ้าไม่ใช่ admin และทุก route ใน
   `admin.py` ยังเรียก `_require_admin(user)` ซ้ำอีกชั้น (403 + ข้อความไทย) เผื่อ middleware ถูกแก้
-- **Frontend แค่ซ่อนประตู**: `siet-platform/frontend/src/lib/roles.ts` มี `ADMIN_ROUTES = ['/settings', '/advanced', '/admin']`
+- **Frontend แค่ซ่อนประตู**: `siet-platform/frontend/src/lib/roles.ts` มี `ADMIN_ROUTES = ['/settings', '/admin']`
   และ `canAccessRoute()`; `app/(dashboard)/layout.tsx` จะ `router.replace('/community')`
   ถ้า role เข้าไม่ได้ ส่วน `AppSidebar` แสดงกลุ่มเมนู admin เฉพาะ `isAdmin(role)`
 - หลัง admin ล็อกอิน จะถูกพาไป `/admin` (`lib/auth-redirect.ts`), role อื่นไป `/community`

@@ -32,8 +32,6 @@ const extension: FrontendExtension = {
     'create-dialogs': () => isStaff(useRole()),
     // The setup banner reads admin-only credential status.
     'setup-banner': () => isAdmin(useRole()),
-    // "New Open Notebook version" toasts are noise for students.
-    'version-check': () => false,
   },
 
   slots: {

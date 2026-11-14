@@ -920,8 +920,8 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 2. **ล็อกอินแล้วแต่สิทธิ์ไม่ถึง** → `canAccessRoute()` ใน `lib/roles.ts` ส่งกลับ `/community`
 
 `STAFF_ROUTES` (student เข้าไม่ได้): `/admin` `/teacher` `/notebooks` `/sources`
-`/search` `/advanced` `/settings`
-· `ADMIN_ROUTES`: `/admin` `/settings` `/advanced`
+`/search` `/settings`
+· `ADMIN_ROUTES`: `/admin` `/settings`
 
 ทั้งหมดนี้เป็นแค่การกันหน้าจอ — ตัวบังคับจริงคือ middleware ฝั่ง API (ข้อ 7.6)
 

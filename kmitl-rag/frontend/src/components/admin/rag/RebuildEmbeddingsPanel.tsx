@@ -20,7 +20,12 @@ import { embeddingApi } from '@/lib/api/embedding'
 import type { RebuildEmbeddingsRequest, RebuildStatusResponse } from '@/lib/api/embedding'
 import { useTranslation } from '@/lib/hooks/use-translation'
 
-export function RebuildEmbeddings() {
+/**
+ * Re-embeds sources, notes and insights, e.g. after the embedding model changed.
+ * Shown on /admin/rag; it was the "Rebuild Embeddings" card of the old /advanced
+ * page. Talks to POST /embeddings/rebuild and polls its status.
+ */
+export function RebuildEmbeddingsPanel() {
   const { t } = useTranslation()
   const [mode, setMode] = useState<'existing' | 'all'>('existing')
   const [includeSources, setIncludeSources] = useState(true)
