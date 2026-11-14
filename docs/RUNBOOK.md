@@ -490,3 +490,67 @@ docker logs kmitl_open_notebook_api 2>&1 | Select-String "migration|startup fail
 
 โฟลเดอร์ bind mount ทั้งสามคัดลอกข้ามระบบปฏิบัติการได้ตรง ๆ (เป็นไฟล์ที่คอนเทนเนอร์ Linux
 เขียน ไม่ขึ้นกับ OS ของเครื่อง) ส่วน volume ของ MariaDB ต้องผ่าน dump ของสคริปต์ export เท่านั้น
+
+---
+
+## 8. Production แบบ container เดียว (lsp-siet.site)
+
+ตั้งแต่ 2026-11-14 production ใช้ `docker-compose.prod.yml`: **container เดียว** (`lsp-siet`)
+ที่มี nginx, API, worker, SIET Space, AI Quiz, AI Roadmap, MariaDB, SurrealDB และ Redis อยู่ข้างใน
+ข้อมูลทั้งหมดอยู่ใน volume `lsp-siet_lsp_data` (`/data`) และ image สร้างบน GitHub Actions
+(`ghcr.io/phuwishpk/lsp-siet`) ไม่ต้อง build บน server อีก
+ที่มาและตัวเลขที่วัดได้: [single-container design](superpowers/specs/2026-11-14-single-container-deploy-design.md)
+
+ส่วนที่ 1–7 ข้างบนยังใช้กับเครื่อง dev (`docker-compose.yml` 7 container) เหมือนเดิม
+
+### 8.1 ครั้งแรกบน server
+
+1. `docker login ghcr.io -u <github user>` ใช้ token ที่มีสิทธิ์ `read:packages` (ทำครั้งเดียว)
+2. `.env` ใช้ไฟล์เดิม ชื่อตัวแปรเหมือนเดิม
+3. ซ้อมย้ายบนสำเนาก่อน: ตัวแปร `OLD_*`, `LSP_PROJECT`, `LSP_SIET_CONTAINER`, `LSP_SIET_HTTP_BIND`
+   ในหัวสคริปต์ทำให้สคริปต์ชี้ไปที่สำเนาได้ โดยไม่แตะของจริง
+4. ย้ายจริงจาก 7 container: `./deploy/migrate-to-allinone.sh sha-<7 ตัวอักษร>`
+   สคริปต์จะ dump MariaDB/SurrealDB ไว้ที่ `backups/pre-allinone-<เวลา>`, หยุด stack เก่า (volume เดิมยังอยู่),
+   คัดลอกข้อมูลเข้า volume ใหม่ แล้วเปิด container ใหม่และรอ healthy
+   ย้อนกลับ: `docker compose -f docker-compose.prod.yml down && docker compose -f docker-compose.yml up -d`
+5. ถ้าสคริปต์บอกว่า `volume lsp-siet_lsp_data already exists` แปลว่าเคยลองย้ายมาแล้ว
+   ให้ลบ volume นั้นก่อน (ข้อมูลจริงยังอยู่ใน stack เก่า) ไม่อย่างนั้น dump ใหม่จะไม่ถูกโหลด
+6. container `kmitl_ai_roadmap_pocketbase` ที่ยังรันอยู่เป็นของเก่า (โค้ดเลิกใช้ตั้งแต่ 2026-11-11) ลบได้
+
+### 8.2 Deploy เวอร์ชันใหม่
+
+push เข้า `main` → Actions ตรวจ type + pytest แล้ว build `:sha-<7>` และ `:main` → บน server:
+
+```bash
+./deploy/deploy.sh sha-1a2b3c4
+```
+
+ดึง image ระหว่างที่ตัวเก่ายังรัน แล้วสลับ (ล่มประมาณ 20 วินาที) ถ้าไม่ healthy ใน 180 วินาที
+จะกลับไปใช้ tag ก่อนหน้าเอง
+
+### 8.3 คำสั่งที่ใช้บ่อย
+
+| ทำอะไร | คำสั่ง |
+|---|---|
+| ดู log ทุก service | `docker logs -f lsp-siet` |
+| แรมต่อ service + ทั้ง container | `docker exec lsp-siet lsp-memcheck` (ดูบรรทัด `cgroup:current`) |
+| service ไหนรันอยู่ | `docker exec lsp-siet /command/s6-rc -a list` |
+| สถานะ service เดียว | `docker exec lsp-siet /command/s6-svstat /run/service/api` |
+| restart service เดียว | `docker exec lsp-siet /command/s6-svc -r /run/service/web` |
+| เข้า MariaDB | `docker exec -it lsp-siet env -u MARIADB_HOST mariadb -uroot -p workspace` |
+| backup ทันที | `docker exec lsp-siet lsp-backup` → `/data/backups/<เวลา>/` (เก็บ 7 ชุด) |
+
+ชื่อ service: `nginx api worker web quiz roadmap mariadb surrealdb redis`
+
+backup ทุกคืน (crontab ของ host): `0 3 * * * docker exec lsp-siet lsp-backup`
+วิธี restore อยู่ที่หัวไฟล์ `docker/allinone/rootfs/usr/local/bin/lsp-backup`
+
+### 8.4 ข้อควรรู้
+
+- ทุก service ฟังที่ 127.0.0.1 ใน container มีแค่ nginx ที่ออกพอร์ต 80 และรับเฉพาะ
+  Host `lsp-siet.site` / `localhost` (Host อื่นโดนปิด connection)
+- `mariadb -uroot` ต้องมี `env -u MARIADB_HOST` เสมอ ไม่อย่างนั้น client จะต่อแบบ TCP เป็น
+  `root@127.0.0.1` ซึ่งไม่มี user นี้
+- จำกัดแรมไว้ที่ 1600 MB ถ้าเต็ม kernel จะฆ่าแอป Next ตัวใดตัวหนึ่งก่อน แล้ว s6 เปิดใหม่ให้
+  ฐานข้อมูลที่ตายผิดปกติ 5 ครั้งใน 60 วินาทีจะหยุดทั้ง container เพื่อให้ Docker เริ่มใหม่ทั้งชุด
+- ห้าม `docker compose -f docker-compose.prod.yml down -v` เพราะ `-v` คือลบข้อมูลทั้งหมด

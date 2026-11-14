@@ -1,0 +1,15 @@
+#!/command/with-contenv bash
+exec 2>&1
+# RocksDB caches sized for the 3.3 GB server (design: ~90 MB idle).
+export SURREAL_ROCKSDB_BLOCK_CACHE_SIZE=${SURREAL_ROCKSDB_BLOCK_CACHE_SIZE:-67108864}
+export SURREAL_ROCKSDB_WRITE_BUFFER_SIZE=${SURREAL_ROCKSDB_WRITE_BUFFER_SIZE:-16777216}
+export SURREAL_ROCKSDB_MAX_WRITE_BUFFER_NUMBER=${SURREAL_ROCKSDB_MAX_WRITE_BUFFER_NUMBER:-2}
+export SURREAL_ROCKSDB_THREAD_COUNT=${SURREAL_ROCKSDB_THREAD_COUNT:-2}
+export SURREAL_ROCKSDB_JOBS_COUNT=${SURREAL_ROCKSDB_JOBS_COUNT:-2}
+export SURREAL_ROCKSDB_MAX_OPEN_FILES=${SURREAL_ROCKSDB_MAX_OPEN_FILES:-256}
+export SURREAL_EXPERIMENTAL_GRAPHQL=true
+# Root credentials through the environment, not argv (visible in ps).
+export SURREAL_USER="${SURREAL_USER:-root}" SURREAL_PASS="${SURREAL_PASSWORD:-root}"
+exec /command/s6-notifyoncheck -d -n 0 -w 1000 -c "curl -fsS -o /dev/null http://127.0.0.1:8000/health" \
+  /command/s6-setuidgid lsp surreal start --log info \
+    --bind 127.0.0.1:8000 rocksdb:/data/surreal/mydatabase.db

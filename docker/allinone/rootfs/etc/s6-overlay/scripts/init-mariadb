@@ -1,0 +1,55 @@
+#!/command/with-contenv bash
+# First boot only: create the MariaDB system tables, the app database and its
+# user from MARIADB_* (as the official mariadb image does), then load
+# docker/mariadb-init.sql. On an existing /data/mariadb this does nothing.
+set -euo pipefail
+[ -d /data/mariadb/mysql ] && exit 0
+if [ -n "$(ls -A /data/mariadb)" ]; then
+  echo "[init-mariadb] /data/mariadb has files but no mysql/: not a database this script made, leaving it alone" >&2
+  exit 1
+fi
+
+: "${MARIADB_ROOT_PASSWORD:?MARIADB_ROOT_PASSWORD must be set}"
+: "${MARIADB_PASSWORD:?MARIADB_PASSWORD must be set}"
+DB="${MARIADB_DATABASE:-workspace}"
+USER_="${MARIADB_USER:-workspace}"
+SOCK=/run/mysqld/init.sock
+# MARIADB_HOST (set for the app) would send the clients to TCP: use the socket.
+unset MARIADB_HOST MYSQL_HOST
+
+# Build in a side directory and move it into place only at the end: if a step
+# fails (a bad dump, a wrong password), the next boot starts over instead of
+# finding a half-made database and skipping this script.
+NEW=/data/mariadb.new
+rm -rf "$NEW" && mkdir -p "$NEW" && chown mysql:mysql "$NEW"
+
+echo "[init-mariadb] empty /data/mariadb: creating the database"
+mariadb-install-db --user=mysql --datadir="$NEW" --skip-test-db \
+  --auth-root-authentication-method=normal >/dev/null
+/command/s6-setuidgid mysql mariadbd --datadir="$NEW" --skip-networking --socket="$SOCK" &
+pid=$!
+# On a failed step, do not leave the temporary server running.
+trap 'kill "$pid" 2>/dev/null || true' EXIT
+for _ in $(seq 1 60); do mariadb-admin --protocol=socket --socket="$SOCK" ping >/dev/null 2>&1 && break; sleep 1; done
+
+mariadb --protocol=socket --socket="$SOCK" -uroot <<SQL
+ALTER USER 'root'@'localhost' IDENTIFIED BY '${MARIADB_ROOT_PASSWORD}';
+CREATE DATABASE IF NOT EXISTS \`${DB}\` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER IF NOT EXISTS '${USER_}'@'%' IDENTIFIED BY '${MARIADB_PASSWORD}';
+GRANT ALL PRIVILEGES ON \`${DB}\`.* TO '${USER_}'@'%';
+FLUSH PRIVILEGES;
+SQL
+mariadb --protocol=socket --socket="$SOCK" -uroot -p"${MARIADB_ROOT_PASSWORD}" "$DB" < /etc/lsp/mariadb-init.sql
+# A dump placed in /data/import (deploy/migrate-to-allinone.sh) is loaded once,
+# before the API starts, so the app never runs against an empty database.
+if [ -f /data/import/mariadb.sql ]; then
+  echo "[init-mariadb] loading /data/import/mariadb.sql"
+  mariadb --protocol=socket --socket="$SOCK" -uroot -p"${MARIADB_ROOT_PASSWORD}" < /data/import/mariadb.sql
+  loaded=1
+fi
+
+mariadb-admin --protocol=socket --socket="$SOCK" -uroot -p"${MARIADB_ROOT_PASSWORD}" shutdown
+wait "$pid" || true
+rmdir /data/mariadb && mv "$NEW" /data/mariadb
+[ -n "${loaded:-}" ] && mv /data/import/mariadb.sql /data/import/mariadb.sql.loaded
+echo "[init-mariadb] done"

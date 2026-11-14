@@ -1,0 +1,6 @@
+#!/command/with-contenv bash
+exec 2>&1
+cd /app
+export MALLOC_ARENA_MAX=2
+echo 100 > /proc/self/oom_score_adj
+exec /command/s6-setuidgid lsp /app/.venv/bin/surreal-commands-worker --import-modules commands

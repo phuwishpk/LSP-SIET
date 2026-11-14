@@ -1,0 +1,30 @@
+# LSP-SIET: MariaDB sized for a 3.3 GB server shared with every other service
+# (design: ~90 MB idle). The workspace database is small (tens of MB).
+[mysqld]
+datadir                 = /data/mariadb
+socket                  = /run/mysqld/mysqld.sock
+bind-address            = 127.0.0.1
+port                    = 3306
+skip-name-resolve
+
+performance_schema      = OFF
+innodb_buffer_pool_size = 64M
+innodb_log_buffer_size  = 8M
+innodb_read_io_threads  = 2
+innodb_write_io_threads = 2
+aria_pagecache_buffer_size = 8M
+key_buffer_size         = 8M
+query_cache_type        = 0
+query_cache_size        = 0
+max_connections         = 40
+thread_cache_size       = 8
+table_open_cache        = 256
+table_definition_cache  = 400
+tmp_table_size          = 16M
+max_heap_table_size     = 16M
+
+character-set-server    = utf8mb4
+collation-server        = utf8mb4_unicode_ci
+
+[client]
+socket                  = /run/mysqld/mysqld.sock

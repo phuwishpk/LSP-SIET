@@ -50,3 +50,17 @@ docs
 *.swo
 *~
 .DS_Store
+
+# Runtime data and secrets anywhere in the tree. Every image builds from the
+# repository root, where the plain names above only match top-level folders:
+# without these, `COPY open-notebook/ /app/` would put the live databases,
+# uploads and .env of the machine that builds into the image.
+**/notebook_data
+**/surreal_data
+**/redis_data
+**/pb_data
+open-notebook/data
+backups
+**/.env
+**/.env.local
+**/.env.*.local

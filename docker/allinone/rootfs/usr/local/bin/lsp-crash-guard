@@ -1,0 +1,14 @@
+#!/bin/bash
+# usage (from a finish script): lsp-crash-guard <service> <exit code>
+# Halts the container after 5 abnormal exits of <service> within 60 seconds.
+svc=$1; code=${2:-0}
+[ "$code" = "0" ] && exit 0
+log=/run/lsp-crash-$svc
+now=$(date +%s)
+echo "$now" >> "$log"
+recent=$(awk -v t=$((now - 60)) '$1 >= t' "$log" | wc -l)
+echo "[$svc] exited with $code ($recent times in the last 60 s)"
+if [ "$recent" -ge 5 ]; then
+  echo "[$svc] keeps crashing: stopping the container"
+  /run/s6/basedir/bin/halt
+fi

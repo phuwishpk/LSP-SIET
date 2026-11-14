@@ -1,0 +1,13 @@
+#!/command/with-contenv bash
+# Lay out /data (the one volume) and the runtime dirs every service expects.
+set -euo pipefail
+mkdir -p /data/mariadb /data/surreal /data/app /data/backups /run/mysqld
+chown mysql:mysql /run/mysqld
+chmod 700 /data/backups
+# Files copied in from outside (deploy/migrate-to-allinone.sh, a restore) keep
+# their old owner, and the services run as mysql / lsp: hand over only what is
+# not theirs yet, so a normal boot changes nothing.
+own() { find "$2" ! -user "$1" -print0 | xargs -0 -r chown -h "$1:$1"; }
+own mysql /data/mariadb
+own lsp /data/surreal
+own lsp /data/app
