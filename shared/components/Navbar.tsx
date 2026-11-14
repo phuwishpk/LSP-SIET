@@ -123,6 +123,13 @@ export interface NavbarProps {
 const NAVBAR_FONT =
   "var(--font-nunito, 'Nunito'), var(--font-ibm-plex-thai, 'IBM Plex Sans Thai'), var(--font-noto-thai, 'Noto Sans Thai'), system-ui, sans-serif"
 
+/**
+ * The logo box leaves 26px for the 28px owl. Tailwind 4's preflight
+ * (`img { max-width: 100% }`) fits it in SIET Space and AI Quiz; AI Roadmap
+ * runs without preflight, so the navbar sets it itself.
+ */
+const LOGO_IMG_STYLE: React.CSSProperties = { maxWidth: '100%' }
+
 export type NavbarBellButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { unreadCount?: number }
 
 /**
@@ -664,6 +671,7 @@ export function Navbar({
                 width={32}
                 height={32}
                 className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
+                style={LOGO_IMG_STYLE}
                 onError={(e) => {
                   e.currentTarget.src = OWL_LOGO_DATA_URI
                 }}
@@ -672,6 +680,7 @@ export function Navbar({
               <OwlLogo
                 size={32}
                 className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
+                style={LOGO_IMG_STYLE}
                 alt="SIET Space"
               />
             )}
