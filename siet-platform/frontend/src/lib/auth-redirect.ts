@@ -26,7 +26,9 @@ export function peekPostLoginPath(role?: string | null, disabled?: boolean): str
     } catch {
       stored = null
     }
-    if (stored && (stored.startsWith('/admin') || stored.startsWith('/settings'))) {
+    // /go/* relays exist only to open an app (AI Roadmap): an admin who signed
+    // in on the way there goes on to it.
+    if (stored && (stored.startsWith('/admin') || stored.startsWith('/settings') || stored.startsWith('/go/'))) {
       return stored
     }
     return '/admin'
