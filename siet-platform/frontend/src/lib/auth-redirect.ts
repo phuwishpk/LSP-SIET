@@ -15,6 +15,17 @@ export function rememberPostLoginPath(path: string) {
   }
 }
 
+/**
+ * Where an admin lands after signing in (PR #37: /admin), unless they were on
+ * the way to an admin page or to an app through a /go/* relay (AI Roadmap).
+ */
+export function adminLanding(next?: string | null): string {
+  if (next && (next.startsWith('/admin') || next.startsWith('/settings') || next.startsWith('/go/'))) {
+    return next
+  }
+  return '/admin'
+}
+
 export function peekPostLoginPath(role?: string | null, disabled?: boolean): string {
   if (disabled || role === 'pending') {
     return '/denied'
@@ -26,12 +37,7 @@ export function peekPostLoginPath(role?: string | null, disabled?: boolean): str
     } catch {
       stored = null
     }
-    // /go/* relays exist only to open an app (AI Roadmap): an admin who signed
-    // in on the way there goes on to it.
-    if (stored && (stored.startsWith('/admin') || stored.startsWith('/settings') || stored.startsWith('/go/'))) {
-      return stored
-    }
-    return '/admin'
+    return adminLanding(stored)
   }
   let stored: string | null = null
   try {

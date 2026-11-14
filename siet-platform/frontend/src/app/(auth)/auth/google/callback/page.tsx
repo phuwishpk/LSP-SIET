@@ -9,7 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { authApi } from '@siet/platform/lib/api/auth'
-import { deniedPathForLoginError } from '@siet/platform/lib/auth-redirect'
+import { adminLanding, deniedPathForLoginError } from '@siet/platform/lib/auth-redirect'
 import { getApiUrl } from '@/lib/config'
 import { useAuthStore } from '@/lib/stores/auth-store'
 
@@ -64,7 +64,7 @@ function GoogleCallback() {
           return
         }
         if (data.user?.role === 'admin') {
-          router.replace('/admin')
+          router.replace(adminLanding(data.next))
           return
         }
         if (data.welcome_granted) {

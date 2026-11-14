@@ -111,3 +111,19 @@ async def test_email_outside_the_allowed_domains_goes_to_denied_too(gate, monkey
     assert gate["log_action"].await_args.kwargs["detail"]["reason"] == "domain_not_allowed"
     gate["create_sso_user"].assert_not_awaited()
 
+
+
+@pytest.mark.parametrize(
+    ("started_at", "lands_on"),
+    [
+        ("/go/roadmap?path=%2F", "/go/roadmap?path=%2F"),  # on the way into AI Roadmap
+        ("/admin/rag", "/admin/rag"),
+        ("/community", "/admin"),  # PR #37: an admin's home is /admin
+    ],
+)
+@pytest.mark.asyncio
+async def test_admin_lands_on_admin_unless_heading_for_an_admin_page_or_an_app(gate, monkeypatch, started_at, lands_on):
+    monkeypatch.setattr(ga, "_verify_state", lambda state: started_at)
+    gate["get_by_email"].return_value = _user("admin")
+    out = await _exchange()
+    assert out.next == lands_on

@@ -521,7 +521,9 @@ async def google_exchange(payload: GoogleExchangeRequest) -> GoogleTokenResponse
     if fresh.disabled or fresh.role == USER_ROLE_PENDING:
         target_next = "/denied"
     elif fresh.role == USER_ROLE_ADMIN:
-        target_next = "/admin"
+        # An admin's home is /admin (PR #37), unless the sign-in started on the
+        # way to an admin page or to an app through a /go/* relay (AI Roadmap).
+        target_next = next_path if next_path.startswith(("/admin", "/settings", "/go/")) else "/admin"
     else:
         target_next = next_path
     return GoogleTokenResponse(
