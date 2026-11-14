@@ -257,7 +257,7 @@ navigation, but the API is the enforcement point.
 | Community feed, points, knowledge library, quiz/roadmap generation | yes | yes | yes |
 | Open a discussion room (ห้องพูดคุย) and close the ones they opened | yes | yes | yes |
 | Upload into a course library, create course rooms, publish teaching material | no | yes | yes |
-| Open Notebook research surface (notebooks, sources, notes, chat, search, podcasts, transformations) | no | yes | yes |
+| Open Notebook research surface (notebooks, sources, notes, chat, search, transformations) | no | yes | yes |
 | AI models, API credentials, workspace settings | no | no | yes |
 
 Blocked requests return `403` with `X-Required-Role`.

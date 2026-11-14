@@ -1,4 +1,4 @@
-"""Context building for chat and podcast generation.
+"""Context building for chat.
 
 This is the single implementation behind:
 

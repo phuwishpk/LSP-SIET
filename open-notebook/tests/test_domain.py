@@ -5,16 +5,14 @@ This test suite focuses on validation logic, business rules, and data structures
 that can be tested without database mocking.
 """
 
-import sys
 import tempfile
 from pathlib import Path
-from types import ModuleType, SimpleNamespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import pytest
 from pydantic import ValidationError
 
-from api.podcast_service import PodcastService
 from open_notebook.ai.models import ModelManager
 from open_notebook.domain.base import RecordModel
 from open_notebook.domain.content_settings import ContentSettings
@@ -27,7 +25,6 @@ from open_notebook.domain.notebook import (
 )
 from open_notebook.domain.transformation import Transformation
 from open_notebook.exceptions import InvalidInputError
-from open_notebook.podcasts.models import EpisodeProfile, SpeakerProfile
 
 # ============================================================================
 # TEST SUITE 1: RecordModel Singleton Pattern
@@ -110,18 +107,18 @@ class TestNotebookDomain:
 
     @pytest.mark.asyncio
     async def test_notebook_get_context_includes_source_full_text(self):
-        """Test notebook context includes full source content for podcasts."""
+        """Test notebook context includes full source content for LLM workflows."""
         notebook = Notebook(id="notebook:test", name="Test", description="Test")
         sources = [
             Source(
                 id="source:first",
                 title="First Source",
-                full_text="First source full text for podcast generation.",
+                full_text="First source full text for context building.",
             ),
             Source(
                 id="source:second",
                 title="Second Source",
-                full_text="Second source full text for podcast generation.",
+                full_text="Second source full text for context building.",
             ),
         ]
         get_sources_calls = []
@@ -147,9 +144,9 @@ class TestNotebookDomain:
 
         assert get_sources_calls == [True]
         assert "## Source: First Source" in context
-        assert "First source full text for podcast generation." in context
+        assert "First source full text for context building." in context
         assert "## Source: Second Source" in context
-        assert "Second source full text for podcast generation." in context
+        assert "Second source full text for context building." in context
         assert "Notebook(id=" not in context
 
     @pytest.mark.asyncio
@@ -160,7 +157,7 @@ class TestNotebookDomain:
             Note(
                 id="note:first",
                 title="Research Note",
-                content="Important notebook note for the podcast.",
+                content="Important notebook note for the context.",
             )
         ]
         get_notes_calls = []
@@ -180,7 +177,7 @@ class TestNotebookDomain:
 
         assert get_notes_calls == [True]
         assert "## Note: Research Note" in context
-        assert "Important notebook note for the podcast." in context
+        assert "Important notebook note for the context." in context
 
     @pytest.mark.asyncio
     async def test_notebook_get_context_returns_empty_string_without_content(self):
@@ -440,135 +437,6 @@ class TestNoteDomain:
 
 
 # ============================================================================
-# TEST SUITE 6: Podcast Domain Validation
-# ============================================================================
-
-
-class TestPodcastDomain:
-    """Test suite for Podcast domain validation."""
-
-    def test_speaker_profile_validation(self):
-        """Test speaker profile validates count and required fields."""
-        # Test invalid - no speakers
-        with pytest.raises(ValidationError):
-            SpeakerProfile(
-                name="Test",
-                speakers=[],
-            )
-
-        # Test invalid - too many speakers (> 4)
-        with pytest.raises(ValidationError):
-            SpeakerProfile(
-                name="Test",
-                speakers=[{"name": f"Speaker{i}"} for i in range(5)],
-            )
-
-        # Test invalid - missing required fields
-        with pytest.raises(ValidationError):
-            SpeakerProfile(
-                name="Test",
-                speakers=[
-                    {"name": "Speaker 1"}
-                ],  # Missing voice_id, backstory, personality
-            )
-
-        # Test valid - single speaker with all fields
-        profile = SpeakerProfile(
-            name="Test",
-            speakers=[
-                {
-                    "name": "Host",
-                    "voice_id": "voice123",
-                    "backstory": "A friendly host",
-                    "personality": "Enthusiastic and welcoming",
-                }
-            ],
-        )
-        assert len(profile.speakers) == 1
-        assert profile.speakers[0]["name"] == "Host"
-
-
-class TestPodcastService:
-    """Test suite for podcast service notebook content resolution."""
-
-    @pytest.mark.asyncio
-    async def test_submit_generation_job_uses_notebook_context_content(self):
-        """Test notebook podcast jobs submit real source content, not model repr."""
-        notebook = Notebook(id="notebook:test", name="Test", description="Test")
-        sources = [
-            Source(
-                id="source:first",
-                title="First Source",
-                full_text="First source full text for submitted podcast content.",
-            ),
-            Source(
-                id="source:second",
-                title="Second Source",
-                full_text="Second source full text for submitted podcast content.",
-            ),
-        ]
-        submitted_args = {}
-
-        async def fake_get_sources(self, include_full_text=False):
-            return sources
-
-        async def fake_get_notes(self, include_content=False):
-            return []
-
-        async def fake_get_for_sources(cls, source_ids):
-            return {sid: [] for sid in source_ids}
-
-        def fake_submit_command(app_name, command_name, command_args):
-            submitted_args.update(command_args)
-            return "command:podcast"
-
-        fake_commands_module = ModuleType("commands.podcast_commands")
-        # The real commands/__init__.py runs `from .podcast_commands import
-        # generate_podcast_command` when the package is imported, so the fake
-        # submodule must expose that name or the package import fails before the
-        # patched submit_command is reached.
-        # setattr: dynamic module attribute mypy can't know about
-        setattr(fake_commands_module, "generate_podcast_command", lambda *a, **k: None)
-
-        with (
-            patch.object(
-                EpisodeProfile, "get_by_name", new=AsyncMock(return_value=object())
-            ),
-            patch.object(
-                SpeakerProfile,
-                "get_by_name",
-                new=AsyncMock(
-                    return_value=SimpleNamespace(
-                        id="speaker_profile:speakers", name="Speakers"
-                    )
-                ),
-            ),
-            patch.object(Notebook, "get", new=AsyncMock(return_value=notebook)),
-            patch.object(Notebook, "get_sources", new=fake_get_sources),
-            patch.object(Notebook, "get_notes", new=fake_get_notes),
-            patch.object(
-                SourceInsight, "get_for_sources", new=classmethod(fake_get_for_sources)
-            ),
-            patch("api.podcast_service.submit_command", new=fake_submit_command),
-            patch.dict(
-                sys.modules, {"commands.podcast_commands": fake_commands_module}
-            ),
-        ):
-            job_id = await PodcastService.submit_generation_job(
-                episode_profile_name="Episode",
-                speaker_profile_name="Speakers",
-                episode_name="Episode Name",
-                notebook_id="notebook:test",
-            )
-
-        assert job_id == "command:podcast"
-        content = submitted_args["content"]
-        assert "First source full text for submitted podcast content." in content
-        assert "Second source full text for submitted podcast content." in content
-        assert "Notebook(id=" not in content
-
-
-# ============================================================================
 # TEST SUITE 7: Transformation Domain
 # ============================================================================
 
@@ -636,48 +504,6 @@ class TestContentSettings:
         settings = ContentSettings()
         assert settings.docling_vision is False
         assert ContentSettings(docling_vision=True).docling_vision is True
-
-
-# ============================================================================
-# TEST SUITE 9: Episode Profile Validation
-# ============================================================================
-
-
-class TestEpisodeProfile:
-    """Test suite for EpisodeProfile validation."""
-
-    def test_episode_profile_segment_validation(self):
-        """Test segment count validation (3-20)."""
-        # Test invalid - too few segments
-        with pytest.raises(
-            ValidationError, match="Number of segments must be between 3 and 20"
-        ):
-            EpisodeProfile(
-                name="Test",
-                speaker_config="default",
-                default_briefing="Test briefing",
-                num_segments=2,
-            )
-
-        # Test invalid - too many segments
-        with pytest.raises(
-            ValidationError, match="Number of segments must be between 3 and 20"
-        ):
-            EpisodeProfile(
-                name="Test",
-                speaker_config="default",
-                default_briefing="Test briefing",
-                num_segments=21,
-            )
-
-        # Test valid segment count
-        profile = EpisodeProfile(
-            name="Test",
-            speaker_config="default",
-            default_briefing="Test briefing",
-            num_segments=5,
-        )
-        assert profile.num_segments == 5
 
 
 # ============================================================================

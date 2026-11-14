@@ -16,10 +16,9 @@ use), for example:
 
 Importing the app loads the installed ``siet.extensions`` / ``open_notebook.extensions``
 entry points, so the SIET routers are part of the list. ``.env`` loading is switched
-off (``PYTHON_DOTENV_DISABLED=1``) and nothing is written to disk. The one environment
-variable that changes which routes exist, ``SIET_ENABLE_PODCASTS`` (it keeps the
-podcast routers instead of dropping them), is removed first, so the list is always the
-default build's, whatever the caller's shell has set.
+off (``PYTHON_DOTENV_DISABLED=1``) and nothing is written to disk. No environment
+variable changes which routes exist, so the list is the same whatever the caller's
+shell has set.
 
 ``frontend`` walks the host app directory (``platform/frontend/src/app`` when it exists,
 else ``open-notebook/frontend/src/app``) and turns every ``page.*`` / ``route.*`` file
@@ -68,7 +67,6 @@ def frontend_app_dir() -> Path:
 def api_routes(ordered: bool = False) -> list[str]:
     project = python_project()
     os.environ["PYTHON_DOTENV_DISABLED"] = "1"
-    os.environ.pop("SIET_ENABLE_PODCASTS", None)
     sys.path.insert(0, str(project))
     os.chdir(project)
     try:

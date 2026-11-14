@@ -822,7 +822,7 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | คอนโซลอาจารย์ `/teacher` (ห้อง เอกสาร ผลควิซ สื่อการสอน) | ❌ | ✅ | ✅ |
 | อัปโหลดเข้า **คลังความรู้ของวิชา** | ❌ | ✅ | ✅ |
 | โพสต์ประเภท `material` (สื่อการสอน) | ❌ | ✅ | ✅ |
-| เข้าส่วน Open Notebook (notebooks, sources, notes, chat, search, podcasts, transformations) | ❌ | ✅ | ✅ |
+| เข้าส่วน Open Notebook (notebooks, sources, notes, chat, search, transformations) | ❌ | ✅ | ✅ |
 | ตั้งค่าโมเดล AI / API credential / settings | ❌ | ❌ | ✅ |
 | คอนโซลผู้ดูแล `/admin` | ❌ | ❌ | ✅ |
 | ลบโพสต์ของคนอื่น | ❌ | ❌ | ✅ |
@@ -867,7 +867,7 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 2. **เพิ่มเนื้อหาเข้าคลังของวิชา** (PDF / ลิงก์ / ข้อความ) → กลายเป็นแหล่งอ้างอิงที่
    KMITL RAG AI, AI Quiz และ AI Roadmap ของวิชานั้นใช้ตอบ
 3. โพสต์ `material` ซึ่งไปรวมในเมนู "คลังสื่ออาจารย์"
-4. เข้าส่วน Open Notebook เต็มรูปแบบ (notebook, source, note, chat, search, podcast, transformation)
+4. เข้าส่วน Open Notebook เต็มรูปแบบ (notebook, source, note, chat, search, transformation)
 5. **ไม่ถูกหักแต้ม** และได้โควตากันสแปม ×4 เท่าของนักศึกษา (`SPAM_STAFF_MULTIPLIER`)
    เพราะการอัปโหลดสื่อทั้งเทอมรวดเดียวเป็นเรื่องปกติ
 
@@ -920,7 +920,7 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 2. **ล็อกอินแล้วแต่สิทธิ์ไม่ถึง** → `canAccessRoute()` ใน `lib/roles.ts` ส่งกลับ `/community`
 
 `STAFF_ROUTES` (student เข้าไม่ได้): `/admin` `/teacher` `/notebooks` `/sources`
-`/search` `/podcasts` `/transformations` `/advanced` `/settings`
+`/search` `/transformations` `/advanced` `/settings`
 · `ADMIN_ROUTES`: `/admin` `/settings` `/advanced`
 
 ทั้งหมดนี้เป็นแค่การกันหน้าจอ — ตัวบังคับจริงคือ middleware ฝั่ง API (ข้อ 7.6)
@@ -930,7 +930,7 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 | Prefix | ต้องเป็นอย่างน้อย |
 |---|---|
 | `/api/community/*`, `/api/features/*`, `/api/users/*`, `/api/auth/*`, `/api/config` | ล็อกอิน (student) |
-| `/api/notebooks`, `/api/sources`, `/api/notes`, `/api/insights`, `/api/context`, `/api/transformations`, `/api/podcasts`, `/api/episode-profiles`, `/api/speaker-profiles`, `/api/chat`, `/api/search`, `/api/commands` | teacher |
+| `/api/notebooks`, `/api/sources`, `/api/notes`, `/api/insights`, `/api/context`, `/api/transformations`, `/api/chat`, `/api/search`, `/api/commands` | teacher |
 | `/api/admin`, `/api/credentials`, `/api/settings`, `/api/models`, `/api/embeddings` | admin |
 
 ---

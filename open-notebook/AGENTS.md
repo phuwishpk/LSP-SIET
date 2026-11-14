@@ -12,7 +12,7 @@ Start in this order — each tier depends on the one below:
 
 1. `make database` — SurrealDB (API fails without it)
 2. `make api` — FastAPI; **schema migrations run automatically on startup** (check logs)
-3. `make worker-start` — surreal-commands worker. **Required**: podcasts, embeddings and source processing are async jobs that silently queue forever without it
+3. `make worker-start` — surreal-commands worker. **Required**: embeddings and source processing are async jobs that silently queue forever without it
 4. `make frontend` — UI (depends on the API for all data)
 
 Or all at once: `make start-all` (status: `make status`, stop: `make stop-all`).

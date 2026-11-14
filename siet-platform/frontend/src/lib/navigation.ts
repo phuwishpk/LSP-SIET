@@ -21,7 +21,7 @@ import { isAdmin, isStaff, type Role } from '@siet/platform/lib/roles'
 
 /**
  * The workspace sidebar: SIET Space first, open-notebook's research tools for
- * staff only, AI features in place of podcasts, and one group per admin
+ * staff only, AI features in their own group, and one group per admin
  * console. It replaces open-notebook's sections rather than adding to them.
  */
 export const getWorkspaceNavigation = (t: TFunction, role: Role) => [

@@ -8,13 +8,7 @@ finalize()   KMITL error envelopes; removes routes the workspace replaces or
              does not offer
 """
 
-import os
-
 ORDER = 10
-
-# Podcasts are upstream code we keep (so syncing upstream stays a clean
-# merge) but do not offer. SIET_ENABLE_PODCASTS=1 brings the routes back.
-PODCAST_PREFIXES = ("/api/podcasts", "/api/episode-profiles", "/api/speaker-profiles")
 
 
 def register() -> None:
@@ -82,12 +76,10 @@ def finalize(app) -> None:
 
     # open-notebook's /api/auth/status only knows the password gate, so it would
     # tell the frontend auth is off while login is JWT-only: keep the one in
-    # siet_platform.routers.users. Podcasts stay off unless enabled.
-    from api.routers import auth, episode_profiles, podcasts, speaker_profiles
+    # siet_platform.routers.users.
+    from api.routers import auth
 
     dropped = [auth.router]
-    if os.getenv("SIET_ENABLE_PODCASTS", "").strip().lower() not in {"1", "true", "yes"}:
-        dropped += [podcasts.router, episode_profiles.router, speaker_profiles.router]
     dropped_modules = {
         getattr(r.endpoint, "__module__", "") for router in dropped for r in router.routes
     }

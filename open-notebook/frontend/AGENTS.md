@@ -16,7 +16,7 @@ Normative rules for working on the Next.js frontend. Architecture and flow walkt
 - All requests go through `apiClient` (`src/lib/api/client.ts`); never create a second axios instance. Auth token is auto-added from localStorage key `auth-storage`.
 - Data fetching uses TanStack Query hooks in `src/lib/hooks/` with `QUERY_KEYS`; mutations invalidate caches and show toasts (sonner). Follow the existing hook shape.
 - FormData requests: nested objects/arrays must be `JSON.stringify`-ed before appending; the interceptor strips Content-Type so the browser sets the multipart boundary — don't re-add it.
-- No automatic request retry — handle failures in the consuming code (podcast retry is an explicit endpoint/hook, not a client retry).
+- No automatic request retry — handle failures in the consuming code.
 
 ## Gotchas
 

@@ -46,7 +46,8 @@ const nextConfig: NextConfig = {
   },
 
   // Redirect the legacy credentials route to the canonical "Models" route so
-  // existing bookmarks and links keep working.
+  // existing bookmarks and links keep working. Pages that were deleted send
+  // their bookmarks to the dashboard (not permanent: a page may come back).
   async redirects() {
     return [
       {
@@ -54,6 +55,7 @@ const nextConfig: NextConfig = {
         destination: '/settings/models',
         permanent: true,
       },
+      { source: '/podcasts', destination: '/', permanent: false },
     ]
   },
 };

@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useSidebarStore } from '@/lib/stores/sidebar-store'
 import { useCreateDialogs } from '@/lib/hooks/use-create-dialogs'
-import { getSlot, useGate, useNavigationExtensions } from '@/lib/extensions'
+import { getSlot, useNavigationExtensions } from '@/lib/extensions'
 import {
   Tooltip,
   TooltipContent,
@@ -30,7 +30,6 @@ import { Separator } from '@/components/ui/separator'
 import {
   Book,
   Search,
-  Mic,
   Bot,
   Shuffle,
   Settings,
@@ -58,12 +57,6 @@ const getNavigation = (t: TFunction) => [
     ],
   },
   {
-    title: t('navigation.create'),
-    items: [
-      { name: t('navigation.podcasts'), href: '/podcasts', icon: Mic, iconClass: 'text-mauve' },
-    ],
-  },
-  {
     title: t('navigation.manage'),
     items: [
       { name: t('navigation.models'), href: '/settings/models', icon: Bot, iconClass: undefined },
@@ -85,18 +78,17 @@ function LogoPebbles({ className }: { className?: string }) {
   )
 }
 
-type CreateTarget = 'source' | 'notebook' | 'podcast'
+type CreateTarget = 'source' | 'notebook'
 
 export function AppSidebar() {
   const { t } = useTranslation()
-  // KMITL hooks: extensions reshape the navigation, gate podcasts, fill the footer
+  // KMITL hooks: extensions reshape the navigation and fill the footer
   const navigation = useNavigationExtensions(getNavigation(t))
-  const showPodcasts = useGate('podcasts')
   const SidebarFooter = getSlot<{ collapsed: boolean }>('sidebar.footer')
   const pathname = usePathname()
   const { logout } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()
-  const { openSourceDialog, openNotebookDialog, openPodcastDialog } = useCreateDialogs()
+  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
 
   // The active item is the longest href that prefixes the current path.
   // Longest-wins keeps `/settings` from also highlighting on `/settings/models`
@@ -122,8 +114,6 @@ export function AppSidebar() {
       openSourceDialog()
     } else if (target === 'notebook') {
       openNotebookDialog()
-    } else if (target === 'podcast') {
-      openPodcastDialog()
     }
   }
 
@@ -237,18 +227,6 @@ export function AppSidebar() {
                    <Book className="h-4 w-4" />
                   {t('common.notebook')}
                 </DropdownMenuItem>
-                {showPodcasts && (
-                  <DropdownMenuItem
-                    onSelect={(event) => {
-                      event.preventDefault()
-                      handleCreateSelection('podcast')
-                    }}
-                    className="gap-2"
-                  >
-                     <Mic className="h-4 w-4" />
-                    {t('common.podcast')}
-                  </DropdownMenuItem>
-                )}
               </DropdownMenuContent>
             </DropdownMenu>
           </div>

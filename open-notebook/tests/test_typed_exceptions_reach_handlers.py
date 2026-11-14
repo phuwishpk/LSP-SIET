@@ -87,24 +87,10 @@ CASES = [
         {"mode": "existing"},
     ),
     (
-        "episode_profiles",
-        "api.routers.episode_profiles.EpisodeProfile.get_all",
-        "GET",
-        "/api/episode-profiles",
-        None,
-    ),
-    (
         "insights",
         "api.routers.insights.SourceInsight.get",
         "GET",
         "/api/insights/source_insight:1",
-        None,
-    ),
-    (
-        "podcasts",
-        "api.routers.podcasts.PodcastService.list_episodes",
-        "GET",
-        "/api/podcasts/episodes",
         None,
     ),
     (
@@ -119,13 +105,6 @@ CASES = [
         "api.routers.settings.ContentSettings.get_instance",
         "GET",
         "/api/settings",
-        None,
-    ),
-    (
-        "speaker_profiles",
-        "api.routers.speaker_profiles.SpeakerProfile.get_all",
-        "GET",
-        "/api/speaker-profiles",
         None,
     ),
     (

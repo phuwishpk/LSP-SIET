@@ -56,7 +56,6 @@ src/app/
     │       ├── NotesColumn.tsx
     │       ├── RecentlyViewed.tsx
     │       └── SourcesColumn.tsx
-    ├── podcasts/page.tsx                         # /podcasts
     ├── search/page.tsx                           # /search
     ├── settings/
     │   ├── page.tsx                              # /settings
@@ -157,12 +156,6 @@ src/app/
 └── src/lib/{hooks/use-notebooks.ts,hooks/use-sources.ts,hooks/use-notes.ts,
     stores/notebook-columns-store.ts}
 
-/podcasts  [src/app/(dashboard)/podcasts/page.tsx]
-├── src/components/podcasts/EpisodesTab.tsx
-├── src/components/podcasts/TemplatesTab.tsx
-├── src/components/layout/AppShell.tsx
-└── src/lib/hooks/use-podcasts.ts
-
 /search  [src/app/(dashboard)/search/page.tsx]
 ├── src/components/search/{SessionSidebar,AskChatView}.tsx
 ├── src/components/ui/{tabs,input,button,radio-group,label,checkbox,
@@ -244,7 +237,7 @@ src/app/
 
 - `src/app/(dashboard)/layout.tsx` ใช้ `useAuth()` ตรวจ session และ redirect ผู้ใช้ที่ยังไม่ login ไป `/login`
 - `src/lib/roles.ts` เป็นแหล่งกำหนดสิทธิ์ Route: `student` ถูก redirect จากหน้า Staff ไป `/community`; `teacher` และ `admin` เข้าหน้า Staff ได้
-- `/admin`, `/advanced`, `/settings` เป็น Admin-only; Staff route prefix อื่นได้แก่ `/teacher`, `/notebooks`, `/sources`, `/search`, `/podcasts`, `/transformations`
+- `/admin`, `/advanced`, `/settings` เป็น Admin-only; Staff route prefix อื่นได้แก่ `/teacher`, `/notebooks`, `/sources`, `/search`, `/transformations`
 
 ## 2. Frontend Project Tree Structure
 
@@ -269,7 +262,6 @@ src/
 │   ├── errors/                  # Connection error overlays
 │   ├── layout/                  # App shell/sidebar/setup banner
 │   ├── notebooks/               # Notebook dialogs/layout pieces
-│   ├── podcasts/                # Podcast tabs/cards/forms
 │   ├── providers/               # React context providers
 │   ├── search/                  # Search/Ask chat components
 │   ├── settings/                # Model/settings dialogs
@@ -368,7 +360,6 @@ src/components/
 | `src/components/admin/` | `/admin` |
 | `src/components/community/` | `/community`, `/community/ask`, `/features` |
 | `src/components/notebooks/` | `/notebooks` และ dialog สำหรับ Notebook |
-| `src/components/podcasts/` | `/podcasts` |
 | `src/components/search/` | `/search` |
 | `src/components/settings/` | `/settings/api-keys` |
 | `src/components/source/` | `/sources/[id]` |

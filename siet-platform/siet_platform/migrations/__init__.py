@@ -14,6 +14,7 @@ they now run as k1..k8 and are recorded in ``_siet_migrations``:
     k6  flexible quiz/roadmap objects    (was core 23)
     k7  drop unused tables               (was core 24)
     k8  roadmap settings                 (was core 25)
+    k9  drop podcast tables again        (core 20-22 recreate them)
 
 They run on API startup right after the core migrations. A database migrated
 before the split still has 19-25 in ``_sbl_migrations``: the API refuses to
@@ -32,7 +33,7 @@ from open_notebook.database.async_migrate import AsyncMigration
 from open_notebook.database.repository import db_connection, repo_query
 
 MIGRATIONS_DIR = Path(__file__).resolve().parent
-MIGRATION_IDS = list(range(1, 9))
+MIGRATION_IDS = list(range(1, 10))
 TABLE = "_siet_migrations"
 # Core migrations that open-notebook ran before the split, now k2..k8.
 LEGACY_CORE_VERSIONS = {19: 2, 20: 3, 21: 4, 22: 5, 23: 6, 24: 7, 25: 8}

@@ -34,8 +34,6 @@ const extension: FrontendExtension = {
     'setup-banner': () => isAdmin(useRole()),
     // "New Open Notebook version" toasts are noise for students.
     'version-check': () => false,
-    // Podcasts are kept from upstream but not offered (api: SIET_ENABLE_PODCASTS).
-    podcasts: () => process.env.NEXT_PUBLIC_SIET_ENABLE_PODCASTS === '1',
   },
 
   slots: {

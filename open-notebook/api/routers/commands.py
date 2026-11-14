@@ -13,7 +13,7 @@ router = APIRouter()
 
 class CommandExecutionRequest(BaseModel):
     command: str = Field(
-        ..., description="Command function name (e.g., 'generate_podcast')"
+        ..., description="Command function name (e.g., 'embed_note')"
     )
     app: str = Field(..., description="Application name (e.g., 'open_notebook')")
     input: Dict[str, Any] = Field(..., description="Arguments to pass to the command")
@@ -43,13 +43,10 @@ async def execute_command(request: CommandExecutionRequest):
 
     Example request:
     {
-        "command": "generate_podcast",
+        "command": "embed_note",
         "app": "open_notebook",
         "input": {
-            "episode_profile": "tech_experts",
-            "speaker_profile": "tech_experts",
-            "episode_name": "My Episode",
-            "content": "Content to discuss"
+            "note_id": "note:abc123"
         }
     }
     """

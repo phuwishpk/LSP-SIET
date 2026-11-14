@@ -28,8 +28,13 @@ describe('i18next interpolation', () => {
   })
 
   it('resolves plural forms from the base key', () => {
-    expect(i18n.t('podcasts.usedByCount', { count: 1 })).toBe('Used by 1 episode')
-    expect(i18n.t('podcasts.usedByCount', { count: 3 })).toBe('Used by 3 episodes')
+    // No en-US key is plural today, so the test brings its own.
+    i18n.addResources('en-US', 'translation', {
+      pluralProbe_one: 'Used by 1 item',
+      pluralProbe_other: 'Used by {{count}} items',
+    })
+    expect(i18n.t('pluralProbe', { count: 1 })).toBe('Used by 1 item')
+    expect(i18n.t('pluralProbe', { count: 3 })).toBe('Used by 3 items')
   })
 
   it('does not escape interpolated values (React escapes at render)', () => {

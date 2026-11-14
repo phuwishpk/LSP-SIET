@@ -56,7 +56,6 @@ Normative rules for working on the Python backend. Architecture and design ratio
 
 - Retry config uses a blocklist: `stop_on: [ValueError]` — raise `ValueError` for permanent failures (no retry, job marked `failed`); any other exception auto-retries.
 - Submission is fire-and-forget via `submit_command()`; commands must be idempotent-ish under retry.
-- Podcast generation uses `max_attempts: 1` on purpose (prevents duplicate episodes); retry is the explicit `POST /podcasts/episodes/{id}/retry` endpoint.
 
 ## Prompts (`prompts/`)
 
@@ -78,4 +77,4 @@ Normative rules for working on the Python backend. Architecture and design ratio
 
 ## Deep dives
 
-[architecture](../docs/7-DEVELOPMENT/architecture.md) · [credentials](../docs/7-DEVELOPMENT/credentials.md) · [content processing](../docs/7-DEVELOPMENT/content-processing.md) · [podcasts](../docs/7-DEVELOPMENT/podcasts.md) · [prompts](../docs/7-DEVELOPMENT/prompts.md) · [change playbooks](../docs/7-DEVELOPMENT/change-playbooks.md) · [testing](../docs/7-DEVELOPMENT/testing.md)
+[architecture](../docs/7-DEVELOPMENT/architecture.md) · [credentials](../docs/7-DEVELOPMENT/credentials.md) · [content processing](../docs/7-DEVELOPMENT/content-processing.md) · [prompts](../docs/7-DEVELOPMENT/prompts.md) · [change playbooks](../docs/7-DEVELOPMENT/change-playbooks.md) · [testing](../docs/7-DEVELOPMENT/testing.md)

@@ -122,7 +122,7 @@ siet_platform = "siet_platform.extension"
 
 | hook | ชนิด | ถูกเรียกที่ (upstream) | ใครลงทะเบียน → ทำอะไร |
 |---|---|---|---|
-| `install_app` / `finalize_app` | app | `api/main.py` | ทุกแพ็กเกจ → router; platform → RoleAccessMiddleware, error 429/503, ปิด `/auth/status` ของ upstream และ podcasts |
+| `install_app` / `finalize_app` | app | `api/main.py` | ทุกแพ็กเกจ → router; platform → RoleAccessMiddleware, error 429/503, ปิด `/auth/status` ของ upstream |
 | `app.startup` / `app.shutdown` | event | `api/main.py` lifespan | platform → migration k-track (critical), schema, seed, tuner; community → `siet.seed_demo_data` |
 | auth backend | auth | `api/auth.py` `PasswordAuthMiddleware.dispatch` | platform → JWT (`WorkspaceAuthBackend`) |
 | `call_provider` / `is_final_provider_error` | provider | `utils/embedding.py` | platform → throttle + usage |
@@ -146,7 +146,7 @@ export default object ชนิด `FrontendExtension` จาก `<pkg>/frontend
 | `getSlot('dashboard.navbar')` | `(dashboard)/layout.tsx` | platform → แถบนำทางด้านบนของทุกหน้า (`AppNavbar`) |
 | `getSlot('dashboard.overlay')` | `(dashboard)/layout.tsx` | platform → กล่องขอความยินยอม PDPA (`PdpaConsentDialog`) |
 | `useRouteGate` | `(dashboard)/layout.tsx` | platform → pending → `/pending`, หน้าที่บทบาทเข้าไม่ได้ → `/community` |
-| `useGate(...)` | layout, `AppShell`, `AppSidebar`, `use-create-dialogs` | platform → `command-palette`, `create-dialogs` (staff), `setup-banner` (admin), `version-check` (ปิด), `podcasts` (ปิด เว้น `NEXT_PUBLIC_SIET_ENABLE_PODCASTS=1`) |
+| `useGate(...)` | layout, `AppShell`, `AppSidebar`, `use-create-dialogs` | platform → `command-palette`, `create-dialogs` (staff), `setup-banner` (admin), `version-check` (ปิด) |
 | `getSlot('search.page')` | `search/page.tsx` | rag → หน้า `/search` แบบ global chat |
 | `getSlot('chat.message-footer')` | `ChatPanel` | rag → รายการอ้างอิงใต้คำตอบ |
 | `emitExtensionEvent('notebook-chat.first-reply')` | `useNotebookChat` | rag → ตั้งชื่อเซสชันอัตโนมัติ |
@@ -175,8 +175,8 @@ SIET Space เขียน cookie เฉพาะตอนผู้ใช้เ�
 ## 5. migration ของ SurrealDB
 
 migration ของ open-notebook (1, 2, 3 ...) อยู่ใน `_sbl_migrations` ของ KMITL อยู่ใน `_siet_migrations`
-ชื่อ `k1`…`k8` ไฟล์อยู่ที่ `siet-platform/siet_platform/migrations/` รันตอน API start ต่อจากของ core
-**เพิ่ม migration ใหม่** = สร้าง `k9.surrealql` + `k9_down.surrealql` แล้วเพิ่ม 9 ใน `MIGRATION_IDS`
+ชื่อ `k1`…`k9` (`k9` ลบตาราง podcast) ไฟล์อยู่ที่ `siet-platform/siet_platform/migrations/` รันตอน API start ต่อจากของ core
+**เพิ่ม migration ใหม่** = สร้าง `k10.surrealql` + `k10_down.surrealql` แล้วเพิ่ม 10 ใน `MIGRATION_IDS`
 ห้ามแตะเลขของ core รายละเอียดการย้ายฐานข้อมูลเก่าอยู่ใน `docs/UPSTREAM.md` ข้อ 5
 
 ## 6. ของใหม่ควรวางที่ไหน
