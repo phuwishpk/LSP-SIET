@@ -24,7 +24,6 @@ export const STAFF_ROUTES = [
   '/notebooks',
   '/sources',
   '/search',
-  '/transformations',
   '/advanced',
   '/settings',
 ] as const

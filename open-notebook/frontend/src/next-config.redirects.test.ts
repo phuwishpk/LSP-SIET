@@ -8,6 +8,11 @@ describe('next.config redirects', () => {
     expect(redirects).toContainEqual({ source: '/podcasts', destination: '/', permanent: false })
   })
 
+  it('sends the deleted /transformations page to the dashboard', async () => {
+    const redirects = await nextConfig.redirects!()
+    expect(redirects).toContainEqual({ source: '/transformations', destination: '/', permanent: false })
+  })
+
   it('keeps the legacy credentials redirect', async () => {
     const redirects = await nextConfig.redirects!()
     expect(redirects).toContainEqual({

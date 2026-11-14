@@ -136,39 +136,7 @@ class ProviderAvailabilityResponse(BaseModel):
     )
 
 
-# Transformations API models
-class TransformationCreate(BaseModel):
-    name: str = Field(..., description="Transformation name")
-    title: str = Field(..., description="Display title for the transformation")
-    description: str = Field(
-        ..., description="Description of what this transformation does"
-    )
-    prompt: str = Field(..., description="The transformation prompt")
-    apply_default: bool = Field(
-        False, description="Whether to apply this transformation by default"
-    )
-    model_id: Optional[str] = Field(
-        None, description="Model ID to use by default for this transformation"
-    )
-
-
-class TransformationUpdate(BaseModel):
-    name: Optional[str] = Field(None, description="Transformation name")
-    title: Optional[str] = Field(
-        None, description="Display title for the transformation"
-    )
-    description: Optional[str] = Field(
-        None, description="Description of what this transformation does"
-    )
-    prompt: Optional[str] = Field(None, description="The transformation prompt")
-    apply_default: Optional[bool] = Field(
-        None, description="Whether to apply this transformation by default"
-    )
-    model_id: Optional[str] = Field(
-        None, description="Model ID to use by default for this transformation"
-    )
-
-
+# Transformations API models (read-only: the records are internal)
 class TransformationResponse(BaseModel):
     id: str
     name: str
@@ -179,39 +147,6 @@ class TransformationResponse(BaseModel):
     model_id: Optional[str] = None
     created: str
     updated: str
-
-
-class TransformationExecuteRequest(BaseModel):
-    model_config = ConfigDict(protected_namespaces=())
-
-    transformation_id: str = Field(
-        ..., description="ID of the transformation to execute"
-    )
-    input_text: str = Field(..., description="Text to transform")
-    model_id: Optional[str] = Field(
-        None, description="Model ID to use for this transformation run"
-    )
-
-
-class TransformationExecuteResponse(BaseModel):
-    model_config = ConfigDict(protected_namespaces=())
-
-    output: str = Field(..., description="Transformed text")
-    transformation_id: str = Field(..., description="ID of the transformation used")
-    model_id: Optional[str] = Field(None, description="Model ID used")
-
-
-# Default Prompt API models
-class DefaultPromptResponse(BaseModel):
-    transformation_instructions: str = Field(
-        ..., description="Default transformation instructions"
-    )
-
-
-class DefaultPromptUpdate(BaseModel):
-    transformation_instructions: str = Field(
-        ..., description="Default transformation instructions"
-    )
 
 
 # Notes API models
@@ -345,10 +280,15 @@ class SourceCreate(BaseModel):
     file_path: Optional[str] = Field(None, description="File path for upload type")
     content: Optional[str] = Field(None, description="Text content for text type")
     title: Optional[str] = Field(None, description="Source title")
+    # None (absent or null) = apply every transformation marked apply_default;
+    # an explicit list, also [], is used exactly as sent.
     transformations: Optional[List[str]] = Field(
-        default_factory=list,
+        None,
         max_length=50,
-        description="Transformation IDs to apply (max 50)",
+        description=(
+            "Transformation IDs to apply (max 50). Omit to apply the default "
+            "transformations; send [] to apply none"
+        ),
     )
     embed: bool = Field(False, description="Whether to embed content for vector search")
     delete_source: bool = Field(

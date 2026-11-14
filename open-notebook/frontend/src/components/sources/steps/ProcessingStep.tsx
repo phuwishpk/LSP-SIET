@@ -3,9 +3,7 @@
 import { Control, Controller } from "react-hook-form"
 import { useTranslation } from "@/lib/hooks/use-translation"
 import { FormSection } from "@/components/ui/form-section"
-import { CheckboxList } from "@/components/ui/checkbox-list"
 import { Checkbox } from "@/components/ui/checkbox"
-import { Transformation } from "@/lib/types/transformations"
 import { SettingsResponse } from "@/lib/types/api"
 
 interface CreateSourceFormData {
@@ -15,50 +13,23 @@ interface CreateSourceFormData {
   content?: string
   file?: FileList | File
   notebooks?: string[]
-  transformations?: string[]
   embed: boolean
   async_processing: boolean
 }
 
 interface ProcessingStepProps {
   control: Control<CreateSourceFormData>
-  transformations: Transformation[]
-  selectedTransformations: string[]
-  onToggleTransformation: (transformationId: string) => void
-  loading?: boolean
   settings?: SettingsResponse
 }
 
 export function ProcessingStep({
   control,
-  transformations,
-  selectedTransformations,
-  onToggleTransformation,
-  loading = false,
   settings
 }: ProcessingStepProps) {
   const { t } = useTranslation()
-  const transformationItems = transformations.map((transformation) => ({
-    id: transformation.id,
-    title: transformation.title,
-    description: transformation.description
-  }))
 
   return (
     <div className="space-y-8">
-      <FormSection
-        title={`${t('navigation.transformations')} (${t('common.optional')})`}
-        description={t('sources.processDescription')}
-      >
-        <CheckboxList
-          items={transformationItems}
-          selectedIds={selectedTransformations}
-          onToggle={onToggleTransformation}
-          loading={loading}
-          emptyMessage={t('common.noMatches')}
-        />
-      </FormSection>
-
       <FormSection
         title={t('navigation.settings')}
         description={t('sources.processDescription')}

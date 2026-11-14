@@ -57,9 +57,8 @@ class TestTransformationsMaxLength:
                 transformations=make_ids(51, "transformation"),
             )
 
-    def test_default_is_empty_list(self):
-        request = SourceCreate(type="text", content="hi")
-        assert request.transformations == []
+    # "Omitted" (None, apply the defaults) vs "[]" (apply none) is covered in
+    # test_source_default_transformations.py.
 
 
 class TestFormParsingReturns422:

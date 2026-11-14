@@ -192,7 +192,7 @@ def parse_source_form_data(
     url: Optional[str] = Form(None),
     content: Optional[str] = Form(None),
     title: Optional[str] = Form(None),
-    transformations: Optional[str] = Form(None),  # JSON string of transformation IDs
+    transformations: Optional[str] = Form(None),  # JSON list of transformation IDs; absent = defaults
     embed: str = Form("false"),  # Accept as string, convert to bool
     delete_source: str = Form("false"),  # Accept as string, convert to bool
     async_processing: str = Form("false"),  # Accept as string, convert to bool
@@ -220,7 +220,9 @@ def parse_source_form_data(
                 status_code=422, detail="Invalid JSON in notebooks field"
             )
 
-    transformations_list = []
+    # Absent (or blank) field -> None: the backend applies the default
+    # transformations. An explicit "[]" stays [] and applies none.
+    transformations_list = None
     if transformations:
         try:
             transformations_list = json.loads(transformations)
@@ -486,6 +488,31 @@ async def _build_content_state(
     return content_state
 
 
+async def resolve_transformations(
+    requested: Optional[List[str]],
+) -> List[Transformation]:
+    """Transformations to run on a new source.
+
+    ``None`` (the request left ``transformations`` out) means every
+    transformation with ``apply_default`` set. A list, also ``[]``, is used
+    exactly as sent: ``[]`` applies none, and an id that does not exist is a 404
+    so nothing is queued.
+    """
+    if requested is None:
+        transformations = await Transformation.get_all(order_by="name asc")
+        return [t for t in transformations if t.apply_default is True]
+
+    resolved: List[Transformation] = []
+    for trans_id in requested:
+        transformation = await Transformation.get(trans_id)
+        if not transformation:
+            raise HTTPException(
+                status_code=404, detail=f"Transformation {trans_id} not found"
+            )
+        resolved.append(transformation)
+    return resolved
+
+
 async def _create_source_async_path(
     source_data: SourceCreate,
     content_state: dict[str, Any],
@@ -688,14 +715,9 @@ async def create_source(
         # Prepare content_state for processing (type validation + SSRF/LFI guards)
         content_state = await _build_content_state(source_data, file_path)
 
-        # Validate transformations exist
-        transformation_ids = source_data.transformations or []
-        for trans_id in transformation_ids:
-            transformation = await Transformation.get(trans_id)
-            if not transformation:
-                raise HTTPException(
-                    status_code=404, detail=f"Transformation {trans_id} not found"
-                )
+        # Explicit ids must exist; a request without the field gets the defaults
+        transformations = await resolve_transformations(source_data.transformations)
+        transformation_ids = [t.id for t in transformations if t.id]
 
         # Branch based on processing mode
         if source_data.async_processing:

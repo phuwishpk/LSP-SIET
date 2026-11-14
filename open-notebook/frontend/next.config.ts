@@ -56,6 +56,7 @@ const nextConfig: NextConfig = {
         permanent: true,
       },
       { source: '/podcasts', destination: '/', permanent: false },
+      { source: '/transformations', destination: '/', permanent: false },
     ]
   },
 };

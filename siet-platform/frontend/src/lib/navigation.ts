@@ -10,7 +10,6 @@ import {
   MessageSquare,
   Search,
   Settings,
-  Shuffle,
   ShieldCheck,
   Sparkles,
   Users,
@@ -84,7 +83,6 @@ export const getWorkspaceNavigation = (t: TFunction, role: Role) => [
     items: [
       { name: t('navigation.teacherConsole', 'จัดการการสอน'), href: '/teacher', icon: GraduationCap },
       ...(isAdmin(role) ? [{ name: t('navigation.models'), href: '/settings/api-keys', icon: Bot }] : []),
-      { name: t('navigation.transformations'), href: '/transformations', icon: Shuffle },
       ...(isAdmin(role)
         ? [
             { name: t('navigation.adminConsole', 'จัดการระบบ'), href: '/admin', icon: ShieldCheck },

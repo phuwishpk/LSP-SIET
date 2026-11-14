@@ -64,15 +64,7 @@ src/app/
     ├── sources/
     │   ├── page.tsx                              # /sources
     │   └── [id]/page.tsx                         # /sources/[id]
-    ├── teacher/page.tsx                          # /teacher
-    └── transformations/
-        ├── page.tsx                              # /transformations
-        └── components/
-            ├── DefaultPromptEditor.tsx
-            ├── TransformationCard.tsx
-            ├── TransformationEditorDialog.tsx
-            ├── TransformationPlayground.tsx
-            └── TransformationsList.tsx
+    └── teacher/page.tsx                          # /teacher
 ```
 
 > **ข้อสังเกต Route `/`:** พบ `src/app/page.tsx` และ `src/app/(dashboard)/page.tsx` ซึ่งต่างก็ map ไป `/` ตามกฎ Route Groups ของ Next.js ขณะเดียวกัน `src/proxy.ts` redirect `/` ไป `/login` จึงมีทั้งการประกาศ Route ซ้ำและ redirect ที่ต้องคำนึงถึงเมื่อตรวจสอบ/แก้ Routing
@@ -188,14 +180,6 @@ src/app/
 ├── src/components/layout/AppShell.tsx
 ├── src/components/ui/{badge,button,card,input,label,skeleton,tabs}.tsx
 └── src/lib/{hooks/use-auth.ts,hooks/use-library.ts,api/community.ts}
-
-/transformations  [src/app/(dashboard)/transformations/page.tsx]
-├── ./components/{DefaultPromptEditor,TransformationsList,
-│   TransformationPlayground}.tsx
-├── ./components/TransformationsList.tsx -> ./TransformationCard.tsx
-│   และ ./TransformationEditorDialog.tsx
-├── src/components/layout/AppShell.tsx
-└── src/lib/{hooks/use-transformations.ts,types/transformations.ts}
 ```
 
 ### ลำดับคอมโพเนนต์ย่อยในหน้า Notebook
@@ -237,7 +221,7 @@ src/app/
 
 - `src/app/(dashboard)/layout.tsx` ใช้ `useAuth()` ตรวจ session และ redirect ผู้ใช้ที่ยังไม่ login ไป `/login`
 - `src/lib/roles.ts` เป็นแหล่งกำหนดสิทธิ์ Route: `student` ถูก redirect จากหน้า Staff ไป `/community`; `teacher` และ `admin` เข้าหน้า Staff ได้
-- `/admin`, `/advanced`, `/settings` เป็น Admin-only; Staff route prefix อื่นได้แก่ `/teacher`, `/notebooks`, `/sources`, `/search`, `/transformations`
+- `/admin`, `/advanced`, `/settings` เป็น Admin-only; Staff route prefix อื่นได้แก่ `/teacher`, `/notebooks`, `/sources`, `/search` (`/transformations` ถูกลบแล้ว: `next.config.ts` redirect ไป `/`)
 
 ## 2. Frontend Project Tree Structure
 

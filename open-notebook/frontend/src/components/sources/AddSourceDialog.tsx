@@ -19,7 +19,6 @@ import { SourceTypeStep, parseAndValidateUrls } from './steps/SourceTypeStep'
 import { NotebooksStep } from './steps/NotebooksStep'
 import { ProcessingStep } from './steps/ProcessingStep'
 import { useNotebooks } from '@/lib/hooks/use-notebooks'
-import { useTransformations } from '@/lib/hooks/use-transformations'
 import { useCreateSource } from '@/lib/hooks/use-sources'
 import { useSettings } from '@/lib/hooks/use-settings'
 import { CreateSourceRequest } from '@/lib/types/api'
@@ -34,7 +33,6 @@ const createSourceSchema = z.object({
   content: z.string().optional(),
   file: z.any().optional(),
   notebooks: z.array(z.string()).optional(),
-  transformations: z.array(z.string()).optional(),
   embed: z.boolean(),
   async_processing: z.boolean(),
 }).refine((data) => {
@@ -105,7 +103,6 @@ export function AddSourceDialog({
   const [selectedNotebooks, setSelectedNotebooks] = useState<string[]>(
     defaultNotebookId ? [defaultNotebookId] : []
   )
-  const [selectedTransformations, setSelectedTransformations] = useState<string[]>([])
 
   // Batch-specific state
   const [urlValidationErrors, setUrlValidationErrors] = useState<{ url: string; line: number }[]>([])
@@ -117,7 +114,6 @@ export function AddSourceDialog({
   // API hooks
   const createSource = useCreateSource()
   const { data: notebooks = [], isLoading: notebooksLoading } = useNotebooks()
-  const { data: transformations = [], isLoading: transformationsLoading } = useTransformations()
   const { data: settings } = useSettings()
 
   // Form setup
@@ -135,19 +131,12 @@ export function AddSourceDialog({
       notebooks: defaultNotebookId ? [defaultNotebookId] : [],
       embed: settings?.default_embedding_option === 'always' || settings?.default_embedding_option === 'ask',
       async_processing: true,
-      transformations: [],
     },
   })
 
-  // Initialize form values when settings and transformations are loaded
+  // Initialize form values when settings are loaded
   useEffect(() => {
-    if (settings && transformations.length > 0) {
-      const defaultTransformations = transformations
-        .filter(t => t.apply_default)
-        .map(t => t.id)
-
-      setSelectedTransformations(defaultTransformations)
-
+    if (settings) {
       // Reset form with proper embed value based on settings
       const embedValue = settings.default_embedding_option === 'always' ||
                          (settings.default_embedding_option === 'ask')
@@ -156,10 +145,9 @@ export function AddSourceDialog({
         notebooks: defaultNotebookId ? [defaultNotebookId] : [],
         embed: embedValue,
         async_processing: true,
-        transformations: [],
       })
     }
-  }, [settings, transformations, defaultNotebookId, reset])
+  }, [settings, defaultNotebookId, reset])
 
   // Cleanup effect
   useEffect(() => {
@@ -289,13 +277,6 @@ export function AddSourceDialog({
     setSelectedNotebooks(updated)
   }
 
-  const handleTransformationToggle = (transformationId: string) => {
-    const updated = selectedTransformations.includes(transformationId)
-      ? selectedTransformations.filter(id => id !== transformationId)
-      : [...selectedTransformations, transformationId]
-    setSelectedTransformations(updated)
-  }
-
   // Single source submission
   const submitSingleSource = async (data: CreateSourceFormData): Promise<void> => {
     const createRequest: CreateSourceRequest = {
@@ -304,7 +285,6 @@ export function AddSourceDialog({
       url: data.type === 'link' ? data.url : undefined,
       content: data.type === 'text' ? data.content : undefined,
       title: data.title,
-      transformations: selectedTransformations,
       embed: data.embed,
       delete_source: false,
       async_processing: true,
@@ -354,7 +334,6 @@ export function AddSourceDialog({
           type: item.type === 'url' ? 'link' : 'upload',
           notebooks: selectedNotebooks,
           url: item.type === 'url' ? item.value as string : undefined,
-          transformations: selectedTransformations,
           embed: data.embed,
           delete_source: false,
           async_processing: true,
@@ -436,16 +415,6 @@ export function AddSourceDialog({
     setSelectedNotebooks(defaultNotebookId ? [defaultNotebookId] : [])
     setUrlValidationErrors([])
     setBatchProgress(null)
-
-    // Reset to default transformations
-    if (transformations.length > 0) {
-      const defaultTransformations = transformations
-        .filter(t => t.apply_default)
-        .map(t => t.id)
-      setSelectedTransformations(defaultTransformations)
-    } else {
-      setSelectedTransformations([])
-    }
 
     onOpenChange(false)
   }
@@ -575,10 +544,6 @@ export function AddSourceDialog({
               <ProcessingStep
                 // @ts-expect-error - Type inference issue with zod schema
                 control={control}
-                transformations={transformations}
-                selectedTransformations={selectedTransformations}
-                onToggleTransformation={handleTransformationToggle}
-                loading={transformationsLoading}
                 settings={settings}
               />
             )}

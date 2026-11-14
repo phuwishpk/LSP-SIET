@@ -6,7 +6,7 @@ The `AddSourceDialog` component provides a comprehensive interface for adding ne
 
 - **Multi-type source support**: Links, file uploads, and text content
 - **Multi-notebook selection**: Add sources to multiple notebooks simultaneously  
-- **Transformations**: Apply transformations during source processing
+- **Automatic summaries**: the backend applies the default transformations (`apply_default`) to every new source; the dialog has no picker
 - **Async processing**: Background processing with status monitoring
 - **Form validation**: Comprehensive validation with Zod and React Hook Form
 - **File upload support**: Handle file uploads with progress indicators
@@ -115,7 +115,6 @@ function MyComponent() {
 The component integrates with several custom hooks:
 
 - `useNotebooks()` - Fetches available notebooks
-- `useTransformations()` - Fetches available transformations  
 - `useCreateSource()` - Handles source creation
 - `useSourceStatus()` - Monitors processing status
 
