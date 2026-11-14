@@ -23,7 +23,6 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { ThemeToggle } from '@/components/common/ThemeToggle'
-import { LanguageToggle } from '@/components/common/LanguageToggle'
 import type { TFunction } from 'i18next'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { Separator } from '@/components/ui/separator'
@@ -313,29 +312,16 @@ export function AppSidebar() {
             )}
           >
             {isCollapsed ? (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <ThemeToggle iconOnly />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{t('common.theme')}</TooltipContent>
-                </Tooltip>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <div>
-                      <LanguageToggle iconOnly />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="right">{t('common.language')}</TooltipContent>
-                </Tooltip>
-              </>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <ThemeToggle iconOnly />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="right">{t('common.theme')}</TooltipContent>
+              </Tooltip>
             ) : (
-              <>
-                <ThemeToggle />
-                <LanguageToggle />
-              </>
+              <ThemeToggle />
             )}
           </div>
 

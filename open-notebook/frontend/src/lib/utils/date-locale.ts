@@ -1,30 +1,18 @@
-import { zhCN, enUS, zhTW, ptBR, ja, fr, ru, bn, ca, es, de, pl, tr, Locale } from 'date-fns/locale'
+import { enUS, Locale } from 'date-fns/locale'
 
 /**
- * Mapping of language codes to date-fns locales.
- * Add new languages here as needed.
+ * Mapping of language codes to date-fns locales. en-US is the only language
+ * shipped.
  */
 const LOCALE_MAP: Record<string, Locale> = {
-  'zh-CN': zhCN,
-  'zh-TW': zhTW,
   'en-US': enUS,
-  'pt-BR': ptBR,
-  'ja-JP': ja,
-  'fr-FR': fr,
-  'ru-RU': ru,
-  'bn-IN': bn,
-  'ca-ES': ca,
-  'es-ES': es,
-  'de-DE': de,
-  'pl-PL': pl,
-  'tr-TR': tr,
 }
 
 /**
  * Get the date-fns locale for a given language code.
  * Falls back to English (en-US) if the language is not found.
- * 
- * @param language - The language code (e.g., 'zh-CN', 'en-US')
+ *
+ * @param language - The language code (e.g., 'en-US')
  * @returns The corresponding date-fns Locale object
  */
 export function getDateLocale(language: string): Locale {

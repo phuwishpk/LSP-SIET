@@ -1,7 +1,7 @@
 /**
  * Translations the workspace adds to open-notebook's (merged in by
- * extendI18n, see open-notebook/frontend/src/lib/extensions.ts). Languages
- * without a `features` block fall back to en-US, as before.
+ * extendI18n, see open-notebook/frontend/src/lib/extensions.ts). en-US is the
+ * only language.
  */
 const appName = { common: { appName: 'LSP-SIET' } }
 
@@ -45,18 +45,5 @@ const enUS = {
 }
 
 export const translations: Record<string, Record<string, unknown>> = {
-  'bn-IN': appName,
-  'ca-ES': appName,
-  'de-DE': appName,
   'en-US': enUS,
-  'es-ES': appName,
-  'fr-FR': appName,
-  'it-IT': appName,
-  'ja-JP': appName,
-  'pl-PL': appName,
-  'pt-BR': appName,
-  'ru-RU': appName,
-  'tr-TR': appName,
-  'zh-CN': appName,
-  'zh-TW': appName,
 }

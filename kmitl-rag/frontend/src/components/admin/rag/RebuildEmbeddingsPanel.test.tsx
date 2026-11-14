@@ -15,7 +15,6 @@ vi.mock('@/lib/hooks/use-translation', () => ({
       return text.replace(/\{\{(\w+)\}\}/g, (_, name: string) => String(vars?.[name] ?? ''))
     },
     language: 'en-US',
-    setLanguage: vi.fn(),
   }),
 }))
 

@@ -243,7 +243,7 @@ src/
 ├── lib/                         # API access, hooks, state, types, utilities
 │   ├── api/                     # API clients grouped by domain
 │   ├── hooks/                   # Query, auth and interaction hooks
-│   ├── locales/                 # i18n messages by locale
+│   ├── locales/                 # i18n messages (en-US only)
 │   ├── stores/                  # Zustand stores
 │   ├── types/                   # Shared TS/API models
 │   ├── utils/                   # Domain-specific utility modules
@@ -258,14 +258,14 @@ src/
 src/lib/
 ├── api/                         # Backend API clients
 ├── hooks/                       # Hooks ที่ประกอบ UI กับ API/query state
-├── locales/                     # Locale registry และคำแปล
+├── locales/                     # คำแปล (en-US เท่านั้น)
 ├── stores/                      # Global/local shared client state (Zustand)
 ├── types/                       # Shared domain and API types
 ├── utils/                       # Formatting/error/context helpers
 ├── config.ts                    # API/runtime configuration
 ├── cross-app.ts                 # Cross-app links/token handoff
 ├── external-apps.ts             # URL/config ของแอปภายนอก
-├── i18n.ts, i18n-events.ts      # Internationalization setup/events
+├── i18n.ts                      # Internationalization setup (en-US only)
 ├── roles.ts                     # Role และ route-access policy
 ├── theme-script.ts              # Pre-hydration theme setup
 └── utils.ts                     # Shared helpers เช่น class merge (`cn`)
@@ -313,7 +313,6 @@ src/components/
 │   ├── EmptyState.tsx, LoadingSpinner.tsx
 │   ├── ErrorBoundary.tsx
 │   ├── InlineEdit.tsx
-│   ├── LanguageLoadingOverlay.tsx, LanguageToggle.tsx
 │   ├── ModelSelector.tsx, ReferencesList.tsx, ThemeToggle.tsx
 │   └── ConfirmDialog.test.tsx
 ├── errors/ConnectionErrorOverlay.tsx

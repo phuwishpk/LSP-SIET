@@ -41,7 +41,7 @@ const extension: FrontendExtension = {
     'dashboard.overlay': PdpaConsentDialog,
   },
 
-  // App name "LSP-SIET" in every language, AI-feature strings in en-US
+  // App name "LSP-SIET" and the AI-feature strings (en-US is the only language)
   translations,
 
   useRouteGate(pathname) {

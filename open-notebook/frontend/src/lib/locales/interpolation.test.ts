@@ -42,10 +42,4 @@ describe('i18next interpolation', () => {
       'Are you sure you want to delete "Research & Notes"? This action cannot be undone.',
     )
   })
-
-  it('interpolates in a non-English locale', () => {
-    expect(
-      i18n.t('sources.selectedCount', { count: 4, lng: 'pt-BR' }),
-    ).toContain('4')
-  })
 })

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { renderHook, act } from '@testing-library/react'
+import { renderHook } from '@testing-library/react'
 // Ensure we are testing the real implementation
 vi.unmock('@/lib/hooks/use-translation')
 import { useTranslation } from './use-translation'
@@ -33,13 +33,10 @@ describe('useTranslation Hook', () => {
     expect(result.current.t('common.appName')).toBe('Open Notebook')
   })
 
-  it('should allow changing language via setLanguage', () => {
+  it('does not expose a way to switch language (en-US only)', () => {
     const { result } = renderHook(() => useTranslation())
 
-    act(() => {
-      result.current.setLanguage('zh-CN')
-    })
-
-    expect(changeLanguageMock).toHaveBeenCalledWith('zh-CN')
+    expect(Object.keys(result.current)).not.toContain('setLanguage')
+    expect(changeLanguageMock).not.toHaveBeenCalled()
   })
 })
