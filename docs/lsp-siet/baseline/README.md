@@ -12,11 +12,11 @@ tsc 5.8.3. No `.env`, no SurrealDB, no MariaDB.
 
 | File | Content |
 | --- | --- |
-| `api-routes.txt` | `METHOD /path` of every FastAPI route of `api.main:app`, sorted: 242 lines |
+| `api-routes.txt` | `METHOD /path` of every FastAPI route of `api.main:app`, sorted (C order): 242 lines |
 | `api-routes-ordered.txt` | the same 242 lines in registration order (used by the route-order check) |
-| `frontend-routes.txt` | URL path of every `page.tsx` / `route.ts` under the host app dir, sorted: 37 lines |
-| `backend-failures.txt` | the 78 failing backend tests, sorted `FAILED <node id>` lines |
-| `frontend-failures.txt` | the 4 failing frontend tests, sorted `FAIL <file> > <suite> > <test>` lines |
+| `frontend-routes.txt` | URL path of every `page.tsx` / `route.ts` under the host app dir, sorted (C order): 37 lines |
+| `backend-failures.txt` | the 78 failing backend tests, `FAILED <node id>` lines in C order |
+| `frontend-failures.txt` | the 4 failing frontend tests, `FAIL <file> > <suite> > <test>` lines in C order |
 
 ## Reproduce
 
@@ -32,10 +32,18 @@ $UV_PROJECT_ENVIRONMENT/bin/python scripts/lsp-siet/routes.py diff api         #
 $UV_PROJECT_ENVIRONMENT/bin/python scripts/lsp-siet/routes.py diff frontend
 
 make test-backend ARGS="-p no:cacheprovider -rfE --continue-on-collection-errors" > backend.log 2>&1
-grep -E '^(FAILED|ERROR) ' backend.log | sed -E 's/ - .*$//' | sort        # compare with backend-failures.txt
+grep -E '^(FAILED|ERROR) ' backend.log | sed -E 's/ - .*$//' | LC_ALL=C sort \
+  | diff - docs/lsp-siet/baseline/backend-failures.txt                     # empty output = same failures
 make test-frontend > frontend.log 2>&1
-grep -E '^ *FAIL ' frontend.log | sed -E 's/^ *//; s/ +[0-9]+ms$//' | sort -u   # compare with frontend-failures.txt
+grep -E '^ *FAIL ' frontend.log | sed -E 's/^ *//; s/ +[0-9]+ms$//' | LC_ALL=C sort -u \
+  | diff - docs/lsp-siet/baseline/frontend-failures.txt                    # empty output = same failures
 ```
+
+All baseline files are in C (byte) order, not in the order of the shell's locale: under
+`en_US.UTF-8` a plain `sort` reorders lines that differ only in punctuation (`]`, `)`,
+`{`, space), which shows up as a spurious diff. Always sort with `LC_ALL=C sort` (the
+recipe above does). `routes.py` sorts in Python, whose string order is the same for
+ASCII, so its output needs no `LC_ALL`.
 
 ## Results
 
