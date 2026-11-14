@@ -137,8 +137,11 @@ services:
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
       - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
       # Runtime override (no frontend rebuild needed when the domain changes).
-      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost:3001/quiz}
-      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost:3002/roadmap}
+      # Traefik serves both apps on this same host, so the default is a path:
+      # http://localhost:3001 / :3002 are not published here and a link there
+      # leaves every visitor but the server's own browser on a dead page.
+      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-/quiz}
+      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-/roadmap}
       # Where the browser sends API calls (served to it by /config). Production
       # sets API_URL=https://lsp-siet.site; the default only works on the dev box.
       - NEXT_PUBLIC_API_URL=http://localhost:3000
