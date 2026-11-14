@@ -27,7 +27,7 @@ export default function RootLayout({
           rel="stylesheet"
         />
       </head>
-      <body className="flex h-screen flex-col overflow-hidden bg-[#f8fafc] text-[#0f172a] antialiased font-sans">
+      <body className="flex h-screen flex-col overflow-hidden bg-white text-[#202124] antialiased font-sans">
         <LaunchParams />
         <ThemeWatcher />
         <div className="relative z-[100] shrink-0" style={{ height: '64px', minHeight: '64px' }}>

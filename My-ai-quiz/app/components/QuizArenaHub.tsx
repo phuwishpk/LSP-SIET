@@ -100,7 +100,7 @@ export function QuizArenaHub() {
               ทบทวนบทเรียนด้วย AI Quiz
             </h1>
             <p className="text-slate-600 text-sm sm:text-base font-normal leading-relaxed">
-              ฝึกฝนเดี่ยวด้วยโจทย์ที่ปรับระดับตามความแม่นยำ พร้อมวิเคราะห์จุดอ่อนรายบุคคลแบบ Real-time
+              ฝึกฝนเดี่ยวด้วยโจทย์ที่ปรับตามจุดอ่อน พร้อมทบทวนและติดตามความก้าวหน้า
             </p>
           </div>
 

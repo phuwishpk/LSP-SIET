@@ -39,7 +39,7 @@ NEUTRAL_BG = {50: '#1c1c20', 100: '#27272a', 200: '#3f3f46', 300: '#52525b', 400
 NEUTRAL_TEXT = {300: '#71717a', 400: '#8a8a93', 500: '#a1a1aa', 600: '#d4d4d8', 700: '#e4e4e7', 800: '#f4f4f5', 900: '#fafafa'}
 NEUTRAL_LINE = {100: '#27272a', 200: '#3f3f46', 300: '#52525b'}
 HEX = {'#f8fafc': ('bg', '#09090b'), '#fafbfc': ('bg', '#0f0f12'), '#fffdf7': ('bg', '#1c1917'), '#0f172a': ('both', None),
-       '#1e293b': ('text', '#f4f4f5'), '#e11d48': ('text', '#fb7185'), '#f43f5e': ('text', '#fb7185'),
+       '#1e293b': ('text', '#f4f4f5'), '#202124': ('text', '#fafafa'), '#e11d48': ('text', '#fb7185'), '#f43f5e': ('text', '#fb7185'),
        '#fdf2f8': ('grad', (80, 7, 36, .55)), '#fce7f3': ('grad', (80, 7, 36, .35)), '#ffe4e6': ('grad', (76, 5, 25, .45))}
 
 PROP = {'bg': 'background-color: {v}', 'text': 'color: {v}', 'placeholder': 'color: {v}', 'border': 'border-color: {v}',

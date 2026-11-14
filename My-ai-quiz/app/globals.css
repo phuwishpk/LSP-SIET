@@ -281,6 +281,7 @@ textarea:where(:not(.siet-navbar *)) {
 :root[data-theme='dark'] .hover\:text-rose-700:hover:not(.siet-navbar *) { color: #fda4af; }
 :root[data-theme='dark'] .hover\:text-slate-800:hover:not(.siet-navbar *) { color: #f4f4f5; }
 :root[data-theme='dark'] .text-\[\#0f172a\]:not(.siet-navbar *) { color: #fafafa; }
+:root[data-theme='dark'] .text-\[\#202124\]:not(.siet-navbar *) { color: #fafafa; }
 :root[data-theme='dark'] .text-\[\#f43f5e\]:not(.siet-navbar *) { color: #fb7185; }
 :root[data-theme='dark'] .text-amber-500:not(.siet-navbar *) { color: #fbbf24; }
 :root[data-theme='dark'] .text-amber-600:not(.siet-navbar *) { color: #fbbf24; }
