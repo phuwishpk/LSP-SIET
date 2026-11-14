@@ -79,8 +79,12 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
             style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
             onClick={() => onSelect?.(box.id)}
             aria-pressed={box.id === selectedId}
+            aria-current={box.id === selectedId ? 'step' : undefined}
             title={box.node.label}
           >
+            {box.node.order != null && (
+              <span className="node-order" aria-hidden="true">{box.node.order}</span>
+            )}
             <span className="node-label">{box.node.label}</span>
           </button>
         ))}

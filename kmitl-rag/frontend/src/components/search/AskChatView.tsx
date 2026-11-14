@@ -71,9 +71,9 @@ export function AskChatView({
 
   return (
     <>
-      <div className="flex flex-col h-full">
+      <div className="kmitl-rag-chat flex flex-col h-full">
         {/* Header with settings button */}
-        <div className="flex items-center justify-between px-4 py-3 border-b bg-card flex-shrink-0">
+        <div className="kmitl-rag-chat-header flex items-center justify-between px-4 py-3 border-b bg-card flex-shrink-0">
           <h2 className="flex items-center gap-2 font-semibold text-sm">
             <Bot className="h-4 w-4" />
             {t('chat.globalChat') || 'Global Chat'}
@@ -90,7 +90,7 @@ export function AskChatView({
         </div>
 
         {/* Chat Panel */}
-        <div className="flex-1 min-h-0">
+        <div className="kmitl-rag-chat-content flex-1 min-h-0">
           <ChatPanel
             contextType="notebook"
             title={t('chat.globalChat') || 'Global Chat'}

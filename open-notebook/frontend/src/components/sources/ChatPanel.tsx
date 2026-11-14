@@ -121,8 +121,8 @@ export function ChatPanel({
 
   return (
     <>
-    <Card className="flex flex-col h-full flex-1 overflow-hidden">
-      <CardHeader className="pb-3 flex-shrink-0">
+    <Card className="kmitl-rag-chat-panel flex flex-col h-full flex-1 overflow-hidden">
+      <CardHeader className="kmitl-rag-chat-panel-header pb-3 flex-shrink-0">
         <div className="flex items-center justify-between">
           <CardTitle className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
             <span aria-hidden className="h-3.5 w-[3px] rounded-full bg-teal" />
@@ -184,7 +184,7 @@ export function ChatPanel({
             {isStreaming && (
               <div className="flex gap-3 justify-start">
                 <div className="flex-shrink-0">
-                  <div className="h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
+                  <div className="kmitl-rag-avatar h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
                     <Bot className="h-4 w-4 text-teal" />
                   </div>
                 </div>
@@ -199,7 +199,7 @@ export function ChatPanel({
 
         {/* RAG Status Indicator */}
         {hasRagContext && (
-          <div className="border-t px-4 py-2 bg-green-50 dark:bg-green-950/20">
+          <div className="kmitl-rag-status border-t px-4 py-2 bg-green-50 dark:bg-green-950/20">
             <div className="flex items-center gap-2 text-xs text-green-700 dark:text-green-400">
               <FileText className="h-3 w-3" />
               <span>RAG: กำลังค้นหาจาก notebook ที่เลือก</span>
@@ -300,7 +300,7 @@ function ChatComposer({
   const keyHint = isMac ? '⌘+Enter' : 'Ctrl+Enter'
 
   return (
-    <div className="flex-shrink-0 p-4 space-y-3 border-t">
+    <div className="kmitl-rag-chat-composer flex-shrink-0 p-4 space-y-3 border-t">
       {/* Model selector */}
       {onModelChange && (
         <div className="flex items-center justify-between">
@@ -323,14 +323,14 @@ function ChatComposer({
           onKeyDown={handleKeyDown}
           placeholder={`${t('chat.sendPlaceholder')} (${t('chat.pressToSend', { key: keyHint })})`}
           disabled={isStreaming}
-          className="flex-1 min-h-[40px] max-h-[100px] resize-none py-2 px-3 min-w-0"
+          className="kmitl-rag-chat-input flex-1 min-h-[40px] max-h-[100px] resize-none py-2 px-3 min-w-0"
           rows={1}
         />
         <Button
           onClick={handleSend}
           disabled={!input.trim() || isStreaming}
           size="icon"
-          className="h-[40px] w-[40px] flex-shrink-0"
+          className="kmitl-rag-chat-send h-[40px] w-[40px] flex-shrink-0"
         >
           {isStreaming ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -364,20 +364,20 @@ const ChatMessage = memo(function ChatMessage({
   )
   return (
     <div
-      className={`flex gap-3 ${
+      className={`kmitl-rag-message-row kmitl-rag-message-${message.type} flex gap-3 ${
         message.type === 'human' ? 'justify-end' : 'justify-start'
       }`}
     >
       {message.type === 'ai' && (
         <div className="flex-shrink-0">
-          <div className="h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
+          <div className="kmitl-rag-avatar h-8 w-8 rounded-full bg-teal-tint flex items-center justify-center">
             <Bot className="h-4 w-4 text-teal" />
           </div>
         </div>
       )}
       <div className="flex flex-col gap-2 max-w-[80%]">
         <div
-          className={`rounded-lg px-4 py-2 border ${
+          className={`kmitl-rag-message-bubble rounded-lg px-4 py-2 border ${
             message.type === 'human'
               ? 'bg-muted'
               : 'bg-card'
@@ -406,7 +406,7 @@ const ChatMessage = memo(function ChatMessage({
       </div>
       {message.type === 'human' && (
         <div className="flex-shrink-0">
-          <div className="h-8 w-8 rounded-full bg-muted border flex items-center justify-center">
+          <div className="kmitl-rag-avatar h-8 w-8 rounded-full bg-muted border flex items-center justify-center">
             <User className="h-4 w-4 text-muted-foreground" />
           </div>
         </div>

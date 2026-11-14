@@ -12,37 +12,51 @@
   --card: #fafafa;
   --field: #ffffff;
   --hover: #f7f7f8;
-  --line: #e5e5e5;
-  --line-strong: #cfcfcf;
+  --line: #eae6ea;
+  --line-strong: #d6d0d6;
   --text: #3c3c3c;
   --text-strong: #202124;
-  --muted: #777777;
+  --muted: #707070;
   --link: #1cb0f6;
-  --accent: #ed4988;
-  --accent-hover: #d83a78;
-  --accent-pressed: #c92f6b;
-  --accent-soft: #fce7f0;
-  --accent-light: #f7b7d0;
-  --accent-text: #c92f6b;
-  --on-accent: #ffffff;
+  /* AI Roadmap's identity accent is Roadmap Green (DESIGN.md, PR #38); SIET Pink stays the brand (--siet). */
+  --accent: #00c48c;
+  --accent-hover: #00a879;
+  --accent-pressed: #007f5d;
+  --accent-soft: #e6f8f2;
+  --accent-light: #a7e8d4;
+  --accent-text: #006b4d;
+  --on-accent: #063b2d;
   --siet: #ed4988;
-  --danger: #ff4b4b;
-  --danger-line: #ffb8b8;
-  --danger-solid: #ff4b4b;
-  --danger-hover: #e03b3b;
+  --focus: #c92f6b;
+  --primary-bg: #007a56;
+  --primary-bg-hover: #006b4b;
+  --primary-lip: #005f43;
+  --on-primary: #ffffff;
+  --node-selected-bg: #e6f8f2;
+  --node-selected-bg-hover: #d5f3e9;
+  --node-hover-shadow: 0 4px 12px rgba(0, 196, 140, 0.12);
+  --step-bg: #f1fbf7;
+  --step-line: #b8ead8;
+  --next-bg: #fbfefc;
+  --empty-bg: #fff8fa;
+  --edge-dashed: #00a879;
+  --danger: #e53935;
+  --danger-line: #f2b8b5;
+  --danger-solid: #e53935;
+  --danger-hover: #c62828;
   --warn-bg: #fff6df;
   --warn-line: #f5d08a;
   --warn-text: #7a5a00;
-  --green-bg: #e8f5ec;
-  --green-line: #b7e0c4;
-  --green-text: #2f7a4a;
+  --green-bg: #edf7f0;
+  --green-line: #b7ddc4;
+  --green-text: #205f3c;
   --violet-bg: #f3e8ff;
-  --violet-line: #dcc5ff;
-  --violet-text: #7a3fd1;
+  --violet-line: #e3d8fb;
+  --violet-text: #6035c8;
   --gold: #9a6b00;
   --track: #eeeeee;
   --lane: #fafafa;
-  --lane-alt: #fdf7f9;
+  --lane-alt: #f5fbf8;
   --lane-line: #eeeeee;
   --node-detail: #fafafa;
   --node-detail-text: #555555;
@@ -55,8 +69,8 @@
   --stage-4: #9a4fe0;
   --stage-5: #c92f6b;
   --stage-6: #9a6b00;
-  --shadow-button: 0 4px 0 var(--accent-pressed);
-  --shadow-card: 0 2px 4px rgba(32, 33, 36, 0.04), 0 1px 2px rgba(32, 33, 36, 0.02);
+  --shadow-button: 0 4px 0 var(--primary-lip);
+  --shadow-card: 0 4px 16px rgba(32, 33, 36, 0.04);
   /* The shared Navbar (shared/components/Navbar.tsx) is 64px high. */
   --topbar-h: 64px;
 }
@@ -81,12 +95,26 @@
   --text-strong: #f9edf2;
   --muted: #c4aeb9;
   --link: #7ccdf7;
-  --accent: #f472b6;
-  --accent-hover: #ec4899;
-  --accent-pressed: #db2777;
-  --accent-soft: #4a2b3c;
-  --accent-text: #f9a8d4;
-  --on-accent: #381126;
+  --accent: #34d399;
+  --accent-hover: #6ee7b7;
+  --accent-pressed: #10b981;
+  --accent-soft: #0b3b2e;
+  --accent-light: #065f46;
+  --accent-text: #6ee7b7;
+  --on-accent: #022c22;
+  --focus: #f472b6;
+  --primary-bg: #059669;
+  --primary-bg-hover: #047857;
+  --primary-lip: #065f46;
+  --on-primary: #ffffff;
+  --node-selected-bg: #0b3b2e;
+  --node-selected-bg-hover: #0f4a3a;
+  --node-hover-shadow: 0 4px 12px rgba(52, 211, 153, 0.15);
+  --step-bg: #0f2a22;
+  --step-line: #14532d;
+  --next-bg: #18181b;
+  --empty-bg: #211a1e;
+  --edge-dashed: #34d399;
   --danger: #ff8a8a;
   --danger-line: #7a3a40;
   --danger-solid: #e5484d;
@@ -153,8 +181,12 @@ textarea {
 }
 
 :focus-visible {
-  outline: 2px solid var(--link);
+  outline: 3px solid var(--focus);
   outline-offset: 2px;
+}
+
+.dark .siet-shared-navbar :is(button, a, input):focus-visible {
+  outline-color: #f472b6;
 }
 
 .h1 {
@@ -217,6 +249,65 @@ textarea {
   justify-content: center;
   gap: 14px;
   text-align: center;
+}
+
+.system-state-card {
+  width: min(100%, 28rem);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow-card);
+}
+
+.system-state-icon {
+  width: 36px;
+  height: 36px;
+}
+
+.system-state-brand {
+  color: var(--siet);
+}
+
+.system-state-error {
+  color: var(--danger);
+}
+
+.system-state-spinner {
+  color: var(--accent);
+  animation: system-state-spin 1s linear infinite;
+}
+
+.panel-empty-state {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--empty-bg);
+  box-shadow: var(--shadow-card);
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.panel-empty-state svg {
+  width: 18px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--accent-text);
+}
+
+@keyframes system-state-spin {
+  to { transform: rotate(360deg); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .system-state-spinner { animation: none; }
 }
 
 /* ---- top bar ---------------------------------------------------------- */
@@ -872,7 +963,7 @@ textarea {
 }
 
 .arrow-dashed {
-  fill: var(--accent);
+  fill: var(--edge-dashed);
 }
 
 .line-dashed {
@@ -1097,8 +1188,15 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
 /* Primary action: 16px radius with a flat 4px lip in the pressed colour. */
 .btn-primary {
   border-radius: 16px;
-  box-shadow: 0 4px 0 var(--accent-pressed);
+  background: var(--primary-bg);
+  border-color: var(--primary-bg);
+  color: var(--on-primary);
+  box-shadow: 0 4px 0 var(--primary-lip);
   transition: background-color 140ms ease, transform 140ms ease, box-shadow 140ms ease;
+}
+.btn-primary:hover:not(:disabled) {
+  background: var(--primary-bg-hover);
+  border-color: var(--primary-bg-hover);
 }
 .btn-primary:disabled {
   box-shadow: none;
@@ -1108,7 +1206,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   box-shadow: none;
 }
 .btn-primary:focus-visible {
-  outline: 3px solid var(--link);
+  outline: 3px solid var(--focus);
   outline-offset: 3px;
 }
 
@@ -1118,17 +1216,124 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   border-width: 2px;
 }
 .node-selected {
-  background: var(--accent);
-  border-color: var(--accent-pressed);
-  color: var(--on-accent);
+  background: var(--node-selected-bg);
+  border-color: var(--accent);
+  color: var(--text-strong);
 }
 .node-selected:hover {
-  background: var(--accent-hover);
-  color: var(--on-accent);
+  background: var(--node-selected-bg-hover);
+  border-color: var(--accent-hover);
+  color: var(--text-strong);
 }
 
 @media (prefers-reduced-motion: reduce) {
   .btn-primary { transition: none; }
+}
+
+.balance-chip {
+  border-color: var(--violet-line);
+  background-color: var(--violet-bg);
+  color: var(--violet-text);
+}
+
+.node {
+  gap: 7px;
+  border-color: var(--line-strong);
+  box-shadow: 0 2px 8px rgba(32, 33, 36, 0.04);
+  transition: background-color 140ms ease, border-color 140ms ease, box-shadow 140ms ease;
+}
+
+.node:hover {
+  border-color: var(--accent);
+  box-shadow: var(--node-hover-shadow);
+}
+
+.node:focus-visible {
+  outline: 3px solid var(--accent-text);
+  outline-offset: 3px;
+}
+
+/* .node's border comes after .node-selected in this file: the selected node keeps its accent border. */
+.node.node-selected {
+  border-color: var(--accent);
+}
+
+.node.node-selected:hover {
+  border-color: var(--accent-hover);
+}
+
+.node-order {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 9999px;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 11px;
+  font-weight: 800;
+}
+
+.node-selected .node-order {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+
+.viewer-title-text {
+  border-color: var(--line);
+}
+
+.panel {
+  border-color: var(--line);
+}
+
+.panel-current-step,
+.panel-next-action {
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.panel-current-step {
+  border-color: var(--step-line);
+  background: var(--step-bg);
+}
+
+.panel-next-action {
+  background: var(--next-bg);
+}
+
+.panel-next-action .panel-label {
+  color: var(--accent-text);
+}
+
+.btn-outline-accent {
+  border-color: var(--accent);
+  color: var(--accent-text);
+}
+
+.btn-outline-accent:hover:not(:disabled) {
+  background: var(--accent-soft);
+  border-color: var(--accent-hover);
+  color: var(--accent-text);
+}
+
+.line-dashed {
+  stroke: var(--edge-dashed);
+}
+
+.lane-alt {
+  background: var(--lane-alt);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .node {
+    transition: none;
+  }
 }
 
 /* ==========================================================================
@@ -1273,7 +1478,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   --popover: #ffffff;
   --popover-foreground: #263142;
   --primary: #ed4988;
-  --primary-foreground: #ffffff;
+  --primary-foreground: #202124;
   --secondary: #fff1f5;
   --secondary-foreground: #263142;
   --muted: #f8fafc;
@@ -1315,6 +1520,7 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
    base here - only inside the navbar. `:where()` keeps these below any utility
    class; they come last to win over this file's element rules (a, button).
    ========================================================================== */
+:where(.siet-navbar),
 :where(.siet-navbar) * {
   border: 0 solid;
 }

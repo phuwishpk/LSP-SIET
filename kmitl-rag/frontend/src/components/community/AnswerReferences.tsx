@@ -29,7 +29,7 @@ export function AnswerReferences({ citations = [], webSources = [] }: AnswerRefe
   const size = 'text-xs'
 
   return (
-    <div className={cn('mt-2 space-y-2 border-t pt-2', size)} aria-label="อ้างอิง">
+    <div className={cn('kmitl-rag-reference-list mt-2 space-y-2 border-t pt-2', size)} aria-label="อ้างอิง">
       <p className="font-semibold text-foreground/80">อ้างอิง</p>
 
       {used.length > 0 && (
