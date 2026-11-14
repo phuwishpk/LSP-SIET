@@ -55,8 +55,8 @@ services:
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost}
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
       - NEXT_PUBLIC_AI_ROADMAP_URL=/roadmap
-      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost/quiz}
-      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost/roadmap}
+      - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-/quiz}
+      - AI_ROADMAP_URL=${AI_ROADMAP_URL:-/roadmap}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost}
       # --- sign-in ---
       - GOOGLE_OAUTH_CLIENT_ID=${GOOGLE_OAUTH_CLIENT_ID:-}

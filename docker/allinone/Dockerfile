@@ -170,6 +170,9 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     MARIADB_USER=workspace \
     INTERNAL_API_URL=http://127.0.0.1:5055 \
     OPEN_NOTEBOOK_API_URL=http://127.0.0.1:5055 \
+    # AI Quiz / AI Roadmap live on this same origin (nginx): SIET Space links to them by path.
+    MY_AI_QUIZ_URL=/quiz \
+    AI_ROADMAP_URL=/roadmap \
     NO_PROXY=127.0.0.1,localhost,::1 \
     no_proxy=127.0.0.1,localhost,::1 \
     # s6-overlay: wait up to 10 min for start-up (migrations), stop the
