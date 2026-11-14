@@ -11,9 +11,9 @@ import {
   CircleHelp,
   Coins,
   GraduationCap,
-  Infinity as InfinityIcon,
+  InfinityIcon,
   LogOut,
-  Map as MapIcon,
+  MapIcon,
   Menu,
   Moon,
   Search,
@@ -24,7 +24,7 @@ import {
   Bell,
   TrendingUp,
   TrendingDown,
-} from 'lucide-react'
+} from './NavbarIcons'
 
 declare const process: any
 
@@ -122,6 +122,34 @@ export interface NavbarProps {
  */
 const NAVBAR_FONT =
   "var(--font-nunito, 'Nunito'), var(--font-ibm-plex-thai, 'IBM Plex Sans Thai'), var(--font-noto-thai, 'Noto Sans Thai'), system-ui, sans-serif"
+
+export type NavbarBellButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & { unreadCount?: number }
+
+/**
+ * The bell. A host that passes its own `notifications` menu uses this as the
+ * menu's trigger, so the bell is the same in every app.
+ */
+export const NavbarBellButton = React.forwardRef<HTMLButtonElement, NavbarBellButtonProps>(function NavbarBellButton(
+  { unreadCount = 0, type = 'button', className, ...rest },
+  ref,
+) {
+  return (
+    <button
+      ref={ref}
+      type={type}
+      aria-label="การแจ้งเตือน"
+      {...rest}
+      className={`relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] transition-colors cursor-pointer focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200${className ? ` ${className}` : ''}`}
+    >
+      <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
+      {unreadCount > 0 && (
+        <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
+          {unreadCount > 9 ? '9+' : unreadCount}
+        </span>
+      )}
+    </button>
+  )
+})
 
 /** Where the AI Quiz / AI Roadmap apps keep the token SIET Space handed them. */
 const HANDOFF_TOKEN_KEY = 'kmitlai-workspace-token'
@@ -882,25 +910,16 @@ export function Navbar({
           {/* Notifications Button & Dropdown */}
           {notifications ?? (
             <div className="relative z-[100]" ref={notifRef}>
-              <button
-                type="button"
+              <NavbarBellButton
+                unreadCount={unreadCount}
+                aria-expanded={isNotificationsOpen}
                 onClick={() => {
                   setIsNotificationsOpen(!isNotificationsOpen)
                   setIsDropdownOpen(false)
                   setIsWalletOpen(false)
                   if (onOpenNotifications) onOpenNotifications()
                 }}
-                className="relative flex h-[44px] w-[44px] shrink-0 items-center justify-center rounded-full border-0 bg-transparent p-0 text-[#202124] hover:bg-[#FCE7F0] hover:text-[#C92F6B] transition-colors cursor-pointer focus-visible:outline-[2px] focus-visible:outline-offset-[2px] focus-visible:outline-[#C92F6B] dark:text-zinc-100 dark:hover:bg-zinc-800 dark:hover:text-pink-200"
-                aria-label="การแจ้งเตือน"
-                aria-expanded={isNotificationsOpen}
-              >
-                <Bell size={20} className="h-5 w-5" style={{ width: 20, height: 20 }} />
-                {unreadCount > 0 && (
-                  <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white shadow-xs">
-                    {unreadCount > 9 ? '9+' : unreadCount}
-                  </span>
-                )}
-              </button>
+              />
 
               {isNotificationsOpen && (
                 <div className="community-theme absolute right-0 top-full mt-2 w-80 max-w-[calc(100vw-2rem)] rounded-[16px] border border-[#EAE6EA] bg-white p-0 text-slate-800 shadow-[0_4px_16px_rgba(32,33,36,0.04)] z-[110] overflow-hidden animate-in fade-in-0 zoom-in-95 duration-150 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100" style={{ fontFamily: NAVBAR_FONT }}>

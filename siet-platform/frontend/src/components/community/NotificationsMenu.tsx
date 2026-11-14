@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Bell } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Button } from '@/components/ui/button'
+import { NavbarBellButton } from '@shared/components/Navbar'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Avatar } from '@siet/platform/components/ui/avatar'
 import { useMarkNotificationsRead, useNotifications } from '@siet/platform/lib/hooks/use-community'
@@ -24,14 +24,8 @@ export function NotificationsMenu({ onOpenPost }: { onOpenPost?: (postId: number
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative h-11 w-11 rounded-full focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#C92F6B]" aria-label="การแจ้งเตือน">
-          <Bell className="h-5 w-5" />
-          {unread > 0 && (
-            <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white">
-              {unread > 9 ? '9+' : unread}
-            </span>
-          )}
-        </Button>
+        {/* The navbar's own bell, so it looks the same here as in AI Quiz and AI Roadmap. */}
+        <NavbarBellButton unreadCount={unread} />
       </PopoverTrigger>
       <PopoverContent
         align="end"

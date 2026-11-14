@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { Navbar } from '@shared/components/Navbar'
@@ -224,5 +226,23 @@ describe('SIET Space navbar', () => {
 
     expect(screen.getByLabelText('การแจ้งเตือน').textContent).toContain('3')
     expect(screen.getByLabelText('กระเป๋าแต้ม').textContent).toContain('42')
+  })
+})
+
+describe('the navbar looks the same in every app', () => {
+  it("SIET Space's notifications menu uses the navbar's own bell", () => {
+    render(<AppNavbar />)
+    render(<Navbar user={student} />)
+
+    const [siet, aiApp] = screen.getAllByLabelText('การแจ้งเตือน')
+    expect(siet.className).toBe(aiApp.className)
+    expect(siet.querySelector('svg')?.outerHTML).toBe(aiApp.querySelector('svg')?.outerHTML)
+  })
+
+  it('draws its own icons, whatever lucide-react version the app has', () => {
+    // AI Roadmap has lucide-react 1.x, which draws Coins, BookOpen, Menu, Moon
+    // and CircleCheck differently from the 0.525 of SIET Space and AI Quiz.
+    const source = readFileSync(resolve(__dirname, '../../../../../shared/components/Navbar.tsx'), 'utf8')
+    expect(source).not.toMatch(/from ['"]lucide-react['"]/)
   })
 })
