@@ -31,30 +31,7 @@ export interface SearchResponse {
   search_type: string
 }
 
-// Ask types
-export interface AskRequest {
-  question: string
-  strategy_model: string
-  answer_model: string
-  final_answer_model: string
-  /** Restrict every search of the strategy to these notebooks; omit or empty for all (#574, #87). */
-  notebook_ids?: string[]
-}
-
-export interface AskResponse {
-  answer: string
-  question: string
-}
-
-// SSE Streaming types
-export interface StrategyData {
-  reasoning: string
-  searches: Array<{
-    term: string
-    instructions: string
-  }>
-}
-
+// SSE event of the notebook-scoped Ask (POST /search/ask/notebooks, kmitl-rag)
 export interface AskStreamEvent {
   type: 'strategy' | 'answer' | 'final_answer' | 'complete' | 'error'
   reasoning?: string

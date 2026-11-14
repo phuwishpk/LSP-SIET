@@ -147,7 +147,6 @@ export default object ชนิด `FrontendExtension` จาก `<pkg>/frontend
 | `getSlot('dashboard.overlay')` | `(dashboard)/layout.tsx` | platform → กล่องขอความยินยอม PDPA (`PdpaConsentDialog`) |
 | `useRouteGate` | `(dashboard)/layout.tsx` | platform → pending → `/pending`, หน้าที่บทบาทเข้าไม่ได้ → `/community` |
 | `useGate(...)` | layout, `AppShell`, `AppSidebar`, `use-create-dialogs` | platform → `command-palette`, `create-dialogs` (staff), `setup-banner` (admin), `version-check` (ปิด) |
-| `getSlot('search.page')` | `search/page.tsx` | rag → หน้า `/search` แบบ global chat |
 | `getSlot('chat.message-footer')` | `ChatPanel` | rag → รายการอ้างอิงใต้คำตอบ |
 | `emitExtensionEvent('notebook-chat.first-reply')` | `useNotebookChat` | rag → ตั้งชื่อเซสชันอัตโนมัติ |
 | `extendI18n` | `lib/i18n.ts` | platform → ชื่อแอป "LSP-SIET", คำของหน้า AI Features |

@@ -56,7 +56,7 @@ src/app/
     │       ├── NotesColumn.tsx
     │       ├── RecentlyViewed.tsx
     │       └── SourcesColumn.tsx
-    ├── search/page.tsx                           # /search
+    ├── search/page.tsx                           # /search (stub → @siet/kmitl-rag)
     ├── settings/
     │   ├── page.tsx                              # /settings
     │   ├── api-keys/page.tsx                     # /settings/api-keys
@@ -148,12 +148,12 @@ src/app/
 └── src/lib/{hooks/use-notebooks.ts,hooks/use-sources.ts,hooks/use-notes.ts,
     stores/notebook-columns-store.ts}
 
-/search  [src/app/(dashboard)/search/page.tsx]
-├── src/components/search/{SessionSidebar,AskChatView}.tsx
-├── src/components/ui/{tabs,input,button,radio-group,label,checkbox,
-│   card,badge,collapsible}.tsx
-└── src/lib/{hooks/use-search.ts,hooks/useGlobalChat.ts,hooks/use-models.ts,
-    hooks/use-modal-manager.ts}
+/search  [src/app/(dashboard)/search/page.tsx -> @siet/kmitl-rag/app/(dashboard)/search/page]
+└── kmitl-rag/frontend/src/components/search/WorkspaceSearchPage.tsx
+    ├── {SessionSidebar,AskChatView}.tsx
+    ├── src/components/ui/{tabs,input,button,radio-group,label,checkbox,
+    │   card,badge,collapsible}.tsx
+    └── src/lib/{hooks/use-search.ts,hooks/use-models.ts,hooks/use-modal-manager.ts}
 
 /settings  [src/app/(dashboard)/settings/page.tsx]
 ├── ./components/SettingsForm.tsx
@@ -213,7 +213,6 @@ src/app/
 | HTTP | URL | ไฟล์ | หน้าที่ |
 |---|---|---|---|
 | `GET` | `/config` | `src/app/config/route.ts` | ส่ง Runtime Config เช่น API URL และ URL แอป Quiz/Roadmap |
-| `POST` | `/api/search/ask` | `src/app/api/search/ask/route.ts` | Proxy AI Ask แบบ Streaming |
 | `POST` | `/api/sources/[sourceId]/chat/sessions/[sessionId]/messages` | `src/app/api/sources/[sourceId]/chat/sessions/[sessionId]/messages/route.ts` | Proxy Source Chat แบบ Streaming |
 | — | — | `src/app/api/_sse-proxy.ts` | Shared SSE proxy helper |
 
@@ -247,7 +246,6 @@ src/
 │   ├── layout/                  # App shell/sidebar/setup banner
 │   ├── notebooks/               # Notebook dialogs/layout pieces
 │   ├── providers/               # React context providers
-│   ├── search/                  # Search/Ask chat components
 │   ├── settings/                # Model/settings dialogs
 │   ├── source/                  # Source detail/chat
 │   ├── sources/                 # Add-source flow/list pieces
@@ -344,7 +342,6 @@ src/components/
 | `src/components/admin/` | `/admin` |
 | `src/components/community/` | `/community`, `/community/ask`, `/features` |
 | `src/components/notebooks/` | `/notebooks` และ dialog สำหรับ Notebook |
-| `src/components/search/` | `/search` |
 | `src/components/settings/` | `/settings/api-keys` |
 | `src/components/source/` | `/sources/[id]` |
 | `src/components/sources/` | ขั้นตอนเพิ่ม/แนบ Source และ Source cards |

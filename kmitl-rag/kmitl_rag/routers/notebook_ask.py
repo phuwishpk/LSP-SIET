@@ -143,7 +143,8 @@ async def _stream_notebook_ask_response(
     """
     Stream the notebook-scoped Ask response as SSE.
 
-    Emits the same event types as the global ``stream_ask_response`` but adds:
+    Emits the event types ``strategy``, ``answer``, ``final_answer``, ``complete`` and
+    ``error`` (see ``AskStreamEvent`` in the frontend) and adds:
     - ``resolved_notebooks`` (once, first event) – UI chips for which notebooks were used
     - ``out_of_rag`` (once) – when no RAG was found, the UI shows a disclaimer chip
     - ``cache_match`` (once) – Phase 1: tells the client whether the answer was served

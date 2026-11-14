@@ -328,29 +328,6 @@ class TestNotebookScopedSearchApi:
         assert SearchRequest(query="x").scope_notebook_ids == []
 
 
-class TestAskScopeValidationOrder:
-    """/search/ask validates the scope before touching models (#574, #87)."""
-
-    @patch("api.routers.search.Model.get", new_callable=AsyncMock)
-    @patch("open_notebook.domain.notebook.repo_query", new_callable=AsyncMock)
-    def test_unknown_scope_fails_before_model_lookup(
-        self, mock_query, mock_model_get, client
-    ):
-        mock_query.return_value = []
-        response = client.post(
-            "/api/search/ask",
-            json={
-                "question": "q",
-                "strategy_model": "model:s",
-                "answer_model": "model:a",
-                "final_answer_model": "model:f",
-                "notebook_ids": ["notebook:zzz"],
-            },
-        )
-        assert response.status_code == 404
-        mock_model_get.assert_not_awaited()
-
-
 class TestMigration24:
     """Migration 24 adds the optional notebook scope to both search functions
     and is registered in AsyncMigrationManager (migrations are hard-coded,

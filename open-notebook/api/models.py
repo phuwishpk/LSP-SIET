@@ -37,7 +37,7 @@ class RecentlyViewedResponse(BaseModel):
 
 # Search models
 class NotebookScopeMixin(BaseModel):
-    """Optional notebook scope shared by Search and Ask requests (#574, #87).
+    """Optional notebook scope of a Search request (#574, #87).
 
     Both `notebook_id` (single, the shape #574 proposed and existing clients
     already send) and `notebook_ids` (several) are accepted; `scope_notebook_ids`
@@ -79,18 +79,6 @@ class SearchResponse(BaseModel):
     results: List[Dict[str, Any]] = Field(..., description="Search results")
     total_count: int = Field(..., description="Total number of results")
     search_type: str = Field(..., description="Type of search performed")
-
-
-class AskRequest(NotebookScopeMixin):
-    question: str = Field(..., description="Question to ask the knowledge base")
-    strategy_model: str = Field(..., description="Model ID for query strategy")
-    answer_model: str = Field(..., description="Model ID for individual answers")
-    final_answer_model: str = Field(..., description="Model ID for final answer")
-
-
-class AskResponse(BaseModel):
-    answer: str = Field(..., description="Final answer from the knowledge base")
-    question: str = Field(..., description="Original question")
 
 
 # Models API models

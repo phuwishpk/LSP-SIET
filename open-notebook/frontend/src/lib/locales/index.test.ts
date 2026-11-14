@@ -126,19 +126,27 @@ describe('Unused Key Detection', () => {
     () => {
       const srcDir = path.resolve(__dirname, '../../..')
       const localesDir = path.resolve(__dirname)
+      // The SIET packages (kmitl-rag owns the /search page, ...) read keys of
+      // these locales too, so their sources count as references.
+      const repoRoot = path.resolve(__dirname, '../../../../..')
+      const packageSrcDirs = ['siet-platform', 'kmitl-rag', 'community']
+        .map(dir => path.join(repoRoot, dir, 'frontend/src'))
+        .filter(dir => fs.existsSync(dir))
 
-      const files = fs.readdirSync(srcDir, { recursive: true }) as string[]
-      const sourceFiles = files.filter(f => {
-        const full = path.join(srcDir, f)
-        if (full.startsWith(localesDir)) return false
-        if (f.endsWith('.test.ts') || f.endsWith('.test.tsx')) return false
-        return f.endsWith('.ts') || f.endsWith('.tsx')
-      })
+      const sourceFiles = [srcDir, ...packageSrcDirs].flatMap(root =>
+        (fs.readdirSync(root, { recursive: true }) as string[])
+          .map(f => path.join(root, f))
+          .filter(full => {
+            if (full.startsWith(localesDir)) return false
+            if (full.endsWith('.test.ts') || full.endsWith('.test.tsx')) return false
+            return full.endsWith('.ts') || full.endsWith('.tsx')
+          }),
+      )
 
       // Normalize optional chaining (t?.common?.key → t.common.key)
       // so that keys like "common.errorDetails" match "common?.errorDetails"
       const corpus = sourceFiles
-        .map(f => fs.readFileSync(path.join(srcDir, f), 'utf-8'))
+        .map(f => fs.readFileSync(f, 'utf-8'))
         .join('\n')
         .replace(/\?\./g, '.')
 
