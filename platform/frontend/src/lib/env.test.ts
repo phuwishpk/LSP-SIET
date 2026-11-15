@@ -42,11 +42,44 @@ describe.each(copies)('env() in %s', (_app, load, NEW, OLD) => {
 
   it('env_fallback_new_wins', async () => {
     vi.stubEnv(NEW, 'new')
-    vi.stubEnv(OLD, 'old')
+    vi.stubEnv(OLD, 'new') // the same value under both names: nothing to say
     const { env } = await fresh()
 
     expect(env(NEW)).toBe('new')
     expect(warn).not.toHaveBeenCalled()
+  })
+
+  it('both names with different values warn once and the new one wins', async () => {
+    vi.stubEnv(NEW, 'new')
+    vi.stubEnv(OLD, 'old')
+    const { env } = await fresh()
+
+    expect(env(NEW)).toBe('new')
+    expect(env(NEW)).toBe('new')
+    expect(env(NEW)).toBe('new')
+
+    expect(warn).toHaveBeenCalledTimes(1)
+    const message = String(warn.mock.calls[0][0])
+    expect(message).toContain(NEW)
+    expect(message).toContain(OLD)
+    expect(message).toContain(`${NEW} wins`)
+    expect(message).not.toMatch(/\b(new|old)\b/) // names only, never a value
+  })
+
+  it('a blank name next to a real one is not a conflict', async () => {
+    vi.stubEnv(NEW, '')
+    vi.stubEnv(OLD, 'old')
+    let { env } = await fresh()
+    expect(env(NEW)).toBe('old')
+
+    vi.stubEnv(NEW, 'new')
+    vi.stubEnv(OLD, '')
+    ;({ env } = await fresh())
+    expect(env(NEW)).toBe('new')
+
+    // the first read only said "deprecated" (old name used); nothing about two values
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(String(warn.mock.calls[0][0])).toContain('deprecated')
   })
 
   it('env_fallback_old_used_and_warns', async () => {

@@ -14,6 +14,7 @@ from loguru import logger
 
 from siet_core import env as env_module
 from siet_core.env import LEGACY_NAMES, env
+from siet_core.exceptions import ConfigurationError
 from siet_core.utils import encryption as enc
 
 NEW = "LSP_SIET_CHUNK_SIZE"
@@ -41,10 +42,37 @@ def warnings():
 
 def test_env_fallback_new_wins(monkeypatch, warnings):
     monkeypatch.setenv(NEW, "new")
-    monkeypatch.setenv(OLD, "old")
+    monkeypatch.setenv(OLD, "new")  # the same value under both names: nothing to say
 
     assert env(NEW) == "new"
     assert warnings == []
+
+
+def test_env_both_names_with_different_values_warn_once_and_the_new_one_wins(monkeypatch, warnings):
+    monkeypatch.setenv(NEW, "new")
+    monkeypatch.setenv(OLD, "old")
+
+    assert env(NEW) == "new"
+    assert env(NEW) == "new"
+    assert env(NEW) == "new"
+
+    assert len(warnings) == 1
+    assert NEW in warnings[0] and OLD in warnings[0]
+    assert f"{NEW} wins" in warnings[0] and f"{OLD} is ignored" in warnings[0]
+    assert not re.search(r"\b(new|old)\b", warnings[0])  # names only, never a value
+
+
+def test_env_a_blank_name_next_to_a_real_one_is_not_a_conflict(monkeypatch, warnings):
+    # R31: a blank LSP_SIET_X= copied from .env.example is not a second opinion
+    monkeypatch.setenv(NEW, "")
+    monkeypatch.setenv(OLD, "old")
+    assert env(NEW) == "old"
+    monkeypatch.setenv(NEW, "new")
+    monkeypatch.setenv(OLD, "")
+    assert env(NEW) == "new"
+
+    assert len(warnings) == 1  # only the deprecation of the first read through the old name
+    assert "deprecated" in warnings[0]
 
 
 def test_env_fallback_old_used_and_warns(monkeypatch, warnings):
@@ -106,7 +134,12 @@ def test_secret_file_variant_falls_back_too(monkeypatch, tmp_path, secret, warni
     assert enc.get_secret_from_env(secret) == "from-old-file"
 
     monkeypatch.setenv(f"{secret}_FILE", str(new_file))
-    assert enc.get_secret_from_env(secret) == "from-new-file"
+    if secret in enc.NO_SILENT_SWITCH:
+        # two different keys under the two names: no winner (test_credentials_old_key.py)
+        with pytest.raises(ConfigurationError):
+            enc.get_secret_from_env(secret)
+    else:
+        assert enc.get_secret_from_env(secret) == "from-new-file"
 
 
 def test_legacy_names_pair_each_new_name_with_its_old_one():

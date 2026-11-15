@@ -17,6 +17,11 @@ Rules:
   switch the password off. A name that is only ever set blank stays blank, as
   ``os.getenv(name, default)`` would return it, so "no password" keeps working.
 * The first read through an old name logs one warning per name and process.
+* When both names are set to different non-blank values, one warning per name and process says so
+  (it names both and says the new one wins): an operator who adds a new name next to the old one
+  with another value changes the setting silently otherwise. ``siet_core.utils.encryption`` goes
+  further for the encryption key and refuses to start: stored credentials can not be read with
+  another key (a mismatch must not pick a winner).
 * A name with no entry in LEGACY_NAMES is an ordinary environment read, so the same
   helper serves ``JWT_SECRET`` and friends.
 * Docker secrets: ``LSP_SIET_PASSWORD_FILE`` and ``LSP_SIET_ENCRYPTION_KEY_FILE`` are
@@ -97,6 +102,26 @@ def _warn_once(old: str, new: str) -> None:
     logger.warning(f"{old} is deprecated; rename it to {new} (the old name still works)")
 
 
+def conflicting(name: str) -> bool:
+    """True when ``name`` and its old name are both set to non-blank, different values."""
+    legacy = LEGACY_NAMES.get(name)
+    if not legacy:
+        return False
+    new_value, old_value = os.environ.get(name), os.environ.get(legacy)
+    return bool(new_value) and bool(old_value) and new_value != old_value
+
+
+def _warn_conflict_once(name: str, legacy: str) -> None:
+    key = f"{legacy} != {name}"
+    if key in _warned:
+        return
+    _warned.add(key)
+    logger.warning(
+        f"{name} and {legacy} are both set, with different values: {name} wins and {legacy} is ignored. "
+        f"Remove {legacy} (or give both the same value) so the setting is not changed by accident"
+    )
+
+
 @overload
 def env(name: str, default: str) -> str: ...
 
@@ -109,6 +134,8 @@ def env(name: str, default: str | None = None) -> str | None:
     """Read setting ``name`` (a new name, e.g. ``LSP_SIET_CHUNK_SIZE``), else its old name, else ``default``."""
     legacy = LEGACY_NAMES.get(name)
     blank: str | None = None
+    if legacy and conflicting(name):
+        _warn_conflict_once(name, legacy)
     for candidate in (name, legacy) if legacy else (name,):
         value = os.environ.get(candidate)
         if value:

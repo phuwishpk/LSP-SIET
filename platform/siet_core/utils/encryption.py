@@ -22,13 +22,50 @@ Usage:
 
 import base64
 import hashlib
+import os
 from pathlib import Path
 from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 from loguru import logger
 
-from siet_core.env import env
+from siet_core.env import LEGACY_NAMES, env
+from siet_core.exceptions import ConfigurationError
+
+# Settings that must never be read from two different values: the stored credentials are encrypted with
+# the key the operator had when they were saved, and the old and the new name can hold different ones.
+# For these ``get_secret_from_env`` raises instead of letting the new name win (env() only warns).
+NO_SILENT_SWITCH: tuple[str, ...] = ("LSP_SIET_ENCRYPTION_KEY",)
+
+
+def _own_secret(name: str) -> Optional[str]:
+    """What ``name`` itself carries (its _FILE, then the variable), without the fallback to another name."""
+    file_path = os.environ.get(f"{name}_FILE")
+    if file_path:
+        try:
+            path = Path(file_path)
+            if path.is_file():
+                value = path.read_text().strip()
+                if value:
+                    return value
+        except OSError:
+            pass
+    return os.environ.get(name) or None
+
+
+def _refuse_conflicting_names(var_name: str) -> None:
+    legacy = LEGACY_NAMES.get(var_name)
+    if var_name not in NO_SILENT_SWITCH or not legacy:
+        return
+    new_value, old_value = _own_secret(var_name), _own_secret(legacy)
+    if new_value and old_value and new_value != old_value:
+        raise ConfigurationError(
+            f"{var_name} and {legacy} are both set, with different values (a {var_name}_FILE or {legacy}_FILE "
+            f"counts as the value of its name). Stored credentials are encrypted with one of the two keys and "
+            f"can not be decrypted with the other, so the API refuses to start instead of choosing one. "
+            f"Keep the key that is in use (the one that was set before the rename), rename it in place to "
+            f"{var_name} and delete the other line."
+        )
 
 
 def get_secret_from_env(var_name: str) -> Optional[str]:
@@ -44,7 +81,13 @@ def get_secret_from_env(var_name: str) -> Optional[str]:
 
     Returns:
         The secret value, or None if not configured.
+
+    Raises:
+        ConfigurationError: for a setting in ``NO_SILENT_SWITCH`` (the encryption key) when the old
+            and the new name are both set to different values.
     """
+    _refuse_conflicting_names(var_name)
+
     # Check for _FILE variant first (Docker secrets)
     file_path = env(f"{var_name}_FILE")
     if file_path:
