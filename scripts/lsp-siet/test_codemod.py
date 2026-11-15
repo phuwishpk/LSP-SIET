@@ -1796,6 +1796,46 @@ def test_env_renames_still_rewrite_a_plain_reference_next_to_a_fallback(tmp_path
     )
 
 
+def test_env_renames_leave_the_rollback_passthrough_lines_of_the_compose_files_alone(tmp_path):
+    """docker-compose.yml hands an image from before the restructure the old names with the new ones'
+    values (`- OPEN_NOTEBOOK_X=<rhs>` next to `- LSP_SIET_X=<rhs>`); renaming those keys would only
+    duplicate the new ones. A line without such a twin (a branch's own old-style line) is converted."""
+    compose = (
+        "environment:\n"
+        "  - LSP_SIET_PASSWORD=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}\n"
+        "  # ROLLBACK, remove after the first release on the new layout\n"
+        "  - OPEN_NOTEBOOK_PASSWORD=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}\n"
+        "  - LSP_SIET_API_URL=http://lsp_siet_api:5055\n"
+        "  - OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055\n"
+        "  - NEXT_PUBLIC_LSP_SIET_API_URL=http://lsp_siet_api:5055\n"
+        "  - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055\n"
+    )
+    mine = "  - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=512\n  - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055\n"
+    renames = {
+        "OPEN_NOTEBOOK_PASSWORD": "LSP_SIET_PASSWORD",
+        "OPEN_NOTEBOOK_API_URL": "LSP_SIET_API_URL",
+        "NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL": "NEXT_PUBLIC_LSP_SIET_API_URL",
+        "OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB": "LSP_SIET_MAX_UPLOAD_SIZE_MB",
+    }
+    rewrite = codemod.env_rewriter(renames)
+    assert rewrite(compose) == compose
+    assert rewrite(compose + mine) == compose + (
+        "  - LSP_SIET_MAX_UPLOAD_SIZE_MB=512\n  - LSP_SIET_API_URL=http://open_notebook_api:5055\n"
+    )
+    root = make_repo(tmp_path / "r", {"docker-compose.yml": compose})
+    assert apply(root, config(env_renames=renames), check=True)[0] == 0
+    assert read(root, "docker-compose.yml") == compose
+
+
+def test_the_compose_files_of_this_repository_are_a_fixpoint_of_the_env_rewriter():
+    """`codemod.py --check` on the restructured tree says "nothing to do" with the rollback lines in place."""
+    rewrite = codemod.env_rewriter(moves.ENV_RENAMES)
+    repo = HERE.parents[1]
+    for name in ("docker-compose.yml", "docker-compose.prod.yml", "docker-compose-dev.yml"):
+        text = (repo / name).read_text(encoding="utf-8")
+        assert rewrite(text) == text, name
+
+
 def test_chained_moves_reach_the_final_path_in_one_run(tmp_path):
     """Rules added by later tasks apply to branches that still have the old layout."""
     root = make_repo(tmp_path / "r", {

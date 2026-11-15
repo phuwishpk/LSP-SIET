@@ -91,7 +91,8 @@ What it does, in this order
    resolves to the same file from the new location; otherwise it becomes an alias.
 4. **Text.** ``ENV_RENAMES`` keys, whole word, in ``*.toml *.json *.yml *.yaml
    Makefile Dockerfile* .env.example *.sh`` (not where the key is the fallback in a
-   ``${NEW:-${OLD:-default}}`` expression; Python and TypeScript sources, where the
+   ``${NEW:-${OLD:-default}}`` expression, nor the compose files' rollback passthrough lines
+   ``- OLD_X=<rhs>`` that have a ``- NEW_X=<rhs>`` twin; Python and TypeScript sources, where the
    ``LEGACY_NAMES`` tables live, are not text files in this sense and are never touched).
 
 Mentions of the old directory names in those file types, and ignored local directories
@@ -1181,6 +1182,17 @@ def is_env_text(path: str) -> bool:
 
 
 OLD_SETTING = re.compile(r"(?<![A-Za-z0-9_])(?:NEXT_PUBLIC_)?OPEN_NOTEBOOK_[A-Z0-9_]+")
+ENV_ITEM = re.compile(r"^\s*- ((?:NEXT_PUBLIC_)?)(LSP_SIET|OPEN_NOTEBOOK)_(\w+)=(.*?)\s*$")
+
+
+def rollback_passthrough(text: str) -> set[int]:
+    """Line indexes of ``- OPEN_NOTEBOOK_X=<rhs>`` that have a ``- LSP_SIET_X=<rhs>`` twin (same right-hand
+    side) in the same file: the compose files hand an image from before the restructure the old setting
+    names with the new names' values (deploy rollback), and renaming those keys would only duplicate the
+    new ones. A branch's own old-style line has no such twin and is converted as usual."""
+    items = [(i, ENV_ITEM.match(line)) for i, line in enumerate(text.split("\n"))]
+    new = {(m.group(1), m.group(3), m.group(4)) for _, m in items if m and m.group(2) == "LSP_SIET"}
+    return {i for i, m in items if m and m.group(2) == "OPEN_NOTEBOOK" and (m.group(1), m.group(3), m.group(4)) in new}
 
 
 def env_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
@@ -1189,13 +1201,24 @@ def env_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
     A name right after ``-${`` is left alone: that is the old name as the fallback in a
     converted file's ``${NEW:-${OLD:-default}}`` (compose reads the new name, then the old
     one), and renaming it would turn the fallback into a second copy of the new name.
+    The rollback passthrough lines of the compose files (``rollback_passthrough``) are left alone too.
     """
     if not renames:
         return None
     pattern = re.compile(
         r"(?<![A-Za-z0-9_])(?<!-\$\{)(" + "|".join(re.escape(k) for k in sorted(renames, key=len, reverse=True)) + r")(?![A-Za-z0-9_])"
     )
-    return lambda text: pattern.sub(lambda m: renames[m.group(1)], text)
+
+    def rewrite(text: str) -> str:
+        if "OPEN_NOTEBOOK_" not in text:
+            return text
+        keep = rollback_passthrough(text)
+        lines = text.split("\n")
+        return "\n".join(
+            line if i in keep else pattern.sub(lambda m: renames[m.group(1)], line) for i, line in enumerate(lines)
+        )
+
+    return rewrite
 
 
 def identifier_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
