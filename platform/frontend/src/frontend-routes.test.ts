@@ -163,7 +163,7 @@ describe('frontend-routes', () => {
     expect(generated).toEqual(['error.tsx', 'layout.tsx', 'loading.tsx', 'not-found.tsx', 'page.tsx', 'route.ts'])
   })
 
-  it('reexports_segment_config_of_the_page', () => {
+  it('reexports_metadata_and_viewport_but_copies_the_rest_as_literals', () => {
     const root = makeTree()
     write(
       root,
@@ -172,10 +172,10 @@ describe('frontend-routes', () => {
         "import type { Metadata } from 'next'",
         "// export const revalidate = 5   (a comment is not an export)",
         "export const dynamic = 'force-dynamic'",
+        'export const revalidate = 60',
         'export async function generateMetadata(): Promise<Metadata> { return {} }',
         'const viewport = {}',
-        'const maxDuration = 30',
-        'export { viewport, maxDuration as maxDuration }',
+        'export { viewport }',
         'export type { Metadata }',
         'export function helper() {}',
         'export default function Page() { return null }',
@@ -185,36 +185,102 @@ describe('frontend-routes', () => {
 
     expect(run(root).status).toBe(0)
 
+    // Turbopack refuses `export { dynamic } from '...'` ("mustn't be reexported"), so the
+    // statically read names are written out as literals; the rest re-export fine.
     expect(read(root, `${HOST_APP}/(dashboard)/m/page.tsx`)).toBe(
       `${MARKER}\n` +
-        "export { default, dynamic, maxDuration, generateMetadata, viewport } from '@siet/community/app/(dashboard)/m/page'\n"
+        "export { default, generateMetadata, viewport } from '@siet/community/app/(dashboard)/m/page'\n" +
+        "export const dynamic = 'force-dynamic'\n" +
+        'export const revalidate = 60\n'
     )
   })
 
-  it('warns_when_a_page_exports_config_the_compiler_reads_from_the_host_file', () => {
+  it('copies_every_statically_read_name_as_a_literal', () => {
     const root = makeTree()
-    write(root, 'community/frontend/src/app/(dashboard)/r/page.tsx', "export const runtime = 'edge'\n" + PAGE_SRC)
+    write(
+      root,
+      'community/frontend/src/app/(dashboard)/c/page.tsx',
+      [
+        'export const maxDuration = 30 // seconds',
+        "export const preferredRegion = 'auto'",
+        'export const fetchCache: string = "force-no-store";',
+        "export const runtime = 'nodejs'",
+        'export const dynamicParams = false',
+        "export const dynamic = 'error'",
+        'export const revalidate = 0.5',
+        'export default function Page() { return null }',
+        '',
+      ].join('\n')
+    )
+
+    expect(run(root).status).toBe(0)
+
+    expect(read(root, `${HOST_APP}/(dashboard)/c/page.tsx`)).toBe(
+      `${MARKER}\n` +
+        "export { default } from '@siet/community/app/(dashboard)/c/page'\n" +
+        "export const dynamic = 'error'\n" +
+        'export const dynamicParams = false\n' +
+        "export const runtime = 'nodejs'\n" +
+        'export const revalidate = 0.5\n' +
+        'export const fetchCache = "force-no-store"\n' +
+        "export const preferredRegion = 'auto'\n" +
+        'export const maxDuration = 30\n'
+    )
+  })
+
+  it('refuses_segment_config_that_is_not_a_literal', () => {
+    const root = makeTree()
+    const host = `${HOST_APP}/(dashboard)/n/page.tsx`
+    write(
+      root,
+      'community/frontend/src/app/(dashboard)/n/page.tsx',
+      "const cond = Math.random() > 0.5\nexport const dynamic = cond ? 'a' : 'b'\n" + PAGE_SRC
+    )
+    write(root, 'community/frontend/src/app/(dashboard)/ok/page.tsx', PAGE_SRC)
 
     const result = run(root)
 
-    expect(result.status).toBe(0)
-    expect(result.stderr).toContain('warning')
-    expect(result.stderr).toContain('(dashboard)/r/page.tsx exports runtime')
-    expect(read(root, `${HOST_APP}/(dashboard)/r/page.tsx`)).toContain('export { default, runtime } from')
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('(dashboard)/n/page.tsx: dynamic must be a literal so the route stub can copy it')
+    expect(exists(root, host)).toBe(false)
+    // nothing else is written when one page is refused
+    expect(exists(root, `${HOST_APP}/(dashboard)/ok/page.tsx`)).toBe(false)
   })
 
-  it('route_files_are_star_re_exports', () => {
+  it('refuses_segment_config_exported_through_a_list', () => {
+    const root = makeTree()
+    write(
+      root,
+      'community/frontend/src/app/(dashboard)/l/page.tsx',
+      "const revalidate = 60\nexport { revalidate }\n" + PAGE_SRC
+    )
+
+    const result = run(root)
+
+    expect(result.status).toBe(2)
+    expect(result.stderr).toContain('(dashboard)/l/page.tsx: revalidate must be a literal so the route stub can copy it')
+  })
+
+  it('route_files_are_star_re_exports_with_copied_config', () => {
     const root = makeTree()
     write(
       root,
       'community/frontend/src/app/api/thing/route.ts',
       "export const dynamic = 'force-dynamic'\nexport async function GET() { return new Response('ok') }\n"
     )
+    write(
+      root,
+      'community/frontend/src/app/api/plain/route.ts',
+      "export async function GET() { return new Response('ok') }\n"
+    )
 
     expect(run(root).status).toBe(0)
 
     expect(read(root, `${HOST_APP}/api/thing/route.ts`)).toBe(
-      `${MARKER}\nexport * from '@siet/community/app/api/thing/route'\n`
+      `${MARKER}\nexport * from '@siet/community/app/api/thing/route'\nexport const dynamic = 'force-dynamic'\n`
+    )
+    expect(read(root, `${HOST_APP}/api/plain/route.ts`)).toBe(
+      `${MARKER}\nexport * from '@siet/community/app/api/plain/route'\n`
     )
   })
 

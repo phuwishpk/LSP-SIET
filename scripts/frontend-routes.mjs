@@ -26,21 +26,28 @@
  *   - route.ts(x): `export * from '...'` (a route module has named GET/POST/... and no default).
  *   - error.ts(x): the stub carries its own 'use client' line, because Next requires an
  *     error boundary file to be a client component.
- *   - the part file exports route segment config or metadata (dynamic, dynamicParams,
- *     revalidate, fetchCache, runtime, preferredRegion, maxDuration, metadata,
- *     generateMetadata, generateStaticParams, viewport, generateViewport): the stub
- *     re-exports those names too, `export { default, dynamic } from '...'`.
+ *   - the part file exports route segment config or metadata. Which way depends on the name,
+ *     because Turbopack (the default for `next dev` and `next build`) fails the build on
+ *     `export { dynamic } from '...'` with "can't recognize the exported `dynamic` field in
+ *     route. It mustn't be reexported":
+ *       copied as a literal, `export const dynamic = 'force-dynamic'` after the export line:
+ *         dynamic, dynamicParams, revalidate, fetchCache, runtime, preferredRegion, maxDuration
+ *       (maxDuration compiles when re-exported, but only the literal is known to be read);
+ *       re-exported by name, `export { default, generateMetadata } from '...'`:
+ *         metadata, generateMetadata, generateStaticParams, viewport, generateViewport.
+ *     A copied name must be declared in the part file as `export const NAME = <literal>` where
+ *     the literal is a string without escapes or `${}`, a number or a boolean (a `: Type`
+ *     annotation, a trailing `;` or `// comment` are fine). Anything else (a ternary, an
+ *     imported value, `const x = ...; export { x }`) makes the script refuse with exit 2 and
+ *     "<file>: <NAME> must be a literal so the route stub can copy it". The stub is derived
+ *     from the part file, so `--check` notices when the two drift apart.
  *
  * Exports are found with a regex over the source, not a parser. It sees
  * `export const|let|var|function|async function|class NAME` (the first name of a
  * `const a = 1, b = 2` list only) and `export { a, b as c }` lists (`export type` and
  * `type X` entries are skipped); it does not follow `export * from`, and `/* ... *\/`
  * inside a string literal can hide an export from it. If a part file hides one, declare
- * it in the plain form above. A re-exported `dynamic` is honoured (a build of a page
- * re-exporting `dynamic = 'force-dynamic'` rendered it as dynamic), and metadata,
- * generateMetadata and viewport are ordinary module exports. runtime, preferredRegion and
- * maxDuration are read by the compiler from the host file's own source, which can miss a
- * re-export, so the script prints a warning on stderr when a part file exports one of them.
+ * it in the plain form above.
  *
  * Ownership, so nothing hand-written is lost:
  *   - A file whose first line is the marker is generated: it is rewritten when the part
@@ -78,7 +85,7 @@ const PARTS = [
 const ROUTE_FILES = new Set(['page', 'layout', 'route', 'loading', 'error', 'not-found'])
 const EXTENSIONS = ['.ts', '.tsx']
 
-// Re-exported when the part file exports them. Order is the order they are written in.
+// The part file's exports of these names reach the host stub. Order is the order they are written in.
 const SEGMENT_CONFIG = [
   'dynamic',
   'dynamicParams',
@@ -93,8 +100,8 @@ const SEGMENT_CONFIG = [
   'viewport',
   'generateViewport',
 ]
-// The subset the Next.js compiler reads from the host file's own source (see the header).
-const STATICALLY_READ = new Set(['runtime', 'preferredRegion', 'maxDuration'])
+// Turbopack rejects these in `export { X } from '...'`, so the stub declares them as literals.
+const COPIED_AS_LITERAL = new Set(['dynamic', 'dynamicParams', 'runtime', 'revalidate', 'fetchCache', 'preferredRegion', 'maxDuration'])
 
 const toPosix = (p) => p.split(path.sep).join('/')
 const fromRoot = (p) => toPosix(path.relative(ROOT, p))
@@ -118,9 +125,10 @@ function routeFile(file) {
   return EXTENSIONS.includes(ext) && ROUTE_FILES.has(base) ? { base, ext } : null
 }
 
+const stripComments = (source) => source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+
 /** Names from SEGMENT_CONFIG that the source exports, found with a regex (see the header). */
-function segmentConfigExports(source) {
-  const code = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '')
+function segmentConfigExports(code) {
   const exported = new Set()
   const declaration = /^\s*export\s+(?:declare\s+)?(?:async\s+)?(?:const|let|var|function\s*\*?|class|enum)\s+([A-Za-z_$][\w$]*)/gm
   for (const match of code.matchAll(declaration)) exported.add(match[1])
@@ -137,11 +145,25 @@ function segmentConfigExports(source) {
   return SEGMENT_CONFIG.filter((name) => exported.has(name))
 }
 
-function stubFor(base, specifier, configNames) {
+// A string without escapes or ${}, a number, or a boolean.
+const LITERAL = String.raw`'[^'\\\n]*'|"[^"\\\n]*"|` + '`[^`$\\\\]*`' + String.raw`|-?\d[\d_]*(?:\.\d+)?(?:[eE][+-]?\d+)?|true|false`
+
+/** The literal text of `export const NAME = <literal>`, or null when it is declared any other way. */
+function literalDeclaration(code, name) {
+  const declaration = new RegExp(
+    String.raw`^[ \t]*export\s+const\s+${name}\s*(?::[^=\n]+)?=\s*(${LITERAL})[ \t]*;?[ \t]*(?:\/\/.*)?$`,
+    'm'
+  )
+  const match = declaration.exec(code)
+  return match ? match[1] : null
+}
+
+function stubFor(base, specifier, reexported, copied) {
   const lines = [MARKER]
   if (base === 'error') lines.push("'use client'")
   if (base === 'route') lines.push(`export * from '${specifier}'`)
-  else lines.push(`export { ${['default', ...configNames].join(', ')} } from '${specifier}'`)
+  else lines.push(`export { ${['default', ...reexported].join(', ')} } from '${specifier}'`)
+  for (const [name, literal] of copied) lines.push(`export const ${name} = ${literal}`)
   return lines.join('\n') + '\n'
 }
 
@@ -156,7 +178,7 @@ function isOneLineStub(content, specifier) {
 const isGenerated = (content) => content.split('\n', 1)[0].trim() === MARKER
 
 /** What the host app should contain: Map(host file -> { content, part file, specifier }). */
-function collectDesired(problems, warnings) {
+function collectDesired(problems) {
   const desired = new Map()
   const byRoute = new Map() // host path without extension -> part file that claimed it
   for (const part of PARTS) {
@@ -174,14 +196,23 @@ function collectDesired(problems, warnings) {
         continue
       }
       byRoute.set(routeKey, file)
-      const configNames = segmentConfigExports(fs.readFileSync(file, 'utf8'))
-      const risky = configNames.filter((name) => STATICALLY_READ.has(name))
-      if (risky.length) {
-        warnings.push(
-          `${fromRoot(file)} exports ${risky.join(', ')}: the compiler reads that config from the host file's own source, so the re-export may be ignored`
-        )
+      const code = stripComments(fs.readFileSync(file, 'utf8'))
+      const reexported = []
+      const copied = []
+      let refused = false
+      for (const name of segmentConfigExports(code)) {
+        if (!COPIED_AS_LITERAL.has(name)) {
+          reexported.push(name)
+          continue
+        }
+        const literal = literalDeclaration(code, name)
+        if (literal === null) {
+          problems.push(`${fromRoot(file)}: ${name} must be a literal so the route stub can copy it`)
+          refused = true
+        } else copied.push([name, literal])
       }
-      desired.set(hostFile, { content: stubFor(kind.base, specifier, configNames), source: file, specifier })
+      if (refused) continue
+      desired.set(hostFile, { content: stubFor(kind.base, specifier, reexported, copied), source: file, specifier })
     }
   }
   return desired
@@ -189,8 +220,7 @@ function collectDesired(problems, warnings) {
 
 function plan() {
   const problems = []
-  const warnings = []
-  const desired = collectDesired(problems, warnings)
+  const desired = collectDesired(problems)
   const writes = []
   const removals = []
 
@@ -216,7 +246,7 @@ function plan() {
     if (!routeFile(file) || desired.has(file)) continue
     if (isGenerated(fs.readFileSync(file, 'utf8'))) removals.push(file)
   }
-  return { problems, warnings, writes, removals }
+  return { problems, writes, removals }
 }
 
 function pruneEmptyDirs(file) {
@@ -234,8 +264,7 @@ function main(argv) {
     return 2
   }
 
-  const { problems, warnings, writes, removals } = plan()
-  for (const warning of warnings) process.stderr.write(`frontend-routes: warning: ${warning}\n`)
+  const { problems, writes, removals } = plan()
   if (problems.length) {
     process.stderr.write('frontend-routes: refusing to touch these host files, nothing was written:\n')
     for (const problem of problems) process.stderr.write(`  ${problem}\n`)
