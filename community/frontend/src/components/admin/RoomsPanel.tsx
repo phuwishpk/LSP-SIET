@@ -6,10 +6,10 @@ import { AlertTriangle, ExternalLink, Hash, KeyRound, Lock, MessagesSquare, Tras
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminCourses } from '@siet/platform/lib/hooks/use-admin'
-import { usePurgeCourse } from '@siet/platform/lib/hooks/use-courses'
-import { timeAgo } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminCourses } from '@/lib/hooks/use-admin'
+import { usePurgeCourse } from '@siet/community/lib/hooks/use-courses'
+import { timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 export function RoomsPanel() {

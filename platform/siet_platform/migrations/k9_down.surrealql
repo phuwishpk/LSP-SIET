@@ -1,0 +1,7 @@
+-- k9 down: nothing to restore.
+-- The podcast code is gone, so there is nothing that could read the tables k9
+-- dropped; restore surreal_data from a backup if the rows are needed.
+-- AsyncMigration.from_file() joins the statements of a file into one query, and
+-- a file with no statement would send an empty string to SurrealDB, so this
+-- keeps one inert statement.
+RETURN NONE;

@@ -6,12 +6,12 @@
  * admin sees. A source with no chunks is listed but cannot be searched yet.
  */
 import { AlertTriangle, ChevronRight, Globe, Lock } from 'lucide-react'
-import { EmptyState } from '@siet/platform/components/admin/controls'
+import { EmptyState } from '@/components/admin/controls'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import type { KnowledgeNotebook } from '@siet/platform/lib/api/library'
-import { useKnowledge } from '@siet/platform/lib/hooks/use-library'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { KnowledgeNotebook } from '@/lib/api/library'
+import { useKnowledge } from '@/lib/hooks/use-library'
 
 const KIND_LABEL: Record<KnowledgeNotebook['kind'], string> = {
   staff: 'Notebook ของอาจารย์/ผู้ดูแล',

@@ -1,7 +1,7 @@
 # ผังฐานข้อมูล SIET Space (ER Diagram)
 
-สร้างจากซอร์สของ schema จริง (`open-notebook/open_notebook/community/schema.py` และ
-`open_notebook/database/migrations/*.surrealql`) และตรวจกับฐานข้อมูลที่รันอยู่เมื่อ 19 ตุลาคม 2569
+สร้างจากซอร์สของ schema จริง (`platform/siet_platform/schema.py` และ
+`platform/siet_core/database/migrations/*.surrealql`) และตรวจกับฐานข้อมูลที่รันอยู่เมื่อ 19 ตุลาคม 2569
 ชื่อตารางและคอลัมน์เป็นชื่อ**หลังการเปลี่ยนชื่อเมื่อ 24 กันยายน 2569** (`rooms`, `room_id`, `linked_*`,
 `student_code`, `quiz_attempts`, `saved_posts`, `rag_credit_sessions`, `answer_meta`, ฯลฯ)
 ผังทั้งสองผ่าน parser ของ Mermaid และ render เป็นภาพไว้ที่ `docs/report/images/fig-4.3-er-diagram.png`

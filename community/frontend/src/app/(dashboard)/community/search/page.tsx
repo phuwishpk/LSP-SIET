@@ -33,7 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   filtersFromParams,
@@ -43,14 +43,14 @@ import {
   type SearchFilters,
   type SearchKind,
   type SearchUser,
-} from '@siet/platform/lib/api/community-search'
-import type { CommunityPost, PostType } from '@siet/platform/lib/api/community'
-import { libraryDownloadUrl } from '@siet/platform/lib/api/library'
-import { useAdvancedSearch, useAdvancedSearchPosts } from '@siet/platform/lib/hooks/use-advanced-search'
-import { useCategories } from '@siet/platform/lib/hooks/use-courses'
-import { useCourses } from '@siet/platform/lib/hooks/use-community'
+} from '@siet/community/lib/api/community-search'
+import type { CommunityPost, PostType } from '@/lib/api/community'
+import { libraryDownloadUrl } from '@/lib/api/library'
+import { useAdvancedSearch, useAdvancedSearchPosts } from '@siet/community/lib/hooks/use-advanced-search'
+import { useCategories } from '@siet/community/lib/hooks/use-courses'
+import { useCourses } from '@/lib/hooks/use-community'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { displayName, formatBytes, postTypeLabel, roleLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { displayName, formatBytes, postTypeLabel, roleLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 const KINDS: { value: SearchKind; label: string }[] = [

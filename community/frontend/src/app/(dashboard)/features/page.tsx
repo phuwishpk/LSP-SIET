@@ -28,7 +28,7 @@ import {
   useQuizSessions,
   useRoadmapSession,
   useRoadmapSessions,
-} from '@siet/platform/lib/hooks/use-features'
+} from '@/lib/hooks/use-features'
 import { QuizRunner } from './components/QuizRunner'
 import { RoadmapGraph } from './components/RoadmapGraph'
 

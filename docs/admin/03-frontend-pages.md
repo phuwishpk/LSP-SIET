@@ -4,7 +4,7 @@
 > ชิ้นส่วนที่ใช้ร่วมกัน (StatTile, StatCharts, controls, hooks, types) อยู่ใน [04-frontend-shared.md](04-frontend-shared.md)
 > response shape ของทุก endpoint อยู่ใน [05-backend-api.md](05-backend-api.md)
 
-ทุกไฟล์อยู่ใต้ `open-notebook/frontend/src/` — path ด้านล่างละส่วนนี้ไว้
+ทุกไฟล์อยู่ใต้ `platform/frontend/src/` — path ด้านล่างละส่วนนี้ไว้
 
 ## 0. โครงที่ทุกหน้าใช้เหมือนกัน
 

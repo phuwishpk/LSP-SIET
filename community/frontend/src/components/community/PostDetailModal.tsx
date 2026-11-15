@@ -15,7 +15,7 @@ import {
   X,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Avatar } from '@siet/platform/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -37,16 +37,16 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
-import { communityApi, type CommunityPost, type PostComment } from '@siet/platform/lib/api/community'
+import { communityApi, type CommunityPost, type PostComment } from '@/lib/api/community'
 import {
   useAddComment,
   useComments,
   useDeleteComment,
   useReact,
   useSharePost,
-} from '@siet/platform/lib/hooks/use-community'
+} from '@/lib/hooks/use-community'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { displayName, formatBytes, roleLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'

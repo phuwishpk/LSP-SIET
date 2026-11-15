@@ -215,7 +215,7 @@ async def list_all_roadmaps(
 ) -> Dict[str, Any]:
     """Every roadmap in the workspace as a summary (no nodes), newest first."""
     _require_admin(user)
-    from siet_platform.features.domain import RoadmapSession
+    from siet_roadmap.domain import RoadmapSession
 
     page = await RoadmapSession.admin_list(query=q, origin=origin, limit=limit, offset=offset)
     rows = page["items"]
@@ -246,24 +246,6 @@ async def list_all_roadmaps(
     return {"items": items, "total": page["total"], "offset": offset}
 
 
-@router.delete("/roadmaps/{session_id}")
-async def delete_any_roadmap(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Delete a roadmap for good. A post made from it keeps its own copy."""
-    _require_admin(user)
-    from siet_platform.features.domain import RoadmapSession
-
-    if not session_id.startswith("roadmap_session:"):
-        raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้")
-    try:
-        session = await RoadmapSession.get(session_id)
-    except Exception:
-        raise HTTPException(status_code=404, detail="ไม่พบ Roadmap นี้")
-    await session.delete()
-    logger.info(f"admin {user.username} deleted roadmap {session_id} of owner {session.owner_id}")
-    await _audit(user, "roadmap.delete", target_type="roadmap", target_id=session_id, owner_id=session.owner_id)
-    return {"ok": True, "deleted": session_id}
-
-
 @router.get("/roadmaps/shared")
 async def list_shared_roadmaps(
     state: Literal["visible", "deleted", "all"] = "visible",
@@ -292,7 +274,7 @@ async def roadmap_stats(
     _require_admin(user)
     from datetime import datetime, timedelta, timezone
 
-    from siet_platform.features.domain import RoadmapSession
+    from siet_roadmap.domain import RoadmapSession
 
     viewer_zone = timezone(timedelta(minutes=tz_offset))
     today = datetime.now(viewer_zone).replace(hour=0, minute=0, second=0, microsecond=0)
@@ -356,7 +338,7 @@ async def list_all_quizzes(
 ) -> Dict[str, Any]:
     """Every quiz in the workspace as a summary (no questions), newest first."""
     _require_admin(user)
-    from siet_platform.features.domain import QuizSession
+    from siet_quiz.domain import QuizSession
 
     page = await QuizSession.admin_list(query=q, origin=origin, limit=limit, offset=offset)
     rows = page["items"]
@@ -385,24 +367,6 @@ async def list_all_quizzes(
     return {"items": items, "total": page["total"], "offset": offset}
 
 
-@router.delete("/quizzes/{session_id}")
-async def delete_any_quiz(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
-    """Delete a quiz for good. A post made from it keeps its own copy."""
-    _require_admin(user)
-    from siet_platform.features.domain import QuizSession
-
-    if not session_id.startswith("quiz_session:"):
-        raise HTTPException(status_code=404, detail="ไม่พบ Quiz นี้")
-    try:
-        session = await QuizSession.get(session_id)
-    except Exception:
-        raise HTTPException(status_code=404, detail="ไม่พบ Quiz นี้")
-    await session.delete()
-    logger.info(f"admin {user.username} deleted quiz {session_id} of owner {session.owner_id}")
-    await _audit(user, "quiz.delete", target_type="quiz", target_id=session_id, owner_id=session.owner_id)
-    return {"ok": True, "deleted": session_id}
-
-
 @router.get("/quizzes/shared")
 async def list_shared_quizzes(
     state: Literal["visible", "deleted", "all"] = "visible",
@@ -423,7 +387,7 @@ async def quiz_stats(
 ) -> Dict[str, Any]:
     """How much the quiz feature is used: made per day, played, scored, and what it cost."""
     _require_admin(user)
-    from siet_platform.features.domain import QuizSession
+    from siet_quiz.domain import QuizSession
 
     since, viewer_zone = _viewer_window(days, tz_offset)
     per_day: Dict[str, int] = {}

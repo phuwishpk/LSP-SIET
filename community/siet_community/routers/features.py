@@ -1,5 +1,5 @@
 """
-POST /api/features/quiz/generate. The quiz service lives in siet_platform;
+POST /api/features/quiz/generate. The quiz service lives in siet_quiz;
 the route lives here because a quiz can also be generated from the caller's
 saved community posts, which only this package can read.
 """
@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
-from open_notebook.exceptions import (
+from siet_core.exceptions import (
     ConfigurationError,
     DatabaseOperationError,
     ExternalServiceError,
@@ -20,13 +20,10 @@ from open_notebook.exceptions import (
 from siet_community import repository as community_repo
 from siet_platform import points
 from siet_platform.auth_jwt import optional_current_user
-from siet_platform.features import service as feature_service
-from siet_platform.features.schemas import QuizGenerateRequest, QuizGenerateResponse
-from siet_platform.routers.features import (
-    _charge,
-    _resolve_owner_id,
-    _session_to_quiz_response,
-)
+from siet_platform.http import _charge, _resolve_owner_id
+from siet_quiz import service as feature_service
+from siet_quiz.routers.features import _session_to_quiz_response
+from siet_quiz.schemas import QuizGenerateRequest, QuizGenerateResponse
 from siet_platform.users import User
 
 router = APIRouter(prefix="/features", tags=["features"])

@@ -1,0 +1,206 @@
+"""
+RoadmapSession: a generated project roadmap, keyed by ``owner_id`` so every read
+and delete is scoped to its owner (table ``roadmap_session``, migration k2).
+"""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, ClassVar, Dict, List, Optional
+
+from loguru import logger
+from pydantic import Field, field_validator
+
+from siet_core.database.repository import ensure_record_id, repo_query
+from siet_core.domain.base import ObjectModel
+from siet_core.exceptions import (
+    DatabaseOperationError,
+    InvalidInputError,
+    NotFoundError,
+)
+
+
+class RoadmapSession(ObjectModel):
+    table_name: ClassVar[str] = "roadmap_session"
+    nullable_fields: ClassVar[set[str]] = {"notebook_id", "model_id"}
+
+    owner_id: str
+    title: str
+    description: str
+    language: str = "th"
+    node_count: int
+    nodes: List[Dict[str, Any]] = Field(default_factory=list)
+    edges: List[Dict[str, Any]] = Field(default_factory=list)
+    notebook_id: Optional[str] = None
+    model_id: Optional[str] = None
+    prompt_hash: str
+    # Knowledge scope + web mode chosen at generation, reused when a node is
+    # expanded later: {scope, course_id, document_ids, notebook_ids, source_ids, web}.
+    settings: Optional[Dict[str, Any]] = None
+    # What the plan was grounded on: {library: bool, web: bool, label: str}.
+    grounding: Optional[Dict[str, Any]] = None
+    # The table keeps created_at / updated_at (not ObjectModel's created / updated).
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    @field_validator("title")
+    @classmethod
+    def title_must_not_be_empty(cls, value: str) -> str:
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise InvalidInputError("Roadmap title cannot be empty")
+        if len(cleaned) > 200:
+            raise InvalidInputError("Roadmap title must be 200 characters or fewer")
+        return cleaned
+
+    @field_validator("description")
+    @classmethod
+    def description_must_be_reasonable(cls, value: str) -> str:
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise InvalidInputError("Roadmap description cannot be empty")
+        if len(cleaned) > 2000:
+            raise InvalidInputError("Roadmap description must be 2000 characters or fewer")
+        return cleaned
+
+    @field_validator("node_count")
+    @classmethod
+    def node_count_must_be_in_range(cls, value: int) -> int:
+        if value < 3 or value > 50:
+            raise InvalidInputError("Node count must be between 3 and 50")
+        return value
+
+    @field_validator("owner_id")
+    @classmethod
+    def owner_id_required(cls, value: str) -> str:
+        cleaned = (value or "").strip()
+        if not cleaned:
+            raise InvalidInputError("owner_id cannot be empty")
+        return cleaned
+
+    @classmethod
+    async def list_for_owner(
+        cls,
+        owner_id: str,
+        limit: int = 50,
+    ) -> List["RoadmapSession"]:
+        if not owner_id:
+            raise InvalidInputError("owner_id is required")
+        try:
+            rows = await repo_query(
+                """
+                SELECT * FROM roadmap_session
+                WHERE owner_id = $owner
+                ORDER BY created_at DESC
+                LIMIT $limit
+                """,
+                {"owner": owner_id, "limit": limit},
+            )
+            return [cls(**row) for row in rows]
+        except Exception as exc:
+            logger.error(f"Failed listing roadmap sessions for {owner_id}: {exc}")
+            logger.exception(exc)
+            raise DatabaseOperationError(exc)
+
+    @classmethod
+    async def get_for_owner(cls, session_id: str, owner_id: str) -> "RoadmapSession":
+        if not owner_id:
+            raise InvalidInputError("owner_id is required")
+        try:
+            rows = await repo_query(
+                "SELECT * FROM $id WHERE owner_id = $owner",
+                {"id": ensure_record_id(session_id), "owner": owner_id},
+            )
+            if not rows:
+                raise NotFoundError(f"Roadmap session {session_id} not found")
+            return cls(**rows[0])
+        except NotFoundError:
+            raise
+        except Exception as exc:
+            logger.error(f"Failed loading roadmap session {session_id}: {exc}")
+            logger.exception(exc)
+            raise DatabaseOperationError(exc)
+
+    async def delete_for_owner(self, owner_id: str) -> bool:
+        if not owner_id:
+            raise InvalidInputError("owner_id is required")
+        if self.owner_id != owner_id:
+            raise NotFoundError("Roadmap session not found")
+        return await self.delete()
+
+    @classmethod
+    async def admin_list(
+        cls,
+        *,
+        query: Optional[str] = None,
+        origin: str = "all",
+        limit: int = 50,
+        offset: int = 0,
+    ) -> Dict[str, Any]:
+        """
+        Every roadmap in the workspace, newest first, WITHOUT its nodes: the
+        admin console shows who made what, not the content of a private plan.
+        """
+        where: List[str] = []
+        params: Dict[str, Any] = {"limit": int(limit), "offset": int(offset)}
+        if query and query.strip():
+            where.append("string::lowercase(title) CONTAINS $q")
+            params["q"] = query.strip().lower()
+        if origin == "followed":
+            where.append("string::starts_with(prompt_hash, 'follow:')")
+        elif origin == "own":
+            where.append("!string::starts_with(prompt_hash, 'follow:')")
+        clause = f"WHERE {' AND '.join(where)}" if where else ""
+        try:
+            rows = await repo_query(
+                f"""
+                SELECT id, owner_id, title, node_count, prompt_hash, grounding, settings,
+                       created_at, updated_at
+                  FROM roadmap_session {clause}
+                 ORDER BY created_at DESC
+                 LIMIT $limit START $offset
+                """,
+                params,
+            )
+            total = await repo_query(
+                f"SELECT count() AS n FROM roadmap_session {clause} GROUP ALL", params
+            )
+        except Exception as exc:
+            logger.error(f"Failed listing roadmap sessions for admin: {exc}")
+            raise DatabaseOperationError(exc)
+        return {"items": rows or [], "total": int((total or [{}])[0].get("n") or 0)}
+
+    @classmethod
+    async def created_since(cls, since: datetime) -> List[Dict[str, Any]]:
+        """Creation time, origin marker and grounding of every roadmap made since ``since``."""
+        try:
+            return await repo_query(
+                "SELECT prompt_hash, grounding, created_at FROM roadmap_session WHERE created_at >= $since",
+                {"since": since},
+            ) or []
+        except Exception as exc:
+            logger.error(f"Failed reading roadmap statistics: {exc}")
+            raise DatabaseOperationError(exc)
+
+    async def save_graph(self) -> None:
+        """
+        Persist the nodes, edges and grounding after the roadmap grew.
+
+        A targeted update instead of ``save()``: only what expansion changes is
+        written, so nothing else on the record can be clobbered by it.
+        """
+        self.node_count = len(self.nodes)
+        try:
+            await repo_query(
+                "UPDATE $id SET nodes = $nodes, edges = $edges, node_count = $count, grounding = $grounding",
+                {
+                    "id": ensure_record_id(self.id),
+                    "nodes": self.nodes,
+                    "edges": self.edges,
+                    "count": self.node_count,
+                    "grounding": self.grounding,
+                },
+            )
+        except Exception as exc:
+            logger.error(f"Failed updating roadmap session {self.id}: {exc}")
+            raise DatabaseOperationError(exc)

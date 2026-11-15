@@ -21,15 +21,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { EmptyState, Pager } from '@siet/platform/components/admin/controls'
+import { EmptyState, Pager } from '@/components/admin/controls'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminComments, useDeleteComment } from '@siet/platform/lib/hooks/use-admin'
-import type { AdminComment } from '@siet/platform/lib/api/admin'
-import { displayName, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminComments, useDeleteComment } from '@/lib/hooks/use-admin'
+import type { AdminComment } from '@/lib/api/admin'
+import { displayName, timeAgo } from '@/lib/utils/community-format'
 
 const PAGE = 25
 

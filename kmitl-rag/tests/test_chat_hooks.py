@@ -1,4 +1,4 @@
-"""What kmitl-rag does through open-notebook's chat hooks."""
+"""What kmitl-rag does through the core's chat hooks."""
 
 from types import SimpleNamespace
 

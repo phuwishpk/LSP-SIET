@@ -1,3 +1,5 @@
+> **เอกสารประวัติ** — เขียนก่อนการจัดโครงสร้างใหม่เป็น `platform/` + 4 ส่วน (15 พ.ย. 2026) path และชื่อในไฟล์นี้ (`open-notebook/`, `siet-platform/`, `My-ai-quiz/`, `open_notebook_api` ฯลฯ) เป็นของโครงสร้างเดิม ไม่ใช่ปัจจุบัน — โครงสร้างปัจจุบันอยู่ที่ `docs/ARCHITECTURE.md` และตารางเทียบ path เดิม → ใหม่อยู่ที่ `scripts/lsp-siet/moves.py`
+
 <!-- ร่างสำหรับ Phuwish: branch นี้มี PR #1 เปิดอยู่แล้ว (base staging) ตรวจทุกข้อแล้วอัปเดตเนื้อหาด้วย
 gh pr edit 1 --title "คลังข้อมูลและรายวิชา 4.3.1–4.3.5 + hardening ฟีเจอร์ AI 4.5" --body-file docs/handoff/pr-drafts/phuwish-refactor-course-repo.md -->
 

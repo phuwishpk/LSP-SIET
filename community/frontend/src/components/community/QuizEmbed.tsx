@@ -11,10 +11,10 @@ import {
   type QuizEmbed as QuizEmbedData,
   type QuizEmbedQuestion,
   type QuizSubmitResponse,
-} from '@siet/platform/lib/api/community'
-import { useQuizImport, toastApiError } from '@siet/platform/lib/hooks/use-community'
+} from '@/lib/api/community'
+import { useQuizImport, toastApiError } from '@/lib/hooks/use-community'
 import { useQueryClient } from '@tanstack/react-query'
-import { COMMUNITY_KEYS } from '@siet/platform/lib/hooks/use-community'
+import { COMMUNITY_KEYS } from '@/lib/hooks/use-community'
 import { cn } from '@/lib/utils'
 
 interface QuizEmbedProps {

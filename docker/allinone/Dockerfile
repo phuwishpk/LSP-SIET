@@ -23,75 +23,95 @@ ARG S6_OVERLAY_VERSION=3.2.0.2
 # ---- SurrealDB binary (same version as the running stack) ----
 FROM ${SURREAL_IMAGE} AS surreal
 
-# ---- Python virtualenv: open-notebook + SIET packages ----
+# ---- Python virtualenv: platform + the SIET parts ----
 FROM ${PYTHON_IMAGE} AS py
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /bin/
 # Bytecode is compiled here (CI), not on the 3.3 GB server.
 ENV UV_COMPILE_BYTECODE=1 UV_LINK_MODE=copy PYTHONDONTWRITEBYTECODE=1
 WORKDIR /app
-# Dependency metadata first (same layering as docker/open-notebook/Dockerfile):
-# the SIET packages are editable path dependencies, their sources come later.
-COPY open-notebook/pyproject.toml open-notebook/uv.lock ./
-COPY open-notebook/open_notebook/__init__.py ./open_notebook/__init__.py
-COPY siet-platform/pyproject.toml /siet-platform/pyproject.toml
-COPY siet-platform/siet_platform/__init__.py /siet-platform/siet_platform/__init__.py
+# /app is platform/; the parts are its editable path dependencies at ../<part>
+# (platform/pyproject.toml), so they sit at /<part>. Dependency metadata first
+# (same layering as docker/platform/Dockerfile): the sources come later. Every
+# package gets its __init__.py now because the editable install maps only the
+# packages that exist when it is built.
+COPY platform/pyproject.toml platform/uv.lock platform/README.md ./
+COPY platform/siet_core/__init__.py ./siet_core/__init__.py
+COPY platform/api/__init__.py ./api/__init__.py
+COPY platform/commands/__init__.py ./commands/__init__.py
+COPY platform/siet_platform/__init__.py ./siet_platform/__init__.py
 COPY kmitl-rag/pyproject.toml /kmitl-rag/pyproject.toml
 COPY kmitl-rag/kmitl_rag/__init__.py /kmitl-rag/kmitl_rag/__init__.py
 COPY community/pyproject.toml /community/pyproject.toml
 COPY community/siet_community/__init__.py /community/siet_community/__init__.py
+COPY my-ai-quiz/pyproject.toml /my-ai-quiz/pyproject.toml
+COPY my-ai-quiz/siet_quiz/__init__.py /my-ai-quiz/siet_quiz/__init__.py
+COPY ai-roadmap/pyproject.toml /ai-roadmap/pyproject.toml
+COPY ai-roadmap/siet_roadmap/__init__.py /ai-roadmap/siet_roadmap/__init__.py
 RUN uv sync --frozen --no-dev
-COPY open-notebook/ /app/
-COPY siet-platform/ /siet-platform/
+COPY platform/ /app/
 COPY kmitl-rag/ /kmitl-rag/
 COPY community/ /community/
-# The frontend is built in its own stage; drop its sources from the Python tree.
-RUN rm -rf /app/frontend /siet-platform/frontend /kmitl-rag/frontend /community/frontend
+COPY my-ai-quiz/ /my-ai-quiz/
+COPY ai-roadmap/ /ai-roadmap/
+# The frontends and the two standalone apps are built in their own stages; drop
+# their sources from the Python tree.
+RUN rm -rf /app/frontend /kmitl-rag/frontend /community/frontend \
+           /my-ai-quiz/frontend /my-ai-quiz/app /ai-roadmap/frontend /ai-roadmap/app
 ENV TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
 RUN mkdir -p /app/tiktoken-cache \
  && .venv/bin/python -c "import tiktoken; tiktoken.get_encoding('o200k_base')"
 
 # ---- SIET Space frontend (Next 16, standalone) ----
+# This stage mirrors the repository layout under / (platform/frontend, <part>/frontend,
+# shared/, scripts/): the host app's tsconfig paths (../../<part>/frontend/src) and the
+# route generator (<its own dir>/../platform/frontend/src/app) both depend on it.
 FROM ${NODE_IMAGE} AS web
-WORKDIR /app/frontend
-COPY open-notebook/frontend/package.json open-notebook/frontend/package-lock.json ./
+WORKDIR /platform/frontend
+COPY platform/frontend/package.json platform/frontend/package-lock.json ./
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
-COPY open-notebook/frontend/ /app/frontend/
-COPY siet-platform/frontend/ /siet-platform/frontend/
+COPY platform/frontend/ /platform/frontend/
 COPY kmitl-rag/frontend/ /kmitl-rag/frontend/
 COPY community/frontend/ /community/frontend/
+COPY my-ai-quiz/frontend/ /my-ai-quiz/frontend/
+COPY ai-roadmap/frontend/ /ai-roadmap/frontend/
 COPY shared/ /shared/
-RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done \
- && ln -sfn /app/frontend/node_modules /shared/node_modules
+# The host app's route files for the parts' pages are generated and committed. Only
+# check them here (never write): with a part missing from this stage the generator
+# would prune that part's stubs and the build would ship without its pages.
+COPY scripts/frontend-routes.mjs /scripts/frontend-routes.mjs
+RUN node /scripts/frontend-routes.mjs --check
+RUN for d in kmitl-rag community my-ai-quiz ai-roadmap; do ln -sfn /platform/frontend/node_modules /$d/frontend/node_modules; done \
+ && ln -sfn /platform/frontend/node_modules /shared/node_modules
 # Next bakes the /api rewrite target at build time: point it at the API inside
 # this container (127.0.0.1, not "localhost", which Node may resolve to ::1).
 ENV NEXT_TELEMETRY_DISABLED=1 INTERNAL_API_URL=http://127.0.0.1:5055
 RUN npm run build
 
-# ---- AI Quiz (Next 16, standalone; same steps as My-ai-quiz/Dockerfile) ----
+# ---- AI Quiz (Next 16, standalone; same steps as my-ai-quiz/app/Dockerfile) ----
 FROM ${NODE_IMAGE} AS quiz
-WORKDIR /workspace/My-ai-quiz
-COPY My-ai-quiz/package.json My-ai-quiz/package-lock.json ./
+WORKDIR /workspace/my-ai-quiz/app
+COPY my-ai-quiz/app/package.json my-ai-quiz/app/package-lock.json ./
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 WORKDIR /workspace
 COPY shared ./shared
-COPY My-ai-quiz ./My-ai-quiz
-WORKDIR /workspace/My-ai-quiz
-RUN ln -sfn /workspace/My-ai-quiz/node_modules /workspace/shared/node_modules \
- && ln -sfn /workspace/My-ai-quiz/node_modules /workspace/node_modules
+COPY my-ai-quiz/app ./my-ai-quiz/app
+WORKDIR /workspace/my-ai-quiz/app
+RUN ln -sfn /workspace/my-ai-quiz/app/node_modules /workspace/shared/node_modules \
+ && ln -sfn /workspace/my-ai-quiz/app/node_modules /workspace/node_modules
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build
 
-# ---- AI Roadmap (Next 13, `next start`; same steps as ai-roadmap-generator/Dockerfile) ----
+# ---- AI Roadmap (Next 13, `next start`; same steps as ai-roadmap/app/Dockerfile) ----
 FROM ${NODE_IMAGE} AS roadmap
-WORKDIR /workspace/ai-roadmap-generator
-COPY ai-roadmap-generator/package.json ai-roadmap-generator/package-lock.json* ./
+WORKDIR /workspace/ai-roadmap/app
+COPY ai-roadmap/app/package.json ai-roadmap/app/package-lock.json* ./
 RUN npm ci --no-audit --no-fund || npm install --no-audit --no-fund
 WORKDIR /workspace
 COPY shared ./shared
-COPY ai-roadmap-generator ./ai-roadmap-generator
-WORKDIR /workspace/ai-roadmap-generator
-RUN ln -sfn /workspace/ai-roadmap-generator/node_modules /workspace/shared/node_modules \
- && ln -sfn /workspace/ai-roadmap-generator/node_modules /workspace/node_modules
+COPY ai-roadmap/app ./ai-roadmap/app
+WORKDIR /workspace/ai-roadmap/app
+RUN ln -sfn /workspace/ai-roadmap/app/node_modules /workspace/shared/node_modules \
+ && ln -sfn /workspace/ai-roadmap/app/node_modules /workspace/node_modules
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN npm run build && npm prune --omit=dev --no-audit --no-fund
 
@@ -121,29 +141,31 @@ COPY --from=surreal /surreal /usr/local/bin/surreal
 
 RUN useradd --system --uid 1000 --home-dir /app --shell /usr/sbin/nologin lsp
 
-# Python app (code + venv), SIET packages, prompts, tiktoken cache.
+# Python app (code + venv: /app is platform/), the SIET parts, prompts, tiktoken cache.
 COPY --from=py --chown=lsp:lsp /app /app
-COPY --from=py --chown=lsp:lsp /siet-platform /siet-platform
 COPY --from=py --chown=lsp:lsp /kmitl-rag /kmitl-rag
 COPY --from=py --chown=lsp:lsp /community /community
+COPY --from=py --chown=lsp:lsp /my-ai-quiz /my-ai-quiz
+COPY --from=py --chown=lsp:lsp /ai-roadmap /ai-roadmap
 COPY --chown=lsp:lsp shared /shared
 
-# SIET Space frontend (standalone server.js, as in docker/open-notebook/Dockerfile)
-COPY --from=web --chown=lsp:lsp /app/frontend/.next/standalone /app/frontend/
-COPY --from=web --chown=lsp:lsp /app/frontend/.next/static /app/frontend/.next/static
-COPY --from=web --chown=lsp:lsp /app/frontend/public /app/frontend/public
+# SIET Space frontend (standalone server.js, as in docker/platform/Dockerfile).
+# Built at /platform/frontend, run from /app/frontend: the run script reads that path.
+COPY --from=web --chown=lsp:lsp /platform/frontend/.next/standalone /app/frontend/
+COPY --from=web --chown=lsp:lsp /platform/frontend/.next/static /app/frontend/.next/static
+COPY --from=web --chown=lsp:lsp /platform/frontend/public /app/frontend/public
 
-# AI Quiz standalone (server.js lives under My-ai-quiz/ because the tracing root is the repo)
-COPY --from=quiz --chown=lsp:lsp /workspace/My-ai-quiz/.next/standalone /opt/quiz/
-COPY --from=quiz --chown=lsp:lsp /workspace/My-ai-quiz/.next/static /opt/quiz/My-ai-quiz/.next/static
-COPY --from=quiz --chown=lsp:lsp /workspace/My-ai-quiz/public /opt/quiz/My-ai-quiz/public
+# AI Quiz standalone (server.js lives under my-ai-quiz/app/ because the tracing root is the repo)
+COPY --from=quiz --chown=lsp:lsp /workspace/my-ai-quiz/app/.next/standalone /opt/quiz/
+COPY --from=quiz --chown=lsp:lsp /workspace/my-ai-quiz/app/.next/static /opt/quiz/my-ai-quiz/app/.next/static
+COPY --from=quiz --chown=lsp:lsp /workspace/my-ai-quiz/app/public /opt/quiz/my-ai-quiz/app/public
 
 # AI Roadmap (`next start` needs .next + production node_modules)
-COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap-generator/.next /opt/roadmap/.next
-COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap-generator/public /opt/roadmap/public
-COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap-generator/node_modules /opt/roadmap/node_modules
-COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap-generator/package.json /opt/roadmap/package.json
-COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap-generator/next.config.js /opt/roadmap/next.config.js
+COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap/app/.next /opt/roadmap/.next
+COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap/app/public /opt/roadmap/public
+COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap/app/node_modules /opt/roadmap/node_modules
+COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap/app/package.json /opt/roadmap/package.json
+COPY --from=roadmap --chown=lsp:lsp /workspace/ai-roadmap/app/next.config.js /opt/roadmap/next.config.js
 
 # Service definitions, configs, helper scripts.
 COPY docker/allinone/rootfs/ /
@@ -169,7 +191,7 @@ ENV PATH="/app/.venv/bin:${PATH}" \
     MARIADB_DATABASE=workspace \
     MARIADB_USER=workspace \
     INTERNAL_API_URL=http://127.0.0.1:5055 \
-    OPEN_NOTEBOOK_API_URL=http://127.0.0.1:5055 \
+    LSP_SIET_API_URL=http://127.0.0.1:5055 \
     # AI Quiz / AI Roadmap live on this same origin (nginx): SIET Space links to them by path.
     MY_AI_QUIZ_URL=/quiz \
     AI_ROADMAP_URL=/roadmap \

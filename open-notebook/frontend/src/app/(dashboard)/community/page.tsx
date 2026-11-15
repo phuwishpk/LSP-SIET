@@ -1,1 +1,0 @@
-export { default } from '@siet/community/app/(dashboard)/community/page'

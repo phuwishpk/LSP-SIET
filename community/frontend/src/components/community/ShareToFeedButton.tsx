@@ -4,7 +4,7 @@ import { useRouter } from 'next/navigation'
 import { Coins, Share2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { useCreatePost, useWallet } from '@siet/platform/lib/hooks/use-community'
+import { useCreatePost, useWallet } from '@/lib/hooks/use-community'
 import { useAuthStore } from '@/lib/stores/auth-store'
 
 /** "แชร์ลงฟีด" button used on the AI Features page for quiz / roadmap sessions. */

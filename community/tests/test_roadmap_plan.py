@@ -7,7 +7,7 @@ import pytest
 
 from siet_community import roadmap_plan
 from kmitl_rag import grounding
-from open_notebook.exceptions import ExternalServiceError
+from siet_core.exceptions import ExternalServiceError
 
 
 def _node(node_id, label, category=None, parent=None, **extra):

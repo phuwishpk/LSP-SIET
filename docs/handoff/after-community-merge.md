@@ -1,7 +1,12 @@
 # หลัง merge `refactor/community` — ขั้นตอนที่ต้องทำต่อ
 
+> **เอกสารประวัติ** — เขียนก่อนการจัดโครงสร้างใหม่เป็น `platform/` + 4 ส่วน (15 พ.ย. 2026) path และชื่อในไฟล์นี้ (`open-notebook/`, `siet-platform/`, `My-ai-quiz/`, `open_notebook_api` ฯลฯ) เป็นของโครงสร้างเดิม ไม่ใช่ปัจจุบัน — โครงสร้างปัจจุบันอยู่ที่ `docs/ARCHITECTURE.md` และตารางเทียบ path เดิม → ใหม่อยู่ที่ `scripts/lsp-siet/moves.py`
+
+
 > merge เข้า staging เมื่อ 23 ต.ค. 2026 (`1a784b1`) และแก้ tsc ต่ออีก commit (`fd6db92`) รายงานบั๊กอยู่ที่ issue #5
 > ภาพรวมการแยกโค้ดอ่านได้ที่ `docs/handoff/siet-split.md`
+> หมายเหตุ: `scripts/siet-split/codemod.py` ถูกลบตอนเลิกติดตาม upstream (เป็นสคริปต์ของการแยกครั้งนั้น) — ยังเปิดดูได้จากประวัติ git:
+> `git log --diff-filter=D --name-only -- scripts/siet-split/codemod.py`
 
 ## สถานะตอนนี้
 

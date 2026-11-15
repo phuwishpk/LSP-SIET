@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
-import { Avatar } from '@siet/platform/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import {
   Dialog,
   DialogContent,
@@ -19,12 +19,12 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { useCourses, useCreatePost, useShareableRoadmaps, useWallet } from '@siet/platform/lib/hooks/use-community'
-import { useQuizSessions } from '@siet/platform/lib/hooks/use-features'
-import { displayName, formatBytes, roomLabel } from '@siet/platform/lib/utils/community-format'
-import { openQuizApp, openRoadmapApp } from '@siet/platform/lib/external-apps'
+import { useCourses, useCreatePost, useShareableRoadmaps, useWallet } from '@/lib/hooks/use-community'
+import { useQuizSessions } from '@/lib/hooks/use-features'
+import { displayName, formatBytes, roomLabel } from '@/lib/utils/community-format'
+import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { ShareMyWorkDialog } from './ShareMyWorkDialog'
-import type { PostType } from '@siet/platform/lib/api/community'
+import type { PostType } from '@/lib/api/community'
 
 interface CreatorBoxProps {
   defaultCourseId: number | null

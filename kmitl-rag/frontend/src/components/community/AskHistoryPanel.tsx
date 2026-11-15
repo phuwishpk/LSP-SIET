@@ -11,9 +11,9 @@ import { Check, MessageSquare, Pencil, Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import type { RagConversation } from '@siet/platform/lib/api/community'
-import { useAskHistory, useDeleteConversation, useRenameConversation } from '@siet/platform/lib/hooks/use-community'
-import { timeAgo } from '@siet/platform/lib/utils/community-format'
+import type { RagConversation } from '@/lib/api/community'
+import { useAskHistory, useDeleteConversation, useRenameConversation } from '@/lib/hooks/use-community'
+import { timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 interface AskHistoryPanelProps {

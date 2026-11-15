@@ -1,6 +1,6 @@
 """
-What kmitl-rag plugs into open-notebook's extension points
-(open_notebook.extensions; the call sites are listed in docs/UPSTREAM.md).
+What kmitl-rag plugs into the core's extension points
+(siet_core.extensions; the call sites are listed in docs/ARCHITECTURE.md).
 
 * chat.context            notebook chat: pin the notebook passages that match
                           the question ahead of the user-selected context
@@ -12,7 +12,7 @@ What kmitl-rag plugs into open-notebook's extension points
 
 from typing import Any, Dict, Optional, Union
 
-from open_notebook import extensions
+from siet_core import extensions
 
 
 def register() -> None:
@@ -57,7 +57,7 @@ async def _filter_message(
 
 
 async def _filter_messages(messages, *, context=None):
-    """The list form (api.routers._chat_shared.ChatMessage items) of _filter_message."""
+    """The list form (kmitl_rag.routers._chat_shared.ChatMessage items) of _filter_message."""
     for message in messages:
         message.content = await _filter_message(message.content, message=message, context=context)
     return messages

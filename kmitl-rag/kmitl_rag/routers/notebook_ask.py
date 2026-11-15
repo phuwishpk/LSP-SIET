@@ -17,9 +17,9 @@ from kmitl_rag.notebook_ask import (
     _invoke_direct_answer,
     notebook_ask,
 )
-from open_notebook.ai.models import Model, model_manager
-from open_notebook.graphs.ask import graph as ask_graph
-from open_notebook.utils.text_utils import extract_text_content
+from siet_core.ai.models import Model, model_manager
+from siet_core.graphs.ask import graph as ask_graph
+from siet_core.utils.text_utils import extract_text_content
 from siet_platform.cache.answer_cache import (
     context_fingerprint,
     get_cached_answer,
@@ -143,7 +143,8 @@ async def _stream_notebook_ask_response(
     """
     Stream the notebook-scoped Ask response as SSE.
 
-    Emits the same event types as the global ``stream_ask_response`` but adds:
+    Emits the event types ``strategy``, ``answer``, ``final_answer``, ``complete`` and
+    ``error`` (see ``AskStreamEvent`` in the frontend) and adds:
     - ``resolved_notebooks`` (once, first event) – UI chips for which notebooks were used
     - ``out_of_rag`` (once) – when no RAG was found, the UI shows a disclaimer chip
     - ``cache_match`` (once) – Phase 1: tells the client whether the answer was served
@@ -317,7 +318,7 @@ async def _stream_notebook_ask_response(
         yield f"data: {json.dumps(completion_data)}\n\n"
 
     except Exception as e:
-        from open_notebook.utils.error_classifier import classify_error
+        from siet_core.utils.error_classifier import classify_error
 
         _, user_message = classify_error(e)
         logger.error(f"Error in notebook-ask streaming: {str(e)}")
@@ -332,7 +333,7 @@ async def _invoke_direct_answer(
     model_id: Optional[str] = None,
 ) -> str:
     """Call the final-answer model directly with no RAG context."""
-    from open_notebook.ai.models import model_manager as _mm
+    from siet_core.ai.models import model_manager as _mm
 
     try:
         if model_id:
@@ -340,13 +341,13 @@ async def _invoke_direct_answer(
         else:
             model = await _mm.get_default_model("chat")
     except Exception:
-        from open_notebook.exceptions import ConfigurationError
+        from siet_core.exceptions import ConfigurationError
         raise ConfigurationError(
             "No language model is configured. "
             "Go to Settings → Models and pick a default chat model."
         )
     if model is None:
-        from open_notebook.exceptions import ConfigurationError
+        from siet_core.exceptions import ConfigurationError
         raise ConfigurationError(
             "No language model is configured. "
             "Go to Settings → Models and pick a default chat model."
@@ -366,7 +367,7 @@ async def _invoke_direct_answer(
         return extract_text_content(ai_message.content)
     except Exception as exc:
         logger.exception(f"Direct LLM call failed for owner {owner_id}: {exc}")
-        from open_notebook.exceptions import ExternalServiceError
+        from siet_core.exceptions import ExternalServiceError
         raise ExternalServiceError(f"LLM call failed: {exc}")
 
 

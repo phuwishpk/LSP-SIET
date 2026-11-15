@@ -17,18 +17,18 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import _resolve_owner_id, owner_can_access
-from api.routers.chat import ChatMessage, SuccessResponse, UpdateSessionRequest
+from kmitl_rag.routers.chat import ChatMessage, SuccessResponse, UpdateSessionRequest
 from kmitl_rag.chat_filters import (
     _filter_url_citations,
     _pin_relevant_excerpts,
     _verify_course_codes,
 )
 from kmitl_rag.domain import GlobalChatSession
-from open_notebook.database.repository import ensure_record_id, repo_query
-from open_notebook.domain.notebook import ChatSession, Note, Notebook, Source
-from open_notebook.exceptions import NotFoundError
-from open_notebook.graphs.chat import graph as chat_graph
-from open_notebook.utils.graph_utils import get_session_message_count
+from siet_core.database.repository import ensure_record_id, repo_query
+from siet_core.domain.notebook import ChatSession, Note, Notebook, Source
+from siet_core.exceptions import NotFoundError
+from siet_core.graphs.chat import graph as chat_graph
+from siet_core.utils.graph_utils import get_session_message_count
 
 router = APIRouter()
 
@@ -305,7 +305,7 @@ async def _generate_chat_title(seed_text: str) -> str:
         return "New Chat"
     fallback = seed_text[:40] + ("…" if len(seed_text) > 40 else "")
     try:
-        from open_notebook.graphs.prompt import graph as prompt_graph
+        from siet_core.graphs.prompt import graph as prompt_graph
 
         prompt = (
             "Summarise the user's chat question into a short, descriptive Thai/English "
@@ -640,7 +640,7 @@ async def _stream_global_chat_response(
         yield f"data: {json.dumps({'type': 'complete'})}\n\n"
 
     except Exception as e:
-        from open_notebook.utils.error_classifier import classify_error
+        from siet_core.utils.error_classifier import classify_error
 
         _, user_message = classify_error(e)
         logger.error(f"Error in global chat streaming: {str(e)}")

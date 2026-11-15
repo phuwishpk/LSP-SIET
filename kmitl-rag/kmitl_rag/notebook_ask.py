@@ -11,16 +11,16 @@ from typing import Any, Dict, List, Optional
 from loguru import logger
 from pydantic import BaseModel
 
-from open_notebook.ai.models import model_manager
-from open_notebook.database.repository import repo_query
-from open_notebook.domain.notebook import Notebook, text_search
-from open_notebook.exceptions import (
+from siet_core.ai.models import model_manager
+from siet_core.database.repository import repo_query
+from siet_core.domain.notebook import Notebook, text_search
+from siet_core.exceptions import (
     ConfigurationError,
     ExternalServiceError,
     InvalidInputError,
     RateLimitError,
 )
-from open_notebook.utils.text_utils import extract_text_content
+from siet_core.utils.text_utils import extract_text_content
 from siet_platform import throttle, usage
 from siet_platform.retrieval import vector_search_in_notebook
 

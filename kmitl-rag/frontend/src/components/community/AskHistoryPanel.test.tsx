@@ -6,7 +6,7 @@ const state = vi.hoisted(() => ({
   remove: vi.fn(),
   rename: vi.fn(),
 }))
-vi.mock('@siet/platform/lib/hooks/use-community', () => ({
+vi.mock('@/lib/hooks/use-community', () => ({
   useAskHistory: () => ({ data: { items: state.items }, isLoading: false }),
   useDeleteConversation: () => ({ mutate: state.remove }),
   useRenameConversation: () => ({ mutate: state.rename }),

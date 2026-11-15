@@ -9,7 +9,7 @@
  * Passages the answer did not cite are kept, but folded away as further reading.
  */
 import { BookOpen, ExternalLink, Globe2 } from 'lucide-react'
-import type { AskCitation, AskWebSource } from '@siet/platform/lib/api/community'
+import type { AskCitation, AskWebSource } from '@/lib/api/community'
 import { cn } from '@/lib/utils'
 
 interface AnswerReferencesProps {

@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
-from open_notebook.exceptions import RateLimitError
+from siet_core.exceptions import RateLimitError
 
 WEB_OFF, WEB_AUTO, WEB_ALWAYS = "off", "auto", "always"
 WEB_MODES = (WEB_OFF, WEB_AUTO, WEB_ALWAYS)
@@ -137,10 +137,10 @@ async def invoke_chat(
     rejected (a model without grounding support) the call is repeated without it,
     so a misconfigured model costs a retry, not an error for the student.
     """
-    from open_notebook.ai.models import model_manager
+    from siet_core.ai.models import model_manager
     from siet_platform import throttle, usage
-    from open_notebook.exceptions import ConfigurationError, ExternalServiceError
-    from open_notebook.utils.text_utils import extract_text_content
+    from siet_core.exceptions import ConfigurationError, ExternalServiceError
+    from siet_core.utils.text_utils import extract_text_content
 
     max_tokens = int(os.getenv("FEATURES_LLM_MAX_TOKENS", "8192") or 8192)
     try:

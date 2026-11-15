@@ -1,0 +1,11 @@
+-- k9: drop the podcast tables again
+-- The podcast feature is gone from the code. k7 dropped these tables once, but
+-- open-notebook's core migrations 20-22 (which still run before the k-track)
+-- create `episode_profile` / `speaker_profile` / `episode` again on a database
+-- that is upgraded from an older release, so k9 drops them after the core ones.
+-- REMOVE TABLE also drops each table's fields and indexes. Nothing reads these
+-- rows any more; restore surreal_data from a backup to get them back.
+REMOVE TABLE IF EXISTS episode;
+REMOVE TABLE IF EXISTS episode_profile;
+REMOVE TABLE IF EXISTS podcast_config;
+REMOVE TABLE IF EXISTS speaker_profile;

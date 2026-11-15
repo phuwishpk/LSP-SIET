@@ -17,14 +17,14 @@ import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useQuizSessions } from '@siet/platform/lib/hooks/use-features'
-import { useCourses, useCreatePost, useShareableRoadmaps } from '@siet/platform/lib/hooks/use-community'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useQuizSessions } from '@/lib/hooks/use-features'
+import { useCourses, useCreatePost, useShareableRoadmaps } from '@/lib/hooks/use-community'
 import { notesApi } from '@/lib/api/notes'
-import { openQuizApp, openRoadmapApp } from '@siet/platform/lib/external-apps'
+import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { isStaff, type Role } from '@siet/platform/lib/roles'
-import { roomLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { isStaff, type Role } from '@/lib/roles'
+import { roomLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 type WorkKind = 'quiz' | 'roadmap' | 'note'
@@ -64,7 +64,7 @@ export function ShareMyWorkDialog({
 
   const { data: quizzes, isLoading: loadingQuizzes } = useQuizSessions()
   const { data: roadmaps, isLoading: loadingRoadmaps } = useShareableRoadmaps()
-  // Notes live in Open Notebook, which students cannot reach, so the tab is
+  // Notes live in the research surface, which students cannot reach, so the tab is
   // only offered to teachers/admins (and the API would refuse it anyway).
   const role = useAuthStore((s) => s.user?.role) as Role
   const canUseNotes = isStaff(role)

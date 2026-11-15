@@ -1,12 +1,12 @@
 # 08 — ดัชนีไฟล์ของส่วน admin (ทุกไฟล์ที่เกี่ยวข้อง)
 
-> path ในเอกสารนี้ปรับตามการแยกโค้ด KMITL (23 ต.ค. 2026, `docs/ARCHITECTURE.md`): route `/admin/rag/*` และ `rag_stats`/`summarize_rag_answers` ตอนนี้อยู่ใน `kmitl-rag/kmitl_rag/{routers/admin,history}.py`, helper `_naive_utc`/`_points_spent`/`_author`/`_per_day` อยู่ใน `siet_platform/db.py`
+> path ในเอกสารนี้ปรับตามการแยกโค้ด KMITL (23 ต.ค. 2026) และการจัดโครงสร้างใหม่เป็น `platform/` + 4 ส่วน (15 พ.ย. 2026, `docs/ARCHITECTURE.md`): หน้า `/admin/{community,rag,roadmap,quiz}` และ panel ของมันอยู่ใน `community/`, `kmitl-rag/`, `my-ai-quiz/`, `ai-roadmap/` ตามลำดับ (`frontend/src/app/(dashboard)/admin/...`, `frontend/src/components/admin/...`) ส่วน `platform/frontend/src/` เก็บชิ้นส่วนร่วมและหน้า `/admin`; ตารางด้านล่างยังเรียงเป็น path เดียวกันตามเดิม — หา path จริงด้วย `git ls-files | grep <ชื่อไฟล์>` · route `/admin/rag/*` และ `rag_stats`/`summarize_rag_answers` ตอนนี้อยู่ใน `kmitl-rag/kmitl_rag/{routers/admin,history}.py`, helper `_naive_utc`/`_points_spent`/`_author`/`_per_day` อยู่ใน `siet_platform/db.py`
 
 > ไฟล์ละหนึ่งบรรทัด: อยู่ที่ไหน ใหม่หรือแก้ ทำอะไร และเอกสารไหนอธิบายละเอียด
 > สถานะ ณ commit `ebffe06` (ยกเว้น `docs/figma-admin-plugin/` และ `docs/admin/` ที่ยังไม่ commit)
 > "ใหม่" = ไม่มีก่อน 8 ต.ค. 2026, "แก้" = มีอยู่แล้วและถูกเปลี่ยน
 
-## Frontend — `open-notebook/frontend/src/`
+## Frontend — `platform/frontend/src/`
 
 ### หน้า (`app/`)
 
@@ -72,22 +72,22 @@
 | `lib/api/admin.ts` | แก้ | type ทุก response + `adminApi` (+11 ฟังก์ชันใหม่), `viewerWindow` | 04 §2, 05 |
 | `lib/hooks/use-admin.ts` | แก้ | `ADMIN_KEYS`, query/mutation hooks (+10 ใหม่), กติกา invalidate | 04 §3 |
 | `lib/utils/community-format.ts` | แก้ | เพิ่ม `POST_TYPE_LABELS`, `postTypeLabel` | 04 §4 |
-| `lib/locales/{bn-IN,ca-ES,de-DE,en-US,es-ES,fr-FR,it-IT,ja-JP,pl-PL,pt-BR,ru-RU,tr-TR,zh-CN,zh-TW}/index.ts` | แก้ | `common.appName` = "LSP-SIET" | 02 §4 |
+| `lib/locales/en-US/index.ts` (ภาษาเดียว; เคยมี 14 ภาษา) | แก้ | `common.appName` = "LSP-SIET" | 02 §4 |
 
 ไฟล์ที่หน้า admin ใช้แต่**ไม่ได้แก้**: `components/layout/AppShell.tsx`, `lib/hooks/use-library.ts` (`useKnowledge`),
 `lib/hooks/use-community.ts` (`useDeleteCourse`, `toastApiError`), `lib/roles.ts`, `lib/auth-redirect.ts`,
 `components/ui/*` (shadcn)
 
-## Backend — `open-notebook/`
+## Backend
 
 | ไฟล์ | สถานะ | หน้าที่ | เอกสาร |
 |---|---|---|---|
 | `community/siet_community/routers/admin.py` | แก้ | +11 route (quizzes ×4, community/stats, comments ×2, rag ×4) + helper `_quiz_origin`, `_session_owners`, `_viewer_window`, `_viewer_day` | 05 §3 |
 | `community/siet_community/repository.py` | แก้ | +`quiz_posts_by_session`, `admin_quiz_posts`, `quiz_stats`, `admin_list_comments`, `community_stats`, `summarize_rag_answers`, `rag_stats`, helper `_naive_utc`/`_pct`/`_points_spent`/`_author`/`_per_day` | 05 §4 |
-| `siet-platform/siet_platform/library.py` | แก้ | +`DOCUMENT_STATUSES`, `admin_list_documents` | 05 §5 |
-| `siet-platform/siet_platform/features/domain.py` | แก้ | +`QuizSession.admin_list`, `QuizSession.created_since` | 05 §5 |
-| `tests/test_admin_consoles.py` | ใหม่ | 27 unit test ของ helper ข้างต้น | 06 §1 |
-| `siet-platform/siet_platform/auth_roles.py` | ไม่แก้ | `/api/admin` อยู่ใน `ADMIN_PREFIXES` อยู่แล้ว | 01 §3 |
+| `platform/siet_platform/library.py` | แก้ | +`DOCUMENT_STATUSES`, `admin_list_documents` | 05 §5 |
+| `my-ai-quiz/siet_quiz/domain.py` | แก้ | +`QuizSession.admin_list`, `QuizSession.created_since` | 05 §5 |
+| `community/tests/test_admin_consoles.py` | ใหม่ | 27 unit test ของ helper ข้างต้น | 06 §1 |
+| `platform/siet_platform/auth_roles.py` | ไม่แก้ | `/api/admin` อยู่ใน `ADMIN_PREFIXES` อยู่แล้ว | 01 §3 |
 
 ## เอกสารและเครื่องมือ — `docs/`
 

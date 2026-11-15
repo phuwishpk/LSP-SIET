@@ -18,8 +18,8 @@ import {
 } from '@/components/ui/dialog'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
-import { REPORT_REASON_LABELS, REPORT_TARGET_LABELS, type ReportReason, type ReportTargetType } from '@siet/platform/lib/api/moderation'
-import { useReportContent } from '@siet/platform/lib/hooks/use-moderation'
+import { REPORT_REASON_LABELS, REPORT_TARGET_LABELS, type ReportReason, type ReportTargetType } from '@/lib/api/moderation'
+import { useReportContent } from '@/lib/hooks/use-moderation'
 import { cn } from '@/lib/utils'
 
 interface ReportButtonProps {

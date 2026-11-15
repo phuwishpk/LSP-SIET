@@ -21,8 +21,8 @@ set -a; . ./.env; set +a
 OLD_COMPOSE_FILE=${OLD_COMPOSE_FILE:-docker-compose.yml}
 OLD_MARIADB=${OLD_MARIADB:-kmitl_mariadb}
 OLD_SURREAL=${OLD_SURREAL:-kmitlai-surrealdb-1}
-OLD_SURREAL_DIR=${OLD_SURREAL_DIR:-open-notebook/surreal_data}
-OLD_APP_DIR=${OLD_APP_DIR:-open-notebook/notebook_data}
+OLD_SURREAL_DIR=${OLD_SURREAL_DIR:-platform/surreal_data}
+OLD_APP_DIR=${OLD_APP_DIR:-platform/notebook_data}
 LSP_PROJECT=${LSP_PROJECT:-lsp-siet}
 export LSP_SIET_CONTAINER=${LSP_SIET_CONTAINER:-lsp-siet}
 VOLUME=${LSP_PROJECT}_lsp_data

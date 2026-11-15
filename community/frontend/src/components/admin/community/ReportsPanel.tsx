@@ -8,8 +8,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ExternalLink, Flag, ShieldCheck } from 'lucide-react'
-import { EmptyState, Pager, Segmented } from '@siet/platform/components/admin/controls'
-import { StatTile } from '@siet/platform/components/admin/StatTile'
+import { EmptyState, Pager, Segmented } from '@/components/admin/controls'
+import { StatTile } from '@/components/admin/StatTile'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,16 +23,16 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   REPORT_ACTION_LABELS,
   REPORT_TARGET_LABELS,
   type Report,
   type ReportAction,
   type ReportStatus,
-} from '@siet/platform/lib/api/moderation'
-import { useAdminReports, useResolveReport } from '@siet/platform/lib/hooks/use-moderation'
-import { timeAgo } from '@siet/platform/lib/utils/community-format'
+} from '@/lib/api/moderation'
+import { useAdminReports, useResolveReport } from '@/lib/hooks/use-moderation'
+import { timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 const PAGE = 25

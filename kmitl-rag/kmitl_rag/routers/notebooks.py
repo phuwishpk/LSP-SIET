@@ -1,0 +1,544 @@
+from typing import List, Optional
+
+from fastapi import APIRouter, Depends, HTTPException, Query
+from loguru import logger
+
+from api.dependencies import get_owner_id, owner_can_access
+from api.models import (
+    NotebookCreate,
+    NotebookDeletePreview,
+    NotebookDeleteResponse,
+    NotebookResponse,
+    NotebookUpdate,
+    RecentlyViewedResponse,
+)
+from siet_core import extensions
+from siet_core.database.repository import ensure_record_id, repo_query
+from siet_core.domain.notebook import Notebook, Source
+from siet_core.exceptions import (
+    InvalidInputError,
+    NotFoundError,
+    SietError,
+)
+
+router = APIRouter()
+
+
+def _last_viewed_sort_key(item: RecentlyViewedResponse) -> str:
+    return item.last_viewed_at
+
+
+async def _stamp_notebook_view(notebook_id: str) -> None:
+    # Best-effort write-on-read: recording the view timestamp must never turn a
+    # successful read into a 500. Log and move on if the stamp update fails.
+    try:
+        await repo_query(
+            "UPDATE $notebook_id SET last_viewed_at = time::now();",
+            {"notebook_id": ensure_record_id(notebook_id)},
+        )
+    except Exception as e:
+        logger.warning(
+            f"Failed to stamp last_viewed_at for notebook {notebook_id}: {e}"
+        )
+
+
+def _recently_viewed_notebook(row: dict) -> RecentlyViewedResponse:
+    return RecentlyViewedResponse(
+        type="notebook",
+        id=str(row.get("id", "")),
+        title=row.get("title") or row.get("name") or "Untitled notebook",
+        last_viewed_at=str(row.get("last_viewed_at", "")),
+    )
+
+
+def _recently_viewed_source(row: dict) -> RecentlyViewedResponse:
+    return RecentlyViewedResponse(
+        type="source",
+        id=str(row.get("id", "")),
+        title=row.get("title") or "Untitled source",
+        last_viewed_at=str(row.get("last_viewed_at", "")),
+    )
+
+
+@router.get("/notebooks", response_model=List[NotebookResponse])
+async def get_notebooks(
+    archived: Optional[bool] = Query(None, description="Filter by archived status"),
+    order_by: str = Query("updated desc", description="Order by field and direction"),
+    owner_id: str = Depends(get_owner_id),
+):
+    """Get all notebooks with optional filtering and ordering."""
+    try:
+        # Normalize through the central validator (SurrealQL injection guard),
+        # then apply this endpoint's stricter allowlist: a single clause on one
+        # of the sortable notebook fields.
+        allowed_fields = {"name", "created", "updated"}
+        allowed_message = (
+            f"Allowed fields: {', '.join(sorted(allowed_fields))}. "
+            "Allowed directions: asc, desc"
+        )
+        invalid = InvalidInputError(
+            f"Invalid order_by: '{order_by}'. {allowed_message}"
+        )
+        try:
+            validated_order_by = Notebook._validate_order_by(order_by)
+        except InvalidInputError:
+            raise invalid from None
+        if (
+            "," in validated_order_by
+            or validated_order_by.split()[0] not in allowed_fields
+        ):
+            raise invalid
+
+        # Build the query with counts
+        query = f"""
+            SELECT *,
+            count(<-reference.in) as source_count,
+            count(<-artifact.in) as note_count
+            FROM notebook
+            WHERE owner_id = $owner_id OR owner_id = "default"
+            ORDER BY {validated_order_by}
+        """
+
+        result = await repo_query(query, {"owner_id": owner_id})
+
+        # Filter by archived status if specified
+        if archived is not None:
+            result = [nb for nb in result if nb.get("archived") == archived]
+
+        return [
+            NotebookResponse(
+                id=str(nb.get("id", "")),
+                name=nb.get("name", ""),
+                description=nb.get("description", ""),
+                archived=nb.get("archived", False),
+                created=str(nb.get("created", "")),
+                updated=str(nb.get("updated", "")),
+                source_count=nb.get("source_count", 0),
+                note_count=nb.get("note_count", 0),
+            )
+            for nb in result
+        ]
+    except HTTPException:
+        raise
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching notebooks: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching notebooks: {str(e)}"
+        )
+
+
+@router.post("/notebooks", response_model=NotebookResponse)
+async def create_notebook(
+    notebook: NotebookCreate,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Create a new notebook (scoped to the authenticated user)."""
+    try:
+        new_notebook = Notebook(
+            name=notebook.name,
+            description=notebook.description,
+            owner_id=owner_id,
+        )
+        await new_notebook.save()
+
+        return NotebookResponse(
+            id=new_notebook.id or "",
+            name=new_notebook.name,
+            description=new_notebook.description,
+            archived=new_notebook.archived or False,
+            created=str(new_notebook.created),
+            updated=str(new_notebook.updated),
+            source_count=0,  # New notebook has no sources
+            note_count=0,  # New notebook has no notes
+        )
+    except InvalidInputError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except HTTPException:
+        raise
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(f"Error creating notebook: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error creating notebook: {str(e)}"
+        )
+
+
+@router.get("/recently-viewed", response_model=List[RecentlyViewedResponse])
+async def get_recently_viewed(
+    limit: int = Query(12, ge=1, le=50, description="Number of items to return"),
+    owner_id: str = Depends(get_owner_id),
+):
+    """Get recently viewed notebooks and sources, newest first."""
+    try:
+        notebooks = await repo_query(
+            """
+            SELECT id, name AS title, last_viewed_at
+            FROM notebook
+            WHERE last_viewed_at != NONE AND last_viewed_at != NULL
+            AND (owner_id = $owner_id OR owner_id = "default")
+            ORDER BY last_viewed_at DESC
+            LIMIT $limit
+            """,
+            {"limit": limit, "owner_id": owner_id},
+        )
+        sources = await repo_query(
+            """
+            SELECT id, title, last_viewed_at
+            FROM source
+            WHERE last_viewed_at != NONE AND last_viewed_at != NULL
+            AND (owner_id = $owner_id OR owner_id = "default")
+            ORDER BY last_viewed_at DESC
+            LIMIT $limit
+            """,
+            {"limit": limit, "owner_id": owner_id},
+        )
+
+        items = [
+            *[_recently_viewed_notebook(nb) for nb in notebooks],
+            *[_recently_viewed_source(src) for src in sources],
+        ]
+        items.sort(key=_last_viewed_sort_key, reverse=True)
+        return items[:limit]
+    except HTTPException:
+        raise
+    except SietError:
+        raise
+    except Exception as e:
+        # Log full context server-side; return a generic message so internal
+        # details are not leaked to clients.
+        logger.exception(f"Error fetching recently viewed items: {e}")
+        raise HTTPException(
+            status_code=500, detail="Error fetching recently viewed items"
+        )
+
+
+@router.get(
+    "/notebooks/{notebook_id}/delete-preview", response_model=NotebookDeletePreview
+)
+async def get_notebook_delete_preview(
+    notebook_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Get a preview of what will be deleted when this notebook is deleted."""
+    try:
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
+        if not owner_can_access(notebook, owner_id):
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        preview = await notebook.get_delete_preview()
+
+        return NotebookDeletePreview(
+            notebook_id=str(notebook.id),
+            notebook_name=notebook.name,
+            note_count=preview["note_count"],
+            exclusive_source_count=preview["exclusive_source_count"],
+            shared_source_count=preview["shared_source_count"],
+        )
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Notebook not found")
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting delete preview for notebook {notebook_id}: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error fetching notebook deletion preview: {str(e)}",
+        )
+
+
+@router.get("/notebooks/{notebook_id}", response_model=NotebookResponse)
+async def get_notebook(
+    notebook_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Get a specific notebook by ID (scoped to the authenticated user)."""
+    try:
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
+        if not owner_can_access(notebook, owner_id):
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        await _stamp_notebook_view(notebook_id)
+
+        # Query with counts for single notebook
+        query = """
+            SELECT *,
+            count(<-reference.in) as source_count,
+            count(<-artifact.in) as note_count
+            FROM $notebook_id
+        """
+        result = await repo_query(query, {"notebook_id": ensure_record_id(notebook_id)})
+
+        if not result:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        nb = result[0]
+        return NotebookResponse(
+            id=str(nb.get("id", "")),
+            name=nb.get("name", ""),
+            description=nb.get("description", ""),
+            archived=nb.get("archived", False),
+            created=str(nb.get("created", "")),
+            updated=str(nb.get("updated", "")),
+            source_count=nb.get("source_count", 0),
+            note_count=nb.get("note_count", 0),
+        )
+    except HTTPException:
+        raise
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(f"Error fetching notebook {notebook_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error fetching notebook: {str(e)}"
+        )
+
+
+@router.put("/notebooks/{notebook_id}", response_model=NotebookResponse)
+async def update_notebook(
+    notebook_id: str,
+    notebook_update: NotebookUpdate,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Update a notebook (scoped to the authenticated user)."""
+    try:
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
+        if not owner_can_access(notebook, owner_id):
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Update only provided fields
+        if notebook_update.name is not None:
+            notebook.name = notebook_update.name
+        # An explicit "" (or null) clears the description; only an absent
+        # field leaves it untouched.
+        if "description" in notebook_update.model_fields_set:
+            notebook.description = notebook_update.description or ""
+        if notebook_update.archived is not None:
+            notebook.archived = notebook_update.archived
+
+        await notebook.save()
+
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("notebook.changed", notebook_id=notebook_id, clear_cache=True)
+
+        # Query with counts after update
+        query = """
+            SELECT *,
+            count(<-reference.in) as source_count,
+            count(<-artifact.in) as note_count
+            FROM $notebook_id
+        """
+        result = await repo_query(query, {"notebook_id": ensure_record_id(notebook_id)})
+
+        if result:
+            nb = result[0]
+            return NotebookResponse(
+                id=str(nb.get("id", "")),
+                name=nb.get("name", ""),
+                description=nb.get("description", ""),
+                archived=nb.get("archived", False),
+                created=str(nb.get("created", "")),
+                updated=str(nb.get("updated", "")),
+                source_count=nb.get("source_count", 0),
+                note_count=nb.get("note_count", 0),
+            )
+
+        # Fallback if query fails
+        return NotebookResponse(
+            id=notebook.id or "",
+            name=notebook.name,
+            description=notebook.description,
+            archived=notebook.archived or False,
+            created=str(notebook.created),
+            updated=str(notebook.updated),
+            source_count=0,
+            note_count=0,
+        )
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Notebook not found")
+    except InvalidInputError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(f"Error updating notebook {notebook_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error updating notebook: {str(e)}"
+        )
+
+
+@router.post("/notebooks/{notebook_id}/sources/{source_id}")
+async def add_source_to_notebook(
+    notebook_id: str,
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Add an existing source to a notebook (create the reference)."""
+    try:
+        # Verify the notebook exists and belongs to the owner
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+        if not owner_can_access(notebook, owner_id):
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Verify the source exists and belongs to the owner
+        source = await Source.get(source_id)
+        if not source:
+            raise HTTPException(status_code=404, detail="Source not found")
+        if not owner_can_access(source, owner_id):
+            raise HTTPException(status_code=404, detail="Source not found")
+
+        # Check if reference already exists (idempotency)
+        existing_ref = await repo_query(
+            "SELECT * FROM reference WHERE out = $source_id AND in = $notebook_id",
+            {
+                "notebook_id": ensure_record_id(notebook_id),
+                "source_id": ensure_record_id(source_id),
+            },
+        )
+
+        # If reference doesn't exist, create it
+        if not existing_ref:
+            await repo_query(
+                "RELATE $source_id->reference->$notebook_id",
+                {
+                    "notebook_id": ensure_record_id(notebook_id),
+                    "source_id": ensure_record_id(source_id),
+                },
+            )
+
+        await extensions.emit(  # KMITL hook
+            "source.changed",
+            source_id=source_id,
+            notebook_ids=[notebook_id],
+            clear_cache=True,
+        )
+
+        return {"message": "Source linked to notebook successfully"}
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Notebook or source not found")
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error linking source {source_id} to notebook {notebook_id}: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Error linking source to notebook: {str(e)}"
+        )
+
+
+@router.delete("/notebooks/{notebook_id}/sources/{source_id}")
+async def remove_source_from_notebook(
+    notebook_id: str,
+    source_id: str,
+    owner_id: str = Depends(get_owner_id),
+):
+    """Remove a source from a notebook (delete the reference)."""
+    try:
+        # Verify the notebook exists and belongs to the owner
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+        if not owner_can_access(notebook, owner_id):
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Delete the reference record linking source to notebook
+        await repo_query(
+            "DELETE FROM reference WHERE out = $notebook_id AND in = $source_id",
+            {
+                "notebook_id": ensure_record_id(notebook_id),
+                "source_id": ensure_record_id(source_id),
+            },
+        )
+
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("notebook.changed", notebook_id=notebook_id, clear_cache=True)
+
+        return {"message": "Source removed from notebook successfully"}
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Notebook not found")
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(
+            f"Error removing source {source_id} from notebook {notebook_id}: {str(e)}"
+        )
+        raise HTTPException(
+            status_code=500, detail=f"Error removing source from notebook: {str(e)}"
+        )
+
+
+@router.delete("/notebooks/{notebook_id}", response_model=NotebookDeleteResponse)
+async def delete_notebook(
+    notebook_id: str,
+    owner_id: str = Depends(get_owner_id),
+    delete_exclusive_sources: bool = Query(
+        False,
+        description="Whether to delete sources that belong only to this notebook",
+    ),
+):
+    """
+    Delete a notebook with cascade deletion (scoped to the authenticated user).
+
+    Always deletes all notes associated with the notebook.
+    If delete_exclusive_sources is True, also deletes sources that belong only
+    to this notebook (not linked to any other notebooks).
+    """
+    try:
+        notebook = await Notebook.get(notebook_id)
+        if not notebook:
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # Verify notebook belongs to this owner (backward compat: no owner_id = visible)
+        if not owner_can_access(notebook, owner_id):
+            raise HTTPException(status_code=404, detail="Notebook not found")
+
+        # KMITL hook: answer-cache invalidation
+        await extensions.emit("notebook.changed", notebook_id=notebook_id, clear_cache=True)
+
+        result = await notebook.delete(
+            delete_exclusive_sources=delete_exclusive_sources
+        )
+
+        return NotebookDeleteResponse(
+            message="Notebook deleted successfully",
+            deleted_notes=result["deleted_notes"],
+            deleted_sources=result["deleted_sources"],
+            unlinked_sources=result["unlinked_sources"],
+            deleted_chat_sessions=result["deleted_chat_sessions"],
+        )
+    except HTTPException:
+        raise
+    except NotFoundError:
+        raise HTTPException(status_code=404, detail="Notebook not found")
+    except SietError:
+        raise
+    except Exception as e:
+        logger.error(f"Error deleting notebook {notebook_id}: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Error deleting notebook: {str(e)}"
+        )

@@ -7,15 +7,15 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Bookmark, DoorOpen, EyeOff, FileText, Heart, MessageCircle, Repeat2, Users } from 'lucide-react'
-import { RangeSelect } from '@siet/platform/components/admin/controls'
-import { PostCounts } from '@siet/community/components/admin/PostCounts'
-import { BarList, DailyColumns } from '@siet/platform/components/admin/StatCharts'
-import { StatTile } from '@siet/platform/components/admin/StatTile'
+import { RangeSelect } from '@/components/admin/controls'
+import { PostCounts } from '@/components/admin/PostCounts'
+import { BarList, DailyColumns } from '@/components/admin/StatCharts'
+import { StatTile } from '@/components/admin/StatTile'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminCommunityStats } from '@siet/platform/lib/hooks/use-admin'
-import { displayName, POST_TYPE_LABELS, postTypeLabel, roleLabel } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminCommunityStats } from '@/lib/hooks/use-admin'
+import { displayName, POST_TYPE_LABELS, postTypeLabel, roleLabel } from '@/lib/utils/community-format'
 
 export function CommunityStatsPanel() {
   const [days, setDays] = useState(30)

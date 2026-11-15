@@ -5,7 +5,7 @@
 เขียนสำหรับ **คนและ agent ในทีมที่ต้องแก้หรือต่อยอดส่วนนี้โดยไม่เคยเห็นโค้ดมาก่อน**
 
 - ภาษาไทยทั้งชุด ชื่อไฟล์/ฟังก์ชัน/คำสั่งคงเป็นอังกฤษ
-- path ที่ไม่ขึ้นต้นด้วย `docs/` หรือ `open-notebook/` ให้ถือว่าอยู่ใต้ `open-notebook/frontend/src/`
+- path ที่ไม่ขึ้นต้นด้วย `docs/`, `platform/`, `community/`, `kmitl-rag/`, `my-ai-quiz/` หรือ `ai-roadmap/` ให้ถือว่าอยู่ใต้ `platform/frontend/src/` (หน้าและ panel ของ `/admin/community`, `/admin/rag`, `/admin/quiz`, `/admin/roadmap` ย้ายไปอยู่ในส่วนของตัวเองแล้ว ดู `docs/ARCHITECTURE.md`)
 - อ้างอิงโค้ด ณ commit `ebffe06` บน `main` (19 ต.ค. 2026) และงานหมวดหมู่/ห้องวิชาบน `refactor/course-repo` (22 ต.ค. 2026 — 03 §2.4–2.5, 05 §3.3); ถ้าโค้ดกับเอกสารไม่ตรงกัน **โค้ดถูก** และให้แก้เอกสารตาม
 
 ## ไฟล์ในชุดนี้
@@ -35,10 +35,10 @@
 
 | ไฟล์ | เนื้อหา | ความสัมพันธ์กับชุดนี้ |
 |---|---|---|
-| [`docs/SYSTEM-GUIDE.md`](../SYSTEM-GUIDE.md) | ภาพรวมทั้งระบบ KMITL AI Workspace / SIET Space: สถาปัตยกรรม, บทบาท, ระบบแต้ม, กันสแปม, แผนผัง API, ฐานข้อมูล (ไทย, 15 ก.ย. 2026) | บริบทใหญ่; ส่วน admin ในนั้นยังเป็นรุ่นก่อนการแยก 4 ส่วน |
+| [`docs/SYSTEM-GUIDE.md`](../SYSTEM-GUIDE.md) | ภาพรวมทั้งระบบ LSP-SIET / SIET Space: สถาปัตยกรรม, บทบาท, ระบบแต้ม, กันสแปม, แผนผัง API, ฐานข้อมูล (ไทย, 15 ก.ย. 2026) | บริบทใหญ่; ส่วน admin ในนั้นยังเป็นรุ่นก่อนการแยก 4 ส่วน |
 | [`docs/RUNBOOK.md`](../RUNBOOK.md) | ติดตั้งและรันระบบบนเครื่องใหม่ (`make up`, `.env`, ตรวจ 3 ชั้น) | ต้องทำตามนี้ก่อนจึงจะเปิดหน้า admin ได้ |
-| [`docs/DATABASE_ARCHITECTURE.md`](../DATABASE_ARCHITECTURE.md), [`docs/ER-DIAGRAM.md`](../ER-DIAGRAM.md) | โครงสร้างตาราง MariaDB/SurrealDB | ตารางที่ 05 §6 อ้างถึง (ชื่อคอลัมน์หลัง rename ดู `siet-platform/siet_platform/schema.py`) |
-| `open-notebook/CLAUDE.md`, `open-notebook/frontend/src/CLAUDE.md`, `open-notebook/api/CLAUDE.md` | แนวทางสถาปัตยกรรมของ Open Notebook ต้นน้ำ | กติกา frontend/API ทั่วไปที่ส่วน admin ทำตาม |
+| [`docs/DATABASE_ARCHITECTURE.md`](../DATABASE_ARCHITECTURE.md), [`docs/ER-DIAGRAM.md`](../ER-DIAGRAM.md) | โครงสร้างตาราง MariaDB/SurrealDB | ตารางที่ 05 §6 อ้างถึง (ชื่อคอลัมน์หลัง rename ดู `platform/siet_platform/schema.py`) |
+| `platform/AGENTS.md`, `platform/frontend/AGENTS.md`, `platform/siet_core/AGENTS.md` | กติกาสำหรับคนและ agent ที่แก้โค้ด platform | กติกา frontend/API ทั่วไปที่ส่วน admin ทำตาม |
 | `docs/figma-admin-plugin/` | ปลั๊กอิน Figma | อธิบายใน 07 |
 
 ## การดูแลชุดเอกสารนี้

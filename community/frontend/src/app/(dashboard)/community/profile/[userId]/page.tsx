@@ -15,7 +15,7 @@ import {
   UserRound,
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Avatar } from '@siet/platform/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import {
@@ -26,13 +26,13 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { PostCard } from '@siet/community/components/community/PostCard'
 import { useAuth } from '@/lib/hooks/use-auth'
-import { useCommunityMe, useFeed } from '@siet/platform/lib/hooks/use-community'
-import { displayName, roleLabel } from '@siet/platform/lib/utils/community-format'
-import type { CommunityPost } from '@siet/platform/lib/api/community'
+import { useCommunityMe, useFeed } from '@/lib/hooks/use-community'
+import { displayName, roleLabel } from '@/lib/utils/community-format'
+import type { CommunityPost } from '@/lib/api/community'
 
 type ProfileTab = 'all' | 'summaries' | 'documents' | 'about'
 

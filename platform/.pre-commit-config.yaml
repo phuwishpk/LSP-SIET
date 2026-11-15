@@ -1,0 +1,48 @@
+# Local pre-commit hooks for the Python code under platform/. CI (.github/workflows/image.yml)
+# runs the test suites only, so these are the only lint/type gates: run them before a PR.
+#
+# Install (from the repo root): pre-commit install -c platform/.pre-commit-config.yaml
+# Run on all files:             pre-commit run -c platform/.pre-commit-config.yaml --all-files
+# Update hook versions:         pre-commit autoupdate -c platform/.pre-commit-config.yaml
+
+repos:
+  # ── Basic hygiene ──────────────────────────────────────────────────
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: check-added-large-files   # blocks >500 KB binaries
+      - id: check-merge-conflict      # catches unresolved conflict markers
+      - id: check-yaml                # validates YAML syntax
+      - id: check-toml                # validates TOML syntax
+      - id: end-of-file-fixer         # ensures files end with a newline
+      - id: trailing-whitespace       # removes stray trailing whitespace
+        args: [--markdown-linebreak-ext=md]
+
+  # ── Ruff: Python lint & format ──────────────────────────────────────
+  # Version kept in sync with pyproject.toml [dependency-groups] dev.
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.14.13
+    hooks:
+      # `ruff check --fix` — applies safe auto-fixes (e.g. import sorting)
+      # and reports remaining violations.
+      - id: ruff
+        args: [--fix]
+      # `ruff format` — reformats files to match ruff's formatter.
+      - id: ruff-format
+
+  # ── Mypy: Python type check (platform/mypy.ini) ──────────────────────
+  # Uses language: system so mypy runs through `uv` in the project's own
+  # virtualenv. Pre-commit's isolated mirror-mypy would miss errors from
+  # missing project deps like langgraph and langchain.
+  #
+  # Note: type-checking the full project on every commit is slower than
+  # the per-file hooks above. Skip it with `SKIP=mypy git commit`.
+  - repo: local
+    hooks:
+      - id: mypy
+        name: mypy
+        entry: bash -c 'cd platform && uv run python -m mypy .'
+        language: system
+        types: [python]
+        pass_filenames: false
+        verbose: true

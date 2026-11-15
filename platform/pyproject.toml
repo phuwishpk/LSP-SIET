@@ -1,0 +1,127 @@
+[project]
+name = "lsp-siet-platform"
+version = "1.15.0"
+description = "LSP-SIET platform: API host, core (DB, AI models, embedding, graphs), accounts, auth, points and admin."
+authors = [
+    {name = "LSP-SIET team"}
+]
+readme = "README.md"
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+]
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "fastapi>=0.104.0",
+    "uvicorn>=0.24.0",
+    "pydantic>=2.9.2",
+    "loguru>=0.7.2",
+    "langchain>=1.3.9,<2",
+    "langchain-core>=1.4.6,<2",
+    "langchain-text-splitters>=1.1.2,<2",
+    "langgraph>=1.0.5,<2",
+    "tiktoken>=0.12.0",
+    "langgraph-checkpoint-sqlite>=3.1.1,<4",
+    # The langchain-* provider packages below have no direct imports in this
+    # codebase: they are runtime requirements of esperanto's dynamic
+    # `to_langchain()` (esperanto declares them only as optional extras).
+    # deepseek/xai/openrouter/openai-compatible all route through
+    # langchain-openai, so no dedicated packages are needed for them.
+    "langchain-openai>=1.1.14,<2",
+    "langchain-anthropic>=1.4.6,<2",
+    "langchain-ollama>=1.0.1,<2",
+    "langchain-google-genai>=4.1.2,<5",
+    "langchain-groq>=1.1.1,<2",
+    "langchain-mistralai>=1.1.1,<2",
+    "tomli>=2.0.2",
+    "python-dotenv>=1.2.2",
+    "httpx[socks]>=0.27.0",
+    "content-core>=2.2.0,<3",
+    "ai-prompter>=0.4,<1",
+    "esperanto>=2.28.0,<3",
+    "surrealdb>=1.0.4",
+    "surreal-commands>=1.3.1,<2",
+    "numpy>=2.4.1",
+    "pycountry>=26.2.16",
+    "babel>=2.18.0",
+    # siet_platform (accounts, auth, points, caches, library)
+    "redis[hiredis]>=5.0.0",
+    "pyjwt>=2.9.0",
+    "bcrypt>=4.2.0",
+    "sqlalchemy[asyncio]>=2.0",
+    "aiomysql>=0.2.0",
+    "filetype>=1.2.0",
+    # KMITL: SIET packages at the repo root (docs/ARCHITECTURE.md)
+    "kmitl-rag",
+    "siet-quiz",
+    "siet-roadmap",
+    "siet-community",
+]
+
+[project.entry-points."siet.extensions"]
+siet_platform = "siet_platform.extension"
+
+[tool.uv.sources]
+kmitl-rag = { path = "../kmitl-rag", editable = true }
+siet-quiz = { path = "../my-ai-quiz", editable = true }
+siet-roadmap = { path = "../ai-roadmap", editable = true }
+siet-community = { path = "../community", editable = true }
+
+[tool.setuptools]
+package-dir = {"siet_core" = "siet_core"}
+
+[tool.setuptools.packages.find]
+include = ["siet_core*", "api*", "commands*", "siet_platform*"]
+
+[tool.setuptools.package-data]
+siet_core = ["ai/assets/*"]
+siet_platform = ["migrations/*.surrealql", "prompts/**/*.jinja"]
+
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "mypy>=1.11.1",
+    "pre-commit>=4.1.0",
+    "pytest>=9.0.3",
+    "pytest-asyncio>=1.2.0",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.13",
+    "types-requests>=2.32.4.20250913",
+]
+notebooks = [
+    "ipykernel>=6.29.5",
+    "ipywidgets>=8.1.5",
+]
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.ruff]
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+ignore = [
+    "E501",  # line too long
+    "E402",  # module level import not at top of file (Streamlit requires this pattern)
+    "F541",  # f-string without placeholders
+]
+
+[tool.uv]
+# Security floors for transitive runtime, notebook and development dependencies,
+# so a future resolution cannot select versions with known advisories again
+# (raised in #1404; originally proposed in #1389).
+constraint-dependencies = [
+    "anyio>=4.14.2",
+    "pyjwt>=2.15.1",
+    "urllib3>=2.8.0",
+    "tornado>=6.5.10",
+    "virtualenv>=21.14.5",
+    "soupsieve>=2.9",
+]

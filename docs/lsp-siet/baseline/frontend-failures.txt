@@ -1,0 +1,4 @@
+FAIL  src/components/ui/markdown-editor.test.tsx > MarkdownEditor theme > follows theme changes without remounting
+FAIL  src/components/ui/markdown-editor.test.tsx > MarkdownEditor theme > renders after persisted theme hydration fails
+FAIL  src/components/ui/markdown-editor.test.tsx > MarkdownEditor theme > waits for persisted theme hydration before rendering
+FAIL  src/lib/locales/index.test.ts > Unused Key Detection > all en-US leaf keys should be referenced in source files

@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 import { QuizRunner } from './QuizRunner'
-import type { QuizQuestionPayload } from '@siet/platform/lib/api/features'
+import type { QuizQuestionPayload } from '@/lib/api/features'
 
 const mcq: QuizQuestionPayload = {
   id: 1,

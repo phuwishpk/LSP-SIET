@@ -26,7 +26,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -50,8 +50,8 @@ import {
   useCreateCourse,
   useDeleteCourse,
   useJoinCourse,
-} from '@siet/platform/lib/hooks/use-community'
-import type { Course, RoomKind } from '@siet/platform/lib/api/community'
+} from '@/lib/hooks/use-community'
+import type { Course, RoomKind } from '@/lib/api/community'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { cn } from '@/lib/utils'
 

@@ -1,3 +1,5 @@
+> **เอกสารประวัติ** — เขียนก่อนการจัดโครงสร้างใหม่เป็น `platform/` + 4 ส่วน (15 พ.ย. 2026) path และชื่อในไฟล์นี้ (`open-notebook/`, `siet-platform/`, `My-ai-quiz/`, `open_notebook_api` ฯลฯ) เป็นของโครงสร้างเดิม ไม่ใช่ปัจจุบัน — โครงสร้างปัจจุบันอยู่ที่ `docs/ARCHITECTURE.md` และตารางเทียบ path เดิม → ใหม่อยู่ที่ `scripts/lsp-siet/moves.py`
+
 <!-- ร่างสำหรับ SpritUm: ตรวจทุกข้อ แก้ส่วนที่ไม่ตรง แล้วเปิด PR ด้วย
 gh pr create --base staging --head feat/quiz-ai --title "Quiz AI: ปรับประสบการณ์โหมดเล่นคนเดียว" --body-file docs/handoff/pr-drafts/spritum-feat-quiz-ai.md -->
 

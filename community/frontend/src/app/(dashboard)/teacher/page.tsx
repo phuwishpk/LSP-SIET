@@ -37,7 +37,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import {
   AlertDialog,
@@ -63,14 +63,14 @@ import {
   useTeacherOverview,
   useTeacherQuizResults,
   useUpdateCourse,
-} from '@siet/platform/lib/hooks/use-community'
-import { useArchiveCourse } from '@siet/platform/lib/hooks/use-courses'
-import { useLibrary } from '@siet/platform/lib/hooks/use-library'
-import { libraryDownloadUrl } from '@siet/platform/lib/api/library'
+} from '@/lib/hooks/use-community'
+import { useArchiveCourse } from '@siet/community/lib/hooks/use-courses'
+import { useLibrary } from '@/lib/hooks/use-library'
+import { libraryDownloadUrl } from '@/lib/api/library'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import type { TeacherCourse } from '@siet/platform/lib/api/community'
-import type { TeacherRoom } from '@siet/platform/lib/api/courses'
-import { formatBytes, timeAgo } from '@siet/platform/lib/utils/community-format'
+import type { TeacherCourse } from '@/lib/api/community'
+import type { TeacherRoom } from '@siet/community/lib/api/courses'
+import { formatBytes, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 export default function TeacherPage() {

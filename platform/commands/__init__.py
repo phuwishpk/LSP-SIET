@@ -1,0 +1,32 @@
+"""Surreal-commands integration for LSP-SIET
+
+The commands are registered under the app name ``open_notebook`` (``@command(..., app="open_notebook")``)
+and queued jobs are stored in SurrealDB as ``open_notebook.<command>``. Keep that name: renaming it
+strands queued jobs and the worker would no longer find the commands.
+"""
+
+# The worker starts via `surreal-commands-worker --import-modules commands`,
+# so this package is imported before the worker connects to SurrealDB. Inject
+# the internal DB hosts into no_proxy first so the DB websocket is never
+# tunnelled through a configured HTTP proxy (issue #1160).
+from siet_core.utils.proxy import ensure_internal_no_proxy
+
+ensure_internal_no_proxy()
+
+from .embedding_commands import (
+    embed_insight_command,
+    embed_note_command,
+    embed_source_command,
+    rebuild_embeddings_command,
+)
+from .source_commands import process_source_command
+
+__all__ = [
+    # Embedding commands
+    "embed_note_command",
+    "embed_insight_command",
+    "embed_source_command",
+    "rebuild_embeddings_command",
+    # Other commands
+    "process_source_command",
+]

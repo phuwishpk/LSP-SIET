@@ -4,7 +4,7 @@
  * a notebook. A <select> value is a plain string, so each pick is encoded as
  * `<kind>:<id>` and decoded again when the question is sent.
  */
-import type { AskRequest } from '@siet/platform/lib/api/community'
+import type { AskRequest } from '@/lib/api/community'
 
 export type KnowledgePick =
   | { kind: 'doc'; id: number }

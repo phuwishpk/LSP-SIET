@@ -38,8 +38,9 @@ from siet_community import moderation
 from siet_platform import audit, library, notifications as inbox, points, ratelimit, throttle
 from siet_community import repository as repo
 from siet_platform.cache.service import cache_service
-from open_notebook.config import DATA_FOLDER
-from siet_platform.features.domain import QuizSession, RoadmapSession
+from siet_core.config import DATA_FOLDER
+from siet_quiz.domain import QuizSession
+from siet_roadmap.domain import RoadmapSession
 from siet_platform.http import (
     _guard_spam,
     _insufficient,
@@ -51,7 +52,7 @@ from siet_platform.http import (
     _uid,
 )
 from siet_platform.users import USER_ROLE_ADMIN, USER_ROLE_TEACHER, User
-from open_notebook.exceptions import (
+from siet_core.exceptions import (
     ConfigurationError,
     ExternalServiceError,
     InvalidInputError,
@@ -1839,7 +1840,7 @@ async def materials(
 #   * teachers/admins publish course material  -> scope="course"  (everyone reads)
 #   * students push their own PDFs/links/text  -> scope="personal" (private)
 #
-# Both end up as embedded Open Notebook sources, so KMITL RAG AI, AI Quiz and
+# Both end up as embedded sources, so KMITL RAG AI, AI Quiz and
 # AI Roadmap can ground their answers in them.
 # ---------------------------------------------------------------------------
 
@@ -2144,7 +2145,7 @@ async def study_quiz(
     body: StudyQuizBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Generate a quiz grounded in the selected course material / own documents."""
-    from siet_platform.features import service as feature_service
+    from siet_quiz import service as feature_service
 
     uid = _uid(user)
     notebook_ids, source_ids, label = await _study_scope(user, body)

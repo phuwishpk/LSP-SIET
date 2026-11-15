@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import type { CommunityPost, SavedCollection, Wallet } from '@siet/platform/lib/api/community'
+import { Skeleton } from '@/components/ui/skeleton'
+import type { CommunityPost, SavedCollection, Wallet } from '@/lib/api/community'
 import { PostCard } from '@siet/community/components/community/PostCard'
 
 interface SavedSummariesViewProps {

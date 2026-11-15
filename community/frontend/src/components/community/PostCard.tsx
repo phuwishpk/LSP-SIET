@@ -24,7 +24,7 @@ import { toast } from 'sonner'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar } from '@siet/platform/components/ui/avatar'
+import { Avatar } from '@/components/ui/avatar'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import {
@@ -33,16 +33,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import { communityApi, type CommunityPost, type SavedCollection } from '@siet/platform/lib/api/community'
+import { communityApi, type CommunityPost, type SavedCollection } from '@/lib/api/community'
 import {
   useDeletePost,
   useEditPost,
   useReact,
   useSharePost,
   useToggleSave,
-} from '@siet/platform/lib/hooks/use-community'
+} from '@/lib/hooks/use-community'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { displayName, formatBytes, roleLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { displayName, formatBytes, roleLabel, timeAgo } from '@/lib/utils/community-format'
 import { QuizEmbed } from './QuizEmbed'
 import { RoadmapEmbed } from './RoadmapEmbed'
 import { PostDetailModal } from './PostDetailModal'

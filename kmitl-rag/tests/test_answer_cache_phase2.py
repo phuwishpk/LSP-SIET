@@ -158,7 +158,7 @@ class TestInvalidationHelpers:
         # When the helper cannot run the SurrealDB function, we want a
         # graceful fallback to 0 rather than an exception.
         with patch(
-            "open_notebook.database.repository.repo_query",
+            "siet_core.database.repository.repo_query",
             new=AsyncMock(side_effect=Exception("no db")),
         ):
             kv = await compute_notebook_knowledge_version("notebook:abc")

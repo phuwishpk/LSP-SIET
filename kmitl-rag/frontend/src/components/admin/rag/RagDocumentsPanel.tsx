@@ -22,14 +22,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { EmptyState, Pager, Segmented } from '@siet/platform/components/admin/controls'
+import { EmptyState, Pager, Segmented } from '@/components/admin/controls'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminDocuments, useDocumentAction } from '@siet/platform/lib/hooks/use-admin'
-import type { AdminDocument, DocumentStatus } from '@siet/platform/lib/api/admin'
-import { formatBytes, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminDocuments, useDocumentAction } from '@/lib/hooks/use-admin'
+import type { AdminDocument, DocumentStatus } from '@/lib/api/admin'
+import { formatBytes, timeAgo } from '@/lib/utils/community-format'
 
 const PAGE = 25
 

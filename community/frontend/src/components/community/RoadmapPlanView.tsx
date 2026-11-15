@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { BookOpen, ChevronDown, ChevronRight, ExternalLink, Globe, Lock } from 'lucide-react'
-import type { RoadmapNodePayload, RoadmapSource } from '@siet/platform/lib/api/features'
-import type { RoadmapGrounding } from '@siet/platform/lib/api/community'
+import type { RoadmapNodePayload, RoadmapSource } from '@/lib/api/features'
+import type { RoadmapGrounding } from '@/lib/api/community'
 
 interface RoadmapPlanViewProps {
   nodes: RoadmapNodePayload[]

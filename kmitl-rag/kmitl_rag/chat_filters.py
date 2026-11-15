@@ -10,7 +10,7 @@ from typing import Any, Dict, List, Optional
 
 from loguru import logger
 
-from open_notebook.database.repository import ensure_record_id, repo_query
+from siet_core.database.repository import ensure_record_id, repo_query
 
 
 # =============================================================================
@@ -127,7 +127,7 @@ async def _fetch_source_full_texts(source_ids: List[str]) -> str:
     if not source_ids:
         return ""
     try:
-        from open_notebook.database.repository import ensure_record_id, repo_query
+        from siet_core.database.repository import ensure_record_id, repo_query
 
         rows = await repo_query(
             "SELECT full_text FROM source WHERE id IN $ids",
@@ -263,8 +263,8 @@ async def _pin_relevant_excerpts(
         return context
 
     try:
-        from open_notebook.database.repository import ensure_record_id, repo_query
-        from open_notebook.utils.embedding import generate_embedding
+        from siet_core.database.repository import ensure_record_id, repo_query
+        from siet_core.utils.embedding import generate_embedding
 
         embed = await generate_embedding(query)
         # Direct source_embedding search — avoids stored fn::vector_search_in_notebook

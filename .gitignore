@@ -47,3 +47,6 @@ backups/
 
 # Report screenshots for chapter 3 (docs/report/tools/shots-*.mjs), pasted into the thesis by hand
 docs/report/images/fig-3.*.png
+
+# lsp-siet tool tests (pytest writes its own bytecode; the codemod itself writes none)
+scripts/lsp-siet/__pycache__/

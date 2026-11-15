@@ -7,8 +7,8 @@
 
 | ชุด | ไฟล์ | ครอบคลุม |
 |---|---|---|
-| vitest | `open-notebook/frontend/src/components/layout/AppSidebar.test.tsx` (8 เคส) | กลุ่มเมนู admin ครบ 3 กลุ่ม + href, ซ่อนจาก teacher/student, ไฮไลต์เฉพาะหน้าปัจจุบัน (`/admin/quiz` ไม่ติด `/admin`), พับ/กาง |
-| pytest | `open-notebook/tests/test_admin_consoles.py` (27 เคส) | `summarize_rag_answers` (coverage, unknown, web/cache flags, การจัดอันดับเอกสาร, นับซ้ำ), `_pct`, `_naive_utc`, `_quiz_origin`, `_viewer_window`/`_viewer_day` (เที่ยงคืนของผู้ดู, 17:30Z = วันถัดไปที่กรุงเทพ) |
+| vitest | `platform/frontend/src/components/layout/AppSidebar.test.tsx` (8 เคส) | กลุ่มเมนู admin ครบ 3 กลุ่ม + href, ซ่อนจาก teacher/student, ไฮไลต์เฉพาะหน้าปัจจุบัน (`/admin/quiz` ไม่ติด `/admin`), พับ/กาง |
+| pytest | `community/tests/test_admin_consoles.py` (27 เคส) | `summarize_rag_answers` (coverage, unknown, web/cache flags, การจัดอันดับเอกสาร, นับซ้ำ), `_pct`, `_naive_utc`, `_quiz_origin`, `_viewer_window`/`_viewer_day` (เที่ยงคืนของผู้ดู, 17:30Z = วันถัดไปที่กรุงเทพ) |
 | สคริปต์เรียก API (ไม่ได้อยู่ใน repo) | แบบใน ข้อ 4 | ทุก endpoint ใหม่ 200 ด้วย admin, 403 ด้วยนักศึกษา, 404/422 ตามที่ตั้งใจ |
 | ภาพหน้าจอ (ไม่ได้อยู่ใน repo) | แบบใน ข้อ 5 | ทุกแท็บของทุกหน้า + dialog + sidebar ทั้งสองบทบาท |
 
@@ -17,7 +17,7 @@ query SQL ใน `repository.py` **ไม่มี unit test** — ตรวจ�
 ## 2. Frontend
 
 ```bash
-cd open-notebook/frontend
+cd platform/frontend
 npx tsc --noEmit -p .                           # type-check ต้องผ่าน (exit 0)
 npx eslint "src/app/(dashboard)/admin" src/components/admin src/components/layout src/lib/api/admin.ts src/lib/hooks/use-admin.ts
 npx vitest run src/components/layout            # 8/8
@@ -27,35 +27,21 @@ npx next build                                   # ยืนยันว่า�
 
 **Baseline ที่พังอยู่ก่อนแล้ว (ไม่ใช่ของงานนี้):**
 
-- `src/lib/locales/index.test.ts` — 14 เคส locale parity (คีย์ที่ไม่ได้ใช้ของ podcasts ฯลฯ)
+- `src/lib/locales/index.test.ts` (Unused Key Detection) และ `markdown-editor.test.tsx` 3 เคส — รายการ baseline อยู่ใน `docs/lsp-siet/baseline/frontend-failures.txt`
 - `npx eslint src` ทั้งโปรเจกต์มี 1 error ใน `src/lib/types/api.ts:247` (empty interface)
-- ถ้าเพิ่มคีย์ `navigation.*` ลง locale ต้องเพิ่มครบทุกภาษา มิฉะนั้นชุด parity จะพังเพิ่ม
+- ถ้าเพิ่มคีย์ `navigation.*` ลง locale en-US ต้องมีโค้ดเรียกใช้ มิฉะนั้นชุด Unused Key Detection จะพังเพิ่ม
 
-## 3. Backend (pytest ในคอนเทนเนอร์)
-
-`.venv` บนเครื่อง Mac นี้ใช้ไม่ได้ (ชี้ python ที่ไม่มี) ให้รันใน image ของ API แทน โดย **ไม่แตะ `/app`**:
+## 3. Backend (pytest)
 
 ```bash
-C=kmitl_open_notebook_api; S=/tmp/stage_admin
-docker exec $C mkdir -p $S
-docker exec $C cp -r /app/api /app/open_notebook /app/tests $S/
-# ทับด้วยไฟล์ที่แก้
-for f in community/siet_community/routers/admin.py community/siet_community/repository.py siet-platform/siet_platform/library.py \
-         siet-platform/siet_platform/features/domain.py tests/test_admin_consoles.py; do
-  docker cp -q open-notebook/$f $C:$S/$f
-done
-# pytest ไม่อยู่ใน image (--no-dev) ติดตั้งลง /tmp/pt ครั้งเดียว
-docker exec $C uv pip install -q --python /app/.venv/bin/python --target /tmp/pt pytest pytest-asyncio python-dotenv
-docker exec -w $S -e PYTHONPATH=$S:/app:/tmp/pt $C /app/.venv/bin/python -m pytest tests/test_admin_consoles.py -q
+make test-backend ARGS="../community/tests/test_admin_consoles.py"     # ไฟล์เดียว (รันจาก platform/ ภายใน make)
+make test-backend                                                       # ชุดเต็มของทุกส่วน
 ```
 
-- `PYTHONPATH` ต้องมี `/app` ด้วย ไม่อย่างนั้น `api/routers/sources.py` import `commands` ไม่เจอ (collection error)
-- ชุดเต็ม: `pytest tests -q --ignore=tests/test_domain.py --ignore=tests/test_podcast_path.py` → **baseline
-  53 failed / 388 passed** (ที่ fail คือ `test_*_api.py` ได้ 401 เพราะ conftest ไม่ได้ล้าง env auth ของคอนเทนเนอร์)
-  เปรียบเทียบด้วยการ diff รายชื่อ FAILED ไม่ใช่นับจำนวน
-- โฟลเดอร์ stage หายเมื่อ `make up` ครั้งถัดไป
+- `make test-backend` ปิดการโหลด `.env` (`PYTHON_DOTENV_DISABLED=1`) ให้ผลไม่ขึ้นกับเครื่อง; ต้องมี uv project ของ `platform/` ติดตั้งแล้ว (`cd platform && uv sync`)
+- test ที่แดงอยู่ก่อนแล้วอยู่ใน `docs/lsp-siet/known-failures.txt` (CI ข้ามเฉพาะรายการนั้น) เปรียบเทียบด้วยการ diff รายชื่อ FAILED ไม่ใช่นับจำนวน
 - ทดลอง query ใหม่กับข้อมูลจริงแบบอ่านอย่างเดียว: เขียนสคริปต์ `asyncio.run(main())` ที่ import
-  `repository`/`library`/`features` จาก stage แล้ว `docker cp` เข้าไปรันแบบเดียวกัน
+  `repository`/`library`/`siet_quiz.domain` แล้วรันใน container `lsp_siet_api` (`docker exec -w /app lsp_siet_api /app/.venv/bin/python script.py` หลัง `docker cp`)
 
 ## 4. ตรวจ endpoint กับ API จริง
 

@@ -13,7 +13,7 @@ set -euo pipefail
 # ────────────────────────────────────────────────────────────────────────────
 # Config
 # ────────────────────────────────────────────────────────────────────────────
-FRONTEND_DIR="$(cd "$(dirname "$0")/open-notebook/frontend" && pwd)"
+FRONTEND_DIR="$(cd "$(dirname "$0")/platform/frontend" && pwd)"
 ENV_FILE="$(cd "$(dirname "$0")" && pwd)/.env"
 DEFAULT_PORT=3000
 FALLBACK_PORT=3500
