@@ -3,10 +3,19 @@
 
     python3 scripts/lsp-siet/codemod.py             # apply, on a clean working tree
     python3 scripts/lsp-siet/codemod.py --check     # list what would change, write nothing
+    python3 scripts/lsp-siet/codemod.py --since origin/refactor/lsp-siet   # a teammate's branch
 
 Exit status: ``--check`` returns 1 when anything would change and 0 when the tree is
 already converted; applying returns 0 (1 if a conflict blocked some file, see below);
 2 means the run was refused (dirty index, not a git repository, bad table).
+
+``--since REF`` converts only what this branch changed since it split from ``REF`` (files that
+differ from ``git merge-base HEAD REF``, plus untracked ones). Everything else stays where it
+is: the merge of the restructure moves, edits or deletes those files itself, and moving them
+first only creates rename/delete conflicts with the restructure's own deletions. Resolution of
+imports and aliases still uses the whole tree, so the converted files point at the final paths.
+A collision loser that the branch edited is not dropped (the edit would be lost): it stays and a
+``check by hand`` line says so, git then reports the conflict with the restructure's version.
 
 Run it from the root of the checkout to convert (``--root`` overrides). It works on the
 repository itself and on a teammate's branch that still has the old layout (new files
@@ -217,6 +226,15 @@ def inventory(root: Path) -> tuple[list[str], set[str]]:
     return keep, tracked & set(keep)
 
 
+def changed_since(root: Path, ref: str, files: list[str], tracked: set[str]) -> tuple[set[str], str]:
+    """The files this branch changed since it split from ``ref`` (and the split commit's short id)."""
+    base = git(root, "merge-base", "HEAD", ref, check=False).strip()
+    if not base:
+        raise GitError(f"--since {ref}: no such revision, or no common ancestor with HEAD")
+    changed = set(git_list(root, "diff", "--name-only", "--no-renames", "--diff-filter=d", base))
+    return {f for f in files if f in changed or f not in tracked}, base[:8]
+
+
 # ------------------------------------------------------------------------------------- plan
 
 
@@ -245,6 +263,7 @@ class Plan:
         self.drops: dict[str, str] = {}  # loser -> winner's destination
         self.collisions: list[Collision] = []
         self.conflicts: list[str] = []
+        self.stays: dict[str, str] = {}  # edited collision loser left in place (--since) -> message
 
     # one step of the table: the longest matching old path
     def _step(self, path: str) -> tuple[str, tuple[str, str]] | None:
@@ -274,7 +293,8 @@ class Plan:
         chain, first = self.walk(path)
         return chain[-1], first
 
-    def build(self, root: Path | None, no_moves: bool) -> "Plan":
+    def build(self, root: Path | None, no_moves: bool, only: set[str] | None = None) -> "Plan":
+        """``only``: act on these files alone (``--since``); every file still gets its final path."""
         final: dict[str, str] = {}
         chains: dict[str, list[str]] = {}
         for f in self.files:
@@ -298,6 +318,9 @@ class Plan:
                 continue
             if len(srcs) == 1:
                 src = srcs[0]
+                if only is not None and src not in only:
+                    self.resolve[src] = dst  # its final path is known; the merge moves the file
+                    continue
                 if root is not None and dst not in present and _occupied(root, src, dst):
                     self._block([src], f"{dst} exists on disk (ignored file?); {src} stays")
                     continue
@@ -312,13 +335,23 @@ class Plan:
             if meeting not in srcs and len(winners) == 1:
                 winner = winners[0]
                 losers = [s for s in movers if s != winner]
-                collision = Collision(dst, winner, losers, by_default, meeting)
-                self.collisions.append(collision)
                 self.resolve[winner] = dst
-                self.moves[winner] = dst
                 for loser in losers:
                     self.resolve[loser] = dst
-                    self.drops[loser] = dst
+                if only is None or winner in only:
+                    self.moves[winner] = dst
+                acting = [loser for loser in losers if only is None or loser in only]
+                if only is not None and winner not in only:
+                    for loser in acting:
+                        self.stays[loser] = (
+                            f"{loser}: your edits stay in this file; {winner} wins at {dst} in the restructure, "
+                            "so the merge reports a conflict there: port the edits by hand"
+                        )
+                    continue
+                if acting:
+                    self.collisions.append(Collision(dst, winner, acting, by_default, meeting))
+                    for loser in acting:
+                        self.drops[loser] = dst
                 continue
             self._block(srcs, f"{', '.join(srcs)} all want {dst}; none moved")
         return self
@@ -1036,7 +1069,8 @@ def mkdirs(path: Path) -> None:
 
 
 def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_moves: bool = False,
-        allow_dirty: bool = False, verbose: bool = False, out: Callable[[str], None] = print) -> int:
+        allow_dirty: bool = False, verbose: bool = False, since: str | None = None,
+        out: Callable[[str], None] = print) -> int:
     root = Path(root)
     cfg = cfg or Config.from_moves()
     try:
@@ -1050,11 +1084,15 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             out("Commit or stash them first (the codemod rewrites files in place), or pass --allow-dirty.")
             return 2
         files, tracked = inventory(root)
+        only = None
+        if since:
+            only, base = changed_since(root, since, files, tracked)
+            out(f"note: --since {since}: only the {len(only)} files this branch changed since {base} are converted")
     except GitError as exc:
         out(f"error: {exc}")
         return 2
 
-    plan = Plan(cfg, files, tracked).build(root, no_moves)
+    plan = Plan(cfg, files, tracked).build(root, no_moves, only)
     index = ModuleIndex(cfg, plan)
     py = PythonRewriter(cfg, plan, index)
     ts = TsRewriter(cfg, plan)
@@ -1068,7 +1106,7 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
     old_dirs = sorted(_vanishing_top_dirs(cfg))
     mention = re.compile(r"(?<![\w./-])(" + "|".join(re.escape(d) for d in old_dirs) + r")(?![\w-])") if old_dirs else None
     for f in files:
-        if f in plan.drops:
+        if f in plan.drops or f in plan.stays or (only is not None and f not in only):
             continue
         new = plan.resolve.get(f, f)
         name = posixpath.basename(f)
@@ -1133,6 +1171,7 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
                         )
     for message in plan.conflicts:
         out(f"conflict: {message}")
+    hand += list(plan.stays.values())
     for message in index.conflicts:
         out(f"warning: {message}")
     for new in sorted(changes):
@@ -1250,6 +1289,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--check", action="store_true", help="report what would change, write nothing")
     parser.add_argument("--no-moves", action="store_true", help="skip step 1: rewrite text in place")
     parser.add_argument("--allow-dirty", action="store_true", help="run although tracked files have uncommitted changes")
+    parser.add_argument("--since", metavar="REF", help="convert only the files this branch changed since it "
+                        "split from REF (default: every file); the merge of REF handles the rest")
     parser.add_argument("--root", help="repository to convert (default: the git root of the current directory)")
     parser.add_argument("-v", "--verbose", action="store_true", help="list every single move")
     args = parser.parse_args(argv)
@@ -1257,7 +1298,8 @@ def main(argv: list[str] | None = None) -> int:
     if root is None:
         print("error: not inside a git repository", file=sys.stderr)
         return 2
-    return run(root, check=args.check, no_moves=args.no_moves, allow_dirty=args.allow_dirty, verbose=args.verbose)
+    return run(root, check=args.check, no_moves=args.no_moves, allow_dirty=args.allow_dirty,
+               verbose=args.verbose, since=args.since)
 
 
 if __name__ == "__main__":

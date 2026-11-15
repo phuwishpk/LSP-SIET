@@ -997,6 +997,128 @@ def test_idempotent_with_stale_old_specifiers_in_new_layout(tmp_path):
     assert read(root, "community/frontend/src/c.ts") == "import { r } from '@/lib/roles'\n"
 
 
+# ----------------------------------------------- --since: convert only the branch's own changes
+
+
+def lines_of(prefix: str, n: int = 12) -> str:
+    return "".join(f"{prefix}_{i} = {i}\n" for i in range(n))
+
+
+def run_git(root: Path, *args: str) -> subprocess.CompletedProcess:
+    return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+
+
+def make_old_layout_repo(tmp_path: Path) -> Path:
+    return make_repo(tmp_path / "r", {
+        "open-notebook/open_notebook/__init__.py": "",
+        "open-notebook/open_notebook/a.py": lines_of("a"),
+        "open-notebook/open_notebook/b.py": "from open_notebook.a import a_1\n" + lines_of("b"),
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/m.py": "from open_notebook.b import b_1\n" + lines_of("m"),
+        "open-notebook/README.md": "the upstream readme\n" + lines_of("r"),
+        "open-notebook/.github/RELEASE.md": "upstream only, the restructure deletes it\n" + lines_of("g"),
+    })
+
+
+def test_since_converts_only_what_the_branch_changed_and_the_merge_is_clean(tmp_path):
+    """The flow handed to teammates: merge main, run the codemod, merge the restructure."""
+    root = make_old_layout_repo(tmp_path)
+    git(root, "branch", "-M", "main")
+    # the restructure branch: converted, then edited by hand, upstream-only files deleted
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    git(root, "rm", "-q", "-r", "-f", "platform/.github")
+    write(root, "platform/siet_core/b.py", read(root, "platform/siet_core/b.py").replace("b_3 = 3", "b_3 = 333"))
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "restructure")
+    # a teammate's branch on the old layout: one edit to an old file, one new file
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "open-notebook/open_notebook/a.py", read(root, "open-notebook/open_notebook/a.py").replace("a_5 = 5", "a_5 = 555"))
+    write(root, "open-notebook/api/new.py", "from open_notebook.a import a_5\nfrom open_notebook.exceptions import OpenNotebookError\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "teammate work")
+
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    out = "\n".join(lines)
+    assert "only the 2 files this branch changed" in out
+    # own files are converted ...
+    assert "a_5 = 555" in read(root, "platform/siet_core/a.py")
+    assert read(root, "platform/api/new.py") == \
+        "from siet_core.a import a_5\nfrom siet_core.exceptions import SietError\n"
+    # ... everything else is left for the merge to move, delete or edit
+    assert (root / "open-notebook/README.md").exists()
+    assert (root / "open-notebook/open_notebook/b.py").exists()
+    assert (root / "open-notebook/.github/RELEASE.md").exists()
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    assert apply(root, since="R", check=True)[0] == 0  # idempotent
+    merged = run_git(root, "merge", "--no-edit", "R")
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    assert run_git(root, "status", "--porcelain").stdout == ""
+    assert "a_5 = 555" in read(root, "platform/siet_core/a.py")      # the teammate's edit
+    assert "b_3 = 333" in read(root, "platform/siet_core/b.py")      # the restructure's edit
+    assert not (root / "open-notebook").exists()                       # old layout is gone
+    assert not (root / "platform/.github").exists()                    # ... and what it deleted too
+
+
+def test_since_without_the_option_converts_the_whole_tree(tmp_path):
+    root = make_old_layout_repo(tmp_path)
+    apply(root)
+    assert (root / "platform/README.md").exists() and not (root / "open-notebook").exists()
+
+
+def test_since_leaves_an_edited_collision_loser_in_place_and_says_so(tmp_path):
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/frontend/src/lib/hooks/use-auth.ts": lines_of("host"),
+        "siet-platform/frontend/src/lib/hooks/use-auth.ts": lines_of("siet"),
+        "open-notebook/frontend/src/lib/other.ts": lines_of("other"),
+        "siet-platform/frontend/src/lib/other.ts": lines_of("other_siet"),
+    })
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    # the teammate edited the copy that would lose, and the one that would win
+    write(root, "open-notebook/frontend/src/lib/hooks/use-auth.ts", lines_of("host") + "edited = 1\n")
+    write(root, "siet-platform/frontend/src/lib/other.ts", lines_of("other_siet") + "edited = 2\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    code, lines = apply(root, since="main")
+    assert code == 0, lines
+    out = "\n".join(lines)
+    # the edited loser stays where it is (git will show the modify/delete conflict with the restructure)
+    assert "edited = 1" in read(root, "open-notebook/frontend/src/lib/hooks/use-auth.ts")
+    assert not (root / "platform/frontend/src/lib/hooks/use-auth.ts").exists()
+    assert any(line.startswith("check by hand: ") and "use-auth.ts" in line and "edits stay" in line for line in lines), out
+    # the edited winner moves; the untouched loser is not deleted by us
+    assert "edited = 2" in read(root, "platform/frontend/src/lib/other.ts")
+    assert (root / "open-notebook/frontend/src/lib/other.ts").exists()
+    assert not (root / "siet-platform/frontend/src/lib/other.ts").exists()
+    # the unedited winner of the other collision is the merge's to move
+    assert (root / "siet-platform/frontend/src/lib/hooks/use-auth.ts").exists()
+
+
+def test_since_with_an_unknown_ref_is_refused(tmp_path):
+    root = make_old_layout_repo(tmp_path)
+    code, lines = apply(root, since="no-such-ref")
+    assert code == 2
+    assert lines[0].startswith("error:") and "no-such-ref" in lines[0]
+    assert (root / "open-notebook").exists()
+
+
+def test_cli_since_option(tmp_path):
+    root = make_old_layout_repo(tmp_path)
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "open-notebook/open_notebook/a.py", lines_of("a") + "more = 1\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "edit")
+    done = cli(root, "--since", "main")
+    assert done.returncode == 0, done.stdout + done.stderr
+    assert (root / "platform/siet_core/a.py").exists()
+    assert (root / "open-notebook/README.md").exists()
+
+
 # ------------------------------------------------------------------------ CLI / safety
 
 
