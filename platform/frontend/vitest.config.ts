@@ -3,7 +3,12 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 // KMITL: SIET frontend packages (docs/ARCHITECTURE.md)
-const sietPackages = { 'kmitl-rag': 'kmitl-rag', community: 'community' }
+const sietPackages = {
+  'kmitl-rag': 'kmitl-rag',
+  community: 'community',
+  quiz: 'my-ai-quiz',
+  roadmap: 'ai-roadmap',
+}
 const sietAliases = Object.fromEntries(
   Object.entries(sietPackages).map(([name, dir]) => [`@siet/${name}`, path.resolve(__dirname, `../../${dir}/frontend/src`)])
 )

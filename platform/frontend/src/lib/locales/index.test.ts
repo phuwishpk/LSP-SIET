@@ -44,7 +44,7 @@ describe('Unused Key Detection', () => {
       const repoRoot = path.resolve(__dirname, '../../../../..')
       // (siet-platform's former sources are part of srcDir now.) A package dir
       // that is missing must fail, not silently shrink the corpus.
-      const packageSrcDirs = ['kmitl-rag', 'community'].map(dir =>
+      const packageSrcDirs = ['kmitl-rag', 'community', 'my-ai-quiz', 'ai-roadmap'].map(dir =>
         path.join(repoRoot, dir, 'frontend/src'),
       )
       for (const dir of packageSrcDirs) {

@@ -32,6 +32,12 @@
       "@siet/community/*": [
         "../../community/frontend/src/*"
       ],
+      "@siet/quiz/*": [
+        "../../my-ai-quiz/frontend/src/*"
+      ],
+      "@siet/roadmap/*": [
+        "../../ai-roadmap/frontend/src/*"
+      ],
       "@shared/*": [
         "../../shared/*"
       ]

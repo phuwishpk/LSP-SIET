@@ -113,7 +113,7 @@ migrate-split:  ## One-time: move KMITL migration records to the SIET track (CON
 # into the host Next.js app (platform/frontend) and resolve react & co. through its
 # node_modules, via a symlink in each package. So does shared/ (components imported
 # as @shared/*, e.g. the mascot).
-SIET_FRONTENDS = kmitl-rag community
+SIET_FRONTENDS = kmitl-rag community my-ai-quiz ai-roadmap
 
 frontend-links:  ## Link each SIET frontend package to platform/frontend/node_modules
 	@for d in $(SIET_FRONTENDS); do ln -sfn ../../platform/frontend/node_modules $$d/frontend/node_modules; done
