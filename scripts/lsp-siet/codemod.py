@@ -190,7 +190,10 @@ def repo_root(start: Path) -> Path | None:
 
 
 def is_dirty(root: Path) -> bool:
-    return bool(git(root, "status", "--porcelain", "--untracked-files=no").strip())
+    """Uncommitted changes to tracked files, not counting this tool's own directory (a teammate
+    copies it into the branch with ``git checkout <ref> -- scripts/lsp-siet``, which stages it)."""
+    changed = git_list(root, "status", "--porcelain", "--untracked-files=no", "--no-renames")
+    return any(not entry[3:].startswith(SELF_DIR) for entry in changed)
 
 
 def inventory(root: Path) -> tuple[list[str], set[str]]:

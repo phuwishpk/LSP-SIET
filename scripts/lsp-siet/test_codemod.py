@@ -1047,6 +1047,21 @@ def test_refuses_dirty_index(tmp_path):
     assert read(root, "platform/siet_core/a.py") == "x = 3\n"
 
 
+def test_staged_copy_of_the_tool_does_not_make_the_tree_dirty(tmp_path):
+    """`git checkout origin/refactor/lsp-siet -- scripts/lsp-siet` stages the tool in the branch
+    it is about to convert; that must not trip the clean-tree check."""
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/open_notebook/__init__.py": "",
+        "open-notebook/open_notebook/a.py": "x = 1\n",
+    })
+    write(root, "scripts/lsp-siet/codemod.py", "# the tool\n")
+    git(root, "add", "scripts/lsp-siet/codemod.py")
+    code, lines = apply(root)
+    assert code == 0, lines
+    assert (root / "platform/siet_core/a.py").exists()
+    assert git(root, "status", "--porcelain", "scripts/lsp-siet").startswith("A  scripts/lsp-siet/codemod.py")
+
+
 def test_untracked_files_do_not_make_the_tree_dirty(tmp_path):
     root = make_repo(
         tmp_path / "r",
