@@ -106,7 +106,8 @@ import posixpath
 import re
 import subprocess
 import sys
-from collections import defaultdict
+import tempfile
+from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
@@ -239,16 +240,17 @@ def changed_since(root: Path, ref: str, files: list[str], tracked: set[str]) -> 
     return {f for f in files if f in changed or f not in tracked}, base
 
 
-def vanished_in(root: Path, ref: str, base: str, only: set[str], plan: "Plan") -> list[str]:
+def vanished_in(root: Path, ref: str, base: str, only: set[str], plan: "Plan") -> dict[str, str]:
     """Edited files that existed at the split but are at neither their old nor their new path in
-    ``ref``: the restructure deleted or split them, so the merge can not carry the edits over."""
+    ``ref``: the restructure deleted or split them, so the merge can not carry the edits over.
+    Maps the old path to the report line."""
     in_ref = set(git_list(root, "ls-tree", "-r", "--name-only", ref))
     in_base = set(git_list(root, "ls-tree", "-r", "--name-only", base))
-    found = []
+    found: dict[str, str] = {}
     for f in sorted(only):
         new = plan.resolve.get(f, f)
         if f in in_base and f not in in_ref and new not in in_ref and f not in plan.drops and f not in plan.stays:
-            found.append(
+            found[f] = (
                 f"{new}: {ref} has neither {f} nor {new} (the restructure deleted or split it): "
                 f"port your edits by hand (git diff {base[:8]} HEAD -- {f}, before committing the codemod's output)"
             )
@@ -383,6 +385,11 @@ class Plan:
                 return prefix, False
         return self.cfg.collision_default_winner, True
 
+    def refuse(self, src: str, message: str) -> None:
+        """Take a planned move back: the file stays and the message is reported as a conflict."""
+        self.moves.pop(src, None)
+        self._block([src], message)
+
     def _block(self, srcs: list[str], message: str) -> None:
         for s in srcs:
             self.resolve[s] = s
@@ -415,6 +422,26 @@ def _occupied(root: Path, src: str, dst: str) -> bool:
         return not os.path.samefile(root / src, root / dst)
     except OSError:
         return True
+
+
+def disk_spelling(root: Path, rel: str, listings: dict[str, list[str] | None]) -> str | None:
+    """``rel`` as the disk spells it (a case-insensitive disk answers for any case); None when absent."""
+    parts, found = rel.split("/"), []
+    for comp in parts:
+        here = "/".join(found)
+        if here not in listings:
+            listings[here] = _disk_names(root / here if here else root)
+        names = listings[here]
+        if names is None:
+            return None
+        if comp in names:
+            found.append(comp)
+            continue
+        other = next((n for n in names if n.lower() == comp.lower()), None)
+        if other is None:
+            return None
+        found.append(other)
+    return "/".join(found)
 
 
 def _disk_names(path: Path) -> list[str] | None:
@@ -1082,6 +1109,9 @@ def is_env_text(path: str) -> bool:
     return name.endswith(ENV_NAMES) or name == "Makefile" or name.startswith("Dockerfile") or name == ".env.example"
 
 
+OLD_SETTING = re.compile(r"(?<![A-Za-z0-9_])(?:NEXT_PUBLIC_)?OPEN_NOTEBOOK_[A-Z0-9_]+")
+
+
 def env_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
     """Whole-word rewriter for the setting names, or None when there is nothing to rename.
 
@@ -1115,6 +1145,24 @@ def read_text(path: Path) -> str | None:
         return None
 
 
+def merge_theirs(current: str, base: str, other: str) -> str | None:
+    """``current`` plus the changes from ``base`` to ``other`` (``git merge-file``); a hunk both
+    sides touched takes ``other``. None when git can not do it."""
+    with tempfile.TemporaryDirectory() as tmp:
+        paths = []
+        for name, text in (("current", current), ("base", base), ("other", other)):
+            path = Path(tmp) / name
+            path.write_bytes(text.encode("utf-8"))
+            paths.append(str(path))
+        done = subprocess.run(["git", "merge-file", "-p", "--theirs", *paths], capture_output=True)
+    if done.returncode > 127:  # a negative exit status is an error, a small positive one counts conflicts
+        return None
+    try:
+        return done.stdout.decode("utf-8")
+    except UnicodeDecodeError:
+        return None
+
+
 def mkdirs(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
@@ -1144,12 +1192,31 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         return 2
 
     plan = Plan(cfg, files, tracked).build(root, no_moves, only)
+    # A tracked path that the disk spells differently (case-insensitive disk, index spelled My-ai-quiz/...
+    # but the directory is my-ai-quiz/ now): the table would move it one level too deep. Leave it.
+    listings: dict[str, list[str] | None] = {}
+    for src in sorted(plan.moves):
+        if src in tracked and (on_disk := disk_spelling(root, src, listings)) not in (None, src):
+            plan.refuse(
+                src,
+                f"{src} is spelled {on_disk} on this disk but git's index has {src} (case-insensitive disk): "
+                "not moved; rename it through a temporary name (git mv) so the index spells it like the disk",
+            )
     index = ModuleIndex(cfg, plan)
     # modules of our own packages as the merged tree will have them: the restructure's (--since) plus
     # the converted files, or just the converted tree
-    final_paths = {plan.resolve.get(f, f) for f in (only if only is not None else files)}
+    vanished = vanished_in(root, since, base, only, plan) if since and only is not None else {}
+    # the converted files the merge will not keep (a split file the branch edited) make no module
+    final_paths = {
+        plan.resolve.get(f, f) for f in (only if only is not None else files)
+        if f not in vanished and f not in plan.stays
+    }
+    ref_files: set[str] = set()
+    base_files: set[str] = set()
     if only is not None:
-        final_paths |= set(git_list(root, "ls-tree", "-r", "--name-only", since))
+        ref_files = set(git_list(root, "ls-tree", "-r", "--name-only", since))
+        base_files = set(git_list(root, "ls-tree", "-r", "--name-only", base))
+        final_paths |= ref_files
     final_modules = module_set(final_paths, index.roots)
     for home in cfg.symbol_moves.values():  # made by hand, the table only says where names go
         parts = home.split(".")[:-1]
@@ -1183,35 +1250,60 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         if before is None:
             out(f"warning: {f} is not UTF-8, skipped")
             continue
-        after = before
+        # The restructure already has this file (its lines win in the merge): convert only what the
+        # branch changed. Rewriting the lines it did not touch makes conflicts with the restructure's
+        # own edits of those lines (a docstring next to a rebranded one) that the branch did not cause.
+        held = only is not None and new in ref_files
+
+        def convert(text: str) -> tuple[str, list[str]]:
+            reports: list[str] = []
+            if is_py:
+                text = py.rewrite(text, f, new)
+                reports += [f"{new}: {line}" for line in py.leftovers(text)]
+            if is_pyproject:
+                text = rewrite_pyproject(text, py)
+            if is_ts:
+                text = ts.rewrite(text, f, new)
+            # a compose file reads the new name with the old one as its fallback, which a plain
+            # rename would not write: the restructure's lines are the ones to keep
+            if env is not None and is_text and not held:
+                text = env(text)
+            if ident is not None and (is_py or is_script):
+                text = ident(text)
+            return text, reports
+
+        after, reports = convert(before)
+        was_there = held and f in base_files
+        old_text = git(root, "show", f"{base}:{f}", check=False) if was_there else ""
+        old_after, old_reports = convert(old_text) if was_there else ("", [])
+        # what the file's version at the split already had is the restructure's to fix
+        hand += [line for line in reports if line not in old_reports]
         if is_py:
-            after = py.rewrite(after, f, new)
-            hand += [f"{new}: {line}" for line in py.leftovers(after)]
-            missing = missing_imports(after, final_modules, own_tops)
-            if missing and since:
-                # what the file's version at the split already imported is the restructure's to fix
-                old_text = git(root, "show", f"{base}:{f}", check=False)
-                already = missing_imports(py.rewrite(old_text, f, new), final_modules, own_tops)
-                missing = [name for name in missing if name not in already]
             hand += [
                 f"{new}: imports {name}, which does not exist in the converted layout "
                 "(a module the restructure split or removed?)"
-                for name in missing
+                for name in missing_imports(after, final_modules, own_tops)
+                if name not in missing_imports(old_after, final_modules, own_tops)
             ]
-        if is_pyproject:
-            after = rewrite_pyproject(after, py)
-        if is_ts:
-            after = ts.rewrite(after, f, new)
-        if env is not None and is_text:
-            after = env(after)
-        if ident is not None and (is_py or is_script):
-            after = ident(after)
+        if held and env is not None and is_text:
+            introduced = sorted(set(OLD_SETTING.findall(after)) - set(OLD_SETTING.findall(old_text)))
+            if introduced:
+                hand.append(
+                    f"{new}: your lines name {', '.join(introduced)}: the restructure reads settings as "
+                    "LSP_SIET_* (compose files: ${LSP_SIET_X:-${OPEN_NOTEBOOK_X:-default}}); the old names "
+                    "still work, rename them when you resolve the merge"
+                )
+        shown = after
+        if was_there and old_text != before:
+            merged = merge_theirs(old_text, old_after, after)
+            if merged is not None:
+                after = merged
         if after != before:
             changes[new] = (f, after)
         if mention:
-            count = len(mention.findall(after))
-            if count:
-                hand.append(f"{new}: still mentions {'/'.join(sorted(set(mention.findall(after))))} ({count}x)")
+            seen = Counter(mention.findall(shown)) - Counter(mention.findall(old_after))
+            if seen:
+                hand.append(f"{new}: still mentions {'/'.join(sorted(seen))} ({sum(seen.values())}x)")
 
     # --- report -----------------------------------------------------------------------------
     per_rule: dict[tuple[str, str], int] = defaultdict(int)
@@ -1247,7 +1339,7 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         out(f"conflict: {message}")
     hand += list(plan.stays.values())
     if since and only is not None:
-        hand += vanished_in(root, since, base, only, plan)
+        hand += list(vanished.values())
     for message in index.conflicts:
         out(f"warning: {message}")
     for new in sorted(changes):
@@ -1352,6 +1444,14 @@ def _apply(root: Path, plan: Plan, tracked: set[str], changes: dict[str, tuple[s
     # 4. text
     for new, (_, text) in changes.items():
         (root / new).write_bytes(text.encode("utf-8"))
+    # 5. a new (untracked) file moved below a directory that was spelled differently: `git add` would
+    #    give it the directory case the index already has (My-ai-quiz/...) on a case-insensitive disk,
+    #    so the merge would look clean but track the file under the old spelling. Stage it now with
+    #    the spelling of the table; everything else the codemod moved stays as git mv left it.
+    wanted = [w for _, w in renames or []]
+    spelled = [dst for _, dst in plain if any(dst.startswith(w + "/") for w in wanted)]
+    for i in range(0, len(spelled), 100):
+        git(root, "-c", "core.ignorecase=false", "add", "--", *spelled[i:i + 100])
 
 
 # ------------------------------------------------------------------------------------ CLI

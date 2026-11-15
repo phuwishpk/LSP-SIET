@@ -1144,6 +1144,245 @@ def test_modules_that_symbol_moves_create_are_not_reported_missing(tmp_path):
     assert not any("does not exist" in line for line in lines), lines
 
 
+def case_insensitive_disk(path: Path) -> bool:
+    probe = path / "CaseProbe.tmp"
+    probe.write_text("x")
+    try:
+        return (path / "caseprobe.tmp").exists()
+    finally:
+        probe.unlink()
+
+
+def make_quiz_branches(tmp_path: Path) -> Path:
+    """main (old layout, My-ai-quiz), R (restructure: the full conversion), mate (checked out)."""
+    root = make_repo(tmp_path / "r", {
+        "My-ai-quiz/app/lib/a.ts": lines_of("a"),
+        "My-ai-quiz/app/page.tsx": lines_of("page"),
+        "My-ai-quiz/README.md": "the quiz app\n" + lines_of("readme"),
+        "My-ai-quiz/package.json": '{"name": "quiz"}\n' + lines_of("pkg"),
+    })
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    return root
+
+
+def test_since_new_file_under_a_case_renamed_dir_is_indexed_with_the_new_spelling(tmp_path):
+    """macOS: `git add` gives a new path the directory case already in the index (My-ai-quiz/...)
+    although the directory on disk is my-ai-quiz now; the merge then looks clean but the file
+    is tracked under the old spelling (a stray directory on Linux, nothing for the quiz app)."""
+    root = make_quiz_branches(tmp_path)
+    write(root, "My-ai-quiz/app/lib/a.ts", read(root, "My-ai-quiz/app/lib/a.ts") + "edited = 1\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    write(root, "My-ai-quiz/app/lib/timer.ts", "export const timer = 1\n")  # untracked, new
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "chore: LSP-SIET codemod")
+    merged = run_git(root, "merge", "--no-edit", "R")
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    files = tracked(root)
+    assert "my-ai-quiz/app/app/lib/timer.ts" in files, sorted(files)
+    assert "my-ai-quiz/app/app/lib/a.ts" in files
+    assert not [p for p in files if p.startswith("My-ai-quiz")], sorted(files)  # git ls-files My-ai-quiz is empty
+    assert os.listdir(root / "my-ai-quiz") == ["app"]
+    assert apply(root, check=True)[0] == 0  # and the check does not plan one level more
+
+
+def test_a_tracked_path_the_disk_spells_differently_is_not_moved_one_level_too_deep(tmp_path):
+    """The state that bug leaves behind: the index says My-ai-quiz/app/app/lib/timer.ts, the disk
+    my-ai-quiz/app/app/lib/timer.ts. The table would move it to my-ai-quiz/app/app/app/lib/..."""
+    if not case_insensitive_disk(tmp_path):
+        pytest.skip("needs a case-insensitive disk")
+    root = make_repo(tmp_path / "r", {"My-ai-quiz/README.md": "the quiz app\n" + lines_of("readme")})
+    os.rename(root / "My-ai-quiz", root / "tmp-quiz")
+    os.rename(root / "tmp-quiz", root / "my-ai-quiz")
+    write(root, "my-ai-quiz/app/app/lib/timer.ts", "export const timer = 1\n")
+    git(root, "add", "my-ai-quiz/app/app/lib/timer.ts")
+    assert "My-ai-quiz/app/app/lib/timer.ts" in tracked(root)  # git recorded the case of the index
+    git(root, "commit", "-q", "-m", "wrong spelling")
+    code, lines = apply(root, check=True, verbose=True)
+    out = "\n".join(lines)
+    assert "my-ai-quiz/app/app/app/lib/timer.ts" not in out, out
+    assert any(line.startswith("conflict:") and "timer.ts" in line and "index" in line for line in lines), out
+    assert code == 1
+
+
+def test_since_reports_a_new_symbol_imported_from_a_split_file_the_branch_also_edited(tmp_path):
+    """The branch adds `_timer_hint` to the file the restructure split AND imports it from a new test:
+    the edited file is converted (the merge reports the modify/delete), but the module it makes is
+    not one that will exist, so the import must still be reported."""
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/gone.py": lines_of("gone"),
+        "open-notebook/api/stay.py": lines_of("stay"),
+    })
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    git(root, "rm", "-q", "-f", "platform/api/gone.py")
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "open-notebook/api/gone.py", lines_of("gone") + "def _timer_hint(): ...\n")
+    write(root, "open-notebook/api/test_timer.py", "from api.gone import _timer_hint\nfrom api.stay import stay_1\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    hand = [line for line in lines if line.startswith("check by hand: ")]
+    assert any("platform/api/gone.py" in h and "deleted or split" in h for h in hand), hand
+    missing = [h for h in hand if "does not exist" in h]
+    assert len(missing) == 1 and missing[0].startswith("check by hand: platform/api/test_timer.py: imports api.gone,"), hand
+    # the file is still converted: its content is the branch's to port
+    assert "_timer_hint" in read(root, "platform/api/gone.py")
+
+
+COMPOSE_OLD = dedent("""
+    services:
+      api:
+        image: kmitlai/open-notebook:local
+        environment:
+          - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY}
+          - SURREAL_URL=ws://surrealdb:8000/rpc
+          - A=1
+          - B=2
+          - C=3
+          - D=4
+          - E=5
+          - OPEN_NOTEBOOK_PASSWORD=${OPEN_NOTEBOOK_PASSWORD:-}
+        ports:
+          - "5055:5055"
+""")
+# what the restructure's compose files say: the new name, the old one as the fallback
+COMPOSE_NEW = (
+    COMPOSE_OLD.replace("kmitlai/open-notebook:local", "kmitlai/lsp-siet:local")
+    .replace("- OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY}",
+             "- LSP_SIET_ENCRYPTION_KEY=${LSP_SIET_ENCRYPTION_KEY:-${OPEN_NOTEBOOK_ENCRYPTION_KEY:-}}")
+    .replace("- OPEN_NOTEBOOK_PASSWORD=${OPEN_NOTEBOOK_PASSWORD:-}",
+             "- LSP_SIET_PASSWORD=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}")
+)
+
+
+def conflict_markers(root: Path, rel: str) -> int:
+    return read(root, rel).count("<<<<<<<")
+
+
+def test_since_does_not_rewrite_settings_in_a_file_the_restructure_has_at_that_path(tmp_path):
+    """An edited docker-compose.yml: the codemod used to write `LSP_SIET_X:-default` where the
+    restructure has `LSP_SIET_X:-${OPEN_NOTEBOOK_X:-default}`, a conflict the teammate did not cause
+    (and the side that loses the hunk drops the old-name fallback)."""
+    root = make_repo(tmp_path / "r", {
+        "docker-compose.yml": COMPOSE_OLD,
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/m.py": lines_of("m"),
+    })
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    write(root, "docker-compose.yml", COMPOSE_NEW)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "docker-compose.yml", COMPOSE_OLD.replace("- C=3", "- C=33\n          - NEW_SETTING=${OPEN_NOTEBOOK_NEW_SETTING:-x}"))
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    # without the codemod: the baseline number of conflicts
+    git(root, "branch", "mate-plain")
+    plain = run_git(root, "merge", "--no-edit", "R")
+    without = conflict_markers(root, "docker-compose.yml") if plain.returncode else 0
+    run_git(root, "merge", "--abort")
+    git(root, "reset", "-q", "--hard", "mate-plain")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    assert read(root, "docker-compose.yml").count("OPEN_NOTEBOOK_ENCRYPTION_KEY") == 2  # untouched by the codemod
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "--allow-empty", "-m", "codemod")
+    merged = run_git(root, "merge", "--no-edit", "R")
+    with_codemod = conflict_markers(root, "docker-compose.yml") if merged.returncode else 0
+    assert with_codemod <= without, (with_codemod, without, read(root, "docker-compose.yml"))
+    assert merged.returncode == 0, merged.stdout
+    final = read(root, "docker-compose.yml")
+    assert "- LSP_SIET_ENCRYPTION_KEY=${LSP_SIET_ENCRYPTION_KEY:-${OPEN_NOTEBOOK_ENCRYPTION_KEY:-}}" in final
+    assert "- C=33" in final
+    # the setting the branch added with the old name is not renamed behind the merge's back: it is reported
+    hand = [line for line in lines if line.startswith("check by hand: docker-compose.yml:")]
+    assert len(hand) == 1 and "OPEN_NOTEBOOK_NEW_SETTING" in hand[0], lines
+
+
+def test_since_still_rewrites_settings_in_a_new_text_file(tmp_path):
+    root = make_old_layout_repo(tmp_path)
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "docker-compose.test.yml", "services:\n  x:\n    environment:\n      - OPEN_NOTEBOOK_PASSWORD=${OPEN_NOTEBOOK_PASSWORD:-}\n")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    assert "LSP_SIET_PASSWORD" in read(root, "docker-compose.test.yml")
+
+
+EXTENSION_OLD = dedent('''
+    """
+    siet-community as an open-notebook extension (entry point group
+    ``open_notebook.extensions``, see open_notebook/extensions.py).
+    """
+    import os
+
+    from open_notebook import extensions
+
+    A = 1
+    B = 2
+    C = 3
+    D = 4
+    E = 5
+''')
+
+
+def test_since_converts_only_the_lines_the_branch_changed_in_a_file_the_restructure_has(tmp_path):
+    """A teammate appends to community/siet_community/extension.py. The docstring line the codemod
+    rewrote sits next to the one the restructure rebranded by hand: converting it made a conflict
+    the teammate did not cause. Unchanged lines stay as they were; the merge brings the restructure's."""
+    root = make_repo(tmp_path / "r", {"community/siet_community/extension.py": EXTENSION_OLD})
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    write(root, "community/siet_community/extension.py",
+          read(root, "community/siet_community/extension.py").replace("an open-notebook extension", "an LSP-SIET extension"))
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "community/siet_community/extension.py",
+          EXTENSION_OLD + "from open_notebook.exceptions import OpenNotebookError\n")
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    text = read(root, "community/siet_community/extension.py")
+    # the branch's own line is converted ...
+    assert "from siet_core.exceptions import SietError\n" in text
+    # ... what it did not touch is left for the merge (docstring, import, no hand-check noise about them)
+    assert "``open_notebook.extensions``" in text and "from open_notebook import extensions\n" in text
+    assert not any("extension.py" in line and "still mentions" in line for line in lines), lines
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    merged = run_git(root, "merge", "--no-edit", "R")
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    final = read(root, "community/siet_community/extension.py")
+    assert "an LSP-SIET extension" in final and "``siet.extensions``" in final
+    assert "from siet_core import extensions\n" in final and "from siet_core.exceptions import SietError\n" in final
+
+
 def test_since_without_the_option_converts_the_whole_tree(tmp_path):
     root = make_old_layout_repo(tmp_path)
     apply(root)
