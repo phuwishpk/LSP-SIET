@@ -33,6 +33,10 @@ git merge $R
 
 - `--since $R` = แปลงเฉพาะไฟล์ที่ branch คุณแก้หรือเพิ่มนับจากจุดที่แยกจาก `$R` (ไฟล์ใหม่ที่ยังไม่ commit ก็นับ)
   **อย่าลืมใส่** — ถ้าไม่ใส่ มันจะย้ายทั้ง repo แล้วชนกับไฟล์ที่โครงสร้างใหม่ลบทิ้งไปเป็นร้อยไฟล์ (rename/delete)
+- ไฟล์ที่ `$R` มีอยู่แล้ว (เช่น `docker-compose.yml`, `community/siet_community/extension.py`) สคริปต์แปลง **เฉพาะบรรทัดที่คุณแก้/เพิ่ม**
+  บรรทัดอื่นปล่อยไว้ให้ `git merge $R` เอาของโครงสร้างใหม่มาใส่ (กัน conflict ที่คุณไม่ได้ก่อ) และจะ **ไม่เปลี่ยนชื่อ env** ในไฟล์พวกนั้น
+  (compose อ่านชื่อใหม่ก่อน แล้วค่อยถอยไปชื่อเก่า: `${LSP_SIET_X:-${OPEN_NOTEBOOK_X:-ค่าเริ่มต้น}}`) ถ้าบรรทัดใหม่ของคุณใช้ชื่อ `OPEN_NOTEBOOK_*` มันใช้ได้
+  แต่สคริปต์เตือน — แก้เป็นรูปแบบข้างบนตอน resolve merge
 - ขั้น 2 ต้อง `git add -A` รวม `scripts/lsp-siet/` ด้วย เพราะตอน merge ขั้น 3 ไฟล์ชุดเดียวกันจะมาจาก `$R` อยู่แล้ว
   (ถ้า `$R` มี commit ใหม่หลังจากที่คุณเอาสคริปต์มา แล้ว git บอกว่า `scripts/lsp-siet` ชนกัน ให้เลือกฝั่ง `$R`:
   `git checkout --theirs scripts/lsp-siet && git add scripts/lsp-siet`)
@@ -52,6 +56,7 @@ git merge $R
 | `dropped … exports dynamic that the kept … lacks` | ไฟล์สองฝั่งชื่อซ้ำกัน (หน้า/โมดูลของ host กับของ `siet-platform`); ไฟล์ที่ไม่ถูกเก็บมี `export` ที่ไฟล์ที่เก็บไม่มี (`dynamic`, `revalidate`, `metadata`, `generateMetadata` …) | ถ้ายังต้องใช้ ให้เพิ่ม `export` นั้นในไฟล์ที่เก็บ (ตัวอย่างจริง: `/config/apps` ต้อง `export const dynamic = 'force-dynamic'`) |
 | `collision: … kept A, dropped B` | โครงสร้างเดิมมีสองไฟล์ชื่อซ้ำกัน (`open-notebook/…` กับ `siet-platform/…`) ตอนนี้เหลือไฟล์เดียว | ถ้า B ที่ถูกทิ้งมีการแก้ของคุณ ให้เอามาใส่ A ด้วยมือ (`git show HEAD:B`) |
 | `your edits stay in this file; … wins at …` | คุณแก้ไฟล์ที่ "แพ้" ในข้างบน | สคริปต์ไม่ลบ (กันงานคุณหาย) git จะฟ้อง conflict ตอนขั้น 3 — เอาส่วนที่แก้ไปใส่ไฟล์ที่ชนะ |
+| `conflict: … is spelled … on this disk but git's index has …` | (macOS) ดัชนีของ git สะกดโฟลเดอร์ต่างจากบนดิสก์ (มักเกิดจาก `git add` ไฟล์ใหม่ใต้ `My-ai-quiz/` หลังโฟลเดอร์ถูกเปลี่ยนเป็น `my-ai-quiz/` แล้ว) สคริปต์เลยไม่ย้ายไฟล์นั้น (ไม่งั้นมันจะซ้อนลงไปอีกชั้น) | `git mv` ผ่านชื่อชั่วคราวให้ดัชนีสะกดเหมือนดิสก์ แล้วรันใหม่ |
 | `still mentions open-notebook (2x)` | ในไฟล์ข้อความ (Makefile, yml, md) ยังมีชื่อโฟลเดอร์เก่า | แก้เองตามตารางข้อ 3 |
 | `note: ignored, not moved: …` | โฟลเดอร์ที่ git ไม่ track (`node_modules`, ข้อมูล dev) ไม่ถูกย้าย | ย้ายเอง ดูข้อ 7 |
 
@@ -143,6 +148,8 @@ git จะฟ้อง `modify/delete` ตอนขั้น 3 (และสค�
 
 ## 7. macOS และข้อมูลในเครื่อง
 
+- **อย่า `git add` ไฟล์ใหม่ใต้ `My-ai-quiz/` ระหว่างขั้น 2 กับ 3** (macOS): ตราบที่ดัชนียังมีไฟล์ `My-ai-quiz/…` ที่ยังไม่ย้าย `git add` จะสะกดโฟลเดอร์ตามดัชนี
+  ไม่ใช่ตามดิสก์ สคริปต์ stage ไฟล์ใหม่ที่มันย้ายไว้ให้เองด้วยชื่อที่ถูกแล้ว (`my-ai-quiz/app/…`); ไฟล์ที่คุณสร้างเพิ่มทีหลังให้รอ merge เสร็จก่อน
 - **ตัวพิมพ์เล็ก/ใหญ่ (macOS):** `My-ai-quiz` → `my-ai-quiz/app` ต่างกันแค่ตัว `M` ดิสก์ macOS ไม่แยกตัวพิมพ์ ถ้าย้ายด้วย `git mv` ตรง ๆ
   โฟลเดอร์จะยังสะกดแบบเก่า (`My-ai-quiz/app/...`) แต่ git คิดว่าเป็น `my-ai-quiz/app/...` สคริปต์เปลี่ยนชื่อผ่านชื่อชั่วคราวให้แล้ว
   (บรรทัด `note: My-ai-quiz is spelled my-ai-quiz …`) ถ้าต้องทำเอง: `git mv My-ai-quiz tmp-quiz && mkdir my-ai-quiz && git mv tmp-quiz my-ai-quiz/app`
@@ -155,11 +162,16 @@ git จะฟ้อง `modify/delete` ตอนขั้น 3 (และสค�
 ## 8. ตรวจว่าเรียบร้อย
 
 ```bash
-git status                       # ไม่ควรเหลือ conflict (UU/UD/AU) หรือไฟล์ใน open-notebook/, siet-platform/, My-ai-quiz/
+git status                       # ไม่ควรเหลือ conflict (UU/UD/AU)
+git ls-files | grep -E '^(open-notebook|siet-platform|My-ai-quiz|ai-roadmap-generator)/'   # ต้องไม่พิมพ์อะไรเลย
 make test-backend                # platform + kmitl-rag + quiz + roadmap + community
 make test-frontend               # tsc + vitest (รัน frontend-links และ frontend-routes ให้ด้วย)
 python3 scripts/lsp-siet/codemod.py --check   # ต้องไม่มีอะไรเหลือให้ทำ ("nothing to do")
 ```
+
+บน macOS ให้ดูบรรทัด `git ls-files | grep …` โดยเฉพาะ: `git status` สะอาดได้แม้ git จะเก็บไฟล์ไว้ใต้ `My-ai-quiz/` (ตัว M ใหญ่)
+เพราะดิสก์ไม่แยกตัวพิมพ์ — ถ้าบรรทัดนั้นพิมพ์อะไรออกมา ไฟล์พวกนั้นอยู่ผิดชื่อโฟลเดอร์ใน git (Linux/CI/Docker จะเห็นเป็นโฟลเดอร์แปลกปลอม)
+แก้ด้วย `git mv <path> tmp-file && git mv tmp-file <path ที่สะกดถูก>` ทีละไฟล์
 
 test ที่แดงอยู่แล้วก่อนโครงสร้างใหม่ (baseline) อยู่ใน `docs/lsp-siet/known-failures.txt` — CI ข้ามเฉพาะรายการนั้น
 test ใหม่ที่แดงนอกรายการ = ของคุณ

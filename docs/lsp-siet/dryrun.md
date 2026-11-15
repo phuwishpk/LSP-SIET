@@ -1,7 +1,7 @@
 # Codemod dry run on the teammates' open branches
 
-Task 17 of the restructure, 2026-11-15. The codemod (`scripts/lsp-siet/codemod.py`, commit `87f70425` of
-`refactor/lsp-siet`; the final tool commit is `0b73c398`, which only narrows one `check by hand` report) was run on a throw-away worktree of every open branch, followed by
+Task 17 of the restructure, 2026-11-15. The codemod (`scripts/lsp-siet/codemod.py`, tool commit `610791bf` of
+`refactor/lsp-siet`, after the review round described at the end; the first run used `87f70425`, the numbers in the tables are the same for both) was run on a throw-away worktree of every open branch, followed by
 `git merge --no-commit --no-ff refactor/lsp-siet`; the conflicts git reported were recorded and the merge aborted.
 Nothing was pushed. Worktrees were removed afterwards (`git worktree list` shows none of them, `git branch` has
 no new branch; the runs used detached heads). The hand-off for the teammates is `docs/handoff/lsp-siet.md`.
@@ -76,6 +76,41 @@ are reported; `notebooks/components` is one directory rule (new files follow the
 (`OpenNotebookError`, `open_notebook_error_handler`, `openNotebookDialog`); patch strings of symbols moved into `siet_platform.ai_helpers` /
 `siet_platform.http` are reported, not rewritten (the quiz/roadmap modules import those names, so patching the helper intercepts nothing).
 CI runs `scripts/lsp-siet` (codemod, infra paths, guard) in the `checks` job of `.github/workflows/image.yml`.
+
+## Review round 1: three defects found by following the handoff literally
+
+A reviewer ran the handoff commands in a clone of `origin/feat/quiz-ai` with synthetic WIP (macOS) and found three defects my runs had
+missed. All three are fixed in `610791bf`, each with a test that failed first (`test_codemod.py`):
+
+1. **A new file under `My-ai-quiz/` ended up tracked as `My-ai-quiz/app/app/lib/timer.ts`** (critical). With `--since` the unmoved files keep their
+   `My-ai-quiz/*` index entries, the directory on disk is renamed to `my-ai-quiz`, and `git add -A` (the handoff's step 2) gives a new path the directory case
+   the index already has. The merge looked clean, but Linux/CI/Docker got a stray `My-ai-quiz/` and the quiz app lacked the file; the final `--check` then planned
+   `… -> my-ai-quiz/app/app/app/lib/timer.ts` (one level too deep). Fix: the codemod stages the untracked files it moved below a case-renamed directory itself,
+   with `git -c core.ignorecase=false add`, so the index has the table's spelling; and a tracked path that the disk spells differently is refused with a
+   `conflict:` line instead of being moved one level too deep. (Moving every tracked file under the directory, the other option, would have created
+   `rename/delete` and `add/add` conflicts for the three `My-ai-quiz` files the restructure replaced: Dockerfile, README.md, favicon.ico.) Tests:
+   `test_since_new_file_under_a_case_renamed_dir_is_indexed_with_the_new_spelling` (real disk; passes on Linux too),
+   `test_a_tracked_path_the_disk_spells_differently_is_not_moved_one_level_too_deep` (skipped on case-sensitive disks).
+2. **Settings and imports rewritten in files the restructure also changed made conflicts the teammate did not cause** (important). One edited line in
+   `docker-compose.yml` gave 4 hunks instead of 1 (the codemod wrote `LSP_SIET_X:-default`, the restructure has `LSP_SIET_X:-${OPEN_NOTEBOOK_X:-default}`, and
+   the losing side dropped the old-name fallback). Looking for the same effect elsewhere, an appended line in `community/siet_community/extension.py` conflicted
+   because the codemod had rewritten a docstring line next to the one the restructure rebranded. Fix: in a file that `REF` already has at the final path, `--since`
+   converts only the lines the branch changed (`git merge-file` of the original, the converted original and the converted branch version) and renames no
+   settings; new `OPEN_NOTEBOOK_*` names the branch wrote are reported. New files and files the restructure removed are still converted whole. Tests:
+   `test_since_does_not_rewrite_settings_in_a_file_the_restructure_has_at_that_path` (merge with an edited compose file: conflicts with the codemod <= without),
+   `test_since_converts_only_the_lines_the_branch_changed_in_a_file_the_restructure_has` (clean merge, branch lines converted),
+   `test_since_still_rewrites_settings_in_a_new_text_file`. Experiment on `main` with one edit in each of nine config/source files the restructure also
+   changed: 4 conflicts without the codemod (my appends collide with the restructure's own appends), 4 with it (was 5).
+3. **The missing-import report missed its own example** (important): the branch's edited copy of a split file counted as a module that will exist. Now
+   files reported as deleted/split (and edited collision losers) make no module, so `from siet_platform.features.service import _timer_hint` in a new test is
+   reported. Test: `test_since_reports_a_new_symbol_imported_from_a_split_file_the_branch_also_edited`. The synthetic SpriteUm run now prints
+   `imports siet_platform.features.service, which does not exist …` for its test.
+
+Re-run with `610791bf` (all eight branches): conflicts unchanged: 0 for the five real branches, 2 / 0 / 1 for the synthetic SpriteUm / Poh / Tanabordi ones
+(whole-tree codemod still 299 everywhere). The reviewer's scenario was re-run literally (`git merge main`, a tracked edit and an untracked new file under
+`My-ai-quiz/`, `git checkout $R -- scripts/lsp-siet`, `codemod.py --since $R`, `git add -A && git commit`, `git merge $R`): merge exit 0, clean status,
+`git ls-files | grep '^My-ai-quiz'` prints nothing, `timer.ts` tracked as `my-ai-quiz/app/app/lib/timer.ts`, `--check` afterwards nothing to do.
+With the tool of `124e9d90` the same run leaves 53 tracked paths under `My-ai-quiz/` and `timer.ts` as `My-ai-quiz/app/app/lib/timer.ts`.
 
 ## Limits of this dry run
 
