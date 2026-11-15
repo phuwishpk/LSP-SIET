@@ -13,8 +13,8 @@ BUNDLE="$(cd "$(dirname "$BUNDLE")" && pwd)/$(basename "$BUNDLE")"
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
-if [ -d open-notebook/surreal_data ] && [ -n "$(ls -A open-notebook/surreal_data 2>/dev/null)" ]; then
-  echo "ERROR: open-notebook/surreal_data already has data. Refusing to overwrite an existing installation."
+if [ -d platform/surreal_data ] && [ -n "$(ls -A platform/surreal_data 2>/dev/null)" ]; then
+  echo "ERROR: platform/surreal_data already has data. Refusing to overwrite an existing installation."
   exit 1
 fi
 

@@ -5,10 +5,10 @@
 # Traefik answers only for Host(lsp-siet.site); no app port is published on the host.
 #
 # Routing (docker/traefik/dynamic/all.yml):
-#   /          → open-notebook Next.js frontend (port 8502)
+#   /          → LSP-SIET Next.js frontend (port 8502)
 #   /api/*     → FastAPI backend (port 5055)
-#   /quiz/*    → My-ai-quiz (port 3000)
-#   /roadmap/* → ai-roadmap-generator (port 3000)
+#   /quiz/*    → my-ai-quiz (port 3000)
+#   /roadmap/* → ai-roadmap (port 3000)
 #
 # Usage:
 #   cp .env.example .env   # fill in API keys / passwords
@@ -60,14 +60,14 @@ services:
       retries: 5
 
   # ---------------------------------------------------------------------------
-  # open-notebook infra: SurrealDB + Redis
+  # platform infra: SurrealDB + Redis
   # ---------------------------------------------------------------------------
   surrealdb:
     image: surrealdb/surrealdb:v2
     command: start --log info --user ${SURREAL_USER:-root} --pass ${SURREAL_PASSWORD:-root} rocksdb:/mydata/mydatabase.db
     user: root
     volumes:
-      - ./open-notebook/surreal_data:/mydata
+      - ./platform/surreal_data:/mydata
     environment:
       - SURREAL_EXPERIMENTAL_GRAPHQL=true
     networks:
@@ -79,7 +79,7 @@ services:
   redis:
     image: redis:7-alpine
     volumes:
-      - ./open-notebook/redis_data:/data
+      - ./platform/redis_data:/data
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     restart: unless-stopped
     networks:
@@ -92,14 +92,14 @@ services:
       start_period: 5s
 
   # ---------------------------------------------------------------------------
-  # open-notebook (FastAPI + Streamlit + Next.js under supervisord)
+  # LSP-SIET (FastAPI + Streamlit + Next.js under supervisord)
   # ---------------------------------------------------------------------------
-  open_notebook_api:
+  lsp_siet_api:
     build:
       context: .
-      dockerfile: docker/open-notebook/Dockerfile
-    image: kmitlai/open-notebook:local
-    container_name: kmitl_open_notebook_api
+      dockerfile: docker/platform/Dockerfile
+    image: kmitlai/lsp-siet:local
+    container_name: lsp_siet_api
     environment:
       - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
       - JWT_SECRET=${JWT_SECRET:-}
@@ -167,11 +167,11 @@ services:
       # internet call the API with a stolen token.
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3500,http://localhost:3001,http://localhost:3002,http://localhost}
     volumes:
-      - ./open-notebook/notebook_data:/app/data
-      - ./open-notebook/prompts:/app/prompts
+      - ./platform/notebook_data:/app/data
+      - ./platform/prompts:/app/prompts
       # Override the baked-in supervisord.conf so Streamlit binds to 8503
       # (avoids clashing with the Next.js frontend on 8502).
-      - ./docker/open-notebook/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
+      - ./docker/platform/supervisord.conf:/etc/supervisor/conf.d/supervisord.conf:ro
     networks:
       - kmitlai_default
     depends_on:
@@ -188,18 +188,18 @@ services:
       - "traefik.enable=false"
 
   # ---------------------------------------------------------------------------
-  # my-ai-quiz (Next.js) – talks to open_notebook_api for AI features
+  # my-ai-quiz (Next.js) – talks to lsp_siet_api for AI features
   # ---------------------------------------------------------------------------
   my_ai_quiz:
     build:
       context: .
-      dockerfile: ./My-ai-quiz/Dockerfile
+      dockerfile: ./my-ai-quiz/app/Dockerfile
     image: kmitlai/my-ai-quiz:local
     container_name: kmitl_my_ai_quiz
     environment:
       - NEXT_PUBLIC_API_URL=/api
-      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
-      - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
+      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055
       - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
       - NODE_ENV=production
     networks:
@@ -215,18 +215,18 @@ services:
       - "traefik.http.middlewares.quiz-stripprefix.stripprefix.prefixes=/quiz"
 
   # ---------------------------------------------------------------------------
-  # ai-roadmap-generator (Next.js)
+  # ai-roadmap (Next.js)
   # ---------------------------------------------------------------------------
   ai_roadmap_generator:
     build:
       context: .
-      dockerfile: ./ai-roadmap-generator/Dockerfile
-    image: kmitlai/ai-roadmap-generator:local
+      dockerfile: ./ai-roadmap/app/Dockerfile
+    image: kmitlai/ai-roadmap:local
     container_name: kmitl_ai_roadmap_generator
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
-      - OPEN_NOTEBOOK_API_URL=http://open_notebook_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055
       - NODE_ENV=production
     networks:
       - kmitlai_default

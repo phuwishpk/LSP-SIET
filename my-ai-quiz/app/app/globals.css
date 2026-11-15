@@ -1,6 +1,6 @@
 @import "tailwindcss";
 @config "../tailwind.config.js";
-@source "../../shared/**/*.{js,ts,jsx,tsx}";
+@source "../../../shared/**/*.{js,ts,jsx,tsx}";
 @source "../**/*.{js,ts,jsx,tsx}";
 
 /* `dark:` follows the dark class that lib/theme.ts sets from SIET Space's choice

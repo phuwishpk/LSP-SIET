@@ -1,5 +1,5 @@
 # =============================================================================
-# KMITL AI Workspace – convenience targets
+# LSP-SIET – convenience targets
 # =============================================================================
 # One command from a clean checkout:
 #   make up        # brings up the entire stack (build + start)
@@ -29,9 +29,9 @@ up: env-check  ## Build images and start the entire stack in detached mode
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build
 	@echo ""
 	@echo "Stack is up. Open http://localhost (browser will prompt for admin / 123)"
-	@echo "  - http://localhost/           Open Notebook (Next.js)"
-	@echo "  - http://localhost/quiz/      My AI Quiz"
-	@echo "  - http://localhost/roadmap/  AI Roadmap Generator"
+	@echo "  - http://localhost/           LSP-SIET (Next.js)"
+	@echo "  - http://localhost/quiz/      AI Quiz"
+	@echo "  - http://localhost/roadmap/  AI Roadmap"
 	@echo "  - http://localhost/api/docs  FastAPI docs"
 	@echo "  - http://localhost/pb/_/      PocketBase admin"
 
@@ -83,27 +83,27 @@ test-backend:  ## Run backend tests (platform + kmitl-rag + quiz + roadmap + com
 
 # One-time move of the KMITL SurrealDB migration records (core 19-25) to the
 # SIET track (_siet_migrations, k2-k8). Needs the image built from this branch.
-# Prod and dev share open-notebook/surreal_data, so run it once, on either stack.
+# Prod and dev share platform/surreal_data, so run it once, on either stack.
 ifeq ($(STACK),dev)
 SPLIT_COMPOSE = $(COMPOSE_BASE) -f docker-compose-dev.yml -p kmitlai_dev --env-file $(ENV_FILE)
 SPLIT_DB = kmitlai_dev_surrealdb
-SPLIT_API = kmitlai_dev_open_notebook_api
+SPLIT_API = kmitlai_dev_lsp_siet_api
 else
 SPLIT_COMPOSE = $(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE)
 SPLIT_DB = surrealdb
-SPLIT_API = open_notebook_api
+SPLIT_API = lsp_siet_api
 endif
 COMPOSE_BASE ?= docker compose
 BACKUP_DIR = backups/surreal_data-$(shell date +%Y%m%d-%H%M%S)
 
 migrate-split:  ## One-time: move KMITL migration records to the SIET track (CONFIRM=1, STACK=dev for dev)
 	@if [ -z "$(CONFIRM)" ]; then \
-		echo "Stops SurrealDB and the API, copies open-notebook/surreal_data to $(BACKUP_DIR),"; \
+		echo "Stops SurrealDB and the API, copies platform/surreal_data to $(BACKUP_DIR),"; \
 		echo "then moves the migration records. Run again with CONFIRM=1. See docs/ARCHITECTURE.md section 5."; \
 		exit 1; \
 	fi
 	$(SPLIT_COMPOSE) stop $(SPLIT_API) $(SPLIT_DB)
-	mkdir -p backups && cp -a open-notebook/surreal_data $(BACKUP_DIR)
+	mkdir -p backups && cp -a platform/surreal_data $(BACKUP_DIR)
 	$(SPLIT_COMPOSE) up -d $(SPLIT_DB)
 	$(SPLIT_COMPOSE) run --rm --no-deps $(SPLIT_API) /app/.venv/bin/python -m siet_platform.migrations.split --dry-run
 	$(SPLIT_COMPOSE) run --rm --no-deps $(SPLIT_API) /app/.venv/bin/python -m siet_platform.migrations.split --backup-done

@@ -11,7 +11,7 @@
 #   - API Docs:               http://localhost:5055/docs
 #
 # Prerequisite:
-#   The `kmitlai/open-notebook:local` image must exist. Build it once with
+#   The `kmitlai/lsp-siet:local` image must exist. Build it once with
 #   `make build` (or `make up`). Reusing the image avoids the 10+ minute
 #   `apt-get install` on every dev startup.
 #
@@ -61,7 +61,7 @@ services:
     command: start --log info --user ${SURREAL_USER:-root} --pass ${SURREAL_PASSWORD:-root} rocksdb:/mydata/mydatabase.db
     user: root
     volumes:
-      - ./open-notebook/surreal_data:/mydata
+      - ./platform/surreal_data:/mydata
     environment:
       - SURREAL_EXPERIMENTAL_GRAPHQL=true
     networks:
@@ -95,14 +95,15 @@ services:
   # Streamlit and the baked-in Next.js are intentionally NOT started here;
   # the Next.js dev server runs in a separate service below.
   # ---------------------------------------------------------------------------
-  kmitlai_dev_open_notebook_api:
-    image: kmitlai/open-notebook:local
-    container_name: kmitlai_dev_open_notebook_api
+  kmitlai_dev_lsp_siet_api:
+    image: kmitlai/lsp-siet:local
+    container_name: kmitlai_dev_lsp_siet_api
     working_dir: /app
     command: >
       sh -c "export PYTHONPATH=/app &&
              /app/.venv/bin/uvicorn api.main:app --host 0.0.0.0 --port 5055 --reload
-             --reload-dir /app --reload-dir /siet-platform --reload-dir /kmitl-rag --reload-dir /community"
+             --reload-dir /app --reload-dir /kmitl-rag --reload-dir /community
+             --reload-dir /my-ai-quiz --reload-dir /ai-roadmap"
     environment:
       - SURREAL_URL=ws://kmitlai_dev_surrealdb:8000/rpc
       - SURREAL_USER=${SURREAL_USER:-root}
@@ -141,15 +142,17 @@ services:
       # Hot-reload backend source (mounted over the baked-in copy).
       # Only mount paths that actually exist locally — otherwise Docker
       # creates an empty dir and shadows the baked-in contents.
-      - ./open-notebook/api:/app/api
-      - ./open-notebook/open_notebook:/app/open_notebook
-      - ./open-notebook/commands:/app/commands
-      - ./open-notebook/prompts:/app/prompts
-      # SIET packages, installed editable from /<dir> in the image
-      - ./siet-platform:/siet-platform
+      - ./platform/api:/app/api
+      - ./platform/siet_core:/app/siet_core
+      - ./platform/siet_platform:/app/siet_platform
+      - ./platform/commands:/app/commands
+      - ./platform/prompts:/app/prompts
+      # SIET parts, installed editable from /<dir> in the image
       - ./kmitl-rag:/kmitl-rag
       - ./community:/community
-      - ./open-notebook/notebook_data:/app/data
+      - ./my-ai-quiz:/my-ai-quiz
+      - ./ai-roadmap:/ai-roadmap
+      - ./platform/notebook_data:/app/data
     networks:
       - kmitlai_default
     depends_on:
@@ -168,17 +171,17 @@ services:
   # Uses vanilla node:22-alpine + bind-mounted source. Node modules live in a
   # named volume to avoid clobbering when the source is mounted.
   # ---------------------------------------------------------------------------
-  kmitlai_dev_open_notebook_frontend:
+  kmitlai_dev_lsp_siet_frontend:
     image: node:22-alpine
-    container_name: kmitlai_dev_open_notebook_frontend
-    working_dir: /app
+    container_name: kmitlai_dev_lsp_siet_frontend
+    working_dir: /platform/frontend
     command: sh -c "npm install && npm run dev -- -H 0.0.0.0 -p 3000"
     environment:
       - NODE_ENV=development
       - PORT=3000
       - HOSTNAME=0.0.0.0
       # Server-side (Next.js rewrites) proxies /api → API container via docker DNS
-      - INTERNAL_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      - INTERNAL_API_URL=http://kmitlai_dev_lsp_siet_api:5055
       # Browser-side URLs
       - NEXT_PUBLIC_API_URL=http://localhost:5055
       - API_URL=http://localhost:5055
@@ -190,35 +193,37 @@ services:
       - MY_AI_QUIZ_URL=${MY_AI_QUIZ_URL:-http://localhost:3001/quiz}
       - AI_ROADMAP_URL=${AI_ROADMAP_URL:-http://localhost:3002/roadmap}
     volumes:
-      - ./open-notebook/frontend:/app
-      - frontend_node_modules_dev:/app/node_modules
+      # The host app is mounted at /platform/frontend, the repository layout under /,
+      # so its tsconfig paths (../../<part>/frontend/src) resolve as on the host.
+      - ./platform/frontend:/platform/frontend
+      - frontend_node_modules_dev:/platform/frontend/node_modules
       # SIET frontend packages (imported as @siet/*). Their node_modules symlink
-      # points at ../../open-notebook/frontend/node_modules, so mount it there too.
-      - ./siet-platform/frontend:/siet-platform/frontend
+      # points at ../../platform/frontend/node_modules (shared/: ../platform/...).
       - ./kmitl-rag/frontend:/kmitl-rag/frontend
       - ./community/frontend:/community/frontend
+      - ./my-ai-quiz/frontend:/my-ai-quiz/frontend
+      - ./ai-roadmap/frontend:/ai-roadmap/frontend
       - ./shared:/shared
-      - frontend_node_modules_dev:/open-notebook/frontend/node_modules
     networks:
       - kmitlai_default
     ports:
       - "3000:3000"
     depends_on:
-      - kmitlai_dev_open_notebook_api
+      - kmitlai_dev_lsp_siet_api
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
   # my-ai-quiz (Next.js) — external app linked from the dashboard "AI Quiz" card
   # Reuses the production-built image; connects to the dev API on the shared
-  # bridge network via the container hostname `kmitlai_dev_open_notebook_api`.
+  # bridge network via the container hostname `kmitlai_dev_lsp_siet_api`.
   # ---------------------------------------------------------------------------
   kmitlai_dev_my_ai_quiz:
     image: kmitlai/my-ai-quiz:local
     container_name: kmitlai_dev_my_ai_quiz
     environment:
       - NEXT_PUBLIC_API_URL=/api
-      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_open_notebook_api:5055
-      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_lsp_siet_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_lsp_siet_api:5055
       - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
       - NODE_ENV=production
     networks:
@@ -228,7 +233,7 @@ services:
     restart: unless-stopped
 
   # ---------------------------------------------------------------------------
-  # ai-roadmap-generator infra: PocketBase (data store for roadmaps).
+  # ai-roadmap infra: PocketBase (data store for roadmaps).
   # Exposed on host 8090 so the browser (NEXT_PUBLIC_POCKETBASE_URL below)
   # can hit it directly — dev has no Traefik proxy to rewrite /pb like prod.
   # ---------------------------------------------------------------------------
@@ -236,7 +241,7 @@ services:
     image: ghcr.io/muchobien/pocketbase:latest
     container_name: kmitlai_dev_ai_roadmap_pocketbase
     volumes:
-      - ./ai-roadmap-generator/pb_data:/pb_data
+      - ./ai-roadmap/app/pb_data:/pb_data
     networks:
       - kmitlai_default
     ports:
@@ -250,19 +255,19 @@ services:
       start_period: 10s
 
   # ---------------------------------------------------------------------------
-  # ai-roadmap-generator (Next.js) — external app linked from the dashboard
+  # ai-roadmap (Next.js) — external app linked from the dashboard
   # "AI Roadmap" card. In prod it's mounted under /roadmap via Traefik; in dev
   # we expose it on host port 3002 so the dashboard fallback URL works.
   # ---------------------------------------------------------------------------
   kmitlai_dev_ai_roadmap_generator:
-    image: kmitlai/ai-roadmap-generator:local
+    image: kmitlai/ai-roadmap:local
     container_name: kmitlai_dev_ai_roadmap_generator
     environment:
       - NEXT_PUBLIC_POCKETBASE_URL=http://localhost:8090
       - POCKETBASE_URL=http://kmitlai_dev_ai_roadmap_pocketbase:8090
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
-      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_open_notebook_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_lsp_siet_api:5055
       - NODE_ENV=production
     networks:
       - kmitlai_default

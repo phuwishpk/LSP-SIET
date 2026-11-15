@@ -9,12 +9,12 @@ http:
       entrypoints: web
       service: api-svc
 
-    # ----- Next.js main (open-notebook frontend) -----
-    open-notebook:
+    # ----- Next.js main (LSP-SIET frontend) -----
+    web:
       rule: "Host(`lsp-siet.site`)"
       entrypoints: web
       priority: 1
-      service: open-notebook-svc
+      service: web-svc
 
     # ----- My AI Quiz (Next.js handles basePath=/quiz) -----
     quiz:
@@ -22,7 +22,7 @@ http:
       entrypoints: web
       service: quiz-svc
 
-    # ----- AI Roadmap Generator (Next.js handles basePath=/roadmap) -----
+    # ----- AI Roadmap (Next.js handles basePath=/roadmap) -----
     roadmap:
       rule: "Host(`lsp-siet.site`) && PathPrefix(`/roadmap`)"
       entrypoints: web
@@ -32,12 +32,12 @@ http:
     api-svc:
       loadBalancer:
         servers:
-          - url: "http://kmitl_open_notebook_api:5055"
+          - url: "http://lsp_siet_api:5055"
 
-    open-notebook-svc:
+    web-svc:
       loadBalancer:
         servers:
-          - url: "http://kmitl_open_notebook_api:8502"
+          - url: "http://lsp_siet_api:8502"
 
     quiz-svc:
       loadBalancer:

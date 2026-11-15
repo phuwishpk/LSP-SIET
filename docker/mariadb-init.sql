@@ -1,6 +1,6 @@
 -- First-boot seed for the MariaDB volume (runs once, on an empty volume).
 -- Only the users table is created here; every other table, and every later
--- column, is created and upgraded by open_notebook/community/schema.py on
+-- column, is created and upgraded by platform/siet_platform/schema.py on
 -- each API start. Keep this in step with that file.
 
 CREATE TABLE IF NOT EXISTS users (

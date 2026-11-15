@@ -7,4 +7,4 @@ export NEXT_PUBLIC_API_URL=/api OPEN_NOTEBOOK_API_URL=http://127.0.0.1:5055
 export OPEN_NOTEBOOK_API_KEY="${OPEN_NOTEBOOK_PASSWORD:-}"
 echo 300 > /proc/self/oom_score_adj
 exec /command/s6-notifyoncheck -d -n 0 -w 1000 -c "curl -fsS -o /dev/null http://127.0.0.1:3001/quiz" \
-  /command/cd /opt/quiz/My-ai-quiz /command/s6-setuidgid lsp node --max-old-space-size=${QUIZ_MAX_OLD_SPACE_MB:-128} server.js
+  /command/cd /opt/quiz/my-ai-quiz/app /command/s6-setuidgid lsp node --max-old-space-size=${QUIZ_MAX_OLD_SPACE_MB:-128} server.js

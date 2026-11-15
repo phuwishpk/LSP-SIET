@@ -7,7 +7,9 @@ const nextConfig: NextConfig = {
   // Skip the type-check during `next build` (too slow on the production
   // server). Next 16 no longer lints during build, so there is no `eslint` option.
   typescript: { ignoreBuildErrors: true },
-  outputFileTracingRoot: path.join(__dirname, "../"),
+  // The repository root (shared/ is a sibling of my-ai-quiz/): the standalone server.js
+  // lands at my-ai-quiz/app/server.js under .next/standalone.
+  outputFileTracingRoot: path.join(__dirname, "../../"),
   experimental: {
     externalDir: true,
   },

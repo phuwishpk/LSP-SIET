@@ -38,7 +38,7 @@ trap '"${COMPOSE[@]}" start >/dev/null; echo "[4/4] Stack started again."' EXIT
 
 echo "[3/4] Archiving ..."
 ITEMS=(.env "$SQL")
-for d in open-notebook/surreal_data open-notebook/notebook_data open-notebook/redis_data ai-roadmap-generator/pb_data; do
+for d in platform/surreal_data platform/notebook_data platform/redis_data ai-roadmap/app/pb_data; do
   [ -d "$d" ] && ITEMS+=("$d")
 done
 COPYFILE_DISABLE=1 tar -czf "$OUT" "${ITEMS[@]}"

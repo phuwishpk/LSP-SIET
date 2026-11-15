@@ -35,26 +35,28 @@ jobs:
         # platform/frontend/src/app holds generated stubs for the parts' pages; this
         # fails when a part page was added or removed without `make frontend-routes`.
         run: node scripts/frontend-routes.mjs --check
-      - name: SIET Space - typecheck
-        working-directory: open-notebook/frontend
+      - name: LSP-SIET frontend (host and parts) - typecheck
+        # The parts' frontends (kmitl-rag, community, my-ai-quiz, ai-roadmap) are compiled
+        # into the host app, so this one tsc run covers all of them.
+        working-directory: platform/frontend
         run: |
           npm ci --no-audit --no-fund
-          cd ../.. && make frontend-links && cd open-notebook/frontend
+          cd ../.. && make frontend-links && cd platform/frontend
           npx tsc --noEmit -p .
-      - name: AI Quiz - typecheck
-        working-directory: My-ai-quiz
+      - name: AI Quiz app - typecheck
+        working-directory: my-ai-quiz/app
         run: |
           npm ci --no-audit --no-fund
-          ln -sfn "$PWD/node_modules" ../shared/node_modules
+          ln -sfn "$PWD/node_modules" ../../shared/node_modules
           npx tsc --noEmit -p .
       - uses: astral-sh/setup-uv@v6
-      - name: SIET packages - tests
-        working-directory: open-notebook
+      - name: Backend (platform and the parts) - tests
+        working-directory: platform
         env:
           PYTHON_DOTENV_DISABLED: "1"
         run: |
           uv sync --frozen --python 3.12
-          uv run --no-sync python -m pytest -q ../siet-platform/tests ../kmitl-rag/tests ../community/tests
+          uv run --no-sync python -m pytest -q tests tests-platform ../kmitl-rag/tests ../community/tests ../my-ai-quiz/tests ../ai-roadmap/tests
 
   image:
     needs: checks
