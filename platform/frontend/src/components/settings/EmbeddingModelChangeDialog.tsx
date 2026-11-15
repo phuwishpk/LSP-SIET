@@ -40,7 +40,7 @@ export function EmbeddingModelChangeDialog({
     onConfirm()
     // Give a moment for the model to update, then redirect
     setTimeout(() => {
-      router.push('/admin/rag')
+      router.push('/admin/rag?tab=rebuild')
       onOpenChange(false)
       setIsConfirming(false)
     }, 500)

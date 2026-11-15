@@ -1093,7 +1093,7 @@ async def retry_source_processing(
                 source_id=str(source.id),
                 content_state=content_state,
                 notebook_ids=notebook_ids,
-                transformations=[],  # Use default transformations on retry
+                transformations=[],  # no summaries/insights on retry: the source is processed and embedded only
                 embed=True,  # Always embed on retry
             )
 

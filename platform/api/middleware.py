@@ -4,8 +4,8 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from siet_core.env import env
 
-# Matches the file-size guidance already documented in
-# docs/3-USER-GUIDE/adding-sources.md ("Very large files (>100MB) - Timeout").
+# Files over about 100 MB tend to time out while they are processed, so the request
+# body limit defaults to 100 MB (LSP_SIET_MAX_UPLOAD_SIZE_MB raises it).
 DEFAULT_MAX_UPLOAD_SIZE_MB = 100
 
 
