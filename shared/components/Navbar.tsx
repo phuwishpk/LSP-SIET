@@ -610,6 +610,8 @@ export function Navbar({
 
   const activeName = displayName(user)
   const activeInitials = initials(activeName || user?.username)
+  const isTeacher = user?.role === 'teacher'
+  const isStudent = user?.role === 'student'
   const isPrivileged = user?.role === 'teacher' || user?.role === 'admin'
   const profileHref = buildCrossUrl(`${workspaceUrl}/community/profile/me`)
 
@@ -619,7 +621,13 @@ export function Navbar({
     <header
       id="siet-shared-navbar"
       data-active-route={activeRoute}
-      className={`siet-navbar siet-shared-navbar sticky top-0 z-[100] w-full border-b border-[#EAE6EA] bg-white text-[#202124] shadow-[0_1px_0_#EAE6EA] select-none dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100 ${className}`}
+      className={`siet-navbar siet-shared-navbar sticky top-0 z-[100] w-full border-b border-t-2 select-none ${
+        isTeacher
+          ? 'border-b-indigo-200 border-t-indigo-600 bg-indigo-50/80 text-slate-900 shadow-[0_1px_0_#c7d2fe] dark:border-b-indigo-900 dark:border-t-indigo-500 dark:bg-indigo-950/40 dark:text-zinc-100'
+          : isStudent
+            ? 'border-b-pink-200/80 border-t-[#ED4988] bg-[#FFF8FA] text-[#202124] shadow-[0_1px_0_#FCE7F0] dark:border-b-pink-950 dark:border-t-[#ED4988] dark:bg-zinc-900 dark:text-zinc-100'
+            : 'border-[#EAE6EA] border-t-[#ED4988] bg-white text-[#202124] shadow-[0_1px_0_#EAE6EA] dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-100'
+      } ${className}`}
       style={{ minHeight: '64px', height: '64px', fontFamily: NAVBAR_FONT, fontSize: '16px', lineHeight: 1.5 }}
     >
       {/* No ' " & < > in here: React 18 (AI Roadmap) escapes them when rendering on the server, and the page then fails to hydrate. */}
@@ -663,7 +671,13 @@ export function Navbar({
           className="flex min-h-[44px] shrink-0 items-center gap-[10px] rounded-[12px] px-[6px] py-[4px] text-left transition-colors hover:bg-[#FFF8FA] no-underline dark:hover:bg-zinc-800"
           style={{ textDecoration: 'none' }}
         >
-          <div className="flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[12px] border border-[#F7B7D0] bg-[#FCE7F0] p-[4px] dark:border-[#694255] dark:bg-[#382630]">
+          <div
+            className={`flex h-[36px] w-[36px] shrink-0 items-center justify-center rounded-[12px] border p-[4px] ${
+              isTeacher
+                ? 'border-indigo-200 bg-indigo-50 dark:border-indigo-800 dark:bg-indigo-950/60'
+                : 'border-[#F7B7D0] bg-[#FCE7F0] dark:border-[#694255] dark:bg-[#382630]'
+            }`}
+          >
             {logoSrc ? (
               <img
                 src={logoSrc}
@@ -686,11 +700,21 @@ export function Navbar({
             )}
           </div>
           <span className="hidden flex-col leading-none sm:flex">
-            <span className="text-[16px] font-bold tracking-tight text-[#202124] dark:text-zinc-100">
-              SIET Space
+            <span className="flex items-center gap-1.5 text-[16px] font-bold tracking-tight text-[#202124] dark:text-zinc-100">
+              <span>Nungsue</span>
+              {isTeacher && (
+                <span className="rounded-full border border-indigo-300 bg-indigo-100 px-2 py-0.5 text-[10px] font-semibold text-indigo-800 dark:border-indigo-700 dark:bg-indigo-900/70 dark:text-indigo-200">
+                  Instructor
+                </span>
+              )}
+              {isStudent && (
+                <span className="rounded-full border border-pink-300 bg-pink-100 px-2 py-0.5 text-[10px] font-semibold text-pink-800 dark:border-pink-800 dark:bg-pink-950/70 dark:text-pink-200">
+                  Student
+                </span>
+              )}
             </span>
             <span className="text-[10px] font-medium text-[#707070] dark:text-zinc-400">
-              SIET learning community
+              {isTeacher ? 'LSP-SIET · Teaching & course hub' : 'LSP-SIET · Learning community'}
             </span>
           </span>
         </a>
@@ -1028,7 +1052,13 @@ export function Navbar({
                         <p className="mt-0.5 truncate text-xs font-normal text-slate-500 dark:text-zinc-300">
                           {user.email || `@${user.username}`}
                         </p>
-                        <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-pink-100 px-2 py-0.5 text-[10px] font-medium text-pink-800 dark:bg-pink-950/60 dark:text-pink-300">
+                        <span
+                          className={`mt-2 inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            isTeacher
+                              ? 'bg-indigo-100 text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-300'
+                              : 'bg-pink-100 text-pink-800 dark:bg-pink-950/60 dark:text-pink-300'
+                          }`}
+                        >
                           <CircleCheck className="h-3 w-3" />
                           สมาชิก SIET Space · {roleLabel(user.role)}
                         </span>
