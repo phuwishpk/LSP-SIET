@@ -42,7 +42,8 @@ MOVES: list[tuple[str, str]] = [
 ]
 
 # When two files land on the same new path, the first (glob, winner_prefix) whose glob
-# matches the NEW path says whose file keeps its content (fnmatch, "*" also crosses "/");
+# matches the path where the two files' move chains meet (the new path, unless a later rule
+# moves both on again) says whose file keeps its content (fnmatch, "*" also crosses "/");
 # the other is deleted through git and reported. No match: COLLISION_DEFAULT_WINNER.
 # siet-platform wins under the host frontend's src (route stubs and the three replaced
 # modules); every other collision (pyproject.toml, package.json, README.md, .gitignore)

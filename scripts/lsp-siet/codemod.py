@@ -21,9 +21,10 @@ What it does, in this order
    later rules compose with earlier ones) and moved with ``git mv`` (untracked files
    with a plain rename). Ignored files (``node_modules``, ``.venv``, data dirs) stay;
    they are listed so they can be moved by hand. If two files land on the same path,
-   ``COLLISION_RULES`` (first glob matching the new path) names the side that keeps its
-   content, ``COLLISION_DEFAULT_WINNER`` otherwise: the ``siet-platform/`` file under
-   ``platform/frontend/src/`` (route stubs, replaced modules), the ``open-notebook/``
+   ``COLLISION_RULES`` (first glob matching the path where the two files' move chains
+   meet, which is the new path unless a later rule moves both on again) names the side
+   that keeps its content, ``COLLISION_DEFAULT_WINNER`` otherwise: the ``siet-platform/``
+   file under ``platform/frontend/src/`` (route stubs, replaced modules), the ``open-notebook/``
    (host) file everywhere else (``pyproject.toml``, ``package.json``, ``README.md``).
    The other copy is deleted through git (an untracked loser is saved next to it as
    ``<name>.collision-dropped``); every collision is reported with the command that
@@ -81,6 +82,9 @@ from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
+
+# Never leave __pycache__ behind in scripts/lsp-siet/ (the tool runs inside the tree it converts).
+sys.dont_write_bytecode = True
 
 HERE = Path(__file__).resolve().parent
 if str(HERE) not in sys.path:
@@ -200,6 +204,7 @@ class Collision:
     winner: str
     losers: list[str]
     by_default: bool = False  # the default side won: the loser's content wants a hand merge
+    meeting: str = ""  # where the files' chains meet (the winner is decided there)
     same_content: dict[str, bool] = field(default_factory=dict)
 
 
@@ -228,28 +233,36 @@ class Plan:
                 return new + path[len(old):], (old, new)
         return None
 
-    def final_path(self, path: str) -> tuple[str, tuple[str, str] | None]:
+    def walk(self, path: str) -> tuple[list[str], tuple[str, str] | None]:
+        """Every path ``path`` goes through (itself first, the final path last) and the first rule used."""
         first: tuple[str, str] | None = None
-        seen = {path}
+        chain = [path]
         for _ in range(MAX_CHAIN):
             hit = self._step(path)
             if hit is None:
-                return path, first
+                return chain, first
             path, rule = hit
             first = first or rule
-            if path in seen:
+            if path in chain:
                 raise ValueError(f"MOVES has a cycle through {path}")
-            seen.add(path)
+            chain.append(path)
         raise ValueError(f"MOVES chains more than {MAX_CHAIN} rules at {path}")
+
+    def final_path(self, path: str) -> tuple[str, tuple[str, str] | None]:
+        chain, first = self.walk(path)
+        return chain[-1], first
 
     def build(self, root: Path | None, no_moves: bool) -> "Plan":
         final: dict[str, str] = {}
+        chains: dict[str, list[str]] = {}
         for f in self.files:
             if no_moves:
                 final[f] = f
+                chains[f] = [f]
                 continue
-            dst, rule = self.final_path(f)
-            final[f] = dst
+            chain, rule = self.walk(f)
+            chains[f] = chain
+            final[f] = chain[-1]
             if rule:
                 self.first_rule[f] = rule
         by_dst: dict[str, list[str]] = defaultdict(list)
@@ -269,12 +282,15 @@ class Plan:
                 self.resolve[src] = dst
                 self.moves[src] = dst
                 continue
-            winner_prefix, by_default = self.winner_prefix(dst)
+            # The winner is decided where the files meet (a later rule may move both on again,
+            # and must not change who wins); a file already sitting there is "in place".
+            meeting = _meeting_point([chains[s] for s in srcs])
+            winner_prefix, by_default = self.winner_prefix(meeting)
             winners = [s for s in movers if s.startswith(winner_prefix)]
-            if dst not in srcs and len(winners) == 1:
+            if meeting not in srcs and len(winners) == 1:
                 winner = winners[0]
                 losers = [s for s in movers if s != winner]
-                collision = Collision(dst, winner, losers, by_default)
+                collision = Collision(dst, winner, losers, by_default, meeting)
                 self.collisions.append(collision)
                 self.resolve[winner] = dst
                 self.moves[winner] = dst
@@ -285,10 +301,10 @@ class Plan:
             self._block(srcs, f"{', '.join(srcs)} all want {dst}; none moved")
         return self
 
-    def winner_prefix(self, dst: str) -> tuple[str, bool]:
-        """Which side keeps its content when two files land on ``dst`` (prefix, decided by default?)."""
+    def winner_prefix(self, path: str) -> tuple[str, bool]:
+        """Which side keeps its content when two files meet at ``path`` (prefix, decided by default?)."""
         for glob, prefix in self.cfg.collision_rules:
-            if fnmatch.fnmatchcase(dst, glob):
+            if fnmatch.fnmatchcase(path, glob):
                 return prefix, False
         return self.cfg.collision_default_winner, True
 
@@ -304,6 +320,16 @@ def _vanishing_top_dirs(cfg: Config) -> set[str]:
     kept = {first(new) for _, new in cfg.moves} | {first(r) for r in cfg.py_roots_new}
     kept |= {first(d) for d in cfg.ts_aliases_new}
     return {first(old) for old, _ in cfg.moves} - kept
+
+
+def _meeting_point(chains: list[list[str]]) -> str:
+    """The first path of the first chain that every other chain also goes through (chains only
+    ever join, never split, so this is where the files first sit on the same path)."""
+    others = [set(chain) for chain in chains[1:]]
+    for path in chains[0]:
+        if all(path in other for other in others):
+            return path
+    return chains[0][-1]
 
 
 def _occupied(root: Path, src: str, dst: str) -> bool:
@@ -942,7 +968,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             if c.by_default and not c.same_content[loser]:
                 hint = f"merge by hand: {hint}"
             same.append(f"{loser} ({'identical' if c.same_content[loser] else 'different'}; {hint})")
-        out(f"collision: {c.dst}: kept {c.winner}, dropped {'; '.join(same)}")
+        where = f" [decided at {c.meeting}]" if c.meeting and c.meeting != c.dst else ""
+        out(f"collision: {c.dst}: kept {c.winner}, dropped {'; '.join(same)}{where}")
     for message in plan.conflicts:
         out(f"conflict: {message}")
     for message in index.conflicts:

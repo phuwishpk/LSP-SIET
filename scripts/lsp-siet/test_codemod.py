@@ -14,6 +14,8 @@ from pathlib import Path
 
 import pytest
 
+sys.dont_write_bytecode = True  # keep scripts/lsp-siet/ free of .pyc files
+
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 
@@ -313,6 +315,52 @@ def test_collision_non_source_host_wins(tmp_path):
     git(root, "add", "-A")
     git(root, "commit", "-q", "-m", "codemod")
     assert apply(root, check=True)[0] == 0
+
+
+def test_collision_winner_stable_under_chained_move(tmp_path):
+    """A later rule that moves a collided file again must not change who wins (Task 12 / Task 17)."""
+    files = {
+        "open-notebook/frontend/src/app/(dashboard)/go/roadmap/page.tsx": "export default () => 'host'\n",
+        "siet-platform/frontend/src/app/(dashboard)/go/roadmap/page.tsx": "export default () => 'siet'\n",
+        "open-notebook/frontend/src/lib/keep.ts": "export const k = 'host'\n",
+        "siet-platform/frontend/src/lib/keep.ts": "export const k = 'siet'\n",
+        "open-notebook/pyproject.toml": "host\n",
+        "siet-platform/pyproject.toml": "siet\n",
+    }
+    later = ("platform/frontend/src/app/(dashboard)/go/roadmap",
+             "ai-roadmap/frontend/src/app/(dashboard)/go/roadmap")
+    moved = "ai-roadmap/frontend/src/app/(dashboard)/go/roadmap/page.tsx"
+    # a branch on the old layout, the whole table at once
+    one_shot = make_repo(tmp_path / "one-shot", files)
+    code, lines = apply(one_shot, config(extra_moves=[later]))
+    assert code == 0
+    assert read(one_shot, moved) == "export default () => 'siet'\n"
+    line = next(line for line in lines if line.startswith("collision:") and "go/roadmap" in line)
+    assert "kept siet-platform/frontend/src/app/(dashboard)/go/roadmap/page.tsx" in line
+    assert "merge by hand" not in line
+    assert read(one_shot, "platform/frontend/src/lib/keep.ts") == "export const k = 'siet'\n"
+    assert read(one_shot, "platform/pyproject.toml") == "host\n"
+    # the repository itself: first the original table, commit, then the appended rule
+    step = make_repo(tmp_path / "step", files)
+    assert apply(step)[0] == 0
+    git(step, "add", "-A")
+    git(step, "commit", "-q", "-m", "task 9")
+    assert apply(step, config(extra_moves=[later]))[0] == 0
+    assert read(step, moved) == read(one_shot, moved)
+
+
+def test_file_already_at_the_meeting_point_is_a_conflict(tmp_path):
+    """A file sitting where the chains meet is 'already in place', even if a later rule moves it on."""
+    root = make_repo(tmp_path / "r", {
+        "platform/frontend/src/lib/x.ts": "export const x = 'in place'\n",
+        "siet-platform/frontend/src/lib/x.ts": "export const x = 'incoming'\n",
+    })
+    cfg = config(extra_moves=[("platform/frontend/src/lib/x.ts", "community/frontend/src/lib/x.ts")])
+    code, lines = apply(root, cfg)
+    assert code == 1
+    assert any(line.startswith("conflict") for line in lines)
+    assert read(root, "platform/frontend/src/lib/x.ts") == "export const x = 'in place'\n"
+    assert read(root, "siet-platform/frontend/src/lib/x.ts") == "export const x = 'incoming'\n"
 
 
 def test_collision_non_source_untracked_siet_copy_is_kept_aside(tmp_path):
