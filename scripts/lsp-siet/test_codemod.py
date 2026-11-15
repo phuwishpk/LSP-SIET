@@ -260,6 +260,93 @@ def test_collision_platform_wins(tmp_path):
     assert git(root, "ls-files", "platform/frontend/src/lib/hooks/use-auth.ts").strip()
 
 
+def test_collision_non_source_host_wins(tmp_path):
+    """Outside frontend/src the open-notebook (host) file keeps its content (R20)."""
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/pyproject.toml": '[project]\nname = "open-notebook"\n',
+        "siet-platform/pyproject.toml": dedent("""
+            [project]
+            name = "siet-platform"
+
+            [project.entry-points."open_notebook.extensions"]
+            siet_platform = "siet_platform.extension"
+        """),
+        "open-notebook/frontend/package.json": '{"name": "frontend", "dependencies": {"next": "1"}}\n',
+        "siet-platform/frontend/package.json": '{"name": "@siet/platform"}\n',
+        "open-notebook/README.md": "host readme\n",
+        "siet-platform/README.md": "siet readme\n",
+        "open-notebook/.gitignore": "host\n",
+        "siet-platform/.gitignore": "siet\n",
+        # under frontend/src the siet-platform file still wins
+        "open-notebook/frontend/src/lib/hooks/use-auth.ts": "export const u = 'host'\n",
+        "siet-platform/frontend/src/lib/hooks/use-auth.ts": "export const u = 'siet'\n",
+    })
+    code, lines = apply(root)
+    assert code == 0
+    assert read(root, "platform/pyproject.toml") == '[project]\nname = "open-notebook"\n'
+    assert read(root, "platform/frontend/package.json") == '{"name": "frontend", "dependencies": {"next": "1"}}\n'
+    assert read(root, "platform/README.md") == "host readme\n"
+    assert read(root, "platform/.gitignore") == "host\n"
+    assert read(root, "platform/frontend/src/lib/hooks/use-auth.ts") == "export const u = 'siet'\n"
+    # the siet-platform copies are gone from disk and from the index
+    assert not (root / "siet-platform").exists()
+    assert not (root / "open-notebook").exists()
+    assert not any(p.startswith(("siet-platform/", "open-notebook/")) for p in tracked(root))
+    assert {"platform/pyproject.toml", "platform/frontend/package.json"} <= tracked(root)
+    # each one is reported, with the command that shows the dropped side
+    out = "\n".join(lines)
+    for dst, loser in [
+        ("platform/pyproject.toml", "siet-platform/pyproject.toml"),
+        ("platform/frontend/package.json", "siet-platform/frontend/package.json"),
+        ("platform/README.md", "siet-platform/README.md"),
+        ("platform/.gitignore", "siet-platform/.gitignore"),
+    ]:
+        line = next(line for line in lines if line.startswith(f"collision: {dst}:"))
+        assert f"kept {dst.replace('platform/', 'open-notebook/', 1)}" in line
+        assert "merge by hand" in line and f"git show HEAD:{loser}" in line
+    # the frontend/src collision is reported the old way: the host copy is the dropped side
+    use_auth = next(line for line in lines if "use-auth.ts" in line and line.startswith("collision"))
+    assert "kept siet-platform/frontend/src/lib/hooks/use-auth.ts" in use_auth
+    assert "merge by hand" not in use_auth
+    assert "5 collisions" in out
+    # nothing left to do afterwards
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    assert apply(root, check=True)[0] == 0
+
+
+def test_collision_non_source_untracked_siet_copy_is_kept_aside(tmp_path):
+    root = make_repo(
+        tmp_path / "r",
+        {"open-notebook/pyproject.toml": "host\n"},
+        untracked={"siet-platform/pyproject.toml": "siet, not committed yet\n"},
+    )
+    code, lines = apply(root)
+    assert code == 0
+    assert read(root, "platform/pyproject.toml") == "host\n"
+    assert read(root, "platform/pyproject.toml.collision-dropped") == "siet, not committed yet\n"
+    assert any("merge by hand" in line and "collision-dropped" in line for line in lines)
+
+
+def test_collision_rules_are_data(tmp_path):
+    files = {
+        "open-notebook/frontend/src/a.ts": "host\n",
+        "siet-platform/frontend/src/a.ts": "siet\n",
+        "open-notebook/frontend/b.json": "host\n",
+        "siet-platform/frontend/b.json": "siet\n",
+    }
+    root = make_repo(tmp_path / "flipped", files)
+    apply(root, config(collision_rules=(("platform/frontend/src/*", "open-notebook/"),),
+                       collision_default_winner="siet-platform/"))
+    assert read(root, "platform/frontend/src/a.ts") == "host\n"
+    assert read(root, "platform/frontend/b.json") == "siet\n"
+    cfg = codemod.Config.from_moves()
+    plan = codemod.Plan(cfg, [], set())
+    assert plan.winner_prefix("platform/frontend/src/lib/x.ts") == ("siet-platform/", False)
+    assert plan.winner_prefix("platform/pyproject.toml") == ("open-notebook/", True)
+    assert plan.winner_prefix("platform/frontend/package.json") == ("open-notebook/", True)
+
+
 def test_collision_untracked_loser_is_kept_aside(tmp_path):
     root = make_repo(
         tmp_path / "r",

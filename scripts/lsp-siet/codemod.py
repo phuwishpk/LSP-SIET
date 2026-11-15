@@ -20,12 +20,16 @@ What it does, in this order
    mapped through ``MOVES`` (longest old path wins, repeated until nothing matches, so
    later rules compose with earlier ones) and moved with ``git mv`` (untracked files
    with a plain rename). Ignored files (``node_modules``, ``.venv``, data dirs) stay;
-   they are listed so they can be moved by hand. If two files land on the same path the
-   one from a ``COLLISION_WINNER_PREFIXES`` prefix (``siet-platform/``) keeps its
-   content and the other is deleted through git (an untracked loser is saved next to
-   it as ``<name>.collision-dropped``); every collision is reported, with the command
-   that recovers the loser. A file that would land on a file that is already there, or
-   two files from the same side, are reported as ``conflict`` and stay where they are.
+   they are listed so they can be moved by hand. If two files land on the same path,
+   ``COLLISION_RULES`` (first glob matching the new path) names the side that keeps its
+   content, ``COLLISION_DEFAULT_WINNER`` otherwise: the ``siet-platform/`` file under
+   ``platform/frontend/src/`` (route stubs, replaced modules), the ``open-notebook/``
+   (host) file everywhere else (``pyproject.toml``, ``package.json``, ``README.md``).
+   The other copy is deleted through git (an untracked loser is saved next to it as
+   ``<name>.collision-dropped``); every collision is reported with the command that
+   shows the loser, and the host-wins ones say ``merge by hand``. A file that would land
+   on a file that is already there, or two files from the same side, are reported as
+   ``conflict`` and stay where they are.
 2. **Python** (``*.py``, except this tool's own directory). Dotted module names are
    derived from the moved ``.py`` paths (below the first matching ``PY_ROOTS`` directory
    ``a/b/c.py`` is ``b.c`` under root ``a``), from the directory rules of ``MOVES``
@@ -67,6 +71,7 @@ from __future__ import annotations
 
 import argparse
 import dataclasses
+import fnmatch
 import os
 import posixpath
 import re
@@ -104,7 +109,8 @@ class Config:
     entry_point_group: tuple[str, str]
     symbol_moves: dict[str, str]
     env_renames: dict[str, str]
-    collision_winner_prefixes: tuple[str, ...] = ("siet-platform/",)
+    collision_rules: tuple[tuple[str, str], ...] = (("platform/frontend/src/*", "siet-platform/"),)
+    collision_default_winner: str = "open-notebook/"
 
     @classmethod
     def from_moves(cls, table=moves_table) -> "Config":
@@ -118,7 +124,8 @@ class Config:
             entry_point_group=tuple(table.ENTRY_POINT_GROUP),  # type: ignore[arg-type]
             symbol_moves=dict(table.SYMBOL_MOVES),
             env_renames=dict(table.ENV_RENAMES),
-            collision_winner_prefixes=tuple(getattr(table, "COLLISION_WINNER_PREFIXES", ("siet-platform/",))),
+            collision_rules=tuple((glob, prefix) for glob, prefix in table.COLLISION_RULES),
+            collision_default_winner=table.COLLISION_DEFAULT_WINNER,
         )
 
     def validate(self) -> None:
@@ -192,6 +199,7 @@ class Collision:
     dst: str
     winner: str
     losers: list[str]
+    by_default: bool = False  # the default side won: the loser's content wants a hand merge
     same_content: dict[str, bool] = field(default_factory=dict)
 
 
@@ -248,7 +256,6 @@ class Plan:
         for f, dst in final.items():
             by_dst[dst].append(f)
         present = set(self.files)
-        winner_prefixes = self.cfg.collision_winner_prefixes
         for dst, srcs in sorted(by_dst.items()):
             movers = [s for s in srcs if s != dst]
             if not movers:
@@ -262,11 +269,12 @@ class Plan:
                 self.resolve[src] = dst
                 self.moves[src] = dst
                 continue
-            winners = [s for s in movers if s.startswith(winner_prefixes)]
+            winner_prefix, by_default = self.winner_prefix(dst)
+            winners = [s for s in movers if s.startswith(winner_prefix)]
             if dst not in srcs and len(winners) == 1:
                 winner = winners[0]
                 losers = [s for s in movers if s != winner]
-                collision = Collision(dst, winner, losers)
+                collision = Collision(dst, winner, losers, by_default)
                 self.collisions.append(collision)
                 self.resolve[winner] = dst
                 self.moves[winner] = dst
@@ -276,6 +284,13 @@ class Plan:
                 continue
             self._block(srcs, f"{', '.join(srcs)} all want {dst}; none moved")
         return self
+
+    def winner_prefix(self, dst: str) -> tuple[str, bool]:
+        """Which side keeps its content when two files land on ``dst`` (prefix, decided by default?)."""
+        for glob, prefix in self.cfg.collision_rules:
+            if fnmatch.fnmatchcase(dst, glob):
+                return prefix, False
+        return self.cfg.collision_default_winner, True
 
     def _block(self, srcs: list[str], message: str) -> None:
         for s in srcs:
@@ -924,6 +939,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             a, b = read_text(root / c.winner), read_text(root / loser)
             c.same_content[loser] = a is not None and a == b
             hint = f"git show HEAD:{loser}" if loser in tracked else f"saved as {c.dst}{ASIDE_SUFFIX}"
+            if c.by_default and not c.same_content[loser]:
+                hint = f"merge by hand: {hint}"
             same.append(f"{loser} ({'identical' if c.same_content[loser] else 'different'}; {hint})")
         out(f"collision: {c.dst}: kept {c.winner}, dropped {'; '.join(same)}")
     for message in plan.conflicts:

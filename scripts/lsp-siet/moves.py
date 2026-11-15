@@ -41,9 +41,16 @@ MOVES: list[tuple[str, str]] = [
     ("ai-roadmap-generator", "ai-roadmap/app"),
 ]
 
-# When two files land on the same new path the one coming from one of these prefixes
-# keeps its content and the other is deleted (and reported).
-COLLISION_WINNER_PREFIXES: list[str] = ["siet-platform/"]
+# When two files land on the same new path, the first (glob, winner_prefix) whose glob
+# matches the NEW path says whose file keeps its content (fnmatch, "*" also crosses "/");
+# the other is deleted through git and reported. No match: COLLISION_DEFAULT_WINNER.
+# siet-platform wins under the host frontend's src (route stubs and the three replaced
+# modules); every other collision (pyproject.toml, package.json, README.md, .gitignore)
+# keeps the open-notebook (host) file and the siet-platform copy is merged by hand.
+COLLISION_RULES: list[tuple[str, str]] = [
+    ("platform/frontend/src/*", "siet-platform/"),
+]
+COLLISION_DEFAULT_WINNER: str = "open-notebook/"
 
 # Directories whose children are top-level Python packages (module name = path below it).
 PY_ROOTS_OLD: list[str] = ["open-notebook", "siet-platform", "kmitl-rag", "community"]
