@@ -7,7 +7,7 @@ import { useGate } from '@/lib/extensions'
 
 interface CreateDialogsContextType {
   openSourceDialog: () => void
-  openNotebookDialog: () => void
+  openCreateNotebookDialog: () => void
 }
 
 const CreateDialogsContext = createContext<CreateDialogsContextType | null>(null)
@@ -20,13 +20,13 @@ export function CreateDialogsProvider({ children }: { children: ReactNode }) {
   const canCreate = useGate('create-dialogs')
 
   const openSourceDialog = useCallback(() => setSourceDialogOpen(true), [])
-  const openNotebookDialog = useCallback(() => setNotebookDialogOpen(true), [])
+  const openCreateNotebookDialog = useCallback(() => setNotebookDialogOpen(true), [])
 
   return (
     <CreateDialogsContext.Provider
       value={{
         openSourceDialog,
-        openNotebookDialog,
+        openCreateNotebookDialog,
       }}
     >
       {children}

@@ -2,7 +2,7 @@
 
 import { useAuth } from '@/lib/hooks/use-auth'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { NotificationsMenu } from './NotificationsMenu'
+import { NotificationsMenu } from '@/components/community/NotificationsMenu'
 import { Navbar } from '@shared/components/Navbar'
 
 interface CommunityHeaderProps {

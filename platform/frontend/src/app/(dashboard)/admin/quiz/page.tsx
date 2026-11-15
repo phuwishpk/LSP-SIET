@@ -1,1 +1,1 @@
-export { default } from '@siet/community/app/(dashboard)/admin/quiz/page'
+export { default } from '@siet/quiz/app/(dashboard)/admin/quiz/page'

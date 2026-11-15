@@ -26,9 +26,9 @@ const { CreateDialogsProvider, useCreateDialogs } = await vi.importActual<
 >('@/lib/hooks/use-create-dialogs')
 
 function Consumer() {
-  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
+  const { openSourceDialog, openCreateNotebookDialog } = useCreateDialogs()
   return (
-    <button type="button" onClick={() => { openSourceDialog(); openNotebookDialog() }}>
+    <button type="button" onClick={() => { openSourceDialog(); openCreateNotebookDialog() }}>
       child
     </button>
   )

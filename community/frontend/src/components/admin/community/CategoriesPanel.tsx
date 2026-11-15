@@ -30,8 +30,8 @@ import {
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
-} from '@/lib/hooks/use-courses'
-import type { Category } from '@/lib/api/courses'
+} from '@siet/community/lib/hooks/use-courses'
+import type { Category } from '@siet/community/lib/api/courses'
 
 export function CategoriesPanel() {
   const { data, isLoading } = useAdminCategories()

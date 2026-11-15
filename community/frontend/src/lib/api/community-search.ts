@@ -7,9 +7,9 @@
  * search (/api/search) used by the research surface.
  */
 import { apiClient } from '@/lib/api/client'
-import type { CommunityPost, CommunityUserBrief, PostType } from './community'
+import type { CommunityPost, CommunityUserBrief, PostType } from '@/lib/api/community'
 import type { RoomRow } from './courses'
-import type { LibraryDocument } from './library'
+import type { LibraryDocument } from '@/lib/api/library'
 
 export type SearchKind = 'all' | 'posts' | 'courses' | 'documents' | 'users'
 export type SearchOrder = 'newest' | 'popular'

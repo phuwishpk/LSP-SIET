@@ -13,7 +13,7 @@ vi.mock('@/lib/hooks/use-auth', () => ({
     logout: vi.fn(),
   }),
 }))
-vi.mock('./NotificationsMenu', () => ({ NotificationsMenu: () => <div data-testid="notifications" /> }))
+vi.mock('@/components/community/NotificationsMenu', () => ({ NotificationsMenu: () => <div data-testid="notifications" /> }))
 vi.mock('@shared/components/Navbar', () => ({
   Navbar: ({
     onOpenMenu,

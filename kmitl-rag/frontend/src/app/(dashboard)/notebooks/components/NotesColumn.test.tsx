@@ -10,7 +10,7 @@ interface MockNoteEditorDialogProps {
   note?: NoteResponse
 }
 
-vi.mock('./NoteEditorDialog', () => ({
+vi.mock('@/app/(dashboard)/notebooks/components/NoteEditorDialog', () => ({
   NoteEditorDialog: ({
     open,
     onOpenChange,

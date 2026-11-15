@@ -58,8 +58,8 @@ import {
   useRemoveMember,
   useSetMemberRole,
   useUpdateCourseSettings,
-} from '@/lib/hooks/use-courses'
-import { suggestJoinCode, type CourseDetail, type CourseMember } from '@/lib/api/courses'
+} from '@siet/community/lib/hooks/use-courses'
+import { suggestJoinCode, type CourseDetail, type CourseMember } from '@siet/community/lib/api/courses'
 import { displayName, timeAgo } from '@/lib/utils/community-format'
 import { useResolveRoomReport, useRoomReports } from '@/lib/hooks/use-moderation'
 import { REPORT_TARGET_LABELS, type Report } from '@/lib/api/moderation'

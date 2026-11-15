@@ -8,7 +8,7 @@ import {
   type CategoryInput,
   type CourseSettingsInput,
   type MemberRole,
-} from '@/lib/api/courses'
+} from '@siet/community/lib/api/courses'
 import { COMMUNITY_KEYS, toastApiError } from '@/lib/hooks/use-community'
 
 export const COURSE_KEYS = {

@@ -1,7 +1,7 @@
 'use client'
 
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { communitySearchApi, type SearchFilters } from '@/lib/api/community-search'
+import { communitySearchApi, type SearchFilters } from '@siet/community/lib/api/community-search'
 
 export const ADVANCED_SEARCH_KEYS = {
   root: ['community', 'advanced-search'] as const,

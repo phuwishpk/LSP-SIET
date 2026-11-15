@@ -67,6 +67,46 @@ MOVES: list[tuple[str, str]] = [
     ("platform/tests/test_upload_type_mitigations.py", "kmitl-rag/tests/test_upload_type_mitigations.py"),
     # Task 10: the quiz tests follow siet_quiz (the shared RAG helper test is split off by hand)
     ("platform/tests-platform/test_quiz_generation.py", "my-ai-quiz/tests/test_quiz_generation.py"),
+    # Task 12: community-only UI and its data layer (the shell imports none of them)
+    ("platform/frontend/src/components/community/CommunityHeader.tsx", "community/frontend/src/components/community/CommunityHeader.tsx"),
+    ("platform/frontend/src/components/community/mobile-nav.test.tsx", "community/frontend/src/components/community/mobile-nav.test.tsx"),
+    ("platform/frontend/src/lib/api/community-search.ts", "community/frontend/src/lib/api/community-search.ts"),
+    ("platform/frontend/src/lib/api/courses.ts", "community/frontend/src/lib/api/courses.ts"),
+    ("platform/frontend/src/lib/hooks/use-courses.ts", "community/frontend/src/lib/hooks/use-courses.ts"),
+    ("platform/frontend/src/lib/hooks/use-advanced-search.ts", "community/frontend/src/lib/hooks/use-advanced-search.ts"),
+    # Task 12: PostCounts is shared by the community, quiz and roadmap admin panels -> host
+    ("community/frontend/src/components/admin/PostCounts.tsx", "platform/frontend/src/components/admin/PostCounts.tsx"),
+    # Task 12: /admin/quiz and /admin/roadmap
+    ("community/frontend/src/app/(dashboard)/admin/quiz", "my-ai-quiz/frontend/src/app/(dashboard)/admin/quiz"),
+    ("community/frontend/src/components/admin/quiz", "my-ai-quiz/frontend/src/components/admin/quiz"),
+    ("community/frontend/src/app/(dashboard)/admin/roadmap", "ai-roadmap/frontend/src/app/(dashboard)/admin/roadmap"),
+    ("community/frontend/src/components/admin/roadmap", "ai-roadmap/frontend/src/components/admin/roadmap"),
+    # Task 12: components only the /notebooks and /sources pages import
+    ("platform/frontend/src/components/common/ConfirmDialog.tsx", "kmitl-rag/frontend/src/components/common/ConfirmDialog.tsx"),
+    ("platform/frontend/src/components/common/ConfirmDialog.test.tsx", "kmitl-rag/frontend/src/components/common/ConfirmDialog.test.tsx"),
+    ("platform/frontend/src/components/notebooks/CollapsibleColumn.tsx", "kmitl-rag/frontend/src/components/notebooks/CollapsibleColumn.tsx"),
+    ("platform/frontend/src/components/sources/AddExistingSourceDialog.tsx", "kmitl-rag/frontend/src/components/sources/AddExistingSourceDialog.tsx"),
+    ("platform/frontend/src/components/sources/AddExistingSourceDialog.test.tsx", "kmitl-rag/frontend/src/components/sources/AddExistingSourceDialog.test.tsx"),
+    # Task 12: the /notebooks, /sources (kmitl-rag) and /go/roadmap (ai-roadmap) route modules.
+    # Keyed by their old-layout path, not by platform/frontend/src/app/...: the host keeps a
+    # route stub at each of these paths, and a rule keyed there would move the stub onto
+    # the page again on every later run. NoteEditorDialog stays (ModalProvider opens it).
+    ("siet-platform/frontend/src/app/(dashboard)/go/roadmap", "ai-roadmap/frontend/src/app/(dashboard)/go/roadmap"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/page.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/page.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/[id]", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/[id]"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.test.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.test.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookCard.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookCard.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookDeleteDialog.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookDeleteDialog.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.test.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.test.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookList.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookList.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookRow.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookRow.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.test.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.test.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/RecentlyViewed.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/RecentlyViewed.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/SourcesColumn.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/SourcesColumn.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/sources", "kmitl-rag/frontend/src/app/(dashboard)/sources"),
 ]
 
 # When two files land on the same new path, the first (glob, winner_prefix) whose glob

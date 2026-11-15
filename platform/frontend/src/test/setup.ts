@@ -58,6 +58,6 @@ vi.mock('@/lib/stores/sidebar-store', () => ({
 vi.mock('@/lib/hooks/use-create-dialogs', () => ({
   useCreateDialogs: vi.fn(() => ({
     openSourceDialog: vi.fn(),
-    openNotebookDialog: vi.fn(),
+    openCreateNotebookDialog: vi.fn(),
   })),
 }))

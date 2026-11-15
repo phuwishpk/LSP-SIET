@@ -14,7 +14,7 @@ import {
   SourceListResponse,
   NoteResponse
 } from '@/lib/types/api'
-import { ContextSelections } from '@/app/(dashboard)/notebooks/[id]/page'
+import type { ContextSelections } from '@/lib/types/notebook-context'
 import { emitExtensionEvent } from '@/lib/extensions'
 
 interface UseNotebookChatParams {

@@ -83,7 +83,7 @@ export function AppSidebar() {
   const pathname = usePathname()
   const { logout } = useAuth()
   const { isCollapsed, toggleCollapse } = useSidebarStore()
-  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
+  const { openSourceDialog, openCreateNotebookDialog } = useCreateDialogs()
 
   // The active item is the longest href that prefixes the current path.
   // Longest-wins keeps `/settings` from also highlighting on `/settings/models`
@@ -108,7 +108,7 @@ export function AppSidebar() {
     if (target === 'source') {
       openSourceDialog()
     } else if (target === 'notebook') {
-      openNotebookDialog()
+      openCreateNotebookDialog()
     }
   }
 

@@ -64,12 +64,12 @@ import {
   useTeacherQuizResults,
   useUpdateCourse,
 } from '@/lib/hooks/use-community'
-import { useArchiveCourse } from '@/lib/hooks/use-courses'
+import { useArchiveCourse } from '@siet/community/lib/hooks/use-courses'
 import { useLibrary } from '@/lib/hooks/use-library'
 import { libraryDownloadUrl } from '@/lib/api/library'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import type { TeacherCourse } from '@/lib/api/community'
-import type { TeacherRoom } from '@/lib/api/courses'
+import type { TeacherRoom } from '@siet/community/lib/api/courses'
 import { formatBytes, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 

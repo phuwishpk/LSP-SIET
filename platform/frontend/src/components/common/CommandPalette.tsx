@@ -58,7 +58,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const router = useRouter()
-  const { openSourceDialog, openNotebookDialog } = useCreateDialogs()
+  const { openSourceDialog, openCreateNotebookDialog } = useCreateDialogs()
   const { setTheme } = useTheme()
   const { data: notebooks, isLoading: notebooksLoading } = useNotebooks(false)
 
@@ -118,9 +118,9 @@ export function CommandPalette() {
   const handleCreate = useCallback((action: string) => {
     handleSelect(() => {
       if (action === 'source') openSourceDialog()
-      else if (action === 'notebook') openNotebookDialog()
+      else if (action === 'notebook') openCreateNotebookDialog()
     })
-  }, [handleSelect, openSourceDialog, openNotebookDialog])
+  }, [handleSelect, openSourceDialog, openCreateNotebookDialog])
 
   const handleTheme = useCallback((theme: 'light' | 'dark' | 'system') => {
     handleSelect(() => setTheme(theme))

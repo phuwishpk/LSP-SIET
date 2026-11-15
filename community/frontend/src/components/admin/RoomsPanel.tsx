@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAdminCourses } from '@/lib/hooks/use-admin'
-import { usePurgeCourse } from '@/lib/hooks/use-courses'
+import { usePurgeCourse } from '@siet/community/lib/hooks/use-courses'
 import { timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 

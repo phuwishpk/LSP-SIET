@@ -4,9 +4,9 @@ import { Map as MapIcon } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
-import { RoadmapListPanel } from '@siet/community/components/admin/roadmap/RoadmapListPanel'
-import { RoadmapStatsPanel } from '@siet/community/components/admin/roadmap/RoadmapStatsPanel'
-import { SharedRoadmapsPanel } from '@siet/community/components/admin/roadmap/SharedRoadmapsPanel'
+import { RoadmapListPanel } from '@siet/roadmap/components/admin/roadmap/RoadmapListPanel'
+import { RoadmapStatsPanel } from '@siet/roadmap/components/admin/roadmap/RoadmapStatsPanel'
+import { SharedRoadmapsPanel } from '@siet/roadmap/components/admin/roadmap/SharedRoadmapsPanel'
 
 export default function AdminRoadmapPage() {
   return (

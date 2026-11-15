@@ -318,25 +318,29 @@ def test_collision_non_source_host_wins(tmp_path):
 
 
 def test_collision_winner_stable_under_chained_move(tmp_path):
-    """A later rule that moves a collided file again must not change who wins (Task 12 / Task 17)."""
+    """A later rule that moves a collided file again must not change who wins (Task 12 / Task 17).
+
+    The route is made up: the real table keys its Task 12 route rules by old-layout paths,
+    so a real route here would test the table instead of the mechanism.
+    """
     files = {
-        "open-notebook/frontend/src/app/(dashboard)/go/roadmap/page.tsx": "export default () => 'host'\n",
-        "siet-platform/frontend/src/app/(dashboard)/go/roadmap/page.tsx": "export default () => 'siet'\n",
+        "open-notebook/frontend/src/app/(dashboard)/chained/route/page.tsx": "export default () => 'host'\n",
+        "siet-platform/frontend/src/app/(dashboard)/chained/route/page.tsx": "export default () => 'siet'\n",
         "open-notebook/frontend/src/lib/keep.ts": "export const k = 'host'\n",
         "siet-platform/frontend/src/lib/keep.ts": "export const k = 'siet'\n",
         "open-notebook/pyproject.toml": "host\n",
         "siet-platform/pyproject.toml": "siet\n",
     }
-    later = ("platform/frontend/src/app/(dashboard)/go/roadmap",
-             "ai-roadmap/frontend/src/app/(dashboard)/go/roadmap")
-    moved = "ai-roadmap/frontend/src/app/(dashboard)/go/roadmap/page.tsx"
+    later = ("platform/frontend/src/app/(dashboard)/chained/route",
+             "ai-roadmap/frontend/src/app/(dashboard)/chained/route")
+    moved = "ai-roadmap/frontend/src/app/(dashboard)/chained/route/page.tsx"
     # a branch on the old layout, the whole table at once
     one_shot = make_repo(tmp_path / "one-shot", files)
     code, lines = apply(one_shot, config(extra_moves=[later]))
     assert code == 0
     assert read(one_shot, moved) == "export default () => 'siet'\n"
-    line = next(line for line in lines if line.startswith("collision:") and "go/roadmap" in line)
-    assert "kept siet-platform/frontend/src/app/(dashboard)/go/roadmap/page.tsx" in line
+    line = next(line for line in lines if line.startswith("collision:") and "chained/route" in line)
+    assert "kept siet-platform/frontend/src/app/(dashboard)/chained/route/page.tsx" in line
     assert "merge by hand" not in line
     assert read(one_shot, "platform/frontend/src/lib/keep.ts") == "export const k = 'siet'\n"
     assert read(one_shot, "platform/pyproject.toml") == "host\n"

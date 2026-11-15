@@ -43,11 +43,11 @@ import {
   type SearchFilters,
   type SearchKind,
   type SearchUser,
-} from '@/lib/api/community-search'
+} from '@siet/community/lib/api/community-search'
 import type { CommunityPost, PostType } from '@/lib/api/community'
 import { libraryDownloadUrl } from '@/lib/api/library'
-import { useAdvancedSearch, useAdvancedSearchPosts } from '@/lib/hooks/use-advanced-search'
-import { useCategories } from '@/lib/hooks/use-courses'
+import { useAdvancedSearch, useAdvancedSearchPosts } from '@siet/community/lib/hooks/use-advanced-search'
+import { useCategories } from '@siet/community/lib/hooks/use-courses'
 import { useCourses } from '@/lib/hooks/use-community'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { displayName, formatBytes, postTypeLabel, roleLabel, timeAgo } from '@/lib/utils/community-format'

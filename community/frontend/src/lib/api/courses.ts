@@ -5,7 +5,7 @@
  * console and the admin console use on top of them.
  */
 import { apiClient } from '@/lib/api/client'
-import type { Course, TeacherCourse } from './community'
+import type { Course, TeacherCourse } from '@/lib/api/community'
 
 export type RoomStatus = 'active' | 'archived'
 export type MemberRole = 'member' | 'ta'
