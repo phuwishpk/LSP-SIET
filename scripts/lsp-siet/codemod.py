@@ -1187,10 +1187,16 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         if is_py:
             after = py.rewrite(after, f, new)
             hand += [f"{new}: {line}" for line in py.leftovers(after)]
+            missing = missing_imports(after, final_modules, own_tops)
+            if missing and since:
+                # what the file's version at the split already imported is the restructure's to fix
+                old_text = git(root, "show", f"{base}:{f}", check=False)
+                already = missing_imports(py.rewrite(old_text, f, new), final_modules, own_tops)
+                missing = [name for name in missing if name not in already]
             hand += [
                 f"{new}: imports {name}, which does not exist in the converted layout "
                 "(a module the restructure split or removed?)"
-                for name in missing_imports(after, final_modules, own_tops)
+                for name in missing
             ]
         if is_pyproject:
             after = rewrite_pyproject(after, py)

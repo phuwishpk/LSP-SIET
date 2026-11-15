@@ -1102,6 +1102,8 @@ def test_since_reports_imports_of_modules_the_restructure_removed(tmp_path):
         "open-notebook/api/__init__.py": "",
         "open-notebook/api/gone.py": lines_of("gone"),
         "open-notebook/api/stay.py": lines_of("stay"),
+        # already imported the module at the split: the restructure fixes that line itself
+        "open-notebook/api/old_user.py": "from api.gone import gone_1\n" + lines_of("old_user"),
     })
     git(root, "branch", "-M", "main")
     git(root, "checkout", "-q", "-b", "R")
@@ -1110,6 +1112,7 @@ def test_since_reports_imports_of_modules_the_restructure_removed(tmp_path):
     git(root, "commit", "-q", "-m", "restructure")
     git(root, "checkout", "-q", "main")
     git(root, "checkout", "-q", "-b", "mate")
+    write(root, "open-notebook/api/old_user.py", "from api.gone import gone_1\n" + lines_of("old_user") + "mine = 1\n")
     write(root, "open-notebook/api/consumer.py", dedent("""
         import json, os
         from api.stay import stay_1
@@ -1126,6 +1129,7 @@ def test_since_reports_imports_of_modules_the_restructure_removed(tmp_path):
     assert [h.split(": imports ")[1].split(",")[0] for h in hand] == ["api.gone"], hand
     assert all(h.startswith("check by hand: platform/api/consumer.py:") for h in hand)
     assert all("api.stay" not in h and "json" not in h for h in hand)
+    assert not any("old_user.py" in h for h in hand), hand  # only what the branch introduced
 
 
 def test_modules_that_symbol_moves_create_are_not_reported_missing(tmp_path):
