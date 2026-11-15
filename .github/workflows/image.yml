@@ -114,7 +114,6 @@ jobs:
         uses: tailscale/github-action@v2
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
-          version: latest
       - name: SSH deploy
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
