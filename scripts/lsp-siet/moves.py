@@ -42,6 +42,9 @@ MOVES: list[tuple[str, str]] = [
     ("siet-platform/tests", "platform/tests-platform"),
     ("siet-platform/frontend/src", "platform/frontend/src"),
     ("siet-platform", "platform"),
+    # the licence text of the code this project includes is kept as platform/NOTICE (not LICENSE)
+    ("open-notebook/LICENSE", "platform/NOTICE"),
+    ("docker/open-notebook", "docker/platform"),
     ("My-ai-quiz", "my-ai-quiz/app"),
     ("ai-roadmap-generator", "ai-roadmap/app"),
     # Task 10: the notebooks/sources API is KMITL RAG's (kmitl_rag.extension.finalize mounts it)

@@ -44,7 +44,10 @@ What it does, in this order
    ``metadata``, ``generateMetadata``, any extra name) a ``check by hand`` line names it.
    On a case-insensitive disk (macOS, Windows) a destination directory that exists under
    another spelling (``My-ai-quiz`` for ``my-ai-quiz``) is first renamed through a temporary
-   name, so the spelling on disk is the table's, not the old one. A file that would land
+   name, so the spelling on disk is the table's, not the old one. The reverse state (the disk
+   already spells ``my-ai-quiz`` while git's index still says ``My-ai-quiz/...``, what
+   ``git reset --hard`` leaves after a run) needs no rename: the files are moved as usual and ``git mv``
+   writes the new spelling (``check_spellings``). A file that would land
    on a file that is already there, or two files from the same side, are reported as
    ``conflict`` and stay where they are.
 2. **Python** (``*.py``, except this tool's own directory). Dotted module names are
@@ -249,9 +252,11 @@ def vanished_in(root: Path, ref: str, base: str, only: set[str], plan: "Plan") -
     found: dict[str, str] = {}
     for f in sorted(only):
         new = plan.resolve.get(f, f)
+        new = plan.refused.get(f, new)  # a file that stays (conflict) is still headed for the table's path
         if f in in_base and f not in in_ref and new not in in_ref and f not in plan.drops and f not in plan.stays:
+            where = f"neither {f} nor {new}" if new != f else f"no {f}"
             found[f] = (
-                f"{new}: {ref} has neither {f} nor {new} (the restructure deleted or split it): "
+                f"{new}: {ref} has {where} (the restructure deleted or split it): "
                 f"port your edits by hand (git diff {base[:8]} HEAD -- {f}, before committing the codemod's output)"
             )
     return found
@@ -285,6 +290,7 @@ class Plan:
         self.drops: dict[str, str] = {}  # loser -> winner's destination
         self.collisions: list[Collision] = []
         self.conflicts: list[str] = []
+        self.refused: dict[str, str] = {}  # file the table wanted to move but that stays -> where the table sends it
         self.stays: dict[str, str] = {}  # edited collision loser left in place (--since) -> message
 
     # one step of the table: the longest matching old path
@@ -387,7 +393,9 @@ class Plan:
 
     def refuse(self, src: str, message: str) -> None:
         """Take a planned move back: the file stays and the message is reported as a conflict."""
-        self.moves.pop(src, None)
+        intended = self.moves.pop(src, None)
+        if intended:
+            self.refused[src] = intended
         self._block([src], message)
 
     def _block(self, srcs: list[str], message: str) -> None:
@@ -483,6 +491,69 @@ def case_renames(
         if actual is not None:
             found.append((f"{parent}/{actual}" if parent else actual, prefix))
     return found
+
+
+def _first_difference(src: str, on_disk: str) -> tuple[str, str]:
+    """``src`` and ``on_disk`` (same path, spelled differently) cut after the first component that differs."""
+    mine, theirs = src.split("/"), on_disk.split("/")
+    for i, (a, b) in enumerate(zip(mine, theirs)):
+        if a != b:
+            return "/".join(mine[:i + 1]), "/".join(theirs[:i + 1])
+    return src, on_disk
+
+
+def check_spellings(
+    root: Path,
+    plan: "Plan",
+    tracked: set[str],
+    listings: dict[str, list[str] | None] | None = None,
+) -> list[str]:
+    """Tracked files whose directory the disk spells with another case than git's index.
+
+    On a case-insensitive disk (macOS) the index can say ``My-ai-quiz/app/page.tsx`` while the
+    disk says ``my-ai-quiz/app/page.tsx``. Two histories lead there and the path alone does not tell
+    them apart; what git's index holds does:
+
+    * **The index spells that directory only the old way.** This is what ``git reset --hard`` (the
+      undo of a run) or an interrupted run leaves: the disk directory already carries the new
+      spelling, the files in it are still where the old layout has them. They are moved as usual;
+      ``git mv`` writes the table's spelling into the index. Nothing to rename on disk.
+    * **The index also holds files of the same directory in the disk's spelling**, so this file is
+      the odd one out: a new-layout file that ``git add`` recorded with the old case. The table
+      would move it one level too deep, so it stays, reported as a conflict with both remedies.
+
+    ``listings`` (directory -> names, "" is the root) answers instead of the disk where given.
+    Returns the notes to print; refused files are recorded in ``plan``.
+    """
+    listings = {} if listings is None else listings
+    notes: list[str] = []
+    noted: set[str] = set()
+    new_spelled_dirs: dict[str, set[str]] = {}
+    for src in sorted(plan.moves):
+        if src not in tracked or (on_disk := disk_spelling(root, src, listings)) in (None, src):
+            continue
+        old_way, disk_way = _first_difference(src, on_disk)
+        if disk_way not in new_spelled_dirs:
+            new_spelled_dirs[disk_way] = {
+                posixpath.dirname(t) for t in tracked if t.startswith(disk_way + "/")
+            }
+        if posixpath.dirname(on_disk) not in new_spelled_dirs[disk_way]:
+            if old_way not in noted:
+                noted.add(old_way)
+                notes.append(
+                    f"note: {old_way} is spelled {disk_way} on this disk but git's index has the old spelling: "
+                    "moved as usual (git mv writes the new one)"
+                )
+            continue
+        dst = plan.moves[src]
+        plan.refuse(
+            src,
+            f"{src} is spelled {on_disk} on this disk and git's index holds files of that directory "
+            f"under both spellings (case-insensitive disk): not moved. Still in the old layout? "
+            f"`git mv {src} {dst}`. Already in the new layout (added after the codemod)? "
+            f"`git mv {src} {src}.tmp && git mv {src}.tmp {on_disk}`",
+        )
+    return notes
 
 
 def _rename_dirs(root: Path, renames: list[tuple[str, str]]) -> None:
@@ -1193,15 +1264,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
 
     plan = Plan(cfg, files, tracked).build(root, no_moves, only)
     # A tracked path that the disk spells differently (case-insensitive disk, index spelled My-ai-quiz/...
-    # but the directory is my-ai-quiz/ now): the table would move it one level too deep. Leave it.
-    listings: dict[str, list[str] | None] = {}
-    for src in sorted(plan.moves):
-        if src in tracked and (on_disk := disk_spelling(root, src, listings)) not in (None, src):
-            plan.refuse(
-                src,
-                f"{src} is spelled {on_disk} on this disk but git's index has {src} (case-insensitive disk): "
-                "not moved; rename it through a temporary name (git mv) so the index spells it like the disk",
-            )
+    # but the directory is my-ai-quiz/ now): usually an undone or interrupted run, see check_spellings.
+    spelling_notes = check_spellings(root, plan, tracked)
     index = ModuleIndex(cfg, plan)
     # modules of our own packages as the merged tree will have them: the restructure's (--since) plus
     # the converted files, or just the converted tree
@@ -1348,6 +1412,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         out(f"check by hand: {line}")
     if ts.unresolved:
         out(f"note: {len(set(ts.unresolved))} alias specifier(s) did not resolve to a file (kept by prefix)")
+    for line in spelling_notes:
+        out(line)
     dir_renames = case_renames(root, {posixpath.dirname(dst) for dst in plan.moves.values()})
     for disk, wanted in dir_renames:
         out(f"note: {disk} is spelled {wanted} in the new layout (case-insensitive disk): "

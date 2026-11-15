@@ -693,6 +693,28 @@ def test_task10_table_on_an_old_layout_branch(tmp_path):
     assert 'patch("kmitl_rag.routers.sources.repo_query")' in moved_test
 
 
+def test_licence_becomes_notice_and_the_docker_directory_follows_the_platform(tmp_path):
+    """open-notebook/LICENSE is platform/NOTICE in the restructure (not platform/LICENSE) and
+    docker/open-notebook/ is docker/platform/ (a teammate's edits to either land where R has them)."""
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/LICENSE": "MIT licence\n",
+        "open-notebook/README.md": "readme\n",
+        "docker/open-notebook/Dockerfile": "FROM scratch\n",
+        "docker/open-notebook/.dockerignore": "node_modules\n",
+        "docker/traefik/traefik.yml": "x: 1\n",
+    })
+    code, lines = apply(root)
+    assert code == 0, lines
+    assert tracked(root) == {
+        "platform/NOTICE", "platform/README.md", "docker/platform/Dockerfile",
+        "docker/platform/.dockerignore", "docker/traefik/traefik.yml",
+    }
+    assert read(root, "platform/NOTICE") == "MIT licence\n"
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    assert apply(root, check=True)[0] == 0
+
+
 def test_patch_targets_that_moved_into_a_shared_helper_are_reported_not_rewritten(tmp_path):
     """The quiz and roadmap services from-import ``_invoke_chat`` & co from ai_helpers, so
     ``patch("siet_platform.ai_helpers._invoke_chat")`` would silently intercept nothing."""
@@ -1194,23 +1216,137 @@ def test_since_new_file_under_a_case_renamed_dir_is_indexed_with_the_new_spellin
     assert apply(root, check=True)[0] == 0  # and the check does not plan one level more
 
 
+def stage_with_index_spelling(root: Path, path: str, index_path: str) -> None:
+    """Put the file at ``path`` into the index under ``index_path`` (what `git add` does on a
+    case-insensitive disk when the index already knows the directory by another case)."""
+    blob = git(root, "hash-object", "-w", path).strip()
+    git(root, "update-index", "--add", "--cacheinfo", f"100644,{blob},{index_path}")
+
+
 def test_a_tracked_path_the_disk_spells_differently_is_not_moved_one_level_too_deep(tmp_path):
-    """The state that bug leaves behind: the index says My-ai-quiz/app/app/lib/timer.ts, the disk
-    my-ai-quiz/app/app/lib/timer.ts. The table would move it to my-ai-quiz/app/app/app/lib/..."""
+    """The state a misplaced `git add` leaves behind: the index says My-ai-quiz/app/app/lib/timer.ts, the
+    disk my-ai-quiz/app/app/lib/timer.ts, and the same directory is in the index with the disk's
+    spelling. The table would move it to my-ai-quiz/app/app/app/lib/..."""
     if not case_insensitive_disk(tmp_path):
         pytest.skip("needs a case-insensitive disk")
     root = make_repo(tmp_path / "r", {"My-ai-quiz/README.md": "the quiz app\n" + lines_of("readme")})
     os.rename(root / "My-ai-quiz", root / "tmp-quiz")
     os.rename(root / "tmp-quiz", root / "my-ai-quiz")
+    write(root, "my-ai-quiz/app/app/lib/ok.ts", "export const ok = 1\n")
     write(root, "my-ai-quiz/app/app/lib/timer.ts", "export const timer = 1\n")
-    git(root, "add", "my-ai-quiz/app/app/lib/timer.ts")
-    assert "My-ai-quiz/app/app/lib/timer.ts" in tracked(root)  # git recorded the case of the index
+    stage_with_index_spelling(root, "my-ai-quiz/app/app/lib/ok.ts", "my-ai-quiz/app/app/lib/ok.ts")
+    stage_with_index_spelling(root, "my-ai-quiz/app/app/lib/timer.ts", "My-ai-quiz/app/app/lib/timer.ts")
     git(root, "commit", "-q", "-m", "wrong spelling")
+    assert "My-ai-quiz/app/app/lib/timer.ts" in tracked(root)
     code, lines = apply(root, check=True, verbose=True)
     out = "\n".join(lines)
-    assert "my-ai-quiz/app/app/app/lib/timer.ts" not in out, out
-    assert any(line.startswith("conflict:") and "timer.ts" in line and "index" in line for line in lines), out
+    assert "timer.ts -> my-ai-quiz" not in out, out  # not listed as a move one level too deep
+    conflict = [line for line in lines if line.startswith("conflict:") and "timer.ts" in line]
+    assert conflict, out
+    # the remedies name the files' real final paths, the second one spelled like the disk
+    assert "`git mv My-ai-quiz/app/app/lib/timer.ts my-ai-quiz/app/app/app/lib/timer.ts`" in conflict[0], conflict
+    assert "git mv My-ai-quiz/app/app/lib/timer.ts.tmp my-ai-quiz/app/app/lib/timer.ts" in conflict[0], conflict
     assert code == 1
+
+
+def test_spelling_check_moves_a_file_when_the_index_only_has_the_old_spelling(tmp_path):
+    """No disk needed: the listings say the disk spells the directory my-ai-quiz, the index My-ai-quiz
+    everywhere (what `git reset --hard` after a run leaves): an old-layout file, moved as usual."""
+    files = ["My-ai-quiz/app/page.tsx", "My-ai-quiz/package.json"]
+    plan = codemod.Plan(codemod.Config.from_moves(), files, set(files)).build(None, False)
+    listings = {"": ["my-ai-quiz", ".git"], "my-ai-quiz": ["app", "package.json"], "my-ai-quiz/app": ["page.tsx"]}
+    notes = codemod.check_spellings(tmp_path, plan, set(files), listings)
+    assert plan.conflicts == [] and plan.refused == {}
+    assert plan.moves == {
+        "My-ai-quiz/app/page.tsx": "my-ai-quiz/app/app/page.tsx",
+        "My-ai-quiz/package.json": "my-ai-quiz/app/package.json",
+    }
+    assert notes == [
+        "note: My-ai-quiz is spelled my-ai-quiz on this disk but git's index has the old spelling: "
+        "moved as usual (git mv writes the new one)"
+    ]
+
+
+def test_spelling_check_keeps_a_file_back_when_the_index_has_its_directory_both_ways(tmp_path):
+    files = ["My-ai-quiz/app/app/lib/timer.ts", "my-ai-quiz/app/app/lib/ok.ts", "My-ai-quiz/README.md"]
+    plan = codemod.Plan(codemod.Config.from_moves(), files, set(files)).build(None, False)
+    listings = {
+        "": ["my-ai-quiz"], "my-ai-quiz": ["app", "README.md"], "my-ai-quiz/app": ["app"],
+        "my-ai-quiz/app/app": ["lib"], "my-ai-quiz/app/app/lib": ["timer.ts", "ok.ts"],
+    }
+    notes = codemod.check_spellings(tmp_path, plan, set(files), listings)
+    # the README is an old-layout file (no sibling in the disk's spelling); the timer is the odd one out
+    assert plan.moves == {"My-ai-quiz/README.md": "my-ai-quiz/app/README.md"}
+    assert plan.refused == {"My-ai-quiz/app/app/lib/timer.ts": "my-ai-quiz/app/app/app/lib/timer.ts"}
+    assert len(plan.conflicts) == 1
+    assert "`git mv My-ai-quiz/app/app/lib/timer.ts my-ai-quiz/app/app/app/lib/timer.ts`" in plan.conflicts[0]
+    assert "my-ai-quiz/app/app/lib/timer.ts" in plan.conflicts[0].split("Already in the new layout")[1]
+    assert len(notes) == 1 and notes[0].startswith("note: My-ai-quiz is spelled my-ai-quiz")
+
+
+def test_spelling_check_has_nothing_to_say_when_disk_and_index_agree(tmp_path):
+    files = ["My-ai-quiz/app/page.tsx"]
+    plan = codemod.Plan(codemod.Config.from_moves(), files, set(files)).build(None, False)
+    listings = {"": ["My-ai-quiz"], "My-ai-quiz": ["app"], "My-ai-quiz/app": ["page.tsx"]}
+    assert codemod.check_spellings(tmp_path, plan, set(files), listings) == []
+    assert plan.moves and not plan.conflicts
+
+
+def test_since_after_an_undo_the_disk_dir_is_spelled_new_and_the_index_old(tmp_path):
+    """The documented undo of the handoff (`git reset --hard`) leaves the directory spelled my-ai-quiz
+    on a case-insensitive disk and the index My-ai-quiz/...: the second run used to refuse the
+    teammate's edited file ("is spelled ... on this disk") and print `neither X nor X`."""
+    if not case_insensitive_disk(tmp_path):
+        pytest.skip("needs a case-insensitive disk")
+    root = make_quiz_branches(tmp_path)
+    write(root, "My-ai-quiz/app/page.tsx", read(root, "My-ai-quiz/app/page.tsx") + "edited = 1\n")
+    git(root, "commit", "-q", "-am", "work")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    git(root, "reset", "--hard", "-q")
+    git(root, "clean", "-fdq")
+    if "my-ai-quiz" not in os.listdir(root):
+        pytest.skip("this git put the old spelling back on disk: nothing to reproduce")
+    assert "My-ai-quiz/app/page.tsx" in tracked(root)
+    code, lines = apply(root, since="R")
+    out = "\n".join(lines)
+    assert code == 0, out
+    assert not any(line.startswith(("conflict", "check by hand")) for line in lines), out
+    assert any(line.startswith("note: My-ai-quiz is spelled my-ai-quiz on this disk") for line in lines), out
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "chore: LSP-SIET codemod")
+    merged = run_git(root, "merge", "--no-edit", "R")
+    assert merged.returncode == 0, merged.stdout + merged.stderr
+    files = tracked(root)
+    assert "my-ai-quiz/app/app/page.tsx" in files, sorted(files)
+    assert not [p for p in files if p.startswith("My-ai-quiz")], sorted(files)
+    assert "edited = 1" in read(root, "my-ai-quiz/app/app/page.tsx")
+    assert apply(root, check=True)[0] == 0
+
+
+def test_since_after_an_undo_vanished_message_names_the_final_path_once(tmp_path):
+    """A file that stays (conflict) is still headed for the table's path: the `neither X nor Y` line
+    used to print the old path twice. Simulated through listings: no disk spelling needed."""
+    root = make_quiz_branches(tmp_path)
+    write(root, "My-ai-quiz/app/page.tsx", read(root, "My-ai-quiz/app/page.tsx") + "edited = 1\n")
+    git(root, "commit", "-q", "-am", "work")
+    files, tr = codemod.inventory(root)
+    only, base = codemod.changed_since(root, "R", files, tr)
+    plan = codemod.Plan(codemod.Config.from_moves(), files, tr).build(root, False, only)
+    plan.refuse("My-ai-quiz/app/page.tsx", "stays")
+    # R keeps the file at the final path -> not vanished, even though it stays
+    assert codemod.vanished_in(root, "R", base, only, plan) == {}
+    # R without the final path (the restructure split or dropped the file): final path named once
+    git(root, "checkout", "-q", "R")
+    git(root, "rm", "-q", "my-ai-quiz/app/app/page.tsx")
+    git(root, "commit", "-q", "-m", "R drops the page")
+    git(root, "checkout", "-q", "mate")
+    found = codemod.vanished_in(root, "R", base, only, plan)
+    (line,) = found.values()
+    assert "has neither My-ai-quiz/app/page.tsx nor my-ai-quiz/app/app/page.tsx" in line, line
+    plan.refused.clear()
+    (line,) = codemod.vanished_in(root, "R", base, only, plan).values()
+    assert "has no My-ai-quiz/app/page.tsx (the restructure" in line, line
 
 
 def test_since_reports_a_new_symbol_imported_from_a_split_file_the_branch_also_edited(tmp_path):
