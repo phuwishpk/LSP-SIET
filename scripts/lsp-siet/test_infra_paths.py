@@ -170,6 +170,21 @@ def test_known_failures_file_is_sorted_and_used_by_ci():
     assert "docs/lsp-siet/known-failures.txt" in workflow and '--deselect "$id"' in workflow
 
 
+def test_ci_runs_the_layout_tool_tests_with_the_project_venv():
+    """The codemod, the infra-path tests and the Open Notebook guard are tests like any other:
+    CI runs `pytest scripts/lsp-siet` in the venv `uv sync` built (so a teammate's PR that breaks
+    the codemod table, an infra path or the no-old-name rule fails the checks job)."""
+    workflow = (ROOT / ".github/workflows/image.yml").read_text(encoding="utf-8")
+    checks = workflow.split("\n  image:")[0]
+    steps = checks.split("\n      - ")
+    step = next((s for s in steps if "../scripts/lsp-siet" in s), "")
+    assert "python -m pytest ../scripts/lsp-siet" in step, "image.yml checks job does not run scripts/lsp-siet"
+    assert "uv run --no-sync" in step and "working-directory: platform" in step
+    assert "PYTHON_DOTENV_DISABLED" in step
+    # after the step that creates the venv
+    assert checks.index("uv sync --frozen") < checks.index("../scripts/lsp-siet")
+
+
 # --- settings: LSP_SIET_* in the infra files, the old OPEN_NOTEBOOK_* names only as fallbacks ---
 
 COMPOSE_FILES = ["docker-compose.yml", "docker-compose-dev.yml", "docker-compose.prod.yml"]

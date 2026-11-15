@@ -65,6 +65,13 @@ jobs:
             known+=(--deselect "$id")
           done < ../docs/lsp-siet/known-failures.txt
           uv run --no-sync python -m pytest -q tests tests-platform ../kmitl-rag/tests ../community/tests ../my-ai-quiz/tests ../ai-roadmap/tests "${known[@]}"
+      - name: Layout tools (codemod, infra paths, old-name guard) - tests
+        # scripts/lsp-siet: the codemod and its move table, the Docker/compose/CI path checks
+        # and the guard that no name of the old product is left. Same venv as the backend tests.
+        working-directory: platform
+        env:
+          PYTHON_DOTENV_DISABLED: "1"
+        run: uv run --no-sync python -m pytest ../scripts/lsp-siet -q
 
   image:
     needs: checks
