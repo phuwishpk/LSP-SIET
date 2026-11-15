@@ -98,3 +98,45 @@ jobs:
             ghcr.io/${{ github.repository_owner }}/lsp-siet:main
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+  deploy:
+    # Pull the freshly-built :main tag on the server. Server has no public IP,
+    # so the runner joins the tailnet with a short-lived auth key, then SSHes
+    # as `lspdev` whose sudo is restricted to /usr/local/bin/lsp-docker.
+    needs: image
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    steps:
+      - name: Tailscale up
+        uses: tailscale/github-action@v2
+        with:
+          authkey: ${{ secrets.TS_AUTHKEY }}
+          version: latest
+      - name: SSH deploy
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -H 100.89.116.6 >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key \
+              -o StrictHostKeyChecking=accept-new \
+              -o BatchMode=yes \
+              lspdev@100.89.116.6 \
+              'sudo /usr/local/bin/lsp-docker compose pull && sudo /usr/local/bin/lsp-docker compose up -d --remove-orphans'
+      - name: Smoke test
+        run: |
+          # Give the stack ~3 min to boot its internal databases
+          for i in $(seq 1 36); do
+            code=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 10 https://lsp-siet.site/ || echo 000)
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] || [ "$code" = "307" ] && exit 0
+            sleep 5
+          done
+          echo "::error::site did not come back healthy after deploy"
+          exit 1
