@@ -60,6 +60,11 @@ COPY siet-platform/frontend/ /siet-platform/frontend/
 COPY kmitl-rag/frontend/ /kmitl-rag/frontend/
 COPY community/frontend/ /community/frontend/
 COPY shared/ /shared/
+# The host app's route files for the parts' pages are generated. The script finds the
+# host at <its own dir>/../platform/frontend/src/app, so this stage must mirror the
+# repository layout (platform/, kmitl-rag/, community/, my-ai-quiz/, ai-roadmap/ under /).
+COPY scripts/frontend-routes.mjs /scripts/frontend-routes.mjs
+RUN node /scripts/frontend-routes.mjs
 RUN for d in siet-platform kmitl-rag community; do ln -sfn /app/frontend/node_modules /$d/frontend/node_modules; done \
  && ln -sfn /app/frontend/node_modules /shared/node_modules
 # Next bakes the /api rewrite target at build time: point it at the API inside

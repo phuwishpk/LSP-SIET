@@ -31,6 +31,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Page routes - generated files are up to date
+        # platform/frontend/src/app holds generated stubs for the parts' pages; this
+        # fails when a part page was added or removed without `make frontend-routes`.
+        run: node scripts/frontend-routes.mjs --check
       - name: SIET Space - typecheck
         working-directory: open-notebook/frontend
         run: |

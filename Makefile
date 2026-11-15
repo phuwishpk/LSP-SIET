@@ -11,7 +11,7 @@ ENV_FILE      ?= .env
 PROJECT_NAME  ?= kmitlai
 COMPOSE       += -p $(PROJECT_NAME)
 
-.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check test-backend test-frontend frontend-links migrate-split
+.PHONY: help up up-dev down logs build rebuild restart ps clean nuke env-check test-backend test-frontend frontend-links frontend-routes migrate-split
 
 help:  ## Show this help
 	@awk 'BEGIN {FS = ":.*##"; printf "Targets:\n"} /^[a-zA-Z_-]+:.*?##/ { printf "  \033[36m%-12s\033[0m %s\n", $$1, $$2 }' $(MAKEFILE_LIST)
@@ -25,7 +25,7 @@ env-check:  ## Verify .env exists (copy from .env.example if missing)
 		echo "✓ $(ENV_FILE) exists."; \
 	fi
 
-up: env-check  ## Build images and start the entire stack in detached mode
+up: env-check frontend-routes  ## Build images and start the entire stack in detached mode
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) up -d --build
 	@echo ""
 	@echo "Stack is up. Open http://localhost (browser will prompt for admin / 123)"
@@ -35,7 +35,7 @@ up: env-check  ## Build images and start the entire stack in detached mode
 	@echo "  - http://localhost/api/docs  FastAPI docs"
 	@echo "  - http://localhost/pb/_/      PocketBase admin"
 
-up-dev: env-check  ## Start development stack with hot reload (frontend + backend)
+up-dev: env-check frontend-routes  ## Start development stack with hot reload (frontend + backend)
 	$(COMPOSE) -f docker-compose-dev.yml -p kmitlai_dev --env-file $(ENV_FILE) up
 	@echo ""
 	@echo "Development stack is up with hot reload!"
@@ -43,10 +43,10 @@ up-dev: env-check  ## Start development stack with hot reload (frontend + backen
 	@echo "  - API: http://localhost:5055 (auto-reload)"
 	@echo "  - API Docs: http://localhost:5055/docs"
 
-build: env-check  ## Build all images without starting
+build: env-check frontend-routes  ## Build all images without starting
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) build
 
-rebuild: env-check  ## Rebuild without cache
+rebuild: env-check frontend-routes  ## Rebuild without cache
 	$(COMPOSE) $(COMPOSE_FILE) --env-file $(ENV_FILE) build --no-cache
 
 down:  ## Stop the stack (keeps volumes)
@@ -120,5 +120,14 @@ frontend-links:  ## Link each SIET frontend package to platform/frontend/node_mo
 	@ln -sfn ../platform/frontend/node_modules shared/node_modules
 	@echo "linked: $(SIET_FRONTENDS) shared"
 
-test-frontend: frontend-links  ## Typecheck and run frontend tests (platform + SIET packages)
+# The host app's page/layout/route files for the parts' pages are generated: a part
+# owner adds a page in <part>/frontend/src/app/ and runs this (up, up-dev, build,
+# rebuild and test-frontend do it for you). `node scripts/frontend-routes.mjs --check`
+# only reports.
+NODE ?= node
+
+frontend-routes:  ## Generate platform/frontend/src/app route files from each part's pages
+	$(NODE) scripts/frontend-routes.mjs
+
+test-frontend: frontend-links frontend-routes  ## Typecheck and run frontend tests (platform + SIET packages)
 	cd platform/frontend && npx tsc --noEmit -p . && npx vitest run $(ARGS)
