@@ -1,5 +1,5 @@
 """
-What kmitl-rag plugs into open-notebook's extension points
+What kmitl-rag plugs into the core's extension points
 (siet_core.extensions; the call sites are listed in docs/ARCHITECTURE.md).
 
 * chat.context            notebook chat: pin the notebook passages that match

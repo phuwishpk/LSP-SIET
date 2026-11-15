@@ -1,5 +1,5 @@
 """
-Cache metrics tracking for Open Notebook.
+Cache metrics tracking for LSP-SIET.
 
 Tracks cache hit/miss ratios and invalidation events for monitoring.
 

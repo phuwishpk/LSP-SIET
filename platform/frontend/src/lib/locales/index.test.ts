@@ -42,7 +42,7 @@ describe('Unused Key Detection', () => {
       // The SIET packages (kmitl-rag owns the /search page, ...) read keys of
       // these locales too, so their sources count as references.
       const repoRoot = path.resolve(__dirname, '../../../../..')
-      // (siet-platform's former sources are part of srcDir now.) A package dir
+      // (The host's own sources are srcDir.) A package dir
       // that is missing must fail, not silently shrink the corpus.
       const packageSrcDirs = ['kmitl-rag', 'community', 'my-ai-quiz', 'ai-roadmap'].map(dir =>
         path.join(repoRoot, dir, 'frontend/src'),

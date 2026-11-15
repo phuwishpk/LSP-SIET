@@ -4,7 +4,7 @@ import { useMemo } from 'react'
 import Link from 'next/link'
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert'
 import { Button } from '@/components/ui/button'
-import { ShieldAlert, AlertTriangle, ArrowRight, ExternalLink } from 'lucide-react'
+import { ShieldAlert, AlertTriangle, ArrowRight } from 'lucide-react'
 import { useTranslation } from '@/lib/hooks/use-translation'
 import { useCredentialStatus, useEnvStatus } from '@/lib/hooks/use-credentials'
 
@@ -40,15 +40,6 @@ export function SetupBanner() {
           </AlertTitle>
           <AlertDescription className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-destructive">
             <span>{t('setupBanner.encryptionRequiredDescription')}</span>
-            <a
-              href="https://github.com/lfnovo/open-notebook/blob/main/docs/3-USER-GUIDE/api-configuration.md#encryption-setup"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center shrink-0 text-sm font-medium underline underline-offset-2 hover:text-destructive/80"
-            >
-              {t('setupBanner.viewDocs')}
-              <ExternalLink className="ml-1 h-3 w-3" />
-            </a>
           </AlertDescription>
         </Alert>
       </div>

@@ -1,5 +1,5 @@
 """
-kmitl-rag as an open-notebook extension (entry point group
+kmitl-rag as an LSP-SIET extension (entry point group
 ``siet.extensions``, see siet_core/extensions.py).
 
 register()   chat hooks (kmitl_rag.hooks)

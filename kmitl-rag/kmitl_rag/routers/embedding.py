@@ -7,7 +7,7 @@ from siet_core.ai.models import model_manager
 from siet_core.domain.notebook import Note, Source
 from siet_core.exceptions import (
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -118,7 +118,7 @@ async def embed_content(embed_request: EmbedRequest):
         raise HTTPException(
             status_code=404, detail=f"{embed_request.item_type} not found"
         )
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(

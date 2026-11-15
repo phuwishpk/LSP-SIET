@@ -1,7 +1,7 @@
 import { env } from '../../lib/env';
 
 /**
- * Server-side bridge: GET /quiz/api/me → Open Notebook /api/users/me
+ * Server-side bridge: GET /quiz/api/me → LSP-SIET API /api/users/me
  * (returns the workspace user incl. points balance).
  */
 export async function GET(req: Request) {

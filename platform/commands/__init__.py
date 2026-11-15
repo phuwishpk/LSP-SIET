@@ -1,4 +1,9 @@
-"""Surreal-commands integration for Open Notebook"""
+"""Surreal-commands integration for LSP-SIET
+
+The commands are registered under the app name ``open_notebook`` (``@command(..., app="open_notebook")``)
+and queued jobs are stored in SurrealDB as ``open_notebook.<command>``. Keep that name: renaming it
+strands queued jobs and the worker would no longer find the commands.
+"""
 
 # The worker starts via `surreal-commands-worker --import-modules commands`,
 # so this package is imported before the worker connects to SurrealDB. Inject

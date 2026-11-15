@@ -160,7 +160,7 @@ async def _provision_simple_provider(provider: str) -> bool:
         provider_upper = provider_lower.upper()
         os.environ[f"{provider_upper}_API_BASE"] = cred.base_url
         logger.debug(f"Set {provider_upper}_API_BASE from Credential")
-        # Providers with a registry-declared endpoint override (ADR-012) read
+        # Providers with a registry-declared endpoint override read
         # it under that name (esperanto's profiles and env discovery).
         spec = PROVIDERS.get(provider_lower)
         if spec and spec.base_url_env:

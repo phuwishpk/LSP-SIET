@@ -6,7 +6,7 @@ from siet_core.domain.notebook import SourceInsight
 from siet_core.exceptions import (
     InvalidInputError,
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -33,7 +33,7 @@ async def get_insight(insight_id: str):
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching insight {insight_id}: {str(e)}")
@@ -53,7 +53,7 @@ async def delete_insight(insight_id: str):
         return {"message": "Insight deleted successfully"}
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting insight {insight_id}: {str(e)}")
@@ -85,7 +85,7 @@ async def save_insight_as_note(insight_id: str, request: SaveAsNoteRequest):
         raise HTTPException(status_code=404, detail="Notebook not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error saving insight {insight_id} as note: {str(e)}")

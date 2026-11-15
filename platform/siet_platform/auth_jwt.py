@@ -129,7 +129,7 @@ def _credentials_from_request(
     if credentials and credentials.scheme.lower() == "bearer" and credentials.credentials:
         return credentials.credentials
     # Allow the token to ride on the query string for cross-app deep-links
-    # (My-ai-quiz / ai-roadmap-generator receive a ?token=… from the
+    # (my-ai-quiz/app and ai-roadmap/app receive a ?token=… from the
     # dashboard and forward it through cookies / localStorage).
     query_token = request.query_params.get("token")
     if query_token:

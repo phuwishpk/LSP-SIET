@@ -4,8 +4,7 @@ Capabilities Router
 Reports the runtime availability of the opt-in heavy extraction engines
 (Docling, Crawl4AI local) so the frontend can gate the corresponding engine
 options and the OCR toggle. These runtimes are installed on demand at container
-startup (see scripts/docker-entrypoint.sh and
-docs/7-DEVELOPMENT/decisions/ADR-007-optin-runtimes.md), so this endpoint probes
+startup when the matching LSP_SIET_ENABLE_* flag is set, so this endpoint probes
 what is *actually* importable/reachable rather than trusting the enable flags.
 
 The probes themselves live in siet_core.utils.runtime_capabilities because

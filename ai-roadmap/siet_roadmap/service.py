@@ -1,5 +1,5 @@
 """
-Project roadmap generation (ported from ai-roadmap-generator, same model pipeline).
+Project roadmap generation (ported from the standalone ai-roadmap app, same model pipeline).
 
 - Validates and clamps inputs before hitting the LLM
 - Caches results in Redis for 1 hour, keyed by (owner_id, prompt_hash), so user A
@@ -201,7 +201,7 @@ async def generate_roadmap(
         "Suggested node categories: planning, design, development, testing, "
         "deployment, launch. Make sure edges form a directed acyclic graph."
         + (
-            "\n\nUse the following retrieved Open Notebook knowledge as the "
+            "\n\nUse the following retrieved course documents as the "
             "primary factual context and ground the roadmap in it:\n\n"
             + rag_context
             if rag_context

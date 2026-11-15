@@ -18,9 +18,9 @@ import {
 import { isAdmin, isStaff, type Role } from '@/lib/roles'
 
 /**
- * The workspace sidebar: SIET Space first, open-notebook's research tools for
+ * The workspace sidebar: SIET Space first, the research tools for
  * staff only, AI features in their own group, and one group per admin
- * console. It replaces open-notebook's sections rather than adding to them.
+ * console. It replaces the host's default sections rather than adding to them.
  */
 export const getWorkspaceNavigation = (t: TFunction, role: Role) => [
   {

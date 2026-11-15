@@ -5,7 +5,7 @@ from api.models import SettingsResponse, SettingsUpdate
 from siet_core.domain.content_settings import ContentSettings
 from siet_core.exceptions import (
     InvalidInputError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -29,7 +29,7 @@ async def get_settings():
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching settings: {str(e)}")
@@ -98,7 +98,7 @@ async def update_settings(settings_update: SettingsUpdate):
         raise
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating settings: {str(e)}")

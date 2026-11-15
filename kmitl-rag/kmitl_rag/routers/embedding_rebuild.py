@@ -11,7 +11,7 @@ from api.models import (
     RebuildStatusResponse,
 )
 from siet_core.database.repository import repo_query
-from siet_core.exceptions import OpenNotebookError
+from siet_core.exceptions import SietError
 
 router = APIRouter()
 
@@ -115,7 +115,7 @@ async def start_rebuild(request: RebuildRequest):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Failed to start rebuild: {e}")
@@ -189,7 +189,7 @@ async def get_rebuild_status(command_id: str):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Failed to get rebuild status: {e}")

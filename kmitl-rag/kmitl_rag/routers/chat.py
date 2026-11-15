@@ -20,7 +20,7 @@ from siet_core.database.repository import ensure_record_id, repo_query
 from siet_core.domain.notebook import ChatSession, Notebook
 from siet_core.exceptions import (
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 from siet_core.graphs.chat import graph as chat_graph
 from siet_core.utils import token_count
@@ -144,7 +144,7 @@ async def get_sessions(
         raise HTTPException(status_code=404, detail="Notebook not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching chat sessions: {str(e)}")
@@ -194,7 +194,7 @@ async def create_session(
         raise HTTPException(status_code=404, detail="Notebook not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error creating chat session: {str(e)}")
@@ -265,7 +265,7 @@ async def get_session(
         raise HTTPException(status_code=404, detail="Session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching session: {str(e)}")
@@ -321,7 +321,7 @@ async def update_session(
         raise HTTPException(status_code=404, detail="Session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating session: {str(e)}")
@@ -350,7 +350,7 @@ async def delete_session(
         raise HTTPException(status_code=404, detail="Session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting session: {str(e)}")
@@ -446,7 +446,7 @@ async def execute_chat(
         raise HTTPException(status_code=404, detail="Session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         # Log detailed error with context for debugging
@@ -480,7 +480,7 @@ async def build_context(request: BuildContextRequest):
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error building context: {str(e)}")

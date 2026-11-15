@@ -1,5 +1,5 @@
 """
-Cache service for Open Notebook.
+Cache service for LSP-SIET.
 
 Provides high-level caching operations for vector search, context building,
 embeddings, and notebook metadata with automatic invalidation support.

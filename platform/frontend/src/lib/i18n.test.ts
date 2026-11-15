@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { createInstance } from 'i18next'
 
-// No SIET extensions: this file tests open-notebook's own i18n setup.
+// No SIET extensions: this file tests the host's own i18n setup.
 vi.mock('./extensions.installed', () => ({ installed: [] }))
 
 import i18n, { i18nOptions } from './i18n'

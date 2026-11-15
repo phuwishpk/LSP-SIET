@@ -1,8 +1,8 @@
 /**
  * Auth API client for the workspace.
  *
- * The endpoints here target the open-notebook FastAPI backend, which acts
- * as the single auth source for My-ai-quiz + ai-roadmap-generator.
+ * The endpoints here target the LSP-SIET FastAPI backend, which acts
+ * as the single auth source for the AI Quiz and AI Roadmap apps.
  */
 
 export interface AuthUser {

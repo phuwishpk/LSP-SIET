@@ -29,7 +29,7 @@ from typing import Any, Awaitable, Callable, Dict, Optional, TypeVar
 
 from loguru import logger
 
-from siet_core.exceptions import OpenNotebookError, RateLimitError
+from siet_core.exceptions import RateLimitError, SietError
 
 T = TypeVar("T")
 
@@ -63,7 +63,7 @@ RETRY_MAX_DELAY = _env_float("LLM_RATE_LIMIT_BACKOFF_MAX_SECONDS", 12.0, 1.0, 12
 RETRY_AFTER_CAP = _env_float("LLM_RATE_LIMIT_RETRY_AFTER_CAP_SECONDS", 20.0, 1.0, 300.0)
 
 
-class ProviderBusy(OpenNotebookError):
+class ProviderBusy(SietError):
     """The queue is full and the caller waited the whole QUEUE_TIMEOUT. → HTTP 503."""
 
     def __init__(self, lane: str, retry_after: int = 10) -> None:

@@ -1,4 +1,4 @@
-"""Open Notebook defaults ESPERANTO_LLM_TIMEOUT to 180 s (#1434).
+"""LSP-SIET defaults ESPERANTO_LLM_TIMEOUT to 180 s (#1434).
 
 esperanto 2.28 enforces the timeout in to_langchain() on every provider, with
 a 60 s default that cuts off long answers and slow local models.

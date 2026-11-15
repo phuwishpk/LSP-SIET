@@ -23,7 +23,7 @@ from siet_core.database.repository import ensure_record_id, repo_query
 from siet_core.domain.notebook import ChatSession
 from siet_core.exceptions import (
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 from siet_core.graphs.source_chat import source_chat_graph as source_chat_graph
 from siet_core.utils.graph_utils import (
@@ -133,7 +133,7 @@ async def create_source_chat_session(
         raise HTTPException(status_code=404, detail="Source not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error creating source chat session: {str(e)}")
@@ -205,7 +205,7 @@ async def get_source_chat_sessions(
         raise HTTPException(status_code=404, detail="Source not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching source chat sessions: {str(e)}")
@@ -284,7 +284,7 @@ async def get_source_chat_session(
         raise HTTPException(status_code=404, detail="Source or session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching source chat session: {str(e)}")
@@ -343,7 +343,7 @@ async def update_source_chat_session(
         raise HTTPException(status_code=404, detail="Source or session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating source chat session: {str(e)}")
@@ -385,7 +385,7 @@ async def delete_source_chat_session(
         raise HTTPException(status_code=404, detail="Source or session not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting source chat session: {str(e)}")
@@ -471,7 +471,7 @@ async def stream_source_chat_response(
 
         # Typed errors already carry a user-facing message; only raw provider
         # exceptions need classifying.
-        if isinstance(e, OpenNotebookError):
+        if isinstance(e, SietError):
             error_message = str(e)
         else:
             _, error_message = classify_error(e)
@@ -532,7 +532,7 @@ async def send_message_to_source_chat(
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error sending message to source chat: {str(e)}")

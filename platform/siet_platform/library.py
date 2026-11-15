@@ -10,7 +10,7 @@ Two kinds of knowledge feed the AI features:
 * **Personal library** (``scope="personal"``) – any student can push their own
   PDF/URL/text into a private notebook and ask questions about just that.
 
-Both are ordinary Open Notebook ``Notebook`` + ``Source`` records, so the
+Both are ordinary ``Notebook`` + ``Source`` records, so the
 existing vector search works unchanged; MariaDB only keeps the bookkeeping
 (owner, scope, status) needed for permissions and listings.
 
@@ -298,7 +298,7 @@ async def notebook_ids_for_scope(
 # Shared notebooks: staff research notebooks surfaced to every role
 # ---------------------------------------------------------------------------
 #
-# Admins and teachers prepare material in the Open Notebook research surface
+# Admins and teachers prepare material in the research surface
 # (/notebooks), which students cannot open. Those notebooks are nevertheless the
 # richest knowledge in the workspace, so the community RAG exposes them
 # read-only: every signed-in user can pick one (or one of its sources) in the

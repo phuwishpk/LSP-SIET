@@ -1,7 +1,7 @@
 """
 Redis cache and answer-cache operations under /api/config: hit/miss metrics,
 answer-cache analytics, similarity thresholds and the intent-validation
-circuit breaker. (open-notebook's own /api/config stays in api.routers.config.)
+circuit breaker. (the core's own /api/config stays in api.routers.config.)
 """
 
 from fastapi import APIRouter, Request

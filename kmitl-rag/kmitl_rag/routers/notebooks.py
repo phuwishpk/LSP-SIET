@@ -18,7 +18,7 @@ from siet_core.domain.notebook import Notebook, Source
 from siet_core.exceptions import (
     InvalidInputError,
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -120,7 +120,7 @@ async def get_notebooks(
         ]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching notebooks: {str(e)}")
@@ -157,7 +157,7 @@ async def create_notebook(
         raise HTTPException(status_code=400, detail=str(e))
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error creating notebook: {str(e)}")
@@ -204,7 +204,7 @@ async def get_recently_viewed(
         return items[:limit]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         # Log full context server-side; return a generic message so internal
@@ -245,7 +245,7 @@ async def get_notebook_delete_preview(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error getting delete preview for notebook {notebook_id}: {e}")
@@ -297,7 +297,7 @@ async def get_notebook(
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching notebook {notebook_id}: {str(e)}")
@@ -376,7 +376,7 @@ async def update_notebook(
         raise HTTPException(status_code=404, detail="Notebook not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating notebook {notebook_id}: {str(e)}")
@@ -438,7 +438,7 @@ async def add_source_to_notebook(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook or source not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(
@@ -481,7 +481,7 @@ async def remove_source_from_notebook(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(
@@ -535,7 +535,7 @@ async def delete_notebook(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting notebook {notebook_id}: {str(e)}")

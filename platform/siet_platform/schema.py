@@ -122,7 +122,7 @@ STATEMENTS: list[str] = RENAMES + [
         created_at  DATETIME DEFAULT CURRENT_TIMESTAMP
     ) {_TABLE_OPTS}
     """,
-    # Open Notebook notebook backing a course room's shared knowledge library.
+    # Notebook backing a course room's shared knowledge library.
     "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     # 'course' = official room created by staff; 'club' = free-form discussion
     # room any student may open (no shared library, so it never feeds the RAG).
@@ -158,7 +158,7 @@ STATEMENTS: list[str] = RENAMES + [
     # A private room shows its posts and library only to its members (and the
     # people who run it); a public room is readable by every signed-in user.
     "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS is_private TINYINT(1) NOT NULL DEFAULT 0",
-    # Personal knowledge library (one Open Notebook notebook per user).
+    # Personal knowledge library (one notebook per user).
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS library_notebook_id VARCHAR(128) NULL",
     f"""
     CREATE TABLE IF NOT EXISTS room_members (

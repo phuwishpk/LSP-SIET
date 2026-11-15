@@ -6,7 +6,7 @@ from pydantic import BaseModel, Field
 from surreal_commands import registry
 
 from api.command_service import CommandService
-from siet_core.exceptions import OpenNotebookError
+from siet_core.exceptions import SietError
 
 router = APIRouter()
 
@@ -66,7 +66,7 @@ async def execute_command(request: CommandExecutionRequest):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error submitting command: {str(e)}")
@@ -82,7 +82,7 @@ async def get_command_job_status(job_id: str):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching job status: {str(e)}")
@@ -104,7 +104,7 @@ async def list_command_jobs(
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error listing command jobs: {str(e)}")
@@ -120,7 +120,7 @@ async def cancel_command_job(job_id: str):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error cancelling command job: {str(e)}")

@@ -9,7 +9,7 @@ from siet_core.domain.notebook import Note
 from siet_core.exceptions import (
     InvalidInputError,
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -57,7 +57,7 @@ async def get_notes(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Notebook not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching notes: {str(e)}")
@@ -131,7 +131,7 @@ async def create_note(
         raise HTTPException(status_code=404, detail="Notebook not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error creating note: {str(e)}")
@@ -165,7 +165,7 @@ async def get_note(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Note not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching note {note_id}: {str(e)}")
@@ -218,7 +218,7 @@ async def update_note(
         raise HTTPException(status_code=404, detail="Note not found")
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating note {note_id}: {str(e)}")
@@ -247,7 +247,7 @@ async def delete_note(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Note not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting note {note_id}: {str(e)}")

@@ -884,7 +884,7 @@ class TestRegionalBaseUrl:
 
 
 class TestEndpointOverrideProvisioningAndMigration:
-    """ADR-012: provisioning exposes the registry override name, and env
+    """Provisioning exposes the registry override name, and env
     migration validates the override before saving."""
 
     @pytest.mark.asyncio
@@ -985,7 +985,7 @@ class TestMiniMaxCredentialDiscovery:
 
 
 class TestMiniMaxRegionalBaseUrl:
-    """MiniMax declares MINIMAX_BASE_URL (ADR-012): mainland-China keys list
+    """MiniMax declares MINIMAX_BASE_URL: mainland-China keys list
     their models at the regional endpoint (#1438)."""
 
     def test_registry_declares_override(self):

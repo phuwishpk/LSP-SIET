@@ -1,10 +1,10 @@
 /**
- * Extension points for UI that lives outside open-notebook's frontend.
+ * Extension points for UI that lives outside the host frontend (platform/frontend).
  *
  * Installed extensions are listed in ./extensions.installed (KMITL: the SIET
  * packages). Upstream files call the functions below at a few documented
  * places (docs/ARCHITECTURE.md, section 4); with nothing installed every call
- * leaves open-notebook's behaviour unchanged.
+ * leaves the host behaviour unchanged.
  *
  * - navigation  useNavigationExtensions(sections): reshape the sidebar
  * - gates       useGate(name): hide a built-in feature (hooks, called every render)

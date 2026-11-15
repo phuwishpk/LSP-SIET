@@ -14,7 +14,7 @@ export interface MessageReferencesProps {
 
 /**
  * Unified reference list under one AI message (the "chat.message-footer" slot
- * of open-notebook's ChatPanel):
+ * of the host's ChatPanel):
  *   - every notebook source/note that was fed as CONTEXT (the primary RAG
  *     references - shown even if the AI forgot an inline [source:xxx]);
  *   - plus any AI-cited source/note IDs that are not already in the context;

@@ -3,7 +3,7 @@
  * filters. The server applies post visibility and room privacy; documents are
  * found by meaning (the RAG's vectors) as well as by title.
  *
- * Not to be confused with `search.ts`, which is Open Notebook's own notebook
+ * Not to be confused with `search.ts`, which is the host's own notebook
  * search (/api/search) used by the research surface.
  */
 import { apiClient } from '@/lib/api/client'

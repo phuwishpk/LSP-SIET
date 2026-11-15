@@ -1,7 +1,7 @@
 /**
  * Links to the two standalone AI apps that live in their own folders/containers:
- *   My-ai-quiz/            → AI Quiz app     (default http://localhost:3001/quiz)
- *   ai-roadmap-generator/  → AI Roadmap app  (default http://localhost:3002/roadmap)
+ *   my-ai-quiz/app/   → AI Quiz app     (default http://localhost:3001/quiz)
+ *   ai-roadmap/app/   → AI Roadmap app  (default http://localhost:3002/roadmap)
  *
  * The URLs come from the runtime `/config/apps` endpoint first, so moving the stack
  * to a real domain only needs `MY_AI_QUIZ_URL` / `AI_ROADMAP_URL` set on the

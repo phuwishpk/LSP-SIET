@@ -64,7 +64,7 @@ export function ShareMyWorkDialog({
 
   const { data: quizzes, isLoading: loadingQuizzes } = useQuizSessions()
   const { data: roadmaps, isLoading: loadingRoadmaps } = useShareableRoadmaps()
-  // Notes live in Open Notebook, which students cannot reach, so the tab is
+  // Notes live in the research surface, which students cannot reach, so the tab is
   // only offered to teachers/admins (and the API would refuse it anyway).
   const role = useAuthStore((s) => s.user?.role) as Role
   const canUseNotes = isStaff(role)

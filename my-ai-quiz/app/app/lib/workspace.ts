@@ -9,7 +9,7 @@
  */
 
 /**
- * Browser-facing URL of the KMITL workspace (open-notebook Next.js app).
+ * Browser-facing URL of the KMITL workspace (the platform Next.js app).
  *
  * `NEXT_PUBLIC_WORKSPACE_URL` wins when it was baked into the build, then the
  * SIET Space this app was opened from (WORKSPACE_ORIGIN_KEY). Otherwise we infer

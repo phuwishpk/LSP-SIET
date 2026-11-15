@@ -41,7 +41,7 @@ async def _retrieve_rag_context(
     source_ids: Optional[List[str]] = None,
 ) -> str:
     """
-    Retrieve relevant Open Notebook source/note snippets for every feature.
+    Retrieve relevant source/note snippets for every feature.
 
     When ``notebook_ids`` is given (a course library and/or the student's own
     uploads), retrieval is restricted to those notebooks - and to
@@ -97,7 +97,7 @@ def _format_rag_chunks(results: Any) -> str:
         if not content:
             content = str(result.get("content") or result.get("text") or "")
         if content.strip():
-            chunks.append(f"[Open Notebook: {title}]\n{content.strip()}")
+            chunks.append(f"[เอกสาร: {title}]\n{content.strip()}")
 
     return "\n\n".join(chunks)[:MAX_RAG_CONTEXT_CHARS]
 
@@ -159,7 +159,7 @@ async def _invoke_chat(
 
     try:
         # Build the prompt as a single string, matching the convention used by
-        # the rest of open-notebook (see siet_core/graphs/ask.py).
+        # the rest of the core (see siet_core/graphs/ask.py).
         prompt = f"{system}\n\n{prompt}"
         # model_manager returns an Esperanto model; convert it to the LangChain
         # runnable interface (some providers, e.g. GoogleLanguageModel, do not

@@ -1,5 +1,5 @@
 """
-siet-community as an open-notebook extension (entry point group
+siet-community as an LSP-SIET extension (entry point group
 ``siet.extensions``, see siet_core/extensions.py).
 
 register()   seeds the demo categories and course rooms with the seed accounts

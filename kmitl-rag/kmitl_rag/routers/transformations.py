@@ -14,7 +14,7 @@ from loguru import logger
 
 from api.models import TransformationResponse
 from siet_core.domain.transformation import Transformation
-from siet_core.exceptions import OpenNotebookError
+from siet_core.exceptions import SietError
 
 router = APIRouter()
 
@@ -45,7 +45,7 @@ async def get_transformations():
         ]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching transformations: {str(e)}")
@@ -67,7 +67,7 @@ async def get_transformation(transformation_id: str):
         return _transformation_response(transformation)
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching transformation {transformation_id}: {str(e)}")

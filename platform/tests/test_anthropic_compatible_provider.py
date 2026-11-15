@@ -281,7 +281,7 @@ async def test_model_manager_rejects_missing_compatible_endpoint():
 
 def test_langchain_bridge_forwards_base_url():
     """An anthropic-compatible model must reach its custom base URL via the
-    native esperanto ``to_langchain()`` path (no Open Notebook shim), NOT the
+    native esperanto ``to_langchain()`` path (no custom shim), NOT the
     official ``api.anthropic.com`` endpoint.
     """
     from esperanto import AIFactory

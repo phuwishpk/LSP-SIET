@@ -1,5 +1,5 @@
 """
-What the SIET platform adds to the API lifespan (open-notebook emits
+What the SIET platform adds to the API lifespan (the core emits
 ``app.startup`` after its own migrations and ``app.shutdown`` on the way out).
 
 Startup, in this order: the KMITL SurrealDB migrations (k-track, fatal on

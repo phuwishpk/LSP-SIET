@@ -14,7 +14,7 @@ from siet_core.domain.notebook import vector_search
 from siet_core.exceptions import (
     ExternalServiceError,
     IncompleteGenerationError,
-    OpenNotebookError,
+    SietError,
 )
 from siet_core.utils import clean_thinking_content
 from siet_core.utils.error_classifier import classify_error
@@ -102,7 +102,7 @@ async def call_model_with_messages(state: ThreadState, config: RunnableConfig) -
             )
 
         return {"strategy": strategy}
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         error_class, user_message = classify_error(e)
@@ -159,7 +159,7 @@ async def provide_answer(state: SubGraphState, config: RunnableConfig) -> dict:
             # answer only pollutes the final synthesis.
             return {"answers": []}
         return {"answers": [ai_content]}
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         error_class, user_message = classify_error(e)
@@ -184,7 +184,7 @@ async def write_final_answer(state: ThreadState, config: RunnableConfig) -> dict
                 "model options."
             )
         return {"final_answer": final_content}
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         error_class, user_message = classify_error(e)

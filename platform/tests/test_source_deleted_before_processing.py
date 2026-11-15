@@ -175,7 +175,7 @@ async def test_source_deleted_during_processing_fails_permanently():
 
 @pytest.mark.asyncio
 async def test_embedding_a_deleted_source_fails_permanently():
-    """embed_source had the same gap (lfnovo's review on #1364): a record
+    """embed_source had the same gap (the upstream review on #1364): a record
     deleted before the job ran is a permanent failure, not a retry."""
     from commands.embedding_commands import EmbedSourceInput, embed_source_command
 

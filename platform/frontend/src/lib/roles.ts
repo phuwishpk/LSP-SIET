@@ -7,7 +7,7 @@
  */
 export type Role = 'student' | 'teacher' | 'admin' | 'pending' | null | undefined
 
-/** Teachers prepare material in the Open Notebook surface; students do not. */
+/** Teachers prepare material in the research surface (notebooks, sources, notes, chat); students do not. */
 export function isStaff(role: Role): boolean {
   return role === 'teacher' || role === 'admin'
 }

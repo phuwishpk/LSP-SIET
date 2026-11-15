@@ -74,3 +74,30 @@ class TestConfigEndpointDoesNotLeakDbErrors:
         depends on."""
         response = client.get("/api/config")
         assert response.status_code != 401
+
+
+class TestVersionCheckIsOff:
+    """GET /api/config keeps its shape, but the server never asks GitHub for a newer release."""
+
+    def test_get_latest_version_cached_answers_without_network(self):
+        import asyncio
+
+        from api.routers.config import get_latest_version_cached
+
+        with patch("httpx.AsyncClient.get", new=AsyncMock(side_effect=AssertionError("network call"))) as get:
+            assert asyncio.run(get_latest_version_cached("1.0.0")) == (None, False)
+        get.assert_not_called()
+
+    def test_config_reports_no_update_and_makes_no_outgoing_request(self, client):
+        with (
+            patch("httpx.AsyncClient.get", new=AsyncMock(side_effect=AssertionError("network call"))) as get,
+            patch("api.routers.config.repo_query", new=AsyncMock(return_value=[{"result": 1}])),
+        ):
+            response = client.get("/api/config")
+
+        assert response.status_code == 200
+        body = response.json()
+        assert body["latestVersion"] is None
+        assert body["hasUpdate"] is False
+        assert set(body.keys()) == {"version", "latestVersion", "hasUpdate", "dbStatus"}
+        get.assert_not_called()

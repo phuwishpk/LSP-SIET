@@ -147,14 +147,10 @@ specs/
 .mcp.json
 
 # Local Docker Compose override (auto-merged by `docker compose up`).
-# Use it for host-specific tweaks like re-exposing the SurrealDB port;
-# see docker-compose.override.yml.example.
+# Use it for host-specific tweaks like re-exposing the SurrealDB port.
 docker-compose.override.yml
 
 # Local QA/debug artifacts
 screenshot-*.png
 history.txt
 
-# oss-maintainer local state
-.maintainer/profile.local.toml
-.maintainer/state/

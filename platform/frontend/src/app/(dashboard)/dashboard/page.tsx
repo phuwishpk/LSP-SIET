@@ -40,9 +40,9 @@ const APP_CARDS: AppCard[] = [
   },
   {
     id: 'notebook',
-    title: 'Open Notebook',
+    title: 'KMITL RAG AI',
     description:
-      'Research assistant with notebooks, sources, notes and the AI chat workspace.',
+      'Ask the AI about your course documents, with notebooks, sources, notes and the chat workspace.',
     icon: BookOpen,
     href: '/search?mode=ask',
     external: false,

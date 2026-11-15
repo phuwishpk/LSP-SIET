@@ -14,7 +14,7 @@ from siet_core import extensions
 from siet_core.ai.provision import provision_langchain_model
 from siet_core.config import LANGGRAPH_CHECKPOINT_FILE
 from siet_core.domain.notebook import Notebook
-from siet_core.exceptions import IncompleteGenerationError, OpenNotebookError
+from siet_core.exceptions import IncompleteGenerationError, SietError
 from siet_core.utils import clean_thinking_content
 from siet_core.utils.error_classifier import classify_error
 from siet_core.utils.text_utils import extract_text_content
@@ -89,7 +89,7 @@ def call_model_with_messages(state: ThreadState, config: RunnableConfig) -> dict
         cleaned_message = ai_message.model_copy(update={"content": cleaned_content})
 
         return {"messages": cleaned_message}
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         error_class, user_message = classify_error(e)

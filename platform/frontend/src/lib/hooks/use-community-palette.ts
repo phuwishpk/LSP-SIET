@@ -4,7 +4,7 @@ import { useLayoutEffect } from 'react'
 
 /**
  * Every dashboard page wears the community pink palette (`.community-theme` in
- * siet-theme.css) instead of open-notebook's green, admin and notebook pages
+ * siet-theme.css) instead of the core's green, admin and notebook pages
  * included, and the SIET Pink workspace theme (`.theme-siet`, PR #38: cards,
  * sidebar, forms, dialogs, the dashboard hero).
  *

@@ -11,7 +11,7 @@ from siet_core.domain.notebook import (
 from siet_core.exceptions import (
     DatabaseOperationError,
     InvalidInputError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -62,7 +62,7 @@ async def search_knowledge_base(search_request: SearchRequest):
         raise HTTPException(status_code=500, detail=f"Search failed: {str(e)}")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Unexpected error during search: {str(e)}")

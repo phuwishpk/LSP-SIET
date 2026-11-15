@@ -10,7 +10,7 @@ from siet_core.domain.transformation import DefaultPrompts, Transformation
 from siet_core.exceptions import (
     IncompleteGenerationError,
     InvalidInputError,
-    OpenNotebookError,
+    SietError,
 )
 from siet_core.utils import clean_thinking_content
 from siet_core.utils.error_classifier import classify_error
@@ -42,7 +42,7 @@ async def run_transformation(state: dict, config: RunnableConfig) -> dict:
         # transformation.prompt is user-controlled free text. Never compile it as
         # Jinja template *source* (Prompter(template_text=...)) - pass it as a
         # plain render variable into a fixed, developer-authored template instead.
-        # See docs/7-DEVELOPMENT/security.md (GHSA-f35w-wx37-26q7).
+        # (Template injection, GHSA-f35w-wx37-26q7.)
         instructions = transformation.prompt
         default_prompts: DefaultPrompts = DefaultPrompts(
             transformation_instructions=None
@@ -97,7 +97,7 @@ async def run_transformation(state: dict, config: RunnableConfig) -> dict:
         return {
             "output": cleaned_content,
         }
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         error_class, user_message = classify_error(e)

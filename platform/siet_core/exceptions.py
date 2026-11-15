@@ -1,46 +1,46 @@
-class OpenNotebookError(Exception):
-    """Base exception class for Open Notebook errors."""
+class SietError(Exception):
+    """Base exception class for LSP-SIET errors."""
 
     pass
 
 
-class DatabaseOperationError(OpenNotebookError):
+class DatabaseOperationError(SietError):
     """Raised when a database operation fails."""
 
     pass
 
 
-class UnsupportedTypeException(OpenNotebookError):
+class UnsupportedTypeException(SietError):
     """Raised when an unsupported type is provided."""
 
     pass
 
 
-class InvalidInputError(OpenNotebookError):
+class InvalidInputError(SietError):
     """Raised when invalid input is provided."""
 
     pass
 
 
-class NotFoundError(OpenNotebookError):
+class NotFoundError(SietError):
     """Raised when a requested resource is not found."""
 
     pass
 
 
-class AuthenticationError(OpenNotebookError):
+class AuthenticationError(SietError):
     """Raised when there's an authentication problem."""
 
     pass
 
 
-class ConfigurationError(OpenNotebookError):
+class ConfigurationError(SietError):
     """Raised when there's a configuration problem."""
 
     pass
 
 
-class ExternalServiceError(OpenNotebookError):
+class ExternalServiceError(SietError):
     """Raised when an external service (e.g., AI model) fails."""
 
     pass
@@ -59,25 +59,25 @@ class ContextLengthExceededError(ExternalServiceError):
     pass
 
 
-class RateLimitError(OpenNotebookError):
+class RateLimitError(SietError):
     """Raised when a rate limit is exceeded."""
 
     pass
 
 
-class FileOperationError(OpenNotebookError):
+class FileOperationError(SietError):
     """Raised when a file operation fails."""
 
     pass
 
 
-class NetworkError(OpenNotebookError):
+class NetworkError(SietError):
     """Raised when a network operation fails."""
 
     pass
 
 
-class NoTranscriptFound(OpenNotebookError):
+class NoTranscriptFound(SietError):
     """Raised when no transcript is found for a video."""
 
     pass

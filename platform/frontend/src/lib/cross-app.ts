@@ -1,7 +1,7 @@
 /**
  * Helpers for cross-app navigation that need to forward the workspace JWT.
  *
- * The standalone Next.js apps (My-ai-quiz / ai-roadmap-generator) accept the
+ * The standalone Next.js apps (my-ai-quiz/app / ai-roadmap/app) accept the
  * JWT via the `?token=…` query parameter, store it in localStorage and use it
  * on subsequent API calls.
  */
@@ -38,7 +38,7 @@ export async function buildCrossAppLink({ href }: CrossAppLink): Promise<string>
 
 /**
  * Resolve the API URL we should hit when forwarding the workspace JWT to a
- * different app's server (for example, the open-notebook API when a child app
+ * different app's server (for example, the LSP-SIET API when a child app
  * wants to verify the token).
  */
 export async function getWorkspaceApiUrl(): Promise<string> {

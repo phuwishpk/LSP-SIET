@@ -5,8 +5,8 @@ import { usePathname } from 'next/navigation'
 import { AppSidebar } from './AppSidebar'
 import { useSidebarStore } from '@/lib/stores/sidebar-store'
 
-// KMITL: open-notebook's own navigation, without the SIET extensions
-// (their sidebar is tested in @siet/platform)
+// KMITL: the host's own navigation, without the SIET extensions
+// (the workspace sidebar is tested in AppSidebar.workspace.test.tsx)
 vi.mock('@/lib/extensions.installed', () => ({ installed: [] }))
 
 // Mock Tooltip components to avoid Radix UI async issues in tests

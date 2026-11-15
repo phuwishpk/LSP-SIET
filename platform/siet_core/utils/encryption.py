@@ -118,9 +118,9 @@ PBKDF2_MARKER: str = "pbkdf2v1:"
 PBKDF2_ITERATIONS: int = 600_000
 
 # Fixed application salt (domain separation). Shared by all deployments by
-# design: the threat model assumes a high-entropy LSP_SIET_ENCRYPTION_KEY
-# (see docs/7-DEVELOPMENT/security.md), so the salt slows brute force without
-# acting as a per-install secret. Recorded in ADR-009.
+# design: the threat model assumes a high-entropy LSP_SIET_ENCRYPTION_KEY,
+# so the salt slows brute force without acting as a per-install secret.
+# Never change it: stored credentials are encrypted with a key derived from it.
 PBKDF2_SALT: bytes = b"open-notebook-credential-v1"
 
 

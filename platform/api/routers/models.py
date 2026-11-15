@@ -27,7 +27,7 @@ from siet_core.domain.credential import Credential
 from siet_core.exceptions import (
     InvalidInputError,
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter()
@@ -196,7 +196,7 @@ async def get_models(
         ]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching models: {str(e)}")
@@ -255,7 +255,7 @@ async def create_model(model_data: ModelCreate):
         raise
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error creating model: {str(e)}")
@@ -277,7 +277,7 @@ async def delete_model(model_id: str):
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Model not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting model {model_id}: {str(e)}")
@@ -293,7 +293,7 @@ async def test_model(model_id: str):
             raise HTTPException(status_code=404, detail="Model not found")
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception:
         raise HTTPException(status_code=404, detail="Model not found")
@@ -326,7 +326,7 @@ async def get_default_models():
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching default models: {str(e)}")
@@ -381,7 +381,7 @@ async def update_default_models(defaults_data: DefaultModelsResponse):
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating default models: {str(e)}")
@@ -535,7 +535,7 @@ async def get_provider_availability():
         return response
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error checking provider availability: {str(e)}")
@@ -573,7 +573,7 @@ async def discover_models(provider: str):
         ]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error discovering models for {provider}: {str(e)}")
@@ -610,7 +610,7 @@ async def sync_models(provider: str):
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error syncing models for {provider}: {str(e)}")
@@ -655,7 +655,7 @@ async def sync_all_models():
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error syncing all models: {str(e)}")
@@ -682,7 +682,7 @@ async def get_model_count(provider: str):
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error getting model count for {provider}: {str(e)}")
@@ -720,7 +720,7 @@ async def get_models_by_provider(provider: str):
         ]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching models for {provider}: {str(e)}")
@@ -864,7 +864,7 @@ async def auto_assign_defaults():
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error auto-assigning defaults: {str(e)}")

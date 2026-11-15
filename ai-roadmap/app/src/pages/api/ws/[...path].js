@@ -1,7 +1,7 @@
 import { env } from '../../../lib/env'
 
 /**
- * Server-side relay to the SIET Space API (Open Notebook).
+ * Server-side relay to the LSP-SIET API.
  *
  * The browser calls `/roadmap/api/ws/<path>`; this forwards it to
  * `${LSP_SIET_API_URL}/api/<path>` with the caller's Authorization header.

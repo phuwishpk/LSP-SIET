@@ -1,5 +1,5 @@
 """
-Chunking utilities for Open Notebook.
+Chunking utilities for LSP-SIET.
 
 Provides content-type detection and smart text chunking for embedding operations.
 Supports HTML, Markdown, and plain text with appropriate splitters for each type.

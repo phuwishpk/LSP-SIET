@@ -566,7 +566,7 @@ class CapabilitiesResponse(BaseModel):
     Reflects what is actually importable/reachable in this container — not merely
     what the LSP_SIET_ENABLE_* flags request — so the UI can gate engine
     options honestly (e.g. still show "unavailable" while a first-boot install
-    is in progress). See docs/7-DEVELOPMENT/decisions/ADR-007-optin-runtimes.md.
+    is in progress).
     """
 
     docling_available: bool = Field(

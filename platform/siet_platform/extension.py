@@ -1,9 +1,9 @@
 """
-siet-platform as an open-notebook extension (entry point group
+siet_platform as an LSP-SIET extension (entry point group
 ``siet.extensions``, see siet_core/extensions.py).
 
-register()   hooks into open-notebook (siet_platform.hooks)
-install()    the role gate and the platform routers, ahead of open-notebook's
+register()   hooks into the core (siet_platform.hooks)
+install()    the role gate and the platform routers, ahead of the core's
 finalize()   KMITL error envelopes; removes routes the workspace replaces or
              does not offer
 """
@@ -21,7 +21,7 @@ def install(app) -> None:
     from siet_platform.auth_roles import RoleAccessMiddleware
     from siet_platform.routers import admin, cache_admin, google_auth, users
 
-    # Added before open-notebook's password middleware so that it *runs after*
+    # Added before the core's password middleware so that it *runs after*
     # it (Starlette executes middleware in reverse registration order) and can
     # read the owner id that authentication resolved.
     app.add_middleware(
@@ -29,7 +29,7 @@ def install(app) -> None:
         exempt_paths=["/", "/health", "/docs", "/openapi.json", "/redoc", "/api/config"],
     )
     # users serves /api/auth/status (JWT auth state); it must win over
-    # open-notebook's password-only route of the same path (see finalize).
+    # the core's password-only route of the same path (see finalize).
     app.include_router(users.router, prefix="/api", tags=["users"])
     app.include_router(google_auth.router, prefix="/api", tags=["auth"])
     app.include_router(admin.router, prefix="/api", tags=["admin"])
@@ -73,7 +73,7 @@ def finalize(app) -> None:
     app.add_exception_handler(RateLimitError, rate_limit_error_handler)
     app.add_exception_handler(ProviderBusy, provider_busy_handler)
 
-    # open-notebook's /api/auth/status only knows the password gate, so it would
+    # The core's /api/auth/status only knows the password gate, so it would
     # tell the frontend auth is off while login is JWT-only: keep the one in
     # siet_platform.routers.users.
     from api.routers import auth

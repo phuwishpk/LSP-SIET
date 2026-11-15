@@ -1,12 +1,8 @@
 /**
- * Translations the workspace adds to open-notebook's (merged in by
- * extendI18n, see open-notebook/frontend/src/lib/extensions.ts). en-US is the
- * only language.
+ * Translations the workspace adds to the host's (merged in by extendI18n, see
+ * platform/frontend/src/lib/extensions.ts). en-US is the only language.
  */
-const appName = { common: { appName: 'LSP-SIET' } }
-
 const enUS = {
-  ...appName,
   navigation: { features: 'AI Features' },
   features: {
     title: "AI Features",

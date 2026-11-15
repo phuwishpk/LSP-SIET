@@ -1,6 +1,6 @@
 /**
- * @siet/kmitl-rag as an open-notebook frontend extension
- * (open-notebook/frontend/src/lib/extensions.ts).
+ * @siet/kmitl-rag as a frontend extension of the host
+ * (platform/frontend/src/lib/extensions.ts).
  */
 import type { FrontendExtension } from '@/lib/extensions'
 

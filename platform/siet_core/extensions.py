@@ -61,7 +61,7 @@ def extensions() -> List[Any]:
             if register is not None:
                 register()
             _loaded.append(module)
-            logger.debug(f"open-notebook extension loaded: {name}")
+            logger.debug(f"LSP-SIET extension loaded: {name}")
     return _loaded
 
 

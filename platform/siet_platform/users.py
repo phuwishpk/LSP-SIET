@@ -49,7 +49,7 @@ class _UserRow(_Base):
     disabled       = Column(Integer, nullable=False, default=0)
     suspend_reason  = Column(String(255), nullable=True)
     suspended_until = Column(DateTime, nullable=True)
-    # Open Notebook notebook holding this user's private uploaded documents.
+    # Notebook holding this user's private uploaded documents.
     library_notebook_id = Column(String(128), nullable=True)
     created_at    = Column(DateTime, default=datetime.utcnow)
     updated_at    = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

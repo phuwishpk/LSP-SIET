@@ -1,5 +1,5 @@
 """
-Cache package for Open Notebook.
+Cache package for LSP-SIET.
 
 Provides Redis-based caching for expensive operations like vector search,
 context building, and embedding generation.

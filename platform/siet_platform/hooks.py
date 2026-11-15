@@ -1,5 +1,5 @@
 """
-What siet-platform plugs into open-notebook's extension points
+What siet_platform plugs into the core's extension points
 (siet_core.extensions; the call sites are listed in docs/ARCHITECTURE.md).
 
 * auth       workspace JWT instead of the single password

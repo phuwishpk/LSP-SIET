@@ -45,7 +45,7 @@ dependencies = [
     "numpy>=2.4.1",
     "pycountry>=26.2.16",
     "babel>=2.18.0",
-    # siet_platform (accounts, auth, points, caches, library): was siet-platform/pyproject.toml
+    # siet_platform (accounts, auth, points, caches, library)
     "redis[hiredis]>=5.0.0",
     "pyjwt>=2.9.0",
     "bcrypt>=4.2.0",

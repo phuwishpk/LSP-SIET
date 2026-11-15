@@ -89,7 +89,7 @@ def test_untyped_questions_are_recognised_and_trimmed_to_the_count():
 def test_the_prompt_carries_difficulty_type_and_the_no_giveaway_rule():
     prompt = service._quiz_prompt("Deadlock", 5, "th", "hard", "fill", "")
     assert "hard - analysis" in prompt and 'type "fill"' in prompt and "give the answer away" in prompt
-    assert "retrieved Open Notebook knowledge" not in prompt
+    assert "retrieved course documents" not in prompt
     assert "PASSAGE" in service._quiz_prompt("Deadlock", 5, "th", "easy", "mixed", "PASSAGE")
 
 

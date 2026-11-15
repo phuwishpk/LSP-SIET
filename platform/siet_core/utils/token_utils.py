@@ -1,5 +1,5 @@
 """
-Token utilities for Open Notebook.
+Token utilities for LSP-SIET.
 Handles token counting and cost calculations for language models.
 """
 

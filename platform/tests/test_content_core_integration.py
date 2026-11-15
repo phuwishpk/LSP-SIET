@@ -1,4 +1,4 @@
-"""Open Notebook's integration with content-core >= 2.1 (#1408).
+"""LSP-SIET's integration with content-core >= 2.1 (#1408).
 
 - content-core disables its own Loguru logging for library consumers; we
   re-enable it so extraction logs reach the API and worker output.

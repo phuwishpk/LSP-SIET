@@ -1,7 +1,7 @@
 """
 Role-based access control for the KMITL workspace.
 
-Open Notebook was built for a single trusted operator, so every router trusts
+The research core was built for a single trusted operator, so every router trusts
 whoever passed authentication. In SIET Space the same API is used by hundreds of
 students, and without this middleware a student could create notebooks, edit
 transformations, read the AI credential list and even change the workspace's
@@ -10,7 +10,7 @@ default model for everybody.
 The policy is expressed once, here, as path prefixes:
 
 * **student**  – community, knowledge library, quiz/roadmap generation, own profile
-* **teacher**  – everything a student can do, plus the Open Notebook research
+* **teacher**  – everything a student can do, plus the research
   surface (notebooks, sources, notes, chat, search, transformations)
 * **admin**    – everything, including model configuration and API credentials
 
@@ -42,7 +42,7 @@ ROLE_RANK = {
     USER_ROLE_ADMIN: 3,
 }
 
-# The Open Notebook research surface: teachers prepare material here.
+# The research surface (notebooks, sources, notes, chat, search): teachers prepare material here.
 STAFF_PREFIXES: tuple[str, ...] = (
     "/api/notebooks",
     "/api/sources",

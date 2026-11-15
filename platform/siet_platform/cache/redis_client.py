@@ -1,5 +1,5 @@
 """
-Redis client singleton for Open Notebook.
+Redis client singleton for LSP-SIET.
 
 Provides async Redis operations with graceful degradation - if Redis is unavailable,
 cache operations silently fail and the application continues without caching.

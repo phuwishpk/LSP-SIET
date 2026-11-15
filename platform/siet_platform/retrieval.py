@@ -1,7 +1,7 @@
 """
 Notebook-scoped retrieval for the SIET Space knowledge library.
 
-Open Notebook ships ``fn::vector_search_in_notebook``, but that SurrealQL
+The core ships ``fn::vector_search_in_notebook``, but that SurrealQL
 function is not present in every deployment (and silently 404s at call time),
 which would make a "search only this course" request fall back to searching the
 whole workspace — leaking one student's private uploads into another scope.

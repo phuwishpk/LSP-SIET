@@ -1,6 +1,7 @@
 /**
- * @siet/platform as an open-notebook frontend extension
- * (open-notebook/frontend/src/lib/extensions.ts).
+ * The platform's own frontend extension: workspace navigation, role gates, navbar,
+ * theme and route redirects (the extension points are defined in
+ * platform/frontend/src/lib/extensions.ts).
  */
 import { useEffect } from 'react'
 
@@ -41,7 +42,7 @@ const extension: FrontendExtension = {
     'dashboard.overlay': PdpaConsentDialog,
   },
 
-  // App name "LSP-SIET" and the AI-feature strings (en-US is the only language)
+  // The AI-feature strings (en-US is the only language)
   translations,
 
   useRouteGate(pathname) {
@@ -50,7 +51,7 @@ const extension: FrontendExtension = {
     const signedIn = useAuthStore((s) => s.isAuthenticated)
     // Runs on every dashboard page: the AI Roadmap app reads the theme from here.
     useShareThemeWithApps()
-    // ...and every one of them is pink, not open-notebook's green.
+    // ...and every one of them is pink, not the core's green.
     useCommunityPalette()
     // Reached a page while signed in: the remembered post-login target is used up.
     useEffect(() => {

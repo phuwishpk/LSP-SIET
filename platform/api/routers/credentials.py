@@ -62,7 +62,7 @@ from siet_core.database.repository import ensure_record_id, repo_delete, repo_qu
 from siet_core.domain.credential import Credential
 from siet_core.exceptions import (
     NotFoundError,
-    OpenNotebookError,
+    SietError,
 )
 
 router = APIRouter(prefix="/credentials", tags=["credentials"])
@@ -89,7 +89,7 @@ async def get_status():
         return await get_provider_status()
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching status: {e}")
@@ -103,7 +103,7 @@ async def get_env_status():
         return await svc_get_env_status()
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error checking env status: {e}")
@@ -137,7 +137,7 @@ async def list_credentials(
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error listing credentials: {e}")
@@ -156,7 +156,7 @@ async def list_credentials_by_provider(provider: str):
         return result
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error listing credentials for {provider}: {e}")
@@ -211,7 +211,7 @@ async def create_credential(request: CreateCredentialRequest):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error creating credential: {e}")
@@ -227,7 +227,7 @@ async def get_credential(credential_id: str):
         return credential_to_response(cred, len(models))
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching credential {credential_id}: {e}")
@@ -310,7 +310,7 @@ async def update_credential(credential_id: str, request: UpdateCredentialRequest
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Credential not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating credential {credential_id}: {e}")
@@ -411,7 +411,7 @@ async def delete_credential(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Credential not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting credential {credential_id}: {e}")
@@ -454,7 +454,7 @@ async def discover_models_for_credential(credential_id: str):
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error discovering models for credential {credential_id}: {e}")
@@ -471,7 +471,7 @@ async def register_models_for_credential(
         return RegisterModelsResponse(**result)
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error registering models for credential {credential_id}: {e}")
@@ -492,7 +492,7 @@ async def migrate_from_provider_config():
         raise _handle_value_error(e)
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(
@@ -519,7 +519,7 @@ async def migrate_encryption():
         raise _handle_value_error(e)
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(
@@ -537,7 +537,7 @@ async def migrate_from_env():
         raise _handle_value_error(e)
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Env migration FAILED: {type(e).__name__}: {e}", exc_info=True)

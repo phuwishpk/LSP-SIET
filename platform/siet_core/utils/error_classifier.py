@@ -13,12 +13,12 @@ from siet_core.exceptions import (
     ContextLengthExceededError,
     ExternalServiceError,
     NetworkError,
-    OpenNotebookError,
     RateLimitError,
+    SietError,
 )
 
 # Classification rules: (keywords, exception_class, user_message or None to pass through)
-_CLASSIFICATION_RULES: list[tuple[list[str], type[OpenNotebookError], str | None]] = [
+_CLASSIFICATION_RULES: list[tuple[list[str], type[SietError], str | None]] = [
     # Authentication errors
     (
         ["authentication", "unauthorized", "invalid api key", "invalid_api_key", "401"],
@@ -90,7 +90,7 @@ _CLASSIFICATION_RULES: list[tuple[list[str], type[OpenNotebookError], str | None
 ]
 
 
-def classify_error(exception: BaseException) -> tuple[type[OpenNotebookError], str]:
+def classify_error(exception: BaseException) -> tuple[type[SietError], str]:
     """
     Classify a raw exception into a user-friendly error type and message.
 

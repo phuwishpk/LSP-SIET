@@ -26,8 +26,8 @@ logger.enable("content_core")
 
 # Default preferred languages for YouTube transcript selection, used when
 # ContentSettings.youtube_preferred_languages is unset. content-core's own
-# default is only ["en", "es", "pt"]; we keep the broader list Open Notebook has
-# always intended so non-English videos still resolve a transcript.
+# default is only ["en", "es", "pt"]; we keep a broader list so non-English
+# videos still resolve a transcript.
 YOUTUBE_PREFERRED_LANGUAGES = [
     "en",
     "pt",
@@ -77,7 +77,7 @@ def _usable_engine(engine: str, kind: str) -> str:
     logger.warning(
         f"Configured {kind} engine '{engine}' is selected in Content Settings but "
         f"its runtime is not available in this container; falling back to 'auto'. "
-        f"Set {missing_env_var}=true to enable it (see ADR-007)."
+        f"Set {missing_env_var}=true to enable it."
     )
     return "auto"
 

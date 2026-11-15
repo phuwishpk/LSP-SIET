@@ -1,6 +1,6 @@
 /*
  * SIET theme: design tokens and scoped themes the KMITL UI adds on top of
- * open-notebook's (imported from open-notebook/frontend/src/app/siet.css).
+ * the core's (imported from platform/frontend/src/app/siet.css).
  * Additive only - nothing here changes an upstream token.
  */
 
@@ -61,7 +61,7 @@
   --sidebar-accent-foreground: #c92f6b;
   --sidebar-border: #eae6ea;
   --sidebar-ring: #ed4988;
-  /* open-notebook's own action hue (active nav spine, default badge), in SIET Pink */
+  /* the core's own action hue (active nav spine, default badge), in SIET Pink */
   --fern: #ed4988;
   --fern-deep: #c92f6b;
   --fern-tint: #fce7f0;

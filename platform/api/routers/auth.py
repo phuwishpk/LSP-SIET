@@ -1,5 +1,5 @@
 """
-Authentication router for Open Notebook API.
+Authentication router for LSP-SIET API.
 Provides endpoints to check authentication status.
 """
 

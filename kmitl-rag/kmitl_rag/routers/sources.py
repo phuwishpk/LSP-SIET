@@ -41,7 +41,7 @@ from siet_core.domain.transformation import Transformation
 from siet_core.exceptions import (
     InvalidInputError,
     NotFoundError,
-    OpenNotebookError,
+    SietError,
     UnsupportedTypeException,
 )
 
@@ -386,7 +386,7 @@ async def get_sources(
         return response_list
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching sources: {str(e)}")
@@ -583,7 +583,7 @@ async def _create_source_async_path(
             processing_info={"async": True, "queued": True},
         )
 
-    except (HTTPException, OpenNotebookError):
+    except (HTTPException, SietError):
         # Clean up source record before the error propagates (typed domain
         # errors are mapped by the global handlers in api/main.py)
         try:
@@ -736,7 +736,7 @@ async def create_source(
         # Clean up uploaded file on validation errors if we created it
         _cleanup_uploaded_file(file_path, upload_file)
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         # Clean up uploaded file before the global handlers map the error
         _cleanup_uploaded_file(file_path, upload_file)
         raise
@@ -854,7 +854,7 @@ async def get_source(
         raise
     except NotFoundError:
         raise HTTPException(status_code=404, detail="Source not found")
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching source {source_id}: {str(e)}")
@@ -872,7 +872,7 @@ async def check_source_file(
         return Response(status_code=200)
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error checking file for source {source_id}: {str(e)}")
@@ -894,7 +894,7 @@ async def download_source_file(
         )
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error downloading file for source {source_id}: {str(e)}")
@@ -963,7 +963,7 @@ async def get_source_status(
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching status for source {source_id}: {str(e)}")
@@ -1003,7 +1003,7 @@ async def update_source(
         raise
     except InvalidInputError as e:
         raise HTTPException(status_code=400, detail=str(e))
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error updating source {source_id}: {str(e)}")
@@ -1134,7 +1134,7 @@ async def retry_source_processing(
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error retrying source processing for {source_id}: {str(e)}")
@@ -1164,7 +1164,7 @@ async def delete_source(
         return {"message": "Source deleted successfully"}
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error deleting source {source_id}: {str(e)}")
@@ -1193,7 +1193,7 @@ async def get_source_insights(source_id: str):
         ]
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error fetching insights for source {source_id}: {str(e)}")
@@ -1253,7 +1253,7 @@ async def create_source_insight(source_id: str, request: CreateSourceInsightRequ
 
     except HTTPException:
         raise
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         logger.error(f"Error starting insight generation for source {source_id}: {e}")

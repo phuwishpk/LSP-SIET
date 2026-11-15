@@ -1,5 +1,5 @@
 """
-Cache invalidation helpers for Open Notebook.
+Cache invalidation helpers for LSP-SIET.
 
 Provides decorators and utilities to automatically invalidate cache entries
 when source data changes.

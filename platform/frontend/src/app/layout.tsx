@@ -32,8 +32,8 @@ const splineSansMono = Spline_Sans_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Open Notebook",
-  description: "Privacy-focused research and knowledge management",
+  title: "LSP-SIET",
+  description: "LSP-SIET - KMITL SIET learning space: community, KMITL RAG AI, AI Quiz and AI Roadmap",
 };
 
 export default function RootLayout({

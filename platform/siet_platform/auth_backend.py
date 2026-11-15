@@ -3,7 +3,7 @@ Request authentication for the SIET workspace, installed into
 ``api.auth.PasswordAuthMiddleware`` through ``extensions.set_auth_backend``.
 
 A workspace JWT (siet_platform.auth_jwt) authenticates the request and names
-its owner (``request.state.owner_id``); the single open-notebook password
+its owner (``request.state.owner_id``); the single shared password
 still works as a fallback for setups without JWT. File routes also accept the
 token as ``?token=`` because links cannot carry a header.
 """
@@ -19,7 +19,7 @@ from starlette.responses import Response
 
 from siet_core.utils.encryption import get_secret_from_env
 
-# Reachable without a token, on top of open-notebook's own excluded paths, so
+# Reachable without a token, on top of the core's own excluded paths, so
 # the frontend can probe auth state and complete the first login.
 PUBLIC_PATHS = {
     "/api/auth/legacy-status",

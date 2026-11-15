@@ -1,5 +1,5 @@
 """
-Utils package for Open Notebook.
+Utils package for LSP-SIET.
 
 To avoid circular imports, import functions directly:
 - from siet_core.utils.context_builder import build_notebook_context, build_source_context

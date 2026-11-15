@@ -1840,7 +1840,7 @@ async def materials(
 #   * teachers/admins publish course material  -> scope="course"  (everyone reads)
 #   * students push their own PDFs/links/text  -> scope="personal" (private)
 #
-# Both end up as embedded Open Notebook sources, so KMITL RAG AI, AI Quiz and
+# Both end up as embedded sources, so KMITL RAG AI, AI Quiz and
 # AI Roadmap can ground their answers in them.
 # ---------------------------------------------------------------------------
 

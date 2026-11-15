@@ -42,8 +42,8 @@ from siet_core.exceptions import (
     InvalidInputError,
     NetworkError,
     NotFoundError,
-    OpenNotebookError,
     RateLimitError,
+    SietError,
     UnsupportedTypeException,
 )
 from siet_core.utils.encryption import get_secret_from_env
@@ -196,7 +196,7 @@ async def lifespan(app: FastAPI):
         raise RuntimeError(f"Failed to run database migrations: {str(e)}") from e
 
     # KMITL hook: startup steps of installed extensions (their own migrations
-    # run here, right after open-notebook's)
+    # run here, right after the core's)
     await extensions.emit("app.startup")
 
     logger.success("API initialization completed successfully")
@@ -210,13 +210,13 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(
-    title="Open Notebook API",
-    description="API for Open Notebook - Research Assistant",
+    title="LSP-SIET API",
+    description="API for LSP-SIET",
     lifespan=lifespan,
 )
 
 # KMITL hook: installed extensions add their middleware and routers here, so
-# they sit inside the password middleware and ahead of open-notebook's routes
+# they sit inside the password middleware and ahead of the core's routes
 extensions.install_app(app)
 
 if CORS_IS_DEFAULT_WILDCARD:
@@ -367,8 +367,8 @@ async def unsupported_type_error_handler(
     )
 
 
-@app.exception_handler(OpenNotebookError)
-async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
+@app.exception_handler(SietError)
+async def siet_error_handler(request: Request, exc: SietError):
     return JSONResponse(
         status_code=500,
         content={"detail": str(exc)},
@@ -392,7 +392,7 @@ app.include_router(languages.router, prefix="/api", tags=["languages"])
 
 @app.get("/")
 async def root():
-    return {"message": "Open Notebook API is running"}
+    return {"message": "LSP-SIET API is running"}
 
 
 @app.get("/health")

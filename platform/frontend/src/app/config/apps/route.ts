@@ -4,8 +4,8 @@ import { NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 /**
- * GET /config/apps: URLs of the two standalone apps (My-ai-quiz,
- * ai-roadmap-generator).
+ * GET /config/apps: URLs of the two standalone apps (my-ai-quiz/app,
+ * ai-roadmap/app).
  *
  * These used to be read from NEXT_PUBLIC_* only, which bakes them into the
  * bundle at build time and forces a rebuild for every new domain. Serving them

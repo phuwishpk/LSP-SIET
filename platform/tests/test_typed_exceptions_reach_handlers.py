@@ -151,7 +151,7 @@ class TestNotFoundErrorPropagation:
 class TestUnsupportedTypeErrorPropagation:
     """UnsupportedTypeException maps to 415 (Unsupported Media Type) via its
     dedicated global handler, instead of falling through to the base
-    OpenNotebookError handler's 500 (#975)."""
+    SietError handler's 500 (#975)."""
 
     def test_unsupported_type_maps_to_415(self, client):
         from siet_core.exceptions import UnsupportedTypeException

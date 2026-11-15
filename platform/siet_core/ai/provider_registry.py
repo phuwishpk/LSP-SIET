@@ -266,7 +266,6 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
         required_env=("OMLX_API_BASE",),
         optional_env=("OMLX_API_KEY",),
         test_model=None,  # Dynamic - uses first available model via /v1/models
-        docs_url="https://github.com/lfnovo/open-notebook/blob/main/docs/5-CONFIGURATION/omlx.md",
         # No openai_compat_discovery_url: base URL is user-supplied (default
         # http://localhost:11435/v1) and API key is optional — discovery is
         # handled like openai_compatible, not the fixed-URL OPENAI_COMPAT table.
@@ -304,7 +303,6 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
         modalities=_ALL_MODALITIES,
         required_any_env=("OPENAI_COMPATIBLE_BASE_URL", "OPENAI_COMPATIBLE_API_KEY"),
         test_model=None,  # Dynamic - uses first available model
-        docs_url="https://github.com/lfnovo/open-notebook/blob/main/docs/5-CONFIGURATION/openai-compatible.md",
     ),
     ProviderSpec(
         name="anthropic_compatible",
@@ -315,7 +313,6 @@ _PROVIDER_SPECS: Tuple[ProviderSpec, ...] = (
             "ANTHROPIC_COMPATIBLE_API_KEY",
         ),
         test_model=None,  # Dynamic - uses the endpoint's model list
-        docs_url="https://github.com/lfnovo/open-notebook/blob/main/docs/5-CONFIGURATION/ai-providers.md",
         # No openai_compat_discovery_url: anthropic-compatible discovery uses
         # Anthropic's GET /v1/models with x-api-key + anthropic-version headers
         # (bespoke), not the OpenAI-compatible GET /models discovery table.

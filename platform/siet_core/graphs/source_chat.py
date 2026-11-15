@@ -14,7 +14,7 @@ from siet_core import extensions
 from siet_core.ai.provision import provision_langchain_model
 from siet_core.config import LANGGRAPH_CHECKPOINT_FILE
 from siet_core.domain.notebook import Source, SourceInsight
-from siet_core.exceptions import IncompleteGenerationError, OpenNotebookError
+from siet_core.exceptions import IncompleteGenerationError, SietError
 from siet_core.utils import clean_thinking_content
 from siet_core.utils.context_builder import (
     build_source_context,
@@ -60,7 +60,7 @@ def call_model_with_source_context(
     """
     try:
         return _call_model_with_source_context_inner(state, config)
-    except OpenNotebookError:
+    except SietError:
         raise
     except Exception as e:
         error_class, user_message = classify_error(e)

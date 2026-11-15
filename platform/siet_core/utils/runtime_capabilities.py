@@ -1,9 +1,8 @@
 """
 Runtime availability probes for the opt-in heavy extraction engines.
 
-Docling and local Crawl4AI are installed on demand at container startup (see
-scripts/docker-entrypoint.sh and
-docs/7-DEVELOPMENT/decisions/ADR-007-optin-runtimes.md), so availability is a
+Docling and local Crawl4AI are installed on demand at container startup (when
+the matching LSP_SIET_ENABLE_* flag is set), so availability is a
 *runtime* property: it cannot be read off the enable flags, and it does not
 survive a redeploy that drops them.
 
