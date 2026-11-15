@@ -2,5 +2,8 @@
 exec 2>&1
 cd /app
 export MALLOC_ARENA_MAX=2
+# s6-setuidgid keeps the container's HOME=/root, which lsp cannot read: content-core then fails
+# every PDF/Office upload on ~/.content-core/config.toml. Use lsp's own home (useradd --home-dir /app).
+export HOME=/app
 echo 100 > /proc/self/oom_score_adj
 exec /command/s6-setuidgid lsp /app/.venv/bin/surreal-commands-worker --import-modules commands
