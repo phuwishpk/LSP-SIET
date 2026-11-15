@@ -227,12 +227,28 @@ def inventory(root: Path) -> tuple[list[str], set[str]]:
 
 
 def changed_since(root: Path, ref: str, files: list[str], tracked: set[str]) -> tuple[set[str], str]:
-    """The files this branch changed since it split from ``ref`` (and the split commit's short id)."""
+    """The files this branch changed since it split from ``ref``, and the split commit."""
     base = git(root, "merge-base", "HEAD", ref, check=False).strip()
     if not base:
         raise GitError(f"--since {ref}: no such revision, or no common ancestor with HEAD")
     changed = set(git_list(root, "diff", "--name-only", "--no-renames", "--diff-filter=d", base))
-    return {f for f in files if f in changed or f not in tracked}, base[:8]
+    return {f for f in files if f in changed or f not in tracked}, base
+
+
+def vanished_in(root: Path, ref: str, base: str, only: set[str], plan: "Plan") -> list[str]:
+    """Edited files that existed at the split but are at neither their old nor their new path in
+    ``ref``: the restructure deleted or split them, so the merge can not carry the edits over."""
+    in_ref = set(git_list(root, "ls-tree", "-r", "--name-only", ref))
+    in_base = set(git_list(root, "ls-tree", "-r", "--name-only", base))
+    found = []
+    for f in sorted(only):
+        new = plan.resolve.get(f, f)
+        if f in in_base and f not in in_ref and new not in in_ref and f not in plan.drops and f not in plan.stays:
+            found.append(
+                f"{new}: {ref} has neither {f} nor {new} (the restructure deleted or split it): "
+                f"port your edits by hand (git diff {base[:8]} HEAD -- {f}, before committing the codemod's output)"
+            )
+    return found
 
 
 # ------------------------------------------------------------------------------------- plan
@@ -1084,10 +1100,10 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             out("Commit or stash them first (the codemod rewrites files in place), or pass --allow-dirty.")
             return 2
         files, tracked = inventory(root)
-        only = None
+        only, base = None, ""
         if since:
             only, base = changed_since(root, since, files, tracked)
-            out(f"note: --since {since}: only the {len(only)} files this branch changed since {base} are converted")
+            out(f"note: --since {since}: only the {len(only)} files this branch changed since {base[:8]} are converted")
     except GitError as exc:
         out(f"error: {exc}")
         return 2
@@ -1172,6 +1188,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
     for message in plan.conflicts:
         out(f"conflict: {message}")
     hand += list(plan.stays.values())
+    if since and only is not None:
+        hand += vanished_in(root, since, base, only, plan)
     for message in index.conflicts:
         out(f"warning: {message}")
     for new in sorted(changes):

@@ -1063,6 +1063,35 @@ def test_since_converts_only_what_the_branch_changed_and_the_merge_is_clean(tmp_
     assert not (root / "platform/.github").exists()                    # ... and what it deleted too
 
 
+def test_since_reports_edited_files_the_restructure_deleted_or_split(tmp_path):
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/gone.py": lines_of("gone"),
+        "open-notebook/api/stay.py": lines_of("stay"),
+        "open-notebook/api/untouched.py": lines_of("untouched"),
+    })
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    git(root, "rm", "-q", "-f", "platform/api/gone.py")  # the restructure split / deleted it
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "open-notebook/api/gone.py", lines_of("gone") + "mine = 1\n")
+    write(root, "open-notebook/api/stay.py", lines_of("stay") + "mine = 2\n")
+    write(root, "open-notebook/api/brand_new.py", lines_of("brand_new"))
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    hand = [line for line in lines if line.startswith("check by hand: ")]
+    assert len(hand) == 1, hand
+    assert "open-notebook/api/gone.py" in hand[0] and "deleted or split" in hand[0]
+    assert "port your edits by hand" in hand[0] and "git diff " in hand[0]
+    # it is only a report: the file is converted like the others, git shows the modify/delete conflict
+    assert "mine = 1" in read(root, "platform/api/gone.py")
+
+
 def test_since_without_the_option_converts_the_whole_tree(tmp_path):
     root = make_old_layout_repo(tmp_path)
     apply(root)
