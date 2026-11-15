@@ -183,7 +183,7 @@ kmitlAI/
 │   ├── open-notebook/           ← Dockerfile + supervisord.conf
 │   └── traefik/                 ← traefik.yml + dynamic/all.yml (router, basic auth)
 │
-├── open-notebook/               ← fork ของ lfnovo/open-notebook (ดู docs/UPSTREAM.md)
+├── open-notebook/               ← แกนที่มาจาก lfnovo/open-notebook (ลิขสิทธิ์ MIT ใน open-notebook/NOTICE)
 │   ├── api/main.py              ← เรียก extensions.install_app / finalize_app / app.startup
 │   ├── api/dependencies.py      ← owner scoping (get_owner_id, owner_can_access)
 │   ├── open_notebook/extensions.py   ← hook points ของ backend
@@ -215,7 +215,7 @@ kmitlAI/
 │
 ├── My-ai-quiz/                  ← Next.js (มี Dockerfile อย่างเดียว)
 ├── ai-roadmap-generator/        ← Next.js + PocketBase
-└── docs/                        ← SYSTEM-GUIDE.md (เอกสารนี้), ARCHITECTURE.md, UPSTREAM.md
+└── docs/                        ← SYSTEM-GUIDE.md (เอกสารนี้), ARCHITECTURE.md
 ```
 
 ---
@@ -269,21 +269,20 @@ cd kmitlAI
 3000 ไม่ขึ้นแบบหาสาเหตุยาก):
 
 ```bash
-git ls-files --eol docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+git ls-files --eol docker/open-notebook/wait-for-api.sh
 ```
 
-ต้องได้ `w/lf` ทั้งสองบรรทัด (`i/` คือในคลัง `w/` คือไฟล์จริงในเครื่อง):
+ต้องได้ `w/lf` (`i/` คือในคลัง `w/` คือไฟล์จริงในเครื่อง):
 
 ```
 i/lf    w/lf    attr/text eol=lf        docker/open-notebook/wait-for-api.sh
-i/lf    w/lf    attr/text eol=lf        open-notebook/dev-init.sh
 ```
 
-ถ้าได้ `w/crlf` แปลว่า `.gitattributes` ยังไม่ถูกใช้ ให้บังคับ checkout ใหม่เฉพาะสองไฟล์นี้:
+ถ้าได้ `w/crlf` แปลว่า `.gitattributes` ยังไม่ถูกใช้ ให้บังคับ checkout ใหม่เฉพาะไฟล์นี้:
 
 ```bash
-rm docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
-git checkout -- docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+rm docker/open-notebook/wait-for-api.sh
+git checkout -- docker/open-notebook/wait-for-api.sh
 git ls-files --eol docker/open-notebook/wait-for-api.sh   # ตรวจซ้ำ ต้องเป็น w/lf
 ```
 

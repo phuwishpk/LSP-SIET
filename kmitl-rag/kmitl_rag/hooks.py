@@ -1,6 +1,6 @@
 """
 What kmitl-rag plugs into open-notebook's extension points
-(open_notebook.extensions; the call sites are listed in docs/UPSTREAM.md).
+(open_notebook.extensions; the call sites are listed in docs/ARCHITECTURE.md).
 
 * chat.context            notebook chat: pin the notebook passages that match
                           the question ahead of the user-selected context

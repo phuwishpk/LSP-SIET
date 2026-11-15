@@ -98,7 +98,7 @@ BACKUP_DIR = backups/surreal_data-$(shell date +%Y%m%d-%H%M%S)
 migrate-split:  ## One-time: move KMITL migration records to the SIET track (CONFIRM=1, STACK=dev for dev)
 	@if [ -z "$(CONFIRM)" ]; then \
 		echo "Stops SurrealDB and the API, copies open-notebook/surreal_data to $(BACKUP_DIR),"; \
-		echo "then moves the migration records. Run again with CONFIRM=1. See docs/UPSTREAM.md section 5."; \
+		echo "then moves the migration records. Run again with CONFIRM=1. See docs/ARCHITECTURE.md section 5."; \
 		exit 1; \
 	fi
 	$(SPLIT_COMPOSE) stop $(SPLIT_API) $(SPLIT_DB)

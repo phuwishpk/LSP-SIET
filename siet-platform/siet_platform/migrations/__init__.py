@@ -78,7 +78,7 @@ async def run_pending() -> List[int]:
             "This database was migrated before the SIET split: KMITL migrations are "
             "still recorded as core migrations 19-25. Back up surreal_data and run "
             "`make migrate-split` (python -m siet_platform.migrations.split), then "
-            "start the API again. See docs/UPSTREAM.md, section 5."
+            "start the API again. See docs/ARCHITECTURE.md, section 5."
         )
     done = await applied()
     ran: List[int] = []

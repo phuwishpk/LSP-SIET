@@ -4,10 +4,8 @@
 
 *                                                   @phuwishpk
 
-# open-notebook (upstream fork) and how it is synced
+# open-notebook (core: database, AI models, embedding, ask/chat graphs)
 /open-notebook/                                     @phuwishpk
-/docs/UPSTREAM.md                                   @phuwishpk
-/scripts/upstream/                                  @phuwishpk
 
 # SIET platform: accounts, auth, points, throttling, caches, library, AI quiz/roadmap
 /siet-platform/                                     @phuwishpk

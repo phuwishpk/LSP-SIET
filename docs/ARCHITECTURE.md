@@ -1,8 +1,8 @@
 # โครงสร้างโค้ด — open-notebook กับแพ็กเกจของ SIET
 
 > เอกสารนี้อธิบายว่าโค้ดของ KMITL อยู่ตรงไหน แต่ละส่วน import กันได้แค่ไหน
-> และเสียบเข้ากับ open-notebook ผ่านจุดไหน ใช้คู่กับ `docs/UPSTREAM.md`
-> (วิธีดึง upstream และรายการไฟล์ upstream ที่เราแก้)
+> และเสียบเข้ากับ open-notebook ผ่านจุดไหน (เราไม่ได้ติดตาม upstream อีกแล้ว —
+> ข้อความลิขสิทธิ์ MIT ของ Open Notebook อยู่ที่ `open-notebook/NOTICE`)
 >
 > อัปเดตล่าสุด: 23 ตุลาคม 2026 (แยก community และ KMITL RAG ออกจาก open-notebook — branch `refactor/siet-split`)
 
@@ -176,7 +176,22 @@ SIET Space เขียน cookie เฉพาะตอนผู้ใช้เ�
 migration ของ open-notebook (1, 2, 3 ...) อยู่ใน `_sbl_migrations` ของ KMITL อยู่ใน `_siet_migrations`
 ชื่อ `k1`…`k9` (`k9` ลบตาราง podcast) ไฟล์อยู่ที่ `siet-platform/siet_platform/migrations/` รันตอน API start ต่อจากของ core
 **เพิ่ม migration ใหม่** = สร้าง `k10.surrealql` + `k10_down.surrealql` แล้วเพิ่ม 10 ใน `MIGRATION_IDS`
-ห้ามแตะเลขของ core รายละเอียดการย้ายฐานข้อมูลเก่าอยู่ใน `docs/UPSTREAM.md` ข้อ 5
+ห้ามแตะเลขของ core
+
+**ฐานข้อมูลที่ migrate ก่อนการแยก** (ยังจด KMITL เป็น core 19–25 ใน `_sbl_migrations`) — API จะ **ไม่ยอม start**
+(`MigrationSplitRequired` บอกให้รันคำสั่งด้านล่าง) ต้องย้ายเลข migration หนึ่งครั้ง:
+
+```bash
+docker compose -p kmitlai build open_notebook_api   # image ต้องมีโค้ดของ branch นี้
+make migrate-split                                  # อธิบายสิ่งที่จะทำ
+make migrate-split CONFIRM=1                        # stack dev: เติม STACK=dev
+make up
+```
+
+`migrate-split` หยุด SurrealDB กับ API → copy `open-notebook/surreal_data` ไป `backups/surreal_data-<เวลา>` →
+start SurrealDB → `python -m siet_platform.migrations.split --dry-run` แล้ว `--backup-done`
+ซึ่งใน transaction เดียว ลบ `_sbl_migrations` 19–25 และเขียน `_siet_migrations` k2–k8 (k1 จะรันซ้ำตอน start
+เพราะรันซ้ำได้ปลอดภัย) ข้อมูลอื่นไม่ถูกแตะ prod กับ dev ใช้ `surreal_data` ชุดเดียวกัน รันครั้งเดียวพอ
 
 ## 6. ของใหม่ควรวางที่ไหน
 
@@ -185,7 +200,7 @@ migration ของ open-notebook (1, 2, 3 ...) อยู่ใน `_sbl_migrati
 3. เกี่ยวกับการถาม-ตอบด้วย AI → `kmitl-rag`
 4. หน้าจอ/ข้อมูลของชุมชน ห้อง ฟีด → `community`
 5. ต้องเปลี่ยนพฤติกรรมของ open-notebook → ใช้ hook ที่มี ถ้าไม่มีให้เพิ่ม hook ใหม่ (เพิ่มฟังก์ชันใน
-   `extensions.py`/`extensions.ts` + บรรทัดเรียกในไฟล์ upstream แล้วจดใน `docs/UPSTREAM.md` ข้อ 4.2)
+   `extensions.py`/`extensions.ts` + บรรทัดเรียกในไฟล์ upstream แล้วเพิ่มแถวในตารางข้อ 4)
    อย่าเขียนตรรกะของ KMITL ลงในไฟล์ upstream
 
 หน้าใหม่: เขียนในแพ็กเกจที่ `<pkg>/frontend/src/app/(dashboard)/<route>/page.tsx` แล้วสร้าง stub บรรทัดเดียว

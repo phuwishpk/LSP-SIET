@@ -1,6 +1,8 @@
 # ย้ายโค้ด KMITL ออกจาก open-notebook — สิ่งที่ทีมต้องรู้
 
 > branch `refactor/siet-split` · 23 ตุลาคม 2026 · โครงสร้างเต็มอยู่ใน `docs/ARCHITECTURE.md`
+> หมายเหตุ: `scripts/siet-split/codemod.py` ถูกลบตอนเลิกติดตาม upstream (เป็นสคริปต์ของการแยกครั้งนั้น) — ยังเปิดดูได้จากประวัติ git:
+> `git log --diff-filter=D --name-only -- scripts/siet-split/codemod.py`
 
 ## สรุปสั้น ๆ
 
@@ -77,4 +79,4 @@ make migrate-split CONFIRM=1      # สำรอง surreal_data ให้ก่
 make up
 ```
 
-รายละเอียดใน `docs/UPSTREAM.md` ข้อ 5
+รายละเอียดใน `docs/ARCHITECTURE.md` ข้อ 5

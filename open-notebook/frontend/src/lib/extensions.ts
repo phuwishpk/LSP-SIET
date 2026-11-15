@@ -3,7 +3,7 @@
  *
  * Installed extensions are listed in ./extensions.installed (KMITL: the SIET
  * packages). Upstream files call the functions below at a few documented
- * places (docs/UPSTREAM.md, "hook points"); with nothing installed every call
+ * places (docs/ARCHITECTURE.md, section 4); with nothing installed every call
  * leaves open-notebook's behaviour unchanged.
  *
  * - navigation  useNavigationExtensions(sections): reshape the sidebar

@@ -2,6 +2,8 @@
 
 > merge เข้า staging เมื่อ 23 ต.ค. 2026 (`1a784b1`) และแก้ tsc ต่ออีก commit (`fd6db92`) รายงานบั๊กอยู่ที่ issue #5
 > ภาพรวมการแยกโค้ดอ่านได้ที่ `docs/handoff/siet-split.md`
+> หมายเหตุ: `scripts/siet-split/codemod.py` ถูกลบตอนเลิกติดตาม upstream (เป็นสคริปต์ของการแยกครั้งนั้น) — ยังเปิดดูได้จากประวัติ git:
+> `git log --diff-filter=D --name-only -- scripts/siet-split/codemod.py`
 
 ## สถานะตอนนี้
 

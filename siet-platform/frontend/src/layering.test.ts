@@ -20,7 +20,7 @@ const DIRS: Record<Layer, string> = {
   'kmitl-rag': 'kmitl-rag/frontend/src',
   community: 'community/frontend/src',
 }
-// Host files that may import @siet/* besides src/app route stubs (docs/UPSTREAM.md).
+// Host files that may import @siet/* besides src/app route stubs (docs/ARCHITECTURE.md).
 const HOST_ALLOWED = [
   'lib/extensions.installed.ts',
   'lib/stores/auth-store.ts',

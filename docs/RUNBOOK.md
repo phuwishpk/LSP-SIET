@@ -133,14 +133,13 @@ Set-Location kmitlAI
 คำสั่งนี้เหมือนกันทุกเชลล์:
 
 ```bash
-git ls-files --eol docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+git ls-files --eol docker/open-notebook/wait-for-api.sh
 ```
 
-ต้องได้ `w/lf` ทั้งสองบรรทัด:
+ต้องได้ `w/lf`:
 
 ```
 i/lf    w/lf    attr/text eol=lf        docker/open-notebook/wait-for-api.sh
-i/lf    w/lf    attr/text eol=lf        open-notebook/dev-init.sh
 ```
 
 <details>
@@ -165,21 +164,21 @@ INFO gave up: frontend entered FATAL state, too many start retries too quickly
 
 repo มี `.gitattributes` pin ไฟล์กลุ่มนี้ (`*.sh`, `Dockerfile`, `*.yml`, `*.conf`, `*.surrealql`, `Makefile`)
 เป็น LF ไว้แล้ว จึงไม่ต้องไปแก้ค่า `core.autocrlf` ของเครื่อง แต่ถ้าตรวจแล้วได้ `w/crlf`
-(เช่น clone มาตั้งแต่ก่อนมีไฟล์นี้) ให้บังคับ checkout ใหม่เฉพาะสองไฟล์:
+(เช่น clone มาตั้งแต่ก่อนมีไฟล์นี้) ให้บังคับ checkout ใหม่เฉพาะไฟล์นี้:
 
 **bash**
 
 ```bash
-rm docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
-git checkout -- docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+rm docker/open-notebook/wait-for-api.sh
+git checkout -- docker/open-notebook/wait-for-api.sh
 git ls-files --eol docker/open-notebook/wait-for-api.sh
 ```
 
 **PowerShell**
 
 ```powershell
-Remove-Item docker/open-notebook/wait-for-api.sh, open-notebook/dev-init.sh
-git checkout -- docker/open-notebook/wait-for-api.sh open-notebook/dev-init.sh
+Remove-Item docker/open-notebook/wait-for-api.sh
+git checkout -- docker/open-notebook/wait-for-api.sh
 git ls-files --eol docker/open-notebook/wait-for-api.sh
 ```
 

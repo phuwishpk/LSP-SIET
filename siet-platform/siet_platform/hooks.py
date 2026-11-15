@@ -1,6 +1,6 @@
 """
 What siet-platform plugs into open-notebook's extension points
-(open_notebook.extensions; the call sites are listed in docs/UPSTREAM.md).
+(open_notebook.extensions; the call sites are listed in docs/ARCHITECTURE.md).
 
 * auth       workspace JWT instead of the single password
 * provider   every embedding call through the throttle gate, with usage records

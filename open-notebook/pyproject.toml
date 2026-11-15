@@ -45,7 +45,7 @@ dependencies = [
     "numpy>=2.4.1",
     "pycountry>=26.2.16",
     "babel>=2.18.0",
-    # KMITL: SIET packages at the repo root (docs/UPSTREAM.md)
+    # KMITL: SIET packages at the repo root (docs/ARCHITECTURE.md)
     "siet-platform",
     "kmitl-rag",
     "siet-community",

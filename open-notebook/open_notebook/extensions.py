@@ -10,7 +10,7 @@ entry point group, naming a module that may define:
     finalize(app) -> None       after open-notebook's routers and exception handlers
 
 Upstream files call the functions below at a few documented places
-(docs/UPSTREAM.md, "hook points"). With no extension installed every call is a
+(docs/ARCHITECTURE.md, section 4). With no extension installed every call is a
 no-op and open-notebook behaves like upstream.
 
 Hook kinds:
