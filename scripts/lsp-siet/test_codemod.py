@@ -333,6 +333,9 @@ def test_collision_warns_when_the_dropped_page_exports_what_the_kept_one_lacks(t
         # an extra named export that is not route config
         "open-notebook/frontend/src/lib/util.ts": "export const keep = 1\nexport function extraHelper() {}\n",
         "siet-platform/frontend/src/lib/util.ts": "export const keep = 2\n",
+        # a replaced-module shim (`export * from`) re-exports the very module that wins: no news
+        "open-notebook/frontend/src/lib/hooks/use-shim.ts": "export * from '@siet/platform/lib/hooks/use-shim'\n",
+        "siet-platform/frontend/src/lib/hooks/use-shim.ts": "export const useShim = 1\n",
         # a loser that is not a TS module is not read for exports
         "open-notebook/frontend/src/lib/data.json": '{"export": 1}\n',
         "siet-platform/frontend/src/lib/data.json": '{"export": 2}\n',
@@ -349,6 +352,7 @@ def test_collision_warns_when_the_dropped_page_exports_what_the_kept_one_lacks(t
     assert "exports extraHelper that the kept" in util
     assert not any("b/page.tsx" in line and line.startswith("check by hand") for line in lines)
     assert not any("data.json" in line and line.startswith("check by hand") for line in lines)
+    assert not any("use-shim" in line and line.startswith("check by hand") for line in lines)
 
 
 def test_collision_winner_stable_under_chained_move(tmp_path):
@@ -1122,6 +1126,18 @@ def test_since_reports_imports_of_modules_the_restructure_removed(tmp_path):
     assert [h.split(": imports ")[1].split(",")[0] for h in hand] == ["api.gone"], hand
     assert all(h.startswith("check by hand: platform/api/consumer.py:") for h in hand)
     assert all("api.stay" not in h and "json" not in h for h in hand)
+
+
+def test_modules_that_symbol_moves_create_are_not_reported_missing(tmp_path):
+    """siet_platform.ai_helpers is made by hand, the table only says where names go."""
+    root = make_repo(tmp_path / "r", {
+        "community/siet_community/x.py": "from siet_platform.features.service import _invoke_chat\nimport os\n",
+        "siet-platform/siet_platform/features/service.py": "def _invoke_chat(): ...\n",
+    })
+    code, lines = apply(root)
+    assert code == 0
+    assert "from siet_platform.ai_helpers import _invoke_chat" in read(root, "community/siet_community/x.py")
+    assert not any("does not exist" in line for line in lines), lines
 
 
 def test_since_without_the_option_converts_the_whole_tree(tmp_path):

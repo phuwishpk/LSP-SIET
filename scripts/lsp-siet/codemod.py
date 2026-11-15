@@ -1151,6 +1151,9 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
     if only is not None:
         final_paths |= set(git_list(root, "ls-tree", "-r", "--name-only", since))
     final_modules = module_set(final_paths, index.roots)
+    for home in cfg.symbol_moves.values():  # made by hand, the table only says where names go
+        parts = home.split(".")[:-1]
+        final_modules.update(".".join(parts[:i]) for i in range(1, len(parts) + 1))
     own_tops = {m.split(".")[0] for m in module_set(
         (p for p in final_paths if any(p.startswith(r + "/") for r in cfg.py_roots_new)), tuple(cfg.py_roots_new))}
     py = PythonRewriter(cfg, plan, index)
@@ -1228,7 +1231,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             kept_exports = exports_of(read_text(root / c.winner) or "")
             for loser in c.losers:
                 if loser.endswith(TS_SUFFIXES):
-                    extra = sorted(exports_of(read_text(root / loser) or "") - kept_exports)
+                    # `export *` (a replaced-module shim) names nothing that could be missing
+                    extra = sorted(exports_of(read_text(root / loser) or "") - kept_exports - {"*"})
                     if extra:
                         hand.append(
                             f"{c.dst}: dropped {loser} exports {', '.join(extra)} that the kept {c.winner} lacks"
