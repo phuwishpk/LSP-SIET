@@ -2,12 +2,12 @@
 
 > ทุก endpoint ที่หน้า admin ใช้ พร้อมพารามิเตอร์ รูปร่าง response ฟังก์ชันที่รองรับ และตารางที่แตะ
 > ไฟล์: `community/siet_community/routers/admin.py` (router), `community/siet_community/repository.py`,
-> `siet-platform/siet_platform/library.py`, `siet-platform/siet_platform/features/domain.py`
+> `platform/siet_platform/library.py`, `my-ai-quiz/siet_quiz/domain.py`
 
 ## 1. กติกาที่ใช้กับทุก route
 
 - Router ประกาศ `APIRouter(prefix="/admin", tags=["admin"])` และถูก mount ใต้ `/api` → URL จริงคือ `/api/admin/...`
-- สองชั้นกัน: middleware (`siet-platform/siet_platform/auth_roles.py`, `/api/admin` อยู่ใน `ADMIN_PREFIXES`) + `_require_admin(user)`
+- สองชั้นกัน: middleware (`platform/siet_platform/auth_roles.py`, `/api/admin` อยู่ใน `ADMIN_PREFIXES`) + `_require_admin(user)`
   ในทุก handler (403 "ส่วนนี้สำหรับผู้ดูแลระบบเท่านั้น", 401 ถ้าไม่มี id)
 - ข้อความ error เป็นภาษาไทยใน `detail` — frontend แสดงตรง ๆ ผ่าน `toastApiError`
 - รายการทุกตัวคืน `{ items, total, offset }`; `limit` 1–200 default 50; `offset ≥ 0`

@@ -1,7 +1,7 @@
 # 04 — ชิ้นส่วน frontend ที่หน้า admin ใช้ร่วมกัน
 
 > component ร่วม, ชั้น API client, hooks ของ TanStack Query และตัวช่วยจัดรูปแบบ
-> ทุก path ใต้ `open-notebook/frontend/src/`
+> ทุก path ใต้ `platform/frontend/src/`
 
 ## 1. Component ร่วมใน `components/admin/`
 
@@ -160,7 +160,7 @@ documentsRoot ['admin','rag','documents']  documents(params) ['admin','rag','doc
 |---|---|
 | `components/layout/AppSidebar.tsx` | กลุ่มเมนู admin 3 กลุ่ม, `activeHref` แบบ longest-match, ถอดโลโก้, ปุ่ม `Menu` ตอนพับ |
 | `components/layout/AppSidebar.test.tsx` | mock `usePathname` เอง; test ใหม่: จัดกลุ่ม admin, ซ่อนกลุ่มจาก teacher, ไฮไลต์เฉพาะหน้าปัจจุบัน |
-| `lib/locales/*/index.ts` (14 ภาษา) | `common.appName` = "LSP-SIET" |
+| `lib/locales/en-US/index.ts` (ภาษาเดียว) | `common.appName` = "LSP-SIET" |
 | `app/layout.tsx` | โหลดฟอนต์ Inter + IBM Plex Sans Thai + Noto Sans Thai เป็นตัวแปร CSS |
 | `app/globals.css` | ธีม `.theme-siet` (ดู 02) |
 | `lib/hooks/use-library.ts` (`useKnowledge`) | ไม่ได้แก้ แต่ `RagKnowledgePanel` ใช้ซ้ำ |

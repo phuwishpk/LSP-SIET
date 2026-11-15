@@ -1,1 +1,1 @@
-@../open_notebook/AGENTS.md
+@../siet_core/AGENTS.md

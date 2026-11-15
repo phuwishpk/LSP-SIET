@@ -38,7 +38,7 @@
 
 | คอนเทนเนอร์ | หน้าที่ | พอร์ตที่เครื่องคุณ |
 |---|---|---|
-| `kmitl_open_notebook_api` | **ตัวหลัก** — เว็บหน้าบ้าน + API + worker | `3000` (เว็บ), `5055` (API) |
+| `lsp_siet_api` | **ตัวหลัก** — เว็บหน้าบ้าน + API + worker | `3000` (เว็บ), `5055` (API) |
 | `kmitl_my_ai_quiz` | แอปสร้างควิซ | `3001` |
 | `kmitl_ai_roadmap_generator` | แอปสร้าง roadmap | `3002` |
 | `kmitl_traefik` | ตัวรวมทุกแอปไว้โดเมนเดียว | `80` |
@@ -49,7 +49,7 @@
 
 ### ข้อที่ทำให้ debug ยากที่สุด
 
-`kmitl_open_notebook_api` **ไม่ได้รันโปรแกรมเดียว** ข้างในมี supervisord คุม 3 โปรเซส:
+`lsp_siet_api` **ไม่ได้รันโปรแกรมเดียว** ข้างในมี supervisord คุม 3 โปรเซส:
 
 ```
 supervisord
@@ -133,13 +133,13 @@ Set-Location kmitlAI
 คำสั่งนี้เหมือนกันทุกเชลล์:
 
 ```bash
-git ls-files --eol docker/open-notebook/wait-for-api.sh
+git ls-files --eol docker/platform/wait-for-api.sh
 ```
 
 ต้องได้ `w/lf`:
 
 ```
-i/lf    w/lf    attr/text eol=lf        docker/open-notebook/wait-for-api.sh
+i/lf    w/lf    attr/text eol=lf        docker/platform/wait-for-api.sh
 ```
 
 <details>
@@ -169,17 +169,17 @@ repo มี `.gitattributes` pin ไฟล์กลุ่มนี้ (`*.sh`, `
 **bash**
 
 ```bash
-rm docker/open-notebook/wait-for-api.sh
-git checkout -- docker/open-notebook/wait-for-api.sh
-git ls-files --eol docker/open-notebook/wait-for-api.sh
+rm docker/platform/wait-for-api.sh
+git checkout -- docker/platform/wait-for-api.sh
+git ls-files --eol docker/platform/wait-for-api.sh
 ```
 
 **PowerShell**
 
 ```powershell
-Remove-Item docker/open-notebook/wait-for-api.sh
-git checkout -- docker/open-notebook/wait-for-api.sh
-git ls-files --eol docker/open-notebook/wait-for-api.sh
+Remove-Item docker/platform/wait-for-api.sh
+git checkout -- docker/platform/wait-for-api.sh
+git ls-files --eol docker/platform/wait-for-api.sh
 ```
 
 ถ้า build image ไปแล้วก่อนแก้ **ต้อง build ใหม่** เพราะไฟล์ CRLF ถูกอบเข้า image ไปแล้ว
@@ -192,14 +192,14 @@ git ls-files --eol docker/open-notebook/wait-for-api.sh
 
 ```bash
 cp .env.example .env
-openssl rand -hex 32        # คัดลอกผลลัพธ์ไปใส่ OPEN_NOTEBOOK_ENCRYPTION_KEY
+openssl rand -hex 32        # คัดลอกผลลัพธ์ไปใส่ LSP_SIET_ENCRYPTION_KEY
 ```
 
 **PowerShell**
 
 ```powershell
 Copy-Item .env.example .env
--join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })   # คัดลอกผลลัพธ์ไปใส่ OPEN_NOTEBOOK_ENCRYPTION_KEY
+-join ((1..64) | ForEach-Object { '{0:x}' -f (Get-Random -Maximum 16) })   # คัดลอกผลลัพธ์ไปใส่ LSP_SIET_ENCRYPTION_KEY
 ```
 
 เปิด `.env` ด้วย editor (แนะนำ VS Code; บน Windows **อย่าใช้ Notepad รุ่นเก่า** ที่บันทึกเป็น UTF-8 with BOM —
@@ -207,11 +207,11 @@ Copy-Item .env.example .env
 
 | ตัวแปร | ใส่อะไร | ถ้าไม่แก้ |
 |---|---|---|
-| `OPEN_NOTEBOOK_ENCRYPTION_KEY` | ข้อความสุ่ม ≥16 ตัว (จากคำสั่งข้างบน) | ใครก็ปลอม token เข้าระบบได้ เพราะคีย์นี้ใช้เซ็น JWT ด้วยเมื่อ `JWT_SECRET` ว่าง |
+| `LSP_SIET_ENCRYPTION_KEY` | ข้อความสุ่ม ≥16 ตัว (จากคำสั่งข้างบน) | ใครก็ปลอม token เข้าระบบได้ เพราะคีย์นี้ใช้เซ็น JWT ด้วยเมื่อ `JWT_SECRET` ว่าง |
 | `GOOGLE_GENERATIVE_AI_API_KEY` **หรือ** `OPENAI_API_KEY` | API key จริง | สร้างควิซ / roadmap / ถาม RAG ไม่ได้ |
 | `GOOGLE_OAUTH_MOCK` | `1` ตอนพัฒนา, `0` ตอนใช้จริง | `1` = ล็อกอิน Google แบบจำลอง ไม่ต้องตั้ง OAuth client |
 
-> คีย์ `OPEN_NOTEBOOK_ENCRYPTION_KEY` **ห้ามเปลี่ยนหลังใช้งานไปแล้ว** ไม่งั้น API key
+> คีย์ `LSP_SIET_ENCRYPTION_KEY` **ห้ามเปลี่ยนหลังใช้งานไปแล้ว** ไม่งั้น API key
 > ของผู้ให้บริการ AI ที่เก็บไว้จะถอดรหัสไม่ออก และผู้ใช้ทุกคนจะถูกเตะออกจากระบบ
 
 ### 2.5 build และ start
@@ -298,14 +298,14 @@ while (-not (curl.exe -sf http://localhost:5055/health)) { Start-Sleep 3 }
 ```powershell
 function DC { docker compose -p kmitlai -f docker-compose.yml --env-file .env @args }
 DC ps
-DC logs -f open_notebook_api
+DC logs -f lsp_siet_api
 ```
 
-แก้โค้ดของ open-notebook แล้วอยากให้มีผล (คำสั่งเดียวกันทุกเชลล์):
+แก้โค้ดของ platform แล้วอยากให้มีผล (คำสั่งเดียวกันทุกเชลล์):
 
 ```bash
-docker compose -p kmitlai build open_notebook_api
-docker compose -p kmitlai up -d --force-recreate open_notebook_api
+docker compose -p kmitlai build lsp_siet_api
+docker compose -p kmitlai up -d --force-recreate lsp_siet_api
 ```
 
 ---
@@ -329,13 +329,13 @@ docker compose -p kmitlai ps        # หรือ make ps
 **bash**
 
 ```bash
-docker logs kmitl_open_notebook_api 2>&1 | grep -E "entered RUNNING|FATAL"
+docker logs lsp_siet_api 2>&1 | grep -E "entered RUNNING|FATAL"
 ```
 
 **PowerShell**
 
 ```powershell
-docker logs kmitl_open_notebook_api 2>&1 | Select-String "entered RUNNING|FATAL"
+docker logs lsp_siet_api 2>&1 | Select-String "entered RUNNING|FATAL"
 ```
 
 ต้องเห็นครบ 3 ตัว และ**ต้องไม่มีคำว่า FATAL**:
@@ -386,7 +386,7 @@ curl.exe -s -o NUL -w "roadmap  %{http_code}`n" -L http://localhost:3002/roadmap
 ### ขั้นที่ 1 — คอนเทนเนอร์ตายหรือเปล่า
 
 ```bash
-docker ps -a --filter name=kmitl_open_notebook_api
+docker ps -a --filter name=lsp_siet_api
 ```
 
 - ไม่เห็นเลย → ยังไม่ได้ start ให้ start ตามข้อ 2.5
@@ -395,8 +395,8 @@ docker ps -a --filter name=kmitl_open_notebook_api
 ### ขั้นที่ 2 — `Up` แต่เว็บไม่ขึ้น (กรณีที่เจอบ่อยที่สุด)
 
 ```bash
-docker logs kmitl_open_notebook_api 2>&1 | grep -E "FATAL|exit status"            # bash
-docker logs kmitl_open_notebook_api 2>&1 | Select-String "FATAL|exit status"      # PowerShell
+docker logs lsp_siet_api 2>&1 | grep -E "FATAL|exit status"            # bash
+docker logs lsp_siet_api 2>&1 | Select-String "FATAL|exit status"      # PowerShell
 ```
 
 | สิ่งที่เห็น | แปลว่า | แก้อย่างไร |
@@ -408,8 +408,8 @@ docker logs kmitl_open_notebook_api 2>&1 | Select-String "FATAL|exit status"    
 ### ขั้นที่ 3 — api รันไม่ขึ้น
 
 ```bash
-docker logs kmitl_open_notebook_api 2>&1 | grep -iE "migration|startup failed" | tail -20          # bash
-docker logs kmitl_open_notebook_api 2>&1 | Select-String "migration|startup failed" | Select-Object -Last 20   # PowerShell
+docker logs lsp_siet_api 2>&1 | grep -iE "migration|startup failed" | tail -20          # bash
+docker logs lsp_siet_api 2>&1 | Select-String "migration|startup failed" | Select-Object -Last 20   # PowerShell
 ```
 
 | สิ่งที่เห็น | แปลว่า | แก้อย่างไร |
@@ -456,10 +456,10 @@ docker logs kmitl_open_notebook_api 2>&1 | Select-String "migration|startup fail
 **3. `make nuke` (`down --volumes`) ลบข้อมูลจริง**
 
 ลบ volume ของ MariaDB (ผู้ใช้ แต้ม ฟีด ห้องเรียน) แต่ **ไม่ได้ลบ** โฟลเดอร์
-`open-notebook/surreal_data/` กับ `notebook_data/` เพราะสองตัวนั้นเป็น bind mount
+`platform/surreal_data/` กับ `notebook_data/` เพราะสองตัวนั้นเป็น bind mount
 อยู่ในโฟลเดอร์โปรเจกต์ — ผลคือหลัง nuke ฐานข้อมูลสองฝั่งจะไม่ตรงกัน ถ้าจะเริ่มใหม่จริง ๆ
-ต้องลบโฟลเดอร์พวกนั้นด้วยมือด้วย (**bash** `rm -rf open-notebook/surreal_data open-notebook/notebook_data` ·
-**PowerShell** `Remove-Item -Recurse -Force open-notebook/surreal_data, open-notebook/notebook_data`)
+ต้องลบโฟลเดอร์พวกนั้นด้วยมือด้วย (**bash** `rm -rf platform/surreal_data platform/notebook_data` ·
+**PowerShell** `Remove-Item -Recurse -Force platform/surreal_data, platform/notebook_data`)
 
 **4. อย่ารัน dev กับ prod พร้อมกัน**
 
@@ -483,9 +483,9 @@ docker logs kmitl_open_notebook_api 2>&1 | Select-String "migration|startup fail
 | ข้อมูล | เก็บที่ |
 |---|---|
 | ผู้ใช้ แต้ม ฟีด ห้อง คลังเอกสาร | docker volume `kmitlai_mariadb_data` |
-| notebook / เอกสาร / embedding / ควิซ / roadmap | `open-notebook/surreal_data/` |
-| ไฟล์ที่อัปโหลด | `open-notebook/notebook_data/` |
-| ข้อมูลแอป roadmap | `ai-roadmap-generator/pb_data/` |
+| notebook / เอกสาร / embedding / ควิซ / roadmap | `platform/surreal_data/` |
+| ไฟล์ที่อัปโหลด | `platform/notebook_data/` |
+| ข้อมูลแอป roadmap | `ai-roadmap/app/pb_data/` |
 
 โฟลเดอร์ bind mount ทั้งสามคัดลอกข้ามระบบปฏิบัติการได้ตรง ๆ (เป็นไฟล์ที่คอนเทนเนอร์ Linux
 เขียน ไม่ขึ้นกับ OS ของเครื่อง) ส่วน volume ของ MariaDB ต้องผ่าน dump ของสคริปต์ export เท่านั้น

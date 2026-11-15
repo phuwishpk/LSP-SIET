@@ -1,6 +1,8 @@
 # Frontend Architecture
 
-เอกสารนี้ทำแผนผังจากไฟล์จริงใน `open-notebook/frontend/src/` โดยเน้นให้ตามจาก URL ไปยัง `page.tsx`, คอมโพเนนต์ของหน้า และ shared components ได้
+เอกสารนี้ทำแผนผังจากไฟล์จริงใน `platform/frontend/src/` โดยเน้นให้ตามจาก URL ไปยัง `page.tsx`, คอมโพเนนต์ของหน้า และ shared components ได้
+
+> หน้าของ community, KMITL RAG, AI Quiz และ AI Roadmap อยู่ในแพ็กเกจของตัวเอง (`community/frontend`, `kmitl-rag/frontend`, `my-ai-quiz/frontend`, `ai-roadmap/frontend`) ไฟล์ใต้ `src/app/` ที่ import จาก `@siet/...` เป็น stub บรรทัดเดียวที่สร้างด้วย `make frontend-routes` (ดู `docs/ARCHITECTURE.md`)
 
 ## 1. Routing & Pages Mapping
 

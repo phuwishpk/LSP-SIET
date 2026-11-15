@@ -8,7 +8,7 @@
 
 ## 1. ส่วนผู้ดูแลคืออะไร
 
-ส่วนผู้ดูแลคือชุดหน้าใต้ URL `/admin` ในแอป Next.js (`open-notebook/frontend`) ที่ให้บัญชี
+ส่วนผู้ดูแลคือชุดหน้าใต้ URL `/admin` ในแอป Next.js (`platform/frontend`) ที่ให้บัญชี
 สิทธิ์ `admin` ดูสถิติและจัดการข้อมูลของ SIET Space โดยไม่ต้องเข้า MariaDB เอง
 ข้อมูลทุกอย่างมาจาก API ใต้ `/api/admin/*` (`community/siet_community/routers/admin.py`) ซึ่ง
 เป็น admin-only ทั้ง router
@@ -29,44 +29,38 @@
 ## 2. แผนที่ไฟล์แบบย่อ
 
 ```
-open-notebook/
-├── community/siet_community/routers/admin.py                      ← ทุก endpoint ใต้ /api/admin
-├── open_notebook/
-│   ├── community/siet_community/repository.py               ← SQL ของสถิติ community / quiz / RAG / comments
-│   ├── siet-platform/siet_platform/library.py                  ← admin_list_documents (เอกสารที่ AI อ่าน)
-│   └── domain/features.py                    ← QuizSession.admin_list / created_since (SurrealDB)
-├── tests/test_admin_consoles.py              ← unit test ของ helper ฝั่ง backend
-└── frontend/src/
-    ├── app/(dashboard)/admin/
-    │   ├── layout.tsx                        ← ส่ง children ต่อเฉย ๆ (ธีมชมพูมาจาก useCommunityPalette, ดู 02 §3)
-    │   ├── page.tsx                          ← จัดการระบบ (รวม UserDialog อยู่ในไฟล์นี้)
-    │   ├── community/page.tsx
-    │   ├── rag/page.tsx
-    │   ├── roadmap/page.tsx
-    │   └── quiz/page.tsx
-    ├── components/admin/                     ← panel ทุกตัว + ชิ้นส่วนที่ใช้ร่วมกัน
-    │   ├── AdminPageHeader.tsx  StatTile.tsx  StatCharts.tsx  controls.tsx  PostCounts.tsx
-    │   ├── HealthPanel  ModerationPanel  RoomsPanel  PointsLogPanel  UsagePanel  ImportPanel  CreateUserDialog
-    │   ├── community/  CommunityStatsPanel  CommentsPanel
-    │   ├── rag/        RagStatsPanel  RagDocumentsPanel  RagKnowledgePanel
-    │   ├── roadmap/    RoadmapStatsPanel  RoadmapListPanel  SharedRoadmapsPanel
-    │   └── quiz/       QuizStatsPanel  QuizListPanel  SharedQuizzesPanel
-    ├── components/layout/AppSidebar.tsx      ← เมนูซ้าย (กลุ่ม admin 3 กลุ่ม)
-    ├── lib/api/admin.ts                      ← type ของทุก response + adminApi
-    ├── lib/hooks/use-admin.ts                ← TanStack Query hooks + query keys
-    ├── lib/utils/community-format.ts         ← ป้ายภาษาไทย (kindLabel, postTypeLabel, roleLabel …)
-    └── app/globals.css                       ← ธีม .theme-siet
-docs/figma-admin-plugin/                      ← ปลั๊กอิน Figma สร้างหน้าที่เหลือ + โยงเส้น
+community/siet_community/routers/admin.py         ← endpoint ใต้ /api/admin ส่วนชุมชน
+community/siet_community/repository.py            ← SQL ของสถิติ community / quiz / comments
+kmitl-rag/kmitl_rag/{routers/admin,history}.py    ← /api/admin/rag/* และ summarize_rag_answers / rag_stats
+platform/siet_platform/library.py                 ← admin_list_documents (เอกสารที่ AI อ่าน)
+my-ai-quiz/siet_quiz/domain.py                    ← QuizSession.admin_list / created_since (SurrealDB)
+community/tests/test_admin_consoles.py            ← unit test ของ helper ฝั่ง backend
+platform/frontend/src/                            ← host: ชิ้นส่วนร่วมของ admin และหน้า /admin (จัดการระบบ)
+├── app/(dashboard)/admin/page.tsx                ← จัดการระบบ (รวม UserDialog อยู่ในไฟล์นี้)
+├── app/(dashboard)/admin/{community,rag,roadmap,quiz}/page.tsx   ← stub บรรทัดเดียว ชี้ไปหน้าจริงของแต่ละส่วน
+├── components/admin/                             ← AdminPageHeader  StatTile  StatCharts  controls  PostCounts
+│                                                   HealthPanel  PointsLogPanel  UsagePanel  ImportPanel  CreateUserDialog  AuditPanel
+├── components/layout/AppSidebar.tsx              ← เมนูซ้าย (กลุ่ม admin 3 กลุ่ม)
+├── lib/api/admin.ts                              ← type ของทุก response + adminApi
+├── lib/hooks/use-admin.ts                        ← TanStack Query hooks + query keys
+├── lib/utils/community-format.ts                 ← ป้ายภาษาไทย (kindLabel, postTypeLabel, roleLabel …)
+└── app/globals.css                               ← ธีม .theme-siet
+community/frontend/src/                           ← หน้า /admin/community และ panel: CommunityStats, Comments, Categories, Reports,
+│                                                   Moderation, Rooms
+kmitl-rag/frontend/src/                           ← หน้า /admin/rag และ panel: RagStats, RagDocuments, RagKnowledge
+my-ai-quiz/frontend/src/                          ← หน้า /admin/quiz และ panel: QuizStats, QuizList, SharedQuizzes
+ai-roadmap/frontend/src/                          ← หน้า /admin/roadmap และ panel: RoadmapStats, RoadmapList, SharedRoadmaps
+docs/figma-admin-plugin/                          ← ปลั๊กอิน Figma สร้างหน้าที่เหลือ + โยงเส้น
 ```
 
 ตารางรายไฟล์ครบทุกไฟล์อยู่ใน [08-file-index.md](08-file-index.md)
 
 ## 3. ใครเห็นอะไร (สิทธิ์)
 
-- **Backend เป็นผู้บังคับ**: `siet-platform/siet_platform/auth_roles.py` มี `ADMIN_PREFIXES` ที่รวม `/api/admin` ไว้
+- **Backend เป็นผู้บังคับ**: `platform/siet_platform/auth_roles.py` มี `ADMIN_PREFIXES` ที่รวม `/api/admin` ไว้
   middleware จะตอบ 403 ให้ทุก path ใต้ prefix นี้ถ้าไม่ใช่ admin และทุก route ใน
   `admin.py` ยังเรียก `_require_admin(user)` ซ้ำอีกชั้น (403 + ข้อความไทย) เผื่อ middleware ถูกแก้
-- **Frontend แค่ซ่อนประตู**: `siet-platform/frontend/src/lib/roles.ts` มี `ADMIN_ROUTES = ['/settings', '/admin']`
+- **Frontend แค่ซ่อนประตู**: `platform/frontend/src/lib/roles.ts` มี `ADMIN_ROUTES = ['/settings', '/admin']`
   และ `canAccessRoute()`; `app/(dashboard)/layout.tsx` จะ `router.replace('/community')`
   ถ้า role เข้าไม่ได้ ส่วน `AppSidebar` แสดงกลุ่มเมนู admin เฉพาะ `isAdmin(role)`
 - หลัง admin ล็อกอิน จะถูกพาไป `/admin` (`lib/auth-redirect.ts`), role อื่นไป `/community`
@@ -149,7 +143,7 @@ MANAGE              จัดการการสอน · Models · Transforma
 | วิธี | พอร์ต | ใช้เมื่อ |
 |---|---|---|
 | `make up` ที่รากโปรเจกต์ | 3000 (ผ่าน Traefik) + API 5055 | ต้องการ build จริง; **แก้โค้ดแล้วต้อง `make up` ใหม่** เพราะ image ถูก bake |
-| `cd open-notebook/frontend && npm run dev` | 3500 (ต่อ API ของ stack ที่ 5055) | แก้ frontend แล้วอยากเห็นทันที; CORS ของ API รองรับ 3500 อยู่แล้ว |
+| `cd platform/frontend && npm run dev` | 3500 (ต่อ API ของ stack ที่ 5055) | แก้ frontend แล้วอยากเห็นทันที; CORS ของ API รองรับ 3500 อยู่แล้ว |
 
 อย่าใช้ `./dev.sh` เพื่อการนี้ — สคริปต์นั้นแก้ `.env` และ `package.json` ของเครื่อง
 บัญชี admin สำหรับทดสอบอ่านจาก `WORKSPACE_SEED_ADMIN_USERNAME/PASSWORD` ใน `.env`;

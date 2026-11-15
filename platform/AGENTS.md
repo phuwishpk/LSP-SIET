@@ -1,46 +1,43 @@
-# Open Notebook — Agent Rules
+# LSP-SIET platform — Agent Rules
 
-Open Notebook is an open-source, privacy-focused alternative to Google's Notebook LM: an AI-powered research assistant with multi-provider AI support, fully self-hostable.
+`platform/` is the shared base of LSP-SIET (the KMITL SIET learning space): the Python core (`siet_core`, `api`, `commands`, `prompts`), the SIET platform package (`siet_platform`: accounts, JWT, roles, points, throttling, caches, knowledge library) and the host Next.js app (`frontend/`). The other parts (`kmitl-rag/`, `community/`, `my-ai-quiz/`, `ai-roadmap/`) plug into it.
 
-This file holds the project-wide rules every coding session needs. Component rules: [open_notebook/AGENTS.md](open_notebook/AGENTS.md) (backend — also covers `api/`, `commands/`, `prompts/`) and [frontend/AGENTS.md](frontend/AGENTS.md). Knowledge lives in the docs (see [Where to look](#where-to-look)) — read it on demand instead of guessing.
+This file holds the rules every coding session in `platform/` needs. Component rules: [siet_core/AGENTS.md](siet_core/AGENTS.md) (backend — also covers `api/`, `commands/`, `prompts/`) and [frontend/AGENTS.md](frontend/AGENTS.md). Structure, layering and the hook points: [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md).
 
 ## Stack, ports, startup order
 
-Three tiers: Next.js frontend (3000) → FastAPI (5055) → SurrealDB (8000).
+Three tiers: Next.js frontend (3000) → FastAPI (5055) → SurrealDB (8000), plus MariaDB (users, points, feed) and Redis (cache).
 
-Start in this order — each tier depends on the one below:
+The supported way to run everything is the compose stack from the repo root:
 
-1. `make database` — SurrealDB (API fails without it)
-2. `make api` — FastAPI; **schema migrations run automatically on startup** (check logs)
-3. `make worker-start` — surreal-commands worker. **Required**: embeddings and source processing are async jobs that silently queue forever without it
-4. `make frontend` — UI (depends on the API for all data)
+- `make up` builds and starts it; `make up-dev` is the hot-reload stack; `make logs`, `make ps`, `make down`
+- the API container (`lsp_siet_api`) runs three processes under supervisord: the API, the surreal-commands worker (**required**: embeddings and source processing are async jobs that silently queue forever without it) and the frontend
+- schema migrations run automatically on API start (check the logs)
 
-Or all at once: `make start-all` (status: `make status`, stop: `make stop-all`).
+## Commands (repo root)
 
-## Commands
-
-- Tests: `uv run pytest tests/`
-- Python lint/format/typecheck: `ruff check . --fix` · `ruff format .` · `uv run python -m mypy .`
-- Frontend (inside `frontend/`): `npm run lint` · `npm run test` · `npm run build`
-- Docker release: `make docker-release` (see `.github/RELEASE_PROCESS.md`)
+- Backend tests: `make test-backend` (all parts, `ARGS=...` for pytest options) — the known baseline failures are listed in `docs/lsp-siet/known-failures.txt`
+- Frontend: `make test-frontend` (links the part packages, regenerates the route stubs, then `tsc` + `vitest`); inside `frontend/`: `npm run lint` · `npm run build`
+- After adding or removing a page in a part: `make frontend-routes`
+- Repo checks (codemod, infra paths, the guard that no old product name is left): `python -m pytest scripts/lsp-siet -q`
+- Python lint/format/typecheck (inside `platform/`): `ruff check . --fix` · `ruff format .` · `uv run python -m mypy .`
 
 ## Hard rules
 
 - **Async-first**: every DB query, graph invocation and AI call is `await`-ed. No sync DB access.
-- **Never commit secrets.** Credentials are encrypted at rest and require `OPEN_NOTEBOOK_ENCRYPTION_KEY` to be set.
-- CORS is wide-open and auth is a simple password middleware — **dev defaults, not production hardening**. Don't build features that assume otherwise.
-- Product direction questions (does this feature fit?) → [VISION.md](VISION.md). Past decisions ("why is it like this?") → [docs/7-DEVELOPMENT/decisions/](docs/7-DEVELOPMENT/decisions/). Structural decisions made while coding should produce a new decision record there.
-- Maintainer profile lives in `.maintainer/`; do not run release, triage or discussions workflows without it.
+- **Never commit secrets.** Provider credentials are encrypted at rest and need `LSP_SIET_ENCRYPTION_KEY` (the same key signs the workspace JWT when `JWT_SECRET` is empty). Never change it on a running installation.
+- **Layering** (enforced by `tests-platform/test_layering.py` and `frontend/src/layering.test.ts`): `siet_core`/`api`/`commands` import no SIET package; `siet_platform` imports only the core; each part imports only `siet_platform`, with `community` the one part allowed to import the others. Add behaviour to the core through a hook, never by importing a SIET package into it.
+- **Values that must keep the old name**: the SurrealDB namespace/database `open_notebook`, the surreal-commands app name `open_notebook`, `JWT_ISSUER`, `PBKDF2_SALT` and the `OPEN_NOTEBOOK_*` fallbacks of the settings. They are stored in tokens, ciphertext and the database. `scripts/lsp-siet/test_no_open_notebook.py` lists them and fails on any other mention of the old name.
+- CORS defaults to the local stack and auth is the workspace JWT with role checks in `siet_platform/auth_roles.py` — deny by default for new routers.
+- New settings use the `LSP_SIET_` prefix and are read through `siet_core.env` (backend) or `src/lib/env.ts` (frontend), which keep the old names working.
 
 ## Where to look
 
 | Need | Location |
 |---|---|
-| Architecture (3 tiers, workflows, data model) | [docs/7-DEVELOPMENT/architecture.md](docs/7-DEVELOPMENT/architecture.md) |
-| Step-by-step recipes (add endpoint, migration, i18n…) | [docs/7-DEVELOPMENT/change-playbooks.md](docs/7-DEVELOPMENT/change-playbooks.md) |
-| Dev environment setup | [docs/7-DEVELOPMENT/development-setup.md](docs/7-DEVELOPMENT/development-setup.md) |
-| Code standards & testing | [docs/7-DEVELOPMENT/code-standards.md](docs/7-DEVELOPMENT/code-standards.md) · [testing.md](docs/7-DEVELOPMENT/testing.md) |
-| Product identity & current posture | [VISION.md](VISION.md) |
-| Decision log (ADRs/PDRs) | [docs/7-DEVELOPMENT/decisions/](docs/7-DEVELOPMENT/decisions/) |
-| Contribution process (Discussions → Issues → PRs) | [docs/7-DEVELOPMENT/contributing.md](docs/7-DEVELOPMENT/contributing.md) |
-| User/operator docs (install, configure, troubleshoot) | [docs/](docs/index.md) |
+| Layout, layering, hook points, migrations | [docs/ARCHITECTURE.md](../docs/ARCHITECTURE.md) |
+| System overview, roles, points, API map | [docs/SYSTEM-GUIDE.md](../docs/SYSTEM-GUIDE.md) |
+| Install and run | [docs/RUNBOOK.md](../docs/RUNBOOK.md) |
+| Admin consoles | [docs/admin/README.md](../docs/admin/README.md) |
+| Redis caches and the answer cache | [siet_platform/cache/CLAUDE.md](siet_platform/cache/CLAUDE.md) |
+| Licence of the code this project includes | [NOTICE](NOTICE) |

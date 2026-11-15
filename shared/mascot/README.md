@@ -1,6 +1,6 @@
 # 🦉 KMITL SIET Shared Mascot Package
 
-โฟลเดอร์สำหรับเก็บ Assets และ Component มาสคอตส่วนกลางของระบบ เพื่อให้ทุก Service (`open-notebook`, `my-ai-quiz`, `ai-roadmap-generator`, `siet-platform`) สามารถนำไปใช้ร่วมกันได้
+โฟลเดอร์สำหรับเก็บ Assets และ Component มาสคอตส่วนกลางของระบบ เพื่อให้ทุก Service (`platform`, `my-ai-quiz`, `ai-roadmap`) สามารถนำไปใช้ร่วมกันได้
 
 ---
 
@@ -20,8 +20,8 @@ shared/
 
 คัดลอกโฟลเดอร์ `shared/mascot` นี้ ไปวางไว้ที่:
 - **`my-ai-quiz`**: `app/components/mascot/`
-- **`open-notebook/frontend`**: `src/components/mascot/`
-- **`ai-roadmap-generator`**: `app/components/mascot/`
+- **`platform/frontend`**: `src/components/mascot/`
+- **`ai-roadmap`**: `app/src/components/mascot/`
 
 ### ตัวอย่างโค้ดเรียกใช้:
 ```tsx

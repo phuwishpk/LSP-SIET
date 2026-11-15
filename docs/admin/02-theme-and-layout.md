@@ -2,7 +2,7 @@
 
 > ครอบคลุม: โทเค็นสี ฟอนต์ การ scope ธีม sidebar และแบรนด์ "LSP-SIET"
 > ไฟล์หลัก: `frontend/src/app/globals.css`, `frontend/src/app/layout.tsx`,
-> `siet-platform/frontend/src/app/(dashboard)/admin/layout.tsx`, `frontend/src/components/layout/AppSidebar.tsx`
+> `platform/frontend/src/app/(dashboard)/admin/layout.tsx`, `frontend/src/components/layout/AppSidebar.tsx`
 
 > **อัปเดต 23 ต.ค. 2026:** หน้า `/admin` เลิกใช้ `.theme-siet` แล้ว ทุกหน้าใน dashboard
 > (admin, Notebooks, Sources, Ask and Search, AI Features, `/teacher`, Community) ใช้ธีมชมพู
@@ -24,7 +24,7 @@
 ## 2. ธีมถูก scope ไม่ใช่ global
 
 ธีมนี้ใช้เฉพาะหน้า `/admin*` ส่วนที่เหลือของแอป (Community, Notebooks, Settings …) ยังใช้
-โทเค็นเดิมของ Open Notebook (ธีมน้ำเงิน) จึงทำเป็น class `.theme-siet` ที่เขียนทับตัวแปร
+โทเค็นเดิมของ host (ธีมน้ำเงิน) จึงทำเป็น class `.theme-siet` ที่เขียนทับตัวแปร
 shadcn/Tailwind ภายใน subtree
 
 ### 2.1 ตัวแปรที่ `.theme-siet` กำหนด (light)
@@ -89,8 +89,8 @@ const notoThai = Noto_Sans_Thai({ variable: "--font-noto-thai", preload: false }
 
 ## 3. การใส่ธีมให้ทุกหน้าใน dashboard (ตั้งแต่ 23 ต.ค. 2026)
 
-`siet-platform/frontend/src/lib/hooks/use-community-palette.ts` ถูกเรียกจาก `useRouteGate` ใน
-`siet-platform/frontend/src/extension.tsx` ซึ่งทำงานทุกหน้าของ dashboard:
+`platform/frontend/src/lib/hooks/use-community-palette.ts` ถูกเรียกจาก `useRouteGate` ใน
+`platform/frontend/src/extension.tsx` ซึ่งทำงานทุกหน้าของ dashboard:
 
 ```ts
 export function useCommunityPalette() {
@@ -105,12 +105,12 @@ export function useCommunityPalette() {
   DropdownMenu / Tooltip ของ Radix ที่ถูก portal ไปที่ `<body>`
 - layout ของ dashboard ไม่ถูก unmount ตอนเปลี่ยนหน้า class จึงหลุดเฉพาะตอนออกจาก dashboard (เช่นไป `/login`)
 - `.community-theme` กำหนดโทเค็นครบชุดเดียวกับ `.theme-siet` (`canvas`, `subtle-foreground`, `ai*`,
-  `sidebar*`) และเขียนทับสีเขียวของ open-notebook (`--fern*`, `--teal*` ของหน้า notebook, `--sage*` ของ
+  `sidebar*`) และเขียนทับสีเขียวเดิมของ host (`--fern*`, `--teal*` ของหน้า notebook, `--sage*` ของ
   sources; `--gold*` ของ notes คงเป็นสีทอง) ให้เป็นชมพู utility ในหน้า admin
   (`bg-canvas`, `bg-ai-soft`, `text-ai` ฯลฯ) จึงใช้ได้เหมือนเดิม แต่ได้สีชมพูแทนดำ/ม่วง
 - ผลข้างเคียงที่ติดมากับ `.community-theme`: ซ่อน scrollbar ทุกที่ (ยังเลื่อนได้), การ์ดและปุ่มมีเงา
   (ข้อ 2.3 ใช้กับ `.theme-siet` เท่านั้น)
-- layout ของ `/admin` (`siet-platform/.../admin/layout.tsx`) และ `CommunityThemeLayout` ของ `/teacher`,
+- layout ของ `/admin` (`platform/frontend/src/app/(dashboard)/admin/layout.tsx`) และ `CommunityThemeLayout` ของ `/teacher`,
   `/community/search` เหลือแค่ส่ง `children` ต่อ ห้ามให้ layout ไหนเพิ่มหรือถอด class นี้เอง เพราะการถอด
   ตอนออกจาก route จะทำให้หน้าถัดไปกลับเป็นสีเขียว
 - `/community/ask` ยังมี `.theme-adventure` (ชมพู DESIGN.md) ซ้อนอยู่ด้านใน ซึ่งชนะเพราะอยู่ลึกกว่า
@@ -121,15 +121,15 @@ export function useCommunityPalette() {
 
 `components/layout/AppSidebar.tsx`
 
-- แบรนด์เป็นข้อความ **LSP-SIET** (`t('common.appName')`, ตั้งเป็น "LSP-SIET" ในทุก locale ใน
-  `lib/locales/*/index.ts`) ไม่มีโลโก้แล้ว; ไฟล์ `public/logo.svg` ยังอยู่แต่ไม่ถูกใช้
+- แบรนด์เป็นข้อความ **LSP-SIET** (`t('common.appName')`, ตั้งเป็น "LSP-SIET" ใน
+  `lib/locales/en-US/index.ts` ซึ่งเป็น locale เดียว) ไม่มีโลโก้ในแถบ; ไอคอนแท็บ (`app/favicon.ico`) เป็นนกฮูกมาสคอตของ SIET
 - ตอนพับ (collapsed) เหลือปุ่มไอคอน `Menu` สำหรับกางกลับ (เดิมต้องชี้ที่โลโก้ก่อน)
 - `activeHref` = href ที่ยาวที่สุดที่ตรงกับ `pathname` → `/admin` ไม่ติดไฮไลต์ตอนอยู่ `/admin/quiz`
 - โครงกลุ่มเมนู: ดู [01-overview.md](01-overview.md) ข้อ 4; key แปล `navigation.manageCommunity`,
   `navigation.manageAi`, `navigation.manageQuiz`, `navigation.adminCommunity/adminRag/adminRoadmap/adminQuiz`
   ยังไม่มีใน locale file — ใช้ค่า fallback ภาษาไทย/อังกฤษที่ส่งเป็นอาร์กิวเมนต์ที่สองของ `t()`
-  (ถ้าเพิ่มเข้า locale ต้องเพิ่มครบทุกภาษา มิฉะนั้น `locales/index.test.ts` จะฟ้อง parity)
-- ชื่อแท็บเบราว์เซอร์ (`metadata.title` ใน `app/layout.tsx`) ยังเป็น "Open Notebook" — ยังไม่ได้รับคำสั่งให้เปลี่ยน
+  (ถ้าเพิ่มเข้า locale en-US ต้องมีที่เรียกใช้ มิฉะนั้น `locales/index.test.ts` จะฟ้องคีย์ที่ไม่ได้ใช้)
+- ชื่อแท็บเบราว์เซอร์ (`metadata.title` ใน `app/layout.tsx`) เป็น "LSP-SIET"
 
 ## 5. หน่วยวัดที่ใช้ซ้ำในทุกหน้า admin
 

@@ -1,6 +1,6 @@
 # Cache Module
 
-Redis-based caching layer for expensive operations in Open Notebook.
+Redis-based caching layer for expensive operations in LSP-SIET.
 
 ## Overview
 
@@ -43,15 +43,15 @@ RedisClient (async Redis wrapper)
 
 ## Configuration
 
-Environment variables (see `open_notebook/config.py`):
+Environment variables (see `siet_core/config.py`):
 
 - `REDIS_URL` — Redis connection URL (default: empty = cache disabled)
-- `OPEN_NOTEBOOK_CACHE_TTL` — Default TTL in seconds (default: 3600)
-- `OPEN_NOTEBOOK_VECTOR_SEARCH_CACHE_TTL` — Vector search cache TTL (default: 1800)
-- `OPEN_NOTEBOOK_CONTEXT_CACHE_TTL` — Context cache TTL (default: 900)
-- `OPEN_NOTEBOOK_EMBEDDING_CACHE_TTL` — Embedding cache TTL (default: 7200)
-- `OPEN_NOTEBOOK_NOTEBOOK_CACHE_TTL` — Notebook metadata TTL (default: 600)
-- `OPEN_NOTEBOOK_PROVIDER_CACHE_TTL` — Provider availability TTL (default: 300)
+- `LSP_SIET_CACHE_TTL` — Default TTL in seconds (default: 3600)
+- `LSP_SIET_VECTOR_SEARCH_CACHE_TTL` — Vector search cache TTL (default: 1800)
+- `LSP_SIET_CONTEXT_CACHE_TTL` — Context cache TTL (default: 900)
+- `LSP_SIET_EMBEDDING_CACHE_TTL` — Embedding cache TTL (default: 7200)
+- `LSP_SIET_NOTEBOOK_CACHE_TTL` — Notebook metadata TTL (default: 600)
+- `LSP_SIET_PROVIDER_CACHE_TTL` — Provider availability TTL (default: 300)
 
 ## Component Catalog
 
@@ -150,9 +150,9 @@ entities (years, versions, people, quantities, negation, and locations).
 
 Configuration:
 
-- `OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_VALIDATION` (default `1`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS` (default `1500`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_MIN_SIM` (default `0.92`)
+- `LSP_SIET_ANSWER_CACHE_INTENT_VALIDATION` (default `1`)
+- `LSP_SIET_ANSWER_CACHE_INTENT_TIMEOUT_MS` (default `1500`)
+- `LSP_SIET_ANSWER_CACHE_INTENT_MIN_SIM` (default `0.92`)
 
 Monitoring fields exposed by `/api/config/answer-cache/analytics`:
 
@@ -186,13 +186,13 @@ Rules:
 
 Configuration:
 
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_ENABLED` (default `0`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_INTERVAL` (default `300` seconds)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MIN/MAX` (defaults `0.94/0.99`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN/MAX` (defaults `0.85/0.97`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_FAIL_RATE_INCREASE` (default `0.15`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_FAIL_RATE_DECREASE` (default `0.05`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_ADJUST_STEP` (default `0.005`)
+- `LSP_SIET_ANSWER_CACHE_TUNER_ENABLED` (default `0`)
+- `LSP_SIET_ANSWER_CACHE_TUNER_INTERVAL` (default `300` seconds)
+- `LSP_SIET_ANSWER_CACHE_TUNER_HIGH_MIN/MAX` (defaults `0.94/0.99`)
+- `LSP_SIET_ANSWER_CACHE_TUNER_MID_MIN/MAX` (defaults `0.85/0.97`)
+- `LSP_SIET_ANSWER_CACHE_TUNER_MID_FAIL_RATE_INCREASE` (default `0.15`)
+- `LSP_SIET_ANSWER_CACHE_TUNER_MID_FAIL_RATE_DECREASE` (default `0.05`)
+- `LSP_SIET_ANSWER_CACHE_TUNER_MID_ADJUST_STEP` (default `0.005`)
 
 `GET /api/config/answer-cache/analytics` exposes current thresholds, signal
 confidence, sample counts, distributions, and the last adjustment timestamp.
@@ -212,7 +212,7 @@ decisions without reading log files.
 `GET /api/config/answer-cache/thresholds/history` — recent tuning decisions,
 newest first.
 `POST /api/config/answer-cache/thresholds/history/clear` — reset the log.
-`OPEN_NOTEBOOK_TUNER_HISTORY_LIMIT` (default 100) caps log size.
+`LSP_SIET_TUNER_HISTORY_LIMIT` (default 100) caps log size.
 
 ### Phase 6.5 — Intent-Validation Circuit Breaker
 
@@ -237,10 +237,10 @@ When the circuit is OPEN, no LLM call is made, so cascade failures and
 head-of-line blocking are prevented.
 
 Configuration (all have safe defaults, on by default):
-- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER` (default `1`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER_ERROR_THRESHOLD` (default `5`)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER_OPEN_TIMEOUT` (default `60` seconds)
-- `OPEN_NOTEBOOK_ANSWER_CACHE_CIRCUIT_BREAKER_HALF_OPEN_REQUESTS` (default `3`)
+- `LSP_SIET_ANSWER_CACHE_CIRCUIT_BREAKER` (default `1`)
+- `LSP_SIET_ANSWER_CACHE_CIRCUIT_BREAKER_ERROR_THRESHOLD` (default `5`)
+- `LSP_SIET_ANSWER_CACHE_CIRCUIT_BREAKER_OPEN_TIMEOUT` (default `60` seconds)
+- `LSP_SIET_ANSWER_CACHE_CIRCUIT_BREAKER_HALF_OPEN_REQUESTS` (default `3`)
 
 API:
 - `GET /api/config/answer-cache/circuit-breaker/status` — current state + config
@@ -250,7 +250,7 @@ API:
 
 ## How to Add New Cache Target
 
-1. Add TTL constant to `open_notebook/config.py`
+1. Add TTL constant to `siet_core/config.py`
 2. Add `get_X()` / `set_X()` / `invalidate_X()` methods to `CacheService`
 3. Call invalidation in the appropriate service/router after data changes
 4. Add metrics tracking with `cache_metrics.record_hit/miss/set()`

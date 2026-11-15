@@ -7,9 +7,8 @@
 ## 📦 การนำไปใช้ในโปรเจกต์อื่น
 
 สามารถคัดลอกทั้งโฟลเดอร์ `mascot` นี้ ไปวางไว้ที่โฟลเดอร์คอมโพเนนต์ของโปรเจกต์คุณ เช่น:
-- `open-notebook/frontend/src/components/mascot/`
-- `ai-roadmap-generator/app/components/mascot/`
-- `siet-platform/frontend/src/components/mascot/`
+- `platform/frontend/src/components/mascot/`
+- `ai-roadmap/app/src/components/mascot/`
 
 ---
 

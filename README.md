@@ -1,18 +1,18 @@
-# KMITL AI Workspace
+# LSP-SIET
 
+LSP-SIET is the KMITL SIET learning space: the **SIET Space** community, **KMITL RAG AI**, **AI Quiz** and
+**AI Roadmap**, run together by a single command. Every piece of docker plumbing lives at the workspace root so
+the individual parts stay clean.
 
-Unified project that runs three repos together via a single command.
-Every piece of docker plumbing lives at the workspace root so the
-individual repos stay clean.
-
-| Repo | Role | Port (host) |
+| Part | Role | Port (host) |
 |---|---|---|
-| [`open-notebook/`](open-notebook) | FastAPI + Next.js + SurrealDB + MariaDB + Redis | API `:5055`, Next.js `:3000` |
-| [`My-ai-quiz/`](My-ai-quiz) | Standalone Next.js quiz app | `:3001` |
-| [`ai-roadmap-generator/`](ai-roadmap-generator) | Next.js roadmap app + PocketBase | App `:3002`, PocketBase via Traefik `/pb` (no host port) |
+| [`platform/`](platform) | Shared base: FastAPI (`siet_core`, `api`, `siet_platform`) + the host Next.js app, with SurrealDB + MariaDB + Redis | API `:5055`, Next.js `:3000` |
+| [`kmitl-rag/`](kmitl-rag) | KMITL RAG AI and the notebook / source library (API + pages) | part of the API and the host app |
+| [`community/`](community) | SIET Space: rooms, feed, comments, moderation, teacher and admin consoles | part of the API and the host app |
+| [`my-ai-quiz/`](my-ai-quiz) | AI Quiz: `app/` is the standalone Next.js quiz app, `siet_quiz` its API | app `:3001` |
+| [`ai-roadmap/`](ai-roadmap) | AI Roadmap: `app/` is the Next.js roadmap app + PocketBase, `siet_roadmap` its API | app `:3002`, PocketBase via Traefik `/pb` (no host port) |
 
-The new **AI Features** (`/features`) page inside open-notebook folds in the
-generation logic from both standalone apps and is wired to whichever language
+The **AI Features** (`/features`) page of the host app generates quizzes and roadmaps with whichever language
 model you configure in **Settings → Models**.
 
 > **จะติดตั้งบนเครื่องใหม่ เริ่มที่ [`docs/RUNBOOK.md`](docs/RUNBOOK.md)** — ขั้นตอนเดินตามได้จบในตัว
@@ -43,7 +43,7 @@ checkout เป็น CRLF เว็บที่พอร์ต 3000 จะไ�
 รายละเอียดอยู่ที่ [RUNBOOK ข้อ 2.3](docs/RUNBOOK.md)
 
 ```bash
-git ls-files --eol docker/open-notebook/wait-for-api.sh    # ต้องได้ w/lf
+git ls-files --eol docker/platform/wait-for-api.sh    # ต้องได้ w/lf
 ```
 
 `make up` จะทำให้:
@@ -53,10 +53,10 @@ git ls-files --eol docker/open-notebook/wait-for-api.sh    # ต้องได�
 
 Then open:
 
-- <http://localhost:3000> – Open Notebook (Next.js) — sign-in, `/community`, `/admin`
+- <http://localhost:3000> – LSP-SIET (Next.js) — sign-in, `/community`, `/admin`
 - <http://localhost:5055/docs> – API reference (Swagger)
-- <http://localhost:3001> – My AI Quiz
-- <http://localhost:3002> – AI Roadmap Generator
+- <http://localhost:3001> – AI Quiz
+- <http://localhost:3002> – AI Roadmap
 - <http://localhost/pb/_/> – PocketBase admin (ผ่าน Traefik เท่านั้น ไม่ได้เปิดพอร์ต 8090 ออกมา)
 
 ## Project layout
@@ -66,41 +66,41 @@ kmitlAI/
 ├── docker-compose.yml              ← single source of truth for the stack
 ├── Makefile                        ← convenience targets (make up / down / logs ...)
 ├── .env.example                    ← template for secrets
-├── open-notebook/                  ← Python app + Next.js (no docker files inside)
-├── My-ai-quiz/                     ← Next.js standalone (only Dockerfile)
-├── ai-roadmap-generator/           ← Next.js standalone (only Dockerfile)
+├── platform/                       ← siet_core, api, commands, siet_platform + the host Next.js app (no docker files inside)
+├── kmitl-rag/  community/          ← API package + frontend package each
+├── my-ai-quiz/                     ← siet_quiz, frontend/, app/ (standalone Next.js)
+├── ai-roadmap/                     ← siet_roadmap, frontend/, app/ (standalone Next.js + PocketBase)
+├── shared/                         ← shared assets (mascot)
 └── docker/
-    └── open-notebook/              ← Dockerfile + supervisord.conf + wait-for-api.sh
-        ├── Dockerfile
-        ├── supervisord.conf
-        ├── wait-for-api.sh
-        └── dockerignore
+    ├── platform/                   ← Dockerfile + supervisord.conf + wait-for-api.sh
+    ├── allinone/                   ← the single-container image
+    └── traefik/
 ```
 
-> The `open-notebook/` sub-directory no longer contains any docker files.
-> Everything docker-related for it lives in `docker/open-notebook/`.
+> `platform/` contains no docker files. Everything docker-related for it lives in `docker/platform/`.
+> How the parts fit together, and which may import which: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## How the apps communicate
 
 ```
 ┌────────────────────┐      ┌─────────────────────┐
-│  My-ai-quiz (3001) │─────▶│ open_notebook_api   │
+│  my-ai-quiz (3001) │─────▶│ lsp_siet_api        │
 └────────────────────┘      │   :5055             │
                             │  (FastAPI +         │
 ┌────────────────────┐      │   Esperanto +       │     ┌──────────────┐
-│ ai-roadmap-gen     │─────▶│   Redis cache +     │────▶│  SurrealDB   │
+│ ai-roadmap         │─────▶│   Redis cache +     │────▶│  SurrealDB   │
 │   (3002 + 8090)    │      │   SurrealDB ORM)    │     └──────────────┘
 └────────────────────┘      └─────────────────────┘             ▲
                                                                   │
                                                           ┌───────┴────────┐
-                                                          │ open-notebook  │
+                                                          │ platform       │
                                                           │   Next.js UI   │
                                                           │   (:3000)      │
                                                           └────────────────┘
 ```
 
-`open_notebook_api` is the single source of truth for AI generation – the two
-standalone apps talk to it through `OPEN_NOTEBOOK_API_URL`. PocketBase stays
+`lsp_siet_api` is the single source of truth for AI generation – the two
+standalone apps talk to it through `LSP_SIET_API_URL`. PocketBase stays
 local to the roadmap app because the existing UI persists roadmap data
 directly there.
 
@@ -127,23 +127,23 @@ docker compose down
 
 ## Adding new AI providers
 
-Open Notebook handles provider configuration in **Settings → Models** – add
-the credential once and the new `/features` page, plus every other workflow in
+LSP-SIET handles provider configuration in **Settings → Models** – add
+the credential once and the `/features` page, plus every other workflow in
 the app, can use it immediately. The same key also feeds the standalone apps
-through `OPEN_NOTEBOOK_API_URL`.
+through `LSP_SIET_API_URL`.
 
 ## SIET Space – community feed, Google SSO and the point wallet
 
-The Next.js frontend of `open-notebook/` now ships a Facebook-style community
-(`/community`) on top of the existing notebook / quiz / roadmap features.
+The host Next.js app (`platform/frontend`) ships a Facebook-style community
+(`/community`) on top of the notebook / quiz / roadmap features.
 
 | Piece | Where |
 |---|---|
-| Google Workspace sign-in (`@kmitl.ac.th`) | `open-notebook/api/routers/google_auth.py`, frontend `/auth/google/callback` |
-| Point wallet (charge / refund / cashback / leaderboard) | `open-notebook/open_notebook/community/points.py` |
-| Feed, courses, comments, reactions, quiz plays, notifications | `open-notebook/api/routers/community.py` + `open_notebook/community/repository.py` |
-| MariaDB schema (idempotent, runs on API start) | `open-notebook/open_notebook/community/schema.py` |
-| 3-column UI | `open-notebook/frontend/src/app/(dashboard)/community/` + `src/components/community/` |
+| Google Workspace sign-in (`@kmitl.ac.th`) | `platform/siet_platform/routers/google_auth.py`, frontend `/auth/google/callback` |
+| Point wallet (charge / refund / cashback / leaderboard) | `platform/siet_platform/points.py` |
+| Feed, courses, comments, reactions, quiz plays, notifications | `community/siet_community/routers/community.py` + `community/siet_community/repository.py` |
+| MariaDB schema (idempotent, runs on API start) | `platform/siet_platform/schema.py` |
+| 3-column UI | `community/frontend/src/app/(dashboard)/community/` + `community/frontend/src/components/community/` |
 
 ### Sign-in
 
@@ -196,7 +196,7 @@ Rates and caps are `POINTS_*` environment variables (see `.env.example`).
 | Teacher / admin | course material (`scope=course`, needs a course) | everyone | RAG answers, quizzes, roadmaps of that course |
 | Any student | their own PDF / link / pasted text (`scope=personal`) | only themselves | their own RAG answers, quizzes, roadmaps |
 
-Each course gets its own Open Notebook notebook (`courses.notebook_id`) and each
+Each course gets its own notebook (`courses.notebook_id`) and each
 user a private one (`users.library_notebook_id`); uploads become embedded
 `Source` records there, tracked in `library_documents`. Extraction + embedding
 run in a FastAPI background task (no surreal-commands worker needed).
@@ -248,7 +248,7 @@ admin before demoting them, or removing the last remaining admin.
 
 ### Who can do what
 
-Enforced in middleware (`api/auth_roles.py`) so a newly added router is locked
+Enforced in middleware (`platform/siet_platform/auth_roles.py`) so a newly added router is locked
 down by default rather than accidentally public. The frontend hides the matching
 navigation, but the API is the enforcement point.
 
@@ -257,7 +257,7 @@ navigation, but the API is the enforcement point.
 | Community feed, points, knowledge library, quiz/roadmap generation | yes | yes | yes |
 | Open a discussion room (ห้องพูดคุย) and close the ones they opened | yes | yes | yes |
 | Upload into a course library, create course rooms, publish teaching material | no | yes | yes |
-| Open Notebook research surface (notebooks, sources, notes, chat, search, transformations) | no | yes | yes |
+| Research surface (notebooks, sources, notes, chat, search) | no | yes | yes |
 | AI models, API credentials, workspace settings | no | no | yes |
 
 Blocked requests return `403` with `X-Required-Role`.
@@ -302,7 +302,7 @@ get `SPAM_STAFF_MULTIPLIER` (default 4x) the quotas. Rejections return
 ### Sign-in throttle and CORS
 
 Guessing a password is not content, so it never touched the anti-spam counters
-above. `api/login_guard.py` adds its own, kept in Redis (surviving a restart,
+above. `platform/siet_platform/login_guard.py` adds its own, kept in Redis (surviving a restart,
 shared between workers, with an in-process fallback if Redis is down):
 
 | Counter | Default | Notes |
@@ -328,13 +328,13 @@ only genuine cross-origin caller is the roadmap app, which reads
 
 The browser-facing URLs of the two standalone apps are read at **runtime** from
 the frontend's `/config` endpoint, so moving to a domain needs only
-`MY_AI_QUIZ_URL` and `AI_ROADMAP_URL` on the `open_notebook_api` container plus a
+`MY_AI_QUIZ_URL` and `AI_ROADMAP_URL` on the `lsp_siet_api` container plus a
 restart — no frontend rebuild. (`NEXT_PUBLIC_*` equivalents remain as a
 build-time fallback.)
 
 An explicit scope never silently widens: if a course has no documents yet the
 answer says so instead of quietly searching the whole workspace. Scoped
-retrieval lives in `open_notebook/community/retrieval.py` because the upstream
+retrieval lives in `platform/siet_platform/retrieval.py` because the core's
 `fn::vector_search_in_notebook` SurrealQL function is missing in this
 deployment.
 
@@ -349,7 +349,7 @@ content and must be regenerated.
 ### Standalone app durability
 
 * **AI Roadmap** – a plan generated while signed in is stored as a
-  `roadmap_session` in Open Notebook, and `/roadmap/{code}` reads it back from
+  `roadmap_session` in LSP-SIET (SurrealDB), and `/roadmap/{code}` reads it back from
   there (the code is the record id with `:` replaced by `-`). It therefore
   survives a restart, and only the owner's token can open it. PocketBase is no
   longer needed for the workspace flow; anonymous plans still live in an

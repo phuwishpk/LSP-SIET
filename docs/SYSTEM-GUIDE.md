@@ -1,9 +1,9 @@
-# คู่มือโครงสร้างระบบ — KMITL AI Workspace / SIET Space
+# คู่มือโครงสร้างระบบ — LSP-SIET (SIET Space)
 
 > เอกสารนี้อธิบายว่าระบบประกอบด้วยอะไรบ้าง ใช้เทคโนโลยีอะไร รันอย่างไร
 > เนื้อหาในระบบถูกจัดโครงสร้างแบบไหน และผู้ใช้แต่ละบทบาททำอะไรได้บ้าง
 >
-> อัปเดตล่าสุด: 23 ตุลาคม 2026 (แยกโค้ด KMITL ออกเป็น `siet-platform/` `kmitl-rag/` `community/` — ข้อ 4, ข้อ 12 และ `docs/ARCHITECTURE.md`; หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5; RAG hardening + ธีม SIET Pink — ข้อ 6.3)
+> อัปเดตล่าสุด: 15 พฤศจิกายน 2026 (โครงสร้างแบบ `platform/` `kmitl-rag/` `community/` `my-ai-quiz/` `ai-roadmap/` — ข้อ 4, ข้อ 12 และ `docs/ARCHITECTURE.md`; หมวดหมู่รายวิชา รหัสเข้าห้อง เก็บถาวร ผู้ช่วยสอน — ข้อ 6.2; ระดับการมองเห็นโพสต์และห้องส่วนตัว — ข้อ 6.2.2; สื่อการสอนและการดาวน์โหลดในคลัง — ข้อ 6.2.3; ค้นหาขั้นสูง — ข้อ 6.2.4; รายงานเนื้อหา ระงับบัญชี บันทึกผู้ดูแล — ข้อ 6.2.5; RAG hardening + ธีม SIET Pink — ข้อ 6.3)
 
 ## สารบัญ
 
@@ -26,20 +26,20 @@
 
 ## 1. ระบบนี้คืออะไร
 
-**KMITL AI Workspace** คือการรวม 3 โปรเจกต์เข้าเป็นระบบเดียวด้วย Docker Compose ชุดเดียว
-โดยมี **SIET Space** เป็นหน้าชุมชนแบบ Facebook สำหรับนักศึกษา KMITL ที่วางทับอยู่บน
-open-notebook อีกที
+**LSP-SIET** คือพื้นที่เรียนรู้ของ KMITL SIET ที่รวมชุมชน (**SIET Space**) การถาม-ตอบ **KMITL RAG AI**
+**AI Quiz** และ **AI Roadmap** เข้าเป็นระบบเดียวด้วย Docker Compose ชุดเดียว
+โดย SIET Space เป็นหน้าชุมชนแบบ Facebook สำหรับนักศึกษา KMITL ที่อยู่บน `platform` ตัวเดียวกับส่วนอื่น
 
 | ส่วน | ทำหน้าที่ |
 |---|---|
-| **open-notebook** | หัวใจของระบบ — FastAPI + Next.js + SurrealDB + MariaDB เก็บผู้ใช้ แต้ม ฟีด คลังความรู้ และเป็นตัวกลางเรียก AI ให้ทุกแอป |
-| **My-ai-quiz** | แอปสร้างข้อสอบ/ควิซด้วย AI (แยกหน้าเป็นของตัวเอง) |
-| **ai-roadmap-generator** | แอปสร้างแผนการเรียน (roadmap) ด้วย AI (แยกหน้าเป็นของตัวเอง) |
+| **platform** | หัวใจของระบบ — FastAPI + Next.js + SurrealDB + MariaDB เก็บผู้ใช้ แต้ม ฟีด คลังความรู้ และเป็นตัวกลางเรียก AI ให้ทุกแอป (โดยมี `kmitl-rag` และ `community` เสียบเข้าเป็นส่วนของ API และหน้าเว็บตัวเดียวกัน) |
+| **my-ai-quiz** | AI Quiz: แอปสร้างข้อสอบ/ควิซด้วย AI (`app/` แยกหน้าเป็นของตัวเอง) + `siet_quiz` ฝั่ง API |
+| **ai-roadmap** | AI Roadmap: แอปสร้างแผนการเรียน (roadmap) ด้วย AI (`app/` แยกหน้าเป็นของตัวเอง) + `siet_roadmap` ฝั่ง API |
 
 แนวคิดหลัก 3 ข้อ:
 
-1. **AI มีที่เดียว** — `open_notebook_api` เป็นแหล่งเรียกโมเดลเพียงจุดเดียว
-   อีกสองแอปยิงเข้ามาผ่าน `OPEN_NOTEBOOK_API_URL` ไม่ถือ API key เอง
+1. **AI มีที่เดียว** — `lsp_siet_api` เป็นแหล่งเรียกโมเดลเพียงจุดเดียว
+   อีกสองแอปยิงเข้ามาผ่าน `LSP_SIET_API_URL` ไม่ถือ API key เอง
 2. **ทุกการใช้ AI มีต้นทุนเป็นแต้ม** — นักศึกษาได้แต้มคืนจากการมีส่วนร่วมในชุมชน
    ไม่ใช่จากการเติมเงิน
 3. **สิทธิ์บังคับที่ API ไม่ใช่ที่หน้าจอ** — หน้าเว็บแค่ซ่อนเมนู แต่ตัวที่ปฏิเสธจริงคือ middleware
@@ -59,14 +59,14 @@ open-notebook อีกที
               PathPrefix(`/`)  │       │       │  PathPrefix(`/quiz`)
                                ▼       │       ▼
                    ┌────────────────┐  │  ┌──────────────────┐
-                   │ Next.js UI     │  │  │ My-ai-quiz       │
+                   │ Next.js UI     │  │  │ my-ai-quiz/app   │
                    │ (ใน container  │  │  │ Next.js          │
-                   │  open_notebook)│  │  └──────────────────┘
+                   │  lsp_siet_api) │  │  └──────────────────┘
                    └────────────────┘  │
                                        │  PathPrefix(`/roadmap`) , `/pb`
                                        ▼
                                ┌──────────────────────┐
-                               │ ai-roadmap-generator │
+                               │ ai-roadmap/app       │
                                │ + PocketBase (/pb)   │
                                └──────────────────────┘
    PathPrefix(`/api`,`/docs`) ────────▶ FastAPI :5055
@@ -75,7 +75,7 @@ open-notebook อีกที
 > หมายเหตุ: ตอนนี้ยังเปิด host port ตรง (3000/3001/3002/5055) ไว้ด้วย
 > ซึ่ง **ข้าม** basic auth ของ Traefik — ดูข้อ 14
 
-### 2.2 มองจากภายใน (open-notebook 3 ชั้น)
+### 2.2 มองจากภายใน (3 ชั้น)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -88,9 +88,10 @@ open-notebook อีกที
 │ API — FastAPI (Python 3.11)                                 │
 │                                                             │
 │  middleware:  RoleAccessMiddleware  →  PasswordAuthMiddleware│
-│  routers:     notebooks / sources / models / ... (open-notebook)│
-│               + siet_platform / kmitl_rag / siet_community  │
-│               ลงทะเบียนผ่าน open_notebook/extensions.py      │
+│  routers:     models / credentials / config ... (api, siet_core)│
+│               + siet_platform / kmitl_rag / siet_quiz /      │
+│               siet_roadmap / siet_community                  │
+│               ลงทะเบียนผ่าน siet_core/extensions.py          │
 │  services:    siet_platform.{points,library,retrieval,...}  │
 │               kmitl_rag.ask · siet_community.repository     │
 └──────┬───────────────────────────┬──────────────────┬───────┘
@@ -112,7 +113,7 @@ open-notebook อีกที
 
 ### 2.3 ลำดับการทำงานของ middleware
 
-Starlette รัน middleware **ย้อนลำดับการลงทะเบียน** `api/main.py` เรียก `extensions.install_app(app)`
+Starlette รัน middleware **ย้อนลำดับการลงทะเบียน** `platform/api/main.py` เรียก `extensions.install_app(app)`
 ก่อนเพิ่ม `PasswordAuthMiddleware` ดังนั้น `RoleAccessMiddleware` (ลงทะเบียนใน `siet_platform/extension.py`)
 จึงถูกลงทะเบียนก่อน และตอนรันจริง auth ทำงานก่อนแล้ว role ค่อยอ่าน `request.state.owner_id` ได้
 การตรวจ JWT เองอยู่ใน `siet_platform/auth_backend.py` ซึ่ง `PasswordAuthMiddleware` เรียกผ่าน hook
@@ -136,7 +137,7 @@ Starlette รัน middleware **ย้อนลำดับการลงท�
 | Workflow | LangGraph ≥1.0 | chat / ask / transformation graph (ของเดิม) |
 | Logging | Loguru | log ทั้งระบบ |
 
-### Frontend (open-notebook)
+### Frontend (platform/frontend)
 
 | รายการ | เวอร์ชัน | ใช้ทำอะไร |
 |---|---|---|
@@ -154,13 +155,13 @@ Starlette รัน middleware **ย้อนลำดับการลงท�
 
 | แอป | Stack | หมายเหตุ |
 |---|---|---|
-| My-ai-quiz | Next.js 16 / React 19 | มี fallback model ของตัวเอง (`QUIZ_FALLBACK_MODEL`) |
-| ai-roadmap-generator | Next.js 13 / React 18 + PocketBase | แผนที่สร้างตอนล็อกอินถูกเก็บใน open-notebook ไม่ใช่ PocketBase |
+| my-ai-quiz/app | Next.js 16 / React 19 | มี fallback model ของตัวเอง (`QUIZ_FALLBACK_MODEL`) |
+| ai-roadmap/app | Next.js 13 / React 18 + PocketBase | แผนที่สร้างตอนล็อกอินถูกเก็บใน SurrealDB (`roadmap_session`) ไม่ใช่ PocketBase |
 
 ### Infrastructure
 
 Docker Compose, Traefik v2.11 (reverse proxy + basic auth), supervisord ใน container
-`open_notebook_api` ที่คุม 3 process: `api` (uvicorn), `worker` (surreal-commands)
+`lsp_siet_api` ที่คุม 3 process: `api` (uvicorn), `worker` (surreal-commands)
 และ `frontend` (Next.js standalone)
 
 > ในไฟล์ยังมี `[program:streamlit]` แต่ปิด `autostart` ไว้แล้ว เพราะ `streamlit_app.py`
@@ -170,8 +171,7 @@ Docker Compose, Traefik v2.11 (reverse proxy + basic auth), supervisord ใน c
 
 ## 4. โครงสร้างโฟลเดอร์
 
-โค้ดที่ทีมเขียนอยู่ใน 3 แพ็กเกจที่ root ส่วน `open-notebook/` เป็นของ upstream (+ hook) รายละเอียดและกฎการ import
-อยู่ใน `docs/ARCHITECTURE.md`
+โค้ดแบ่งเป็น `platform/` (ฐานร่วม) กับอีก 4 ส่วนที่ root รายละเอียดและกฎการ import อยู่ใน `docs/ARCHITECTURE.md`
 
 ```
 kmitlAI/
@@ -180,18 +180,15 @@ kmitlAI/
 ├── Makefile                     ← make up / down / logs / test-backend / test-frontend / migrate-split ...
 ├── .env / .env.example          ← ค่า config ทั้งหมด
 ├── docker/
-│   ├── open-notebook/           ← Dockerfile + supervisord.conf
+│   ├── platform/                ← Dockerfile + supervisord.conf + wait-for-api.sh
+│   ├── allinone/                ← image เดียวรันทุกอย่าง (s6-overlay)
 │   └── traefik/                 ← traefik.yml + dynamic/all.yml (router, basic auth)
 │
-├── open-notebook/               ← แกนที่มาจาก lfnovo/open-notebook (ลิขสิทธิ์ MIT ใน open-notebook/NOTICE)
+├── platform/                    ← ฐานร่วมของทุกส่วน (ลิขสิทธิ์ MIT ของโค้ดต้นทางใน platform/NOTICE)
 │   ├── api/main.py              ← เรียก extensions.install_app / finalize_app / app.startup
 │   ├── api/dependencies.py      ← owner scoping (get_owner_id, owner_can_access)
-│   ├── open_notebook/extensions.py   ← hook points ของ backend
-│   └── frontend/src/
-│       ├── lib/extensions.ts    ← hook points ของหน้าเว็บ (+ extensions.installed.ts)
-│       └── app/...              ← route ทั้งหมด (หน้าของ KMITL เป็น stub บรรทัดเดียว)
-│
-├── siet-platform/               ← บัญชี JWT สิทธิ์ แต้ม throttle cache คลังเอกสาร ควิซ/roadmap
+│   ├── siet_core/               ← ฐานข้อมูล โมเดล AI embedding graphs; extensions.py = hook points ของ backend
+│   ├── commands/                ← งานเบื้องหลัง (surreal-commands)
 │   ├── siet_platform/
 │   │   ├── users.py, auth_jwt.py, auth_backend.py, auth_roles.py, login_guard.py
 │   │   ├── schema.py            ← DDL ของ MariaDB (idempotent รันทุกครั้งที่ API start)
@@ -199,23 +196,34 @@ kmitlAI/
 │   │   ├── library.py           ← คลังความรู้ → สร้าง Source + notebook
 │   │   ├── retrieval.py         ← ค้น vector เฉพาะ notebook
 │   │   ├── ratelimit.py         ← กันสแปม (cooldown + โควตา + ลายนิ้วมือเนื้อหา)
-│   │   ├── cache/  features/  migrations/ (k1–k8)  prompts/
-│   │   └── routers/             ← users, google_auth, features, admin (บัญชี/แต้ม/สุขภาพ), cache_admin
-│   └── frontend/src/            ← @siet/platform: lib/api, lib/hooks, auth, เมนู, header, LibraryPanel, คอนโซลผู้ดูแลหลัก
+│   │   ├── cache/  migrations/ (k1–k9)  prompts/
+│   │   └── routers/             ← users, google_auth, admin (บัญชี/แต้ม/สุขภาพ), cache_admin
+│   ├── tests/  tests-platform/  ← test ของ core และของ siet_platform
+│   └── frontend/src/            ← แอป Next.js (host): lib/api, lib/hooks, lib/extensions.ts (+ extensions.installed.ts),
+│                                  auth, เมนู, header, LibraryPanel, คอนโซลผู้ดูแลหลัก;
+│                                  app/... = route ทั้งหมด (หน้าของส่วนอื่นเป็น stub บรรทัดเดียวที่สร้างด้วย make frontend-routes)
 │
 ├── kmitl-rag/                   ← KMITL RAG AI
 │   ├── kmitl_rag/               ← ask.py, grounding.py, history.py, notebook_ask.py, chat_filters.py,
-│   │                              routers/{ask,admin,global_chat,notebook_ask}.py
-│   └── frontend/src/            ← @siet/kmitl-rag: /community/ask, AiQuickWidget, global chat, /admin/rag
+│   │                              routers/{ask,admin,global_chat,notebook_ask,notebooks,sources,notes,chat,...}.py
+│   └── frontend/src/            ← @siet/kmitl-rag: /community/ask, AiQuickWidget, global chat, /notebooks, /sources, /search, /admin/rag
 │
 ├── community/                   ← SIET Space
 │   ├── siet_community/          ← repository.py (ฟีด/ห้อง/คอมเมนต์), moderation.py, catalog.py,
 │   │                              roadmap_plan.py, routers/{community,admin,features}.py
-│   └── frontend/src/            ← @siet/community: /community, /teacher, /admin/{community,quiz,roadmap}, /features
+│   └── frontend/src/            ← @siet/community: /community, /teacher, /admin/community, /features (ส่วนชุมชน)
 │
-├── My-ai-quiz/                  ← Next.js (มี Dockerfile อย่างเดียว)
-├── ai-roadmap-generator/        ← Next.js + PocketBase
-└── docs/                        ← SYSTEM-GUIDE.md (เอกสารนี้), ARCHITECTURE.md
+├── my-ai-quiz/                  ← AI Quiz
+│   ├── app/                     ← Next.js (:3001, มี Dockerfile)
+│   ├── siet_quiz/               ← service, domain, routers/{features,admin}.py
+│   └── frontend/src/            ← @siet/quiz: /admin/quiz
+│
+├── ai-roadmap/                  ← AI Roadmap
+│   ├── app/                     ← Next.js + PocketBase (:3002)
+│   ├── siet_roadmap/            ← service, domain, routers/{features,admin}.py
+│   └── frontend/src/            ← @siet/roadmap: /admin/roadmap, /go/roadmap
+│
+└── docs/                        ← SYSTEM-GUIDE.md (เอกสารนี้), ARCHITECTURE.md, RUNBOOK.md
 ```
 
 ---
@@ -231,7 +239,7 @@ kmitlAI/
 |---|---|---|
 | Docker | Docker Desktop หรือ Docker Engine ที่มี **compose v2** | ตรวจด้วย `docker compose version` (ต้องขึ้น `v2.x`) |
 | RAM | 8 GB | ระบบรัน 8 container พร้อมกัน — 16 GB จะลื่นกว่ามาก |
-| พื้นที่ว่าง | ~15 GB | image ของ open-notebook อย่างเดียว ~4.2 GB |
+| พื้นที่ว่าง | ~15 GB | image ของ `lsp_siet_api` อย่างเดียว ~4.2 GB |
 | git | มี | ใช้ clone โปรเจกต์ |
 | อินเทอร์เน็ต | ต้องมี | ตอน build และตอนเรียกโมเดล AI |
 | ระบบปฏิบัติการ | macOS / Linux / Windows (WSL2 หรือ Git Bash) | ดูข้อควรระวังเรื่อง line ending ด้านล่าง |
@@ -269,21 +277,21 @@ cd kmitlAI
 3000 ไม่ขึ้นแบบหาสาเหตุยาก):
 
 ```bash
-git ls-files --eol docker/open-notebook/wait-for-api.sh
+git ls-files --eol docker/platform/wait-for-api.sh
 ```
 
 ต้องได้ `w/lf` (`i/` คือในคลัง `w/` คือไฟล์จริงในเครื่อง):
 
 ```
-i/lf    w/lf    attr/text eol=lf        docker/open-notebook/wait-for-api.sh
+i/lf    w/lf    attr/text eol=lf        docker/platform/wait-for-api.sh
 ```
 
 ถ้าได้ `w/crlf` แปลว่า `.gitattributes` ยังไม่ถูกใช้ ให้บังคับ checkout ใหม่เฉพาะไฟล์นี้:
 
 ```bash
-rm docker/open-notebook/wait-for-api.sh
-git checkout -- docker/open-notebook/wait-for-api.sh
-git ls-files --eol docker/open-notebook/wait-for-api.sh   # ตรวจซ้ำ ต้องเป็น w/lf
+rm docker/platform/wait-for-api.sh
+git checkout -- docker/platform/wait-for-api.sh
+git ls-files --eol docker/platform/wait-for-api.sh   # ตรวจซ้ำ ต้องเป็น w/lf
 ```
 
 **ขั้นที่ 3 — สร้างไฟล์ `.env`**
@@ -298,7 +306,7 @@ cp .env.example .env
 
 | ตัวแปร | ต้องใส่อะไร | ทำไมต้องแก้ |
 |---|---|---|
-| `OPEN_NOTEBOOK_ENCRYPTION_KEY` | ข้อความสุ่มยาว ≥16 ตัวอักษร | ใช้เข้ารหัส API key **และเป็นกุญแจเซ็น JWT เมื่อ `JWT_SECRET` ว่าง** ถ้าปล่อยค่าตัวอย่างไว้ = ใครก็ปลอม token ได้ |
+| `LSP_SIET_ENCRYPTION_KEY` | ข้อความสุ่มยาว ≥16 ตัวอักษร | ใช้เข้ารหัส API key **และเป็นกุญแจเซ็น JWT เมื่อ `JWT_SECRET` ว่าง** ถ้าปล่อยค่าตัวอย่างไว้ = ใครก็ปลอม token ได้ |
 | `GOOGLE_GENERATIVE_AI_API_KEY` *หรือ* `OPENAI_API_KEY` | API key ของผู้ให้บริการที่จะใช้ | ไม่มีคีย์ = สร้างควิซ/roadmap/ถาม RAG ไม่ได้ |
 | `GOOGLE_OAUTH_MOCK` | `1` ตอนพัฒนา / `0` ตอนใช้จริง | `1` = ล็อกอิน Google แบบจำลอง ไม่ต้องตั้ง OAuth client |
 
@@ -351,7 +359,7 @@ until curl -sf http://localhost:5055/api/auth/status >/dev/null; do sleep 3; don
 | **Default chat model** | ตอบ RAG, สร้างควิซ, สร้าง roadmap | ฟีเจอร์ AI ทั้งหมดใช้ไม่ได้ |
 | **Default embedding model** | แปลงเอกสารในคลังความรู้เป็นเวกเตอร์ | อัปโหลดเอกสารได้แต่ค้นไม่เจอ RAG ตอบว่าไม่มีข้อมูล |
 
-API key ที่กรอกจะถูกเข้ารหัสด้วย `OPEN_NOTEBOOK_ENCRYPTION_KEY` ก่อนเก็บลง SurrealDB
+API key ที่กรอกจะถูกเข้ารหัสด้วย `LSP_SIET_ENCRYPTION_KEY` ก่อนเก็บลง SurrealDB
 (คีย์ใน `.env` เป็นเพียง fallback)
 
 ### 5.4 ตรวจว่าติดตั้งสำเร็จ
@@ -364,12 +372,12 @@ curl -o /dev/null -w 'api      %{http_code}
 ' http://localhost:5055/api/auth/status  # 200
 ```
 
-**อย่าเชื่อ `make ps` อย่างเดียว** — คอนเทนเนอร์ `kmitl_open_notebook_api` รัน 3
+**อย่าเชื่อ `make ps` อย่างเดียว** — คอนเทนเนอร์ `lsp_siet_api` รัน 3
 โปรเซสอยู่ข้างในผ่าน supervisord (`api`, `worker`, `frontend`) ถ้าตัวใดตัวหนึ่งตาย
 คอนเทนเนอร์ยังรายงานว่า `Up` เหมือนเดิม ต้องเปิดดูข้างในด้วย:
 
 ```bash
-docker logs kmitl_open_notebook_api 2>&1 | grep -E "entered RUNNING|FATAL"
+docker logs lsp_siet_api 2>&1 | grep -E "entered RUNNING|FATAL"
 ```
 
 ต้องเห็นครบทั้ง 3 ตัวเป็น RUNNING และ**ต้องไม่มีบรรทัด FATAL**:
@@ -415,10 +423,10 @@ git push                    # โค้ดขึ้น remote ครบ
 | ข้อมูล | เก็บที่ | ขนาดตัวอย่าง |
 |---|---|---|
 | ผู้ใช้ แต้ม ฟีด ห้อง คลังเอกสาร | docker volume `kmitlai_mariadb_data` | ~90 KB (dump) |
-| notebook / source / embedding / ควิซ / roadmap | `open-notebook/surreal_data/` | ~56 MB |
-| ไฟล์ที่อัปโหลด | `open-notebook/notebook_data/` | ~168 MB |
-| ข้อมูล PocketBase ของแอป roadmap | `ai-roadmap-generator/pb_data/` | ~9 MB |
-| แคช (ไม่ต้องย้าย) | `open-notebook/redis_data/` | — |
+| notebook / source / embedding / ควิซ / roadmap | `platform/surreal_data/` | ~56 MB |
+| ไฟล์ที่อัปโหลด | `platform/notebook_data/` | ~168 MB |
+| ข้อมูล PocketBase ของแอป roadmap | `ai-roadmap/app/pb_data/` | ~9 MB |
+| แคช (ไม่ต้องย้าย) | `platform/redis_data/` | — |
 
 **สำรองข้อมูล (รันที่เครื่องเดิม)**
 
@@ -431,7 +439,7 @@ docker exec kmitl_mariadb sh -c \
 # ที่เหลือเป็นโฟลเดอร์ ปิด stack ก่อนคัดลอกเพื่อให้ไฟล์นิ่ง
 make down
 tar czf backup/data.tar.gz \
-  open-notebook/surreal_data open-notebook/notebook_data ai-roadmap-generator/pb_data
+  platform/surreal_data platform/notebook_data ai-roadmap/app/pb_data
 ```
 
 **กู้คืน (ที่เครื่องใหม่ หลัง `make up` ครั้งแรก)**
@@ -441,10 +449,10 @@ tar xzf backup/data.tar.gz            # วางทับโฟลเดอร�
 docker compose -p kmitlai restart
 docker exec -i kmitl_mariadb sh -c \
   'mariadb -uworkspace -p"$MARIADB_PASSWORD" workspace' < backup/workspace.sql
-docker compose -p kmitlai restart open_notebook_api
+docker compose -p kmitlai restart lsp_siet_api
 ```
 
-> ถ้าเครื่องใหม่ตั้ง `OPEN_NOTEBOOK_ENCRYPTION_KEY` ไม่ตรงกับเครื่องเดิม
+> ถ้าเครื่องใหม่ตั้ง `LSP_SIET_ENCRYPTION_KEY` ไม่ตรงกับเครื่องเดิม
 > **API key ของผู้ให้บริการ AI ที่เก็บไว้จะถอดรหัสไม่ออก** ต้องกรอกใหม่ในหน้า Models
 > และ token ที่ผู้ใช้ถืออยู่จะใช้ไม่ได้ (ต้องล็อกอินใหม่) เพราะกุญแจนี้ใช้เซ็น JWT ด้วย
 
@@ -458,12 +466,12 @@ docker compose -p kmitlai restart open_notebook_api
 | `bind: address already in use` | พอร์ต 3000/3001/3002/5055/80 ถูกใช้อยู่ | หา process ด้วย `lsof -i :3000` แล้วปิด หรือแก้ `ports:` ใน `docker-compose.yml` |
 | `make up` ค้างนานมาก | ครั้งแรกต้อง `apt-get install` + build Next.js 3 แอป | ปกติ รอ 10–20 นาที ดูความคืบหน้าด้วย `make logs` |
 | เปิด `localhost:8502` ไม่ขึ้น | พอร์ตนี้อยู่ **ในคอนเทนเนอร์** ไม่ได้ publish ออกมา | ใช้ <http://localhost:3000> |
-| ล็อกอินแล้วเด้งออกตลอด | `OPEN_NOTEBOOK_ENCRYPTION_KEY` เปลี่ยนหลัง build | token เก่าใช้ไม่ได้ ให้ล็อกเอาต์แล้วล็อกอินใหม่ |
+| ล็อกอินแล้วเด้งออกตลอด | `LSP_SIET_ENCRYPTION_KEY` เปลี่ยนหลัง build | token เก่าใช้ไม่ได้ ให้ล็อกเอาต์แล้วล็อกอินใหม่ |
 | AI ตอบว่าไม่มีโมเดล | ยังไม่ได้ทำขั้น 5.3 | ไปตั้ง default chat model |
 | อัปโหลดเอกสารแล้วสถานะค้าง `failed` | ยังไม่ได้ตั้ง default **embedding** model | ตั้งแล้วกด retry ที่เอกสารนั้น |
 | API ตอบ `Temporary failure in name resolution` | คอนเทนเนอร์ไม่ได้ต่อ network หลัง `docker compose down` | `docker compose -p kmitlai up -d --force-recreate` (`docker restart` ไม่ผูก network กลับ) |
 | ไม่แน่ใจว่าคุยกับ stack ไหนอยู่ | dev กับ prod ใช้พอร์ตชุดเดียวกัน | `docker ps` ดูชื่อคอนเทนเนอร์ — `kmitl_*` คือ prod, `kmitlai_dev_*` คือ dev |
-| **`localhost:3000` ไม่ขึ้นเลย แต่ `docker ps` บอก `Up`** | `frontend` ตายอยู่ข้างในคอนเทนเนอร์ — log จะมี `wait-for-api.sh: cannot execute: required file not found`, `exited: frontend (exit status 127)` แล้วจบด้วย `gave up: frontend entered FATAL state` สาเหตุคือสคริปต์ถูก checkout เป็น CRLF (ดูข้อ 5.1) | ทำตามขั้นที่ 2 ของข้อ 5.2 ให้ไฟล์เป็น LF แล้ว **build ใหม่** — `docker compose -p kmitlai build open_notebook_api && docker compose -p kmitlai up -d --force-recreate open_notebook_api` |
+| **`localhost:3000` ไม่ขึ้นเลย แต่ `docker ps` บอก `Up`** | `frontend` ตายอยู่ข้างในคอนเทนเนอร์ — log จะมี `wait-for-api.sh: cannot execute: required file not found`, `exited: frontend (exit status 127)` แล้วจบด้วย `gave up: frontend entered FATAL state` สาเหตุคือสคริปต์ถูก checkout เป็น CRLF (ดูข้อ 5.1) | ทำตามขั้นที่ 2 ของข้อ 5.2 ให้ไฟล์เป็น LF แล้ว **build ใหม่** — `docker compose -p kmitlai build lsp_siet_api && docker compose -p kmitlai up -d --force-recreate lsp_siet_api` |
 | API รีสตาร์ทวนไม่จบ + log ขึ้น `Failed to run database migrations` / `Parse error: Invalid function/constant path` | migration เรียกฟังก์ชัน SurrealQL ที่ถูกถอดออกไปใน SurrealDB v2 (เช่น `array::sort::uniq` ซึ่งต้องเขียนเป็น `array::sort(array::distinct(...))` แทน) | ดึงโค้ดล่าสุดให้ครบแล้ว build ใหม่ — ห้ามแก้เฉพาะไฟล์ในคอนเทนเนอร์ด้วย `docker cp` เพราะจะหายเมื่อคอนเทนเนอร์ถูก recreate |
 | แก้ไฟล์ในคอนเทนเนอร์แล้วดีอยู่พักหนึ่ง จู่ ๆ กลับมาพังเหมือนเดิม | `docker cp` / แก้ไฟล์สด ๆ อยู่บน writable layer ของคอนเทนเนอร์ `docker restart` รอด แต่ `docker compose up` / `--force-recreate` จะสร้างคอนเทนเนอร์ใหม่จาก image เดิมทำให้การแก้หายไป | แก้ที่ซอร์สแล้ว `build` ใหม่เสมอ |
 
@@ -496,11 +504,11 @@ make nuke          # หยุด + ลบ volume (ข้อมูลหาย�
 make rebuild       # build ใหม่โดยไม่ใช้ cache
 ```
 
-แก้เฉพาะ backend/frontend ของ open-notebook แล้วอยากให้มีผล:
+แก้เฉพาะ backend/frontend ของ platform แล้วอยากให้มีผล:
 
 ```bash
-docker compose -p kmitlai build open_notebook_api
-docker compose -p kmitlai up -d --force-recreate open_notebook_api
+docker compose -p kmitlai build lsp_siet_api
+docker compose -p kmitlai up -d --force-recreate lsp_siet_api
 ```
 
 ### 5.9 รันแบบ dev (hot reload)
@@ -553,8 +561,8 @@ dev mount ซอร์สเข้าไปในคอนเทนเนอร�
 
 | กลุ่ม | ตัวแปร | ความหมาย |
 |---|---|---|
-| ความปลอดภัย | `JWT_SECRET` | กุญแจเซ็น JWT — ถ้าว่างจะใช้ `OPEN_NOTEBOOK_ENCRYPTION_KEY` แทน |
-| | `OPEN_NOTEBOOK_ENCRYPTION_KEY` | เข้ารหัส credential ของ provider **และเซ็น JWT เมื่อ `JWT_SECRET` ว่าง** — ต้องเปลี่ยนจากค่าตัวอย่าง |
+| ความปลอดภัย | `JWT_SECRET` | กุญแจเซ็น JWT — ถ้าว่างจะใช้ `LSP_SIET_ENCRYPTION_KEY` แทน |
+| | `LSP_SIET_ENCRYPTION_KEY` | เข้ารหัส credential ของ provider **และเซ็น JWT เมื่อ `JWT_SECRET` ว่าง** — ต้องเปลี่ยนจากค่าตัวอย่าง |
 | | `WORKSPACE_DISABLE_REGISTRATION` | ปิดการสมัครเอง (ค่าเริ่มต้น `false` = เปิด) |
 | SSO | `GOOGLE_OAUTH_CLIENT_ID/SECRET` | ของจริงจาก Google Cloud Console |
 | | `GOOGLE_OAUTH_MOCK` | `1` = โหมดจำลอง (dev เท่านั้น) |
@@ -791,7 +799,7 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 
 ### 6.7 AI Roadmap — ธีม SIET Pink และโพสต์ที่อัปเดตเอง (22 ต.ค. 2026)
 
-แอป roadmap (`ai-roadmap-generator/`, เสิร์ฟที่ `/roadmap`) สร้างแผนจาก `POST /community/study/roadmap` และขยายด่านด้วย `POST /community/roadmaps/mine/{id}/expand` แผนที่แชร์เป็นโพสต์ (`embed_type=roadmap`) เก็บ **สำเนา** ของ nodes ไว้ใน `posts.linked_snapshot`
+แอป roadmap (`ai-roadmap/app/`, เสิร์ฟที่ `/roadmap`) สร้างแผนจาก `POST /community/study/roadmap` และขยายด่านด้วย `POST /community/roadmaps/mine/{id}/expand` แผนที่แชร์เป็นโพสต์ (`embed_type=roadmap`) เก็บ **สำเนา** ของ nodes ไว้ใน `posts.linked_snapshot`
 
 | เรื่อง | ก่อน | หลัง |
 |---|---|---|
@@ -799,12 +807,12 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | ลบแผน | — | เหมือนเดิมโดยตั้งใจ: เจ้าของหรือผู้ดูแล (`DELETE /admin/roadmaps/{id}`) ลบ session ใน SurrealDB ได้ แต่โพสต์ยังมีสำเนาของตัวเองและอ่านได้ต่อ (ตรวจแล้ว 22 ต.ค. 2026) |
 | ธีมแอป roadmap | ธีมมืดของตัวเอง (`#0c0c0c`, น้ำเงิน `#2b6fde`, ฟอนต์ IBM Plex Sans Thai) ไม่เข้ากับ SIET Space | สว่างตาม `DESIGN.md`: พื้น `#FFFFFF`, เส้น `#E5E5E5`, ตัวอักษร `#202124`/`#3C3C3C`/`#777777`, สีหลัก `#ED4988` (hover `#D83A78`, pressed `#C92F6B`, soft `#FCE7F0`), ลิงก์/โฟกัส `#1CB0F6`; ฟอนต์ `Nunito → IBM Plex Sans Thai`; หัวข้อหนา 800; ปุ่มหลักขอบล่าง 4px และยุบเมื่อกด; ด่านที่เลือกเป็นชมพูทึบ; เส้นขยายเป็นเส้นประชมพู; ป้ายชื่อเลนเป็นชิปสีเข้มของ accent (`#1686BD` ฟ้า, `#3E8A50` เขียว, `#C66F00` ส้ม, `#9A4FE0` ม่วง, `#C92F6B` ชมพู) ให้อ่านออกบนพื้นขาว; รูป PNG ที่ดาวน์โหลดเป็นพื้นขาว; light เท่านั้น; กล่องด่านใหญ่ขึ้น (หลัก 272×56, ย่อย 240×46, ฟอนต์ 15/14px) และกราฟ**ขยายอัตโนมัติ**ให้เต็มความกว้างของพื้นที่ (1–1.6 เท่า ผ่าน `transform: scale` บน wrapper `.graph-fit` จึงไม่กระทบ PNG ที่ export จาก `.graph`) |
 
-ไฟล์: `community/siet_community/routers/community.py` (`expand_my_roadmap`), `ai-roadmap-generator/src/styles/app.css`, `src/lib/roadmap-layout.js` (สีเลน), `src/components/RoadmapGraph.jsx` (หัวลูกศร), `src/pages/_document.js` (โหลด Nunito), `src/pages/roadmap/[id].jsx` ทดสอบ: `tests/test_roadmap_sync.py`
+ไฟล์: `community/siet_community/routers/community.py` (`expand_my_roadmap`), `ai-roadmap/app/src/styles/app.css`, `src/lib/roadmap-layout.js` (สีเลน), `src/components/RoadmapGraph.jsx` (หัวลูกศร), `src/pages/_document.js` (โหลด Nunito), `src/pages/roadmap/[id].jsx` ทดสอบ: `tests/test_roadmap_sync.py`
 
 ## 7. บทบาทผู้ใช้ (Roles) โดยละเอียด
 
 ระบบมี 3 บทบาท จัดลำดับสิทธิ์เป็น **student < teacher < admin**
-บังคับที่ `siet-platform/siet_platform/auth_roles.py` แบบ *ปิดไว้ก่อน* — router ใหม่ที่ขึ้น prefix เดิมจะถูกล็อกอัตโนมัติ
+บังคับที่ `platform/siet_platform/auth_roles.py` แบบ *ปิดไว้ก่อน* — router ใหม่ที่ขึ้น prefix เดิมจะถูกล็อกอัตโนมัติ
 ถูกปฏิเสธจะได้ `403` พร้อม header `X-Required-Role`
 
 ### 7.1 ตารางสรุปสิทธิ์
@@ -821,7 +829,7 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 | คอนโซลอาจารย์ `/teacher` (ห้อง เอกสาร ผลควิซ สื่อการสอน) | ❌ | ✅ | ✅ |
 | อัปโหลดเข้า **คลังความรู้ของวิชา** | ❌ | ✅ | ✅ |
 | โพสต์ประเภท `material` (สื่อการสอน) | ❌ | ✅ | ✅ |
-| เข้าส่วน Open Notebook (notebooks, sources, notes, chat, search, transformations) | ❌ | ✅ | ✅ |
+| เข้าส่วนงานวิจัย/คลังเอกสาร (notebooks, sources, notes, chat, search) | ❌ | ✅ | ✅ |
 | ตั้งค่าโมเดล AI / API credential / settings | ❌ | ❌ | ✅ |
 | คอนโซลผู้ดูแล `/admin` | ❌ | ❌ | ✅ |
 | ลบโพสต์ของคนอื่น | ❌ | ❌ | ✅ |
@@ -830,7 +838,7 @@ users ─┬─< point_transactions       (ประวัติแต้มท�
 
 ### 7.2 นักศึกษา (student)
 
-**เห็นอะไร:** เฉพาะ `/community` และหน้าย่อยของมัน — เมนู Open Notebook, Settings,
+**เห็นอะไร:** เฉพาะ `/community` และหน้าย่อยของมัน — เมนู notebooks/sources, Settings,
 Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPalette` เรียก `/api/notebooks` และ
 `SetupBanner` เรียก `/api/credentials` จึงต้องซ่อนสองตัวนี้ด้วย ไม่งั้นหน้า community จะ 403)
 
@@ -844,7 +852,7 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 6. ใช้ AI โดยเสียแต้ม แล้วหาแต้มคืนจากการโพสต์/มีคนไลก์/มีคนแชร์
 
 **ทำไม่ได้:** สร้างห้องวิชา, เพิ่มเนื้อหาเข้าคลังของวิชา, โพสต์สื่อการสอน,
-เข้าหลังบ้าน Open Notebook, แก้ค่าโมเดล
+เข้าส่วนงานวิจัย/คลังเอกสาร (notebooks, sources), แก้ค่าโมเดล
 
 ### 7.3 อาจารย์ (teacher)
 
@@ -866,7 +874,7 @@ Models ถูกซ่อนทั้งหมด (สำคัญ: `CommandPale
 2. **เพิ่มเนื้อหาเข้าคลังของวิชา** (PDF / ลิงก์ / ข้อความ) → กลายเป็นแหล่งอ้างอิงที่
    KMITL RAG AI, AI Quiz และ AI Roadmap ของวิชานั้นใช้ตอบ
 3. โพสต์ `material` ซึ่งไปรวมในเมนู "คลังสื่ออาจารย์"
-4. เข้าส่วน Open Notebook เต็มรูปแบบ (notebook, source, note, chat, search, transformation)
+4. เข้าส่วนงานวิจัย/คลังเอกสารเต็มรูปแบบ (notebook, source, note, chat, search)
 5. **ไม่ถูกหักแต้ม** และได้โควตากันสแปม ×4 เท่าของนักศึกษา (`SPAM_STAFF_MULTIPLIER`)
    เพราะการอัปโหลดสื่อทั้งเทอมรวดเดียวเป็นเรื่องปกติ
 
@@ -972,7 +980,7 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 
 ## 9. ระบบกันสแปม
 
-อยู่ใน `siet-platform/siet_platform/ratelimit.py` มี 3 ด่าน
+อยู่ใน `platform/siet_platform/ratelimit.py` มี 3 ด่าน
 
 **ด่านที่ 1 — cooldown + โควตา** (นับจากตารางเนื้อหาโดยตรง ไม่มีตารางบันทึกเพิ่ม)
 
@@ -994,7 +1002,7 @@ Google SSO ให้บทบาทตามรูปแบบอีเมลเ
 ### การป้องกันการเดารหัสผ่าน
 
 ระบบกันสแปมด้านบนนับจากตารางเนื้อหา ซึ่งใช้กับการล็อกอินไม่ได้ (การเดารหัสไม่เขียนอะไรลงฐานข้อมูล)
-จึงมีตัวนับแยกอยู่ใน `siet-platform/siet_platform/login_guard.py` เก็บใน Redis (รอดการรีสตาร์ท ใช้ร่วมกันหลาย worker)
+จึงมีตัวนับแยกอยู่ใน `platform/siet_platform/login_guard.py` เก็บใน Redis (รอดการรีสตาร์ท ใช้ร่วมกันหลาย worker)
 ถ้า Redis ล่มจะถอยไปนับในหน่วยความจำแทน ไม่ปล่อยผ่าน
 
 | ตัวนับ | ค่าเริ่มต้น | หมายเหตุ |
@@ -1144,15 +1152,15 @@ GET    /admin/audit?action=&actor_id=   (บันทึกผู้ดูแล
 | `rag_sessions` | เซสชัน RAG 5 ข้อความ |
 | `notifications` | แจ้งเตือน |
 
-Schema เป็น **idempotent DDL** ใน `siet-platform/siet_platform/schema.py` รันทุกครั้งที่ API start
+Schema เป็น **idempotent DDL** ใน `platform/siet_platform/schema.py` รันทุกครั้งที่ API start
 เพิ่มคอลัมน์ใหม่ให้เพิ่มที่นี่ **และ** ที่ `_UserRow` + โมเดล `User` ใน
-`domain/user.py` ไม่งั้นจะพังตอน runtime
+`siet_platform/users.py` ไม่งั้นจะพังตอน runtime
 
 ### SurrealDB — namespace/database `open_notebook`
 
 เก็บ `notebook`, `source`, `note`, `insight`, `chat_session`, `credential`,
 `quiz_session`, `roadmap_session` พร้อม vector embedding
-Migration รันอัตโนมัติตอน API start (`database/migrations/*.surrealql`)
+Migration รันอัตโนมัติตอน API start (`platform/siet_core/database/migrations/*.surrealql`)
 
 > ข้อควรระวัง: ตาราง SCHEMAFULL ที่มีฟิลด์ `array<object>` ต้องประกาศ `FLEXIBLE`
 > ไม่งั้น key ที่ซ้อนอยู่ข้างในจะถูกทิ้งเงียบ ๆ (migration 23 แก้เรื่องนี้ให้
@@ -1164,26 +1172,26 @@ Migration รันอัตโนมัติตอน API start (`database/mig
 
 | อยากแก้ | ไฟล์ |
 |---|---|
-| ราคา/โบนัส/เพดานแต้ม | `siet-platform/siet_platform/points.py` (หรือ `POINTS_*` ใน `.env`) |
-| กติกากันสแปม | `siet-platform/siet_platform/ratelimit.py` (หรือ `SPAM_*`) |
-| สิทธิ์ของแต่ละบทบาท | `siet_platform/auth_roles.py` (หลังบ้าน) + `siet-platform/siet-platform/frontend/src/lib/roles.ts` (หน้าบ้าน) |
-| เมนูซ้าย (ตามบทบาท) | `siet-platform/frontend/src/lib/navigation.ts` |
-| เพิ่มคอลัมน์ฐานข้อมูล | `siet_platform/schema.py` + `siet_platform/users.py` |
+| ราคา/โบนัส/เพดานแต้ม | `platform/siet_platform/points.py` (หรือ `POINTS_*` ใน `.env`) |
+| กติกากันสแปม | `platform/siet_platform/ratelimit.py` (หรือ `SPAM_*`) |
+| สิทธิ์ของแต่ละบทบาท | `platform/siet_platform/auth_roles.py` (หลังบ้าน) + `platform/frontend/src/lib/roles.ts` (หน้าบ้าน) |
+| เมนูซ้าย (ตามบทบาท) | `platform/frontend/src/lib/navigation.ts` |
+| เพิ่มคอลัมน์ฐานข้อมูล | `platform/siet_platform/schema.py` + `platform/siet_platform/users.py` |
 | SQL ของฟีด/ห้อง | `community/siet_community/repository.py` |
 | endpoint ของชุมชน | `community/siet_community/routers/community.py` |
 | endpoint ของ KMITL RAG AI | `kmitl-rag/kmitl_rag/routers/ask.py` (+ pipeline ใน `kmitl_rag/ask.py`) |
-| คอนโซลผู้ดูแล | หลังบ้าน `routers/admin.py` ของแพ็กเกจเจ้าของเรื่อง (ดู `docs/ARCHITECTURE.md` ข้อ 2) + หน้า `siet-platform/siet-platform/frontend/src/app/(dashboard)/admin/page.tsx` |
-| แท็บย่อยของคอนโซลผู้ดูแล | `siet-platform/frontend/src/components/admin/*` (บัญชี/แต้ม/สุขภาพ), `community/frontend/src/components/admin/*` (ชุมชน/ควิซ/roadmap), `kmitl-rag/frontend/src/components/admin/rag/*` |
-| คอนโซลอาจารย์ | `community/community/frontend/src/app/(dashboard)/teacher/page.tsx` + endpoint `/community/teacher/*` |
-| แถบซ้ายของหน้าชุมชน | `community/community/frontend/src/components/community/CourseSidebar.tsx` |
+| คอนโซลผู้ดูแล | หลังบ้าน `routers/admin.py` ของแพ็กเกจเจ้าของเรื่อง (ดู `docs/ARCHITECTURE.md` ข้อ 2) + หน้า `platform/frontend/src/app/(dashboard)/admin/page.tsx` |
+| แท็บย่อยของคอนโซลผู้ดูแล | `platform/frontend/src/components/admin/*` (บัญชี/แต้ม/สุขภาพ), `community/frontend/src/components/admin/*` (ชุมชน/ควิซ/roadmap), `kmitl-rag/frontend/src/components/admin/rag/*` |
+| คอนโซลอาจารย์ | `community/frontend/src/app/(dashboard)/teacher/page.tsx` + endpoint `/community/teacher/*` |
+| แถบซ้ายของหน้าชุมชน | `community/frontend/src/components/community/CourseSidebar.tsx` |
 | กล่องเขียนโพสต์ / การ์ดโพสต์ | `community/frontend/src/components/community/{CreatorBox,PostCard}.tsx` |
-| กล่องถาม RAG ทางขวา | `kmitl-rag/kmitl-rag/frontend/src/components/community/AiQuickWidget.tsx` |
-| หน้าเต็มของ RAG (`/community/ask`) | `kmitl-rag/kmitl-rag/frontend/src/app/(dashboard)/community/ask/page.tsx` |
-| คลังความรู้ | `siet-platform/siet-platform/frontend/src/components/community/LibraryPanel.tsx` + `siet_platform/library.py` |
-| ปุ่ม "เลือกผลงานขึ้นฟีด" | `community/community/frontend/src/components/community/ShareMyWorkDialog.tsx` |
-| prompt ภาษาไทยของแชต | `siet-platform/siet_platform/prompts/{chat,source_chat}/system.jinja` |
-| ธีม/สี/ฟอนต์ | `siet-platform/frontend/src/styles/siet-theme.css`, `siet-platform/frontend/src/lib/fonts.ts` |
-| พฤติกรรมของ open-notebook | hook เท่านั้น — `docs/ARCHITECTURE.md` ข้อ 4 |
+| กล่องถาม RAG ทางขวา | `kmitl-rag/frontend/src/components/community/AiQuickWidget.tsx` |
+| หน้าเต็มของ RAG (`/community/ask`) | `kmitl-rag/frontend/src/app/(dashboard)/community/ask/page.tsx` |
+| คลังความรู้ | `platform/frontend/src/components/community/LibraryPanel.tsx` + `siet_platform/library.py` |
+| ปุ่ม "เลือกผลงานขึ้นฟีด" | `community/frontend/src/components/community/ShareMyWorkDialog.tsx` |
+| prompt ภาษาไทยของแชต | `platform/siet_platform/prompts/{chat,source_chat}/system.jinja` |
+| ธีม/สี/ฟอนต์ | `platform/frontend/src/styles/siet-theme.css`, `platform/frontend/src/lib/fonts.ts` |
+| พฤติกรรมของ core (`siet_core`, `api`, `commands`) | hook เท่านั้น — `docs/ARCHITECTURE.md` ข้อ 4 |
 
 ---
 
@@ -1199,16 +1207,18 @@ curl -s http://localhost:5055/api/auth/status | head -c 200
 ### ชุดทดสอบฝั่งหน้าเว็บ
 
 ```bash
-make test-frontend        # tsc + vitest ของ open-notebook และ test ในทั้ง 3 แพ็กเกจ
-make test-backend         # pytest ของ open-notebook + siet-platform/tests + kmitl-rag/tests + community/tests
+make test-frontend        # tsc + vitest ของ platform/frontend และ test ในทุกส่วน
+make test-backend         # pytest ของ platform/tests + platform/tests-platform + kmitl-rag + my-ai-quiz + ai-roadmap + community
 ```
 
-test ของ SIET อยู่ในแพ็กเกจ เช่น `siet-platform/frontend/src/components/layout/AppSidebar.workspace.test.tsx`
+test ของ SIET อยู่ในแพ็กเกจ เช่น `platform/frontend/src/components/layout/AppSidebar.workspace.test.tsx`
 (เมนูตามบทบาท), `.../components/community/mobile-nav.test.tsx` (เมนูบนมือถือ) และ test กฎการ import
-`siet-platform/tests/test_layering.py`, `siet-platform/frontend/src/layering.test.ts`
+`platform/tests-platform/test_layering.py`, `platform/frontend/src/layering.test.ts`
 
-> `lib/locales/index.test.ts` เหลือแดง 1 เคส (Unused Key Detection): คีย์ของฟอร์มล็อกอินแบบรหัสผ่าน
-> ของ upstream ที่เราแทนด้วย Google Workspace จึงไม่มีใครเรียก — มีมาก่อนการแยก ไม่กระทบการใช้งาน
+> test ที่แดงอยู่ก่อนการจัดโครงสร้างใหม่ (baseline: `markdown-editor.test.tsx` 3 เคส และ `lib/locales/index.test.ts` Unused Key Detection
+> — คีย์ของฟอร์มล็อกอินแบบรหัสผ่านที่เราแทนด้วย Google Workspace จึงไม่มีใครเรียก) อยู่ใน
+> `docs/lsp-siet/baseline/frontend-failures.txt` ไม่กระทบการใช้งาน
+> ภาษาของหน้าเว็บมีภาษาเดียว (en-US ใน `platform/frontend/src/lib/locales/en-US/index.ts`)
 
 ### ชุดทดสอบ API (12 ชุด)
 
@@ -1230,7 +1240,7 @@ test ของ SIET อยู่ในแพ็กเกจ เช่น `siet-p
 | `test_admin` | คอนโซลผู้ดูแล + ราวกันตก |
 
 **ข้อควรรู้เวลารันซ้ำ:** ชุดทดสอบเรียก container ตรง ๆ ตามชื่อ
-(`kmitl_mariadb`, `kmitl_open_notebook_api`) ถ้าชี้ผิด stack ส่วนล้างข้อมูลจะเงียบไป
+(`kmitl_mariadb`, `lsp_siet_api`) ถ้าชี้ผิด stack ส่วนล้างข้อมูลจะเงียบไป
 แล้วข้ออื่นจะพังแทน · และต้องใช้บัญชี SSO ใหม่ทุกรอบ เพราะเพดานแต้มรายวันติดมากับบัญชี
 ทำให้รอบที่สองของวันได้ 0 แต้ม
 
@@ -1242,7 +1252,7 @@ test ของ SIET อยู่ในแพ็กเกจ เช่น `siet-p
 
 | # | เรื่อง | สถานะตอนนี้ | ต้องทำ |
 |---|---|---|---|
-| 1 | กุญแจเซ็น JWT เป็นค่าตัวอย่าง | `JWT_SECRET` ว่าง ระบบจึงใช้ `OPEN_NOTEBOOK_ENCRYPTION_KEY` แทน ซึ่งยังเป็นค่า `change-me-...` จาก `.env.example` = ค่าที่ทุกคนบน GitHub เห็น → ปลอม token เป็น admin ได้ | ตั้ง `OPEN_NOTEBOOK_ENCRYPTION_KEY` (และ `JWT_SECRET` ถ้าอยากแยกกุญแจ) เป็นค่าสุ่ม เช่น `openssl rand -hex 32` |
+| 1 | กุญแจเซ็น JWT เป็นค่าตัวอย่าง | `JWT_SECRET` ว่าง ระบบจึงใช้ `LSP_SIET_ENCRYPTION_KEY` แทน ซึ่งยังเป็นค่า `change-me-...` จาก `.env.example` = ค่าที่ทุกคนบน GitHub เห็น → ปลอม token เป็น admin ได้ | ตั้ง `LSP_SIET_ENCRYPTION_KEY` (และ `JWT_SECRET` ถ้าอยากแยกกุญแจ) เป็นค่าสุ่ม เช่น `openssl rand -hex 32` |
 | 2 | Google OAuth โหมดจำลอง | `GOOGLE_OAUTH_MOCK=1` ใครก็สวมเป็นใครก็ได้ | ใส่ client ID/secret จริง แล้วตั้งเป็น `0` |
 | 3 | สมัครสมาชิกเองได้ | `WORKSPACE_DISABLE_REGISTRATION` ยังเป็น `false` | ตั้งเป็น `true` ให้เข้าผ่าน Google อย่างเดียว |
 | 4 | ไม่มี HTTPS | Traefik เปิดแค่ `:80` | เพิ่ม entrypoint 443 + Let's Encrypt |
@@ -1255,4 +1265,4 @@ test ของ SIET อยู่ในแพ็กเกจ เช่น `siet-p
 
 **เรื่องโดเมนจริง:** URL ของแอป Quiz/Roadmap อ่านตอน runtime จาก `/config` ของ frontend
 ดังนั้นย้ายโดเมนแค่ตั้ง `MY_AI_QUIZ_URL` / `AI_ROADMAP_URL` บน container
-`open_notebook_api` แล้วรีสตาร์ท **ไม่ต้อง build frontend ใหม่**
+`lsp_siet_api` แล้วรีสตาร์ท **ไม่ต้อง build frontend ใหม่**
