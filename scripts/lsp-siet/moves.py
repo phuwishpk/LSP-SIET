@@ -19,6 +19,11 @@ case sensitive. A rule whose result matches itself again is a cycle and is refus
 not ``open_notebook...``). The codemod splits ``from M import A, B`` accordingly and
 rewrites ``"M.A"`` strings (``mock.patch`` and friends); a changed last component is
 imported under the old name (``from siet_quiz.x import new_name as old_name``).
+
+``MOVES`` is keyed by old-layout paths. The host keeps generated route stubs at many new
+paths (``platform/frontend/src/app/...``); a rule whose source is such a path would move the
+stub again on every later run, so ``test_codemod.py`` fails when any source still exists in
+the repository.
 """
 
 from __future__ import annotations
@@ -94,18 +99,11 @@ MOVES: list[tuple[str, str]] = [
     ("siet-platform/frontend/src/app/(dashboard)/go/roadmap", "ai-roadmap/frontend/src/app/(dashboard)/go/roadmap"),
     ("open-notebook/frontend/src/app/(dashboard)/notebooks/page.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/page.tsx"),
     ("open-notebook/frontend/src/app/(dashboard)/notebooks/[id]", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/[id]"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.test.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.test.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/ChatColumn.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookCard.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookCard.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookDeleteDialog.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookDeleteDialog.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.test.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.test.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookHeader.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookList.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookList.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotebookRow.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotebookRow.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.test.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.test.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/NotesColumn.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/RecentlyViewed.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/RecentlyViewed.tsx"),
-    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/SourcesColumn.tsx", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/SourcesColumn.tsx"),
+    # Every component of the notebook page follows the page, a teammate's new one included;
+    # NoteEditorDialog stays (the longer file rules win over the directory rule).
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components", "kmitl-rag/frontend/src/app/(dashboard)/notebooks/components"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NoteEditorDialog.tsx", "platform/frontend/src/app/(dashboard)/notebooks/components/NoteEditorDialog.tsx"),
+    ("open-notebook/frontend/src/app/(dashboard)/notebooks/components/NoteEditorDialog.test.tsx", "platform/frontend/src/app/(dashboard)/notebooks/components/NoteEditorDialog.test.tsx"),
     ("open-notebook/frontend/src/app/(dashboard)/sources", "kmitl-rag/frontend/src/app/(dashboard)/sources"),
 ]
 
@@ -216,6 +214,24 @@ SYMBOL_MOVES: dict[str, str] = {
     "siet_platform.routers.features.list_roadmap_sessions": "siet_roadmap.routers.features.list_roadmap_sessions",
     "siet_platform.routers.features.get_roadmap_session": "siet_roadmap.routers.features.get_roadmap_session",
     "siet_platform.routers.features.delete_roadmap_session": "siet_roadmap.routers.features.delete_roadmap_session",
+}
+
+# Modules whose names the quiz/roadmap modules import by name (``from siet_platform.ai_helpers
+# import _invoke_chat``). A ``mock.patch("...")`` string that named one of the SYMBOL_MOVES
+# symbols moved into these has no single new home: patching it in the helper changes nothing
+# for the modules that already hold their own reference, so the codemod leaves the string alone
+# and reports it ("check by hand"): patch the name in the module that uses it.
+SHARED_HELPER_MODULES: tuple[str, ...] = ("siet_platform.ai_helpers", "siet_platform.http")
+
+# Identifiers (functions, classes, properties) renamed by the restructure, rewritten whole-word
+# in every Python and TypeScript/JavaScript file, strings and comments included. Only code
+# identifiers belong here: the persisted names that keep ``open_notebook`` (SurrealDB namespace,
+# surreal-commands app/command names, JWT issuer, PBKDF2 salt) are values, not identifiers.
+# Task 12 (use-create-dialogs) and Task 16 (siet_core.exceptions, api.main).
+IDENTIFIER_RENAMES: dict[str, str] = {
+    "OpenNotebookError": "SietError",
+    "open_notebook_error_handler": "siet_error_handler",
+    "openNotebookDialog": "openCreateNotebookDialog",
 }
 
 # Whole-word renames in .toml/.json/.yml/Makefile/Dockerfile*/.env.example/.sh: the old

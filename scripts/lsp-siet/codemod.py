@@ -28,7 +28,12 @@ What it does, in this order
    (host) file everywhere else (``pyproject.toml``, ``package.json``, ``README.md``).
    The other copy is deleted through git (an untracked loser is saved next to it as
    ``<name>.collision-dropped``); every collision is reported with the command that
-   shows the loser, and the host-wins ones say ``merge by hand``. A file that would land
+   shows the loser, and the host-wins ones say ``merge by hand``. When the dropped
+   TypeScript module exports something the kept one lacks (``dynamic``, ``revalidate``,
+   ``metadata``, ``generateMetadata``, any extra name) a ``check by hand`` line names it.
+   On a case-insensitive disk (macOS, Windows) a destination directory that exists under
+   another spelling (``My-ai-quiz`` for ``my-ai-quiz``) is first renamed through a temporary
+   name, so the spelling on disk is the table's, not the old one. A file that would land
    on a file that is already there, or two files from the same side, are reported as
    ``conflict`` and stay where they are.
 2. **Python** (``*.py``, except this tool's own directory). Dotted module names are
@@ -52,7 +57,15 @@ What it does, in this order
      otherwise they become absolute;
    * ``from M import A, B`` is split per ``SYMBOL_MOVES`` (and per modules that moved
      to another package), ``"M.A"`` strings follow; attribute uses (``mod.A``) are
-     reported as ``check by hand``.
+     reported as ``check by hand``. ``from . import mod`` where ``mod`` moved to another
+     package becomes an absolute import of its new home;
+   * a patch string naming a symbol that moved into one of ``SHARED_HELPER_MODULES``
+     (``siet_platform.ai_helpers``, ``siet_platform.http``) is not rewritten: the quiz and
+     roadmap modules import it by name, so patching the helper intercepts nothing. It is
+     reported as ``check by hand: patch target ...`` (patch where the name is used);
+   * ``IDENTIFIER_RENAMES`` (``OpenNotebookError`` -> ``SietError`` ...) are renamed whole-word
+     in every Python and TypeScript/JavaScript file; the persisted ``open_notebook`` values
+     above are values, not identifiers, and are never in that table.
 3. **TypeScript/JavaScript** under the frontend directories of the alias tables. The
    specifier of ``import ... from``, ``export ... from``, ``import(...)``,
    ``import '...'``, ``require(...)``, ``vi.mock`` / ``jest.mock`` (and friends) is
@@ -83,7 +96,7 @@ import sys
 from collections import defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable
+from typing import Callable, Iterable
 
 # Never leave __pycache__ behind in scripts/lsp-siet/ (the tool runs inside the tree it converts).
 sys.dont_write_bytecode = True
@@ -115,6 +128,8 @@ class Config:
     entry_point_group: tuple[str, str]
     symbol_moves: dict[str, str]
     env_renames: dict[str, str]
+    identifier_renames: dict[str, str] = field(default_factory=dict)
+    shared_helper_modules: tuple[str, ...] = ()
     collision_rules: tuple[tuple[str, str], ...] = (("platform/frontend/src/*", "siet-platform/"),)
     collision_default_winner: str = "open-notebook/"
 
@@ -130,6 +145,8 @@ class Config:
             entry_point_group=tuple(table.ENTRY_POINT_GROUP),  # type: ignore[arg-type]
             symbol_moves=dict(table.SYMBOL_MOVES),
             env_renames=dict(table.ENV_RENAMES),
+            identifier_renames=dict(getattr(table, "IDENTIFIER_RENAMES", {})),
+            shared_helper_modules=tuple(getattr(table, "SHARED_HELPER_MODULES", ())),
             collision_rules=tuple((glob, prefix) for glob, prefix in table.COLLISION_RULES),
             collision_default_winner=table.COLLISION_DEFAULT_WINNER,
         )
@@ -344,6 +361,55 @@ def _occupied(root: Path, src: str, dst: str) -> bool:
         return True
 
 
+def _disk_names(path: Path) -> list[str] | None:
+    try:
+        return os.listdir(path)
+    except OSError:
+        return None
+
+
+def case_renames(
+    root: Path,
+    dirs: Iterable[str],
+    *,
+    names: Callable[[Path], list[str] | None] = _disk_names,
+    exists: Callable[[Path], bool] = os.path.lexists,
+) -> list[tuple[str, str]]:
+    """Directories on the way to a destination that exist on disk under another spelling.
+
+    A case-insensitive disk (macOS, Windows) answers ``My-ai-quiz`` when asked for
+    ``my-ai-quiz``, so ``mkdir -p my-ai-quiz/app`` would create the new directory *inside* the old
+    one and the on-disk spelling would stay ``My-ai-quiz`` while the index says ``my-ai-quiz``.
+    Returns ``(path as spelled on disk, wanted path)`` pairs, shallowest first (the parent part of
+    both is already the wanted spelling); ``_rename_dirs`` applies them in two steps. A
+    case-sensitive disk has nothing to report: there the other spelling is another directory.
+    """
+    prefixes: set[str] = set()
+    for d in dirs:
+        parts = d.split("/") if d else []
+        prefixes.update("/".join(parts[:i]) for i in range(1, len(parts) + 1))
+    found: list[tuple[str, str]] = []
+    for prefix in sorted(prefixes, key=lambda p: (p.count("/"), p)):
+        parent, _, comp = prefix.rpartition("/")
+        if not exists(root / prefix):
+            continue
+        listing = names(root / parent if parent else root)
+        if listing is None or comp in listing:
+            continue
+        actual = next((n for n in listing if n.lower() == comp.lower()), None)
+        if actual is not None:
+            found.append((f"{parent}/{actual}" if parent else actual, prefix))
+    return found
+
+
+def _rename_dirs(root: Path, renames: list[tuple[str, str]]) -> None:
+    """Rename through a temporary name: a case-only rename in one step is a no-op on such disks."""
+    for disk, wanted in renames:
+        temporary = root / f"{disk}.case-rename"
+        os.rename(root / disk, temporary)
+        os.rename(temporary, root / wanted)
+
+
 # -------------------------------------------------------------------- Python module index
 
 
@@ -500,7 +566,14 @@ FROM_IMPORT = re.compile(
 RELATIVE_FROM = re.compile(
     r"^(?P<ind>[ \t]*)from[ \t]+(?P<dots>\.+)(?P<mod>[A-Za-z_][\w.]*)?(?P<gap>[ \t]+)import\b", re.M
 )
-PLAIN_IMPORT = re.compile(r"^(?P<ind>[ \t]*)import[ \t]+(?P<body>[A-Za-z_][\w.]*[^\n#;\\]*?)[ \t]*(?=#|;|\r?$)", re.M)
+RELATIVE_IMPORT = re.compile(
+    r"^(?P<ind>[ \t]*)from[ \t]+(?P<dots>\.+)(?P<mod>[A-Za-z_][\w.]*)?[ \t]+import[ \t]+(?P<at>)"
+    r"(?:\((?P<paren>[^)]*)\)|(?P<plain>[^\n#\\()]*?))[ \t]*(?P<comment>#[^\n\r]*)?(?=\r?$)",
+    re.M,
+)
+PLAIN_IMPORT = re.compile(
+    r"^(?P<ind>[ \t]*)import[ \t]+(?P<body>[A-Za-z_][\w.]*[^\n#;\\]*?)(?P<gap>[ \t]*)(?=#|;|\r?$)", re.M
+)
 DYNAMIC_IMPORT = re.compile(r"""(\b(?:import_module|__import__|find_spec)\s*\(\s*)(['"])([A-Za-z_][\w.]*)\2""")
 DOTTED = re.compile(r"(?<![\w.\\/-])([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)+)(?![\w])")
 SLASHED = re.compile(r"(?<![\w./\\-])([A-Za-z_]\w*(?:/[\w.\-]+)+)")
@@ -544,6 +617,23 @@ class PythonRewriter:
         if not old_mod or not new_mod:
             return text
         old_pkg, new_pkg = self._package(old_mod), self._package(new_mod)
+
+        def away(m: re.Match[str]) -> str:
+            """``from . import notes`` where notes.py now lives in another package: write the
+            statement with the old absolute module and let ``from_imports`` split and rename it."""
+            target_old = self._resolve_relative(old_pkg, len(m.group("dots")), m.group("mod"))
+            body = m.group("paren") if m.group("paren") is not None else m.group("plain")
+            items = parse_items(body) if body is not None else None
+            if target_old is None or not items or any(i.name == "*" for i in items):
+                return m.group(0)
+            target_new = self.index.rename_module(target_old)
+            for item in items:
+                child = f"{target_old}.{item.name}"
+                if child in self.index.known and self.index.rename_module(child) != f"{target_new}.{item.name}":
+                    return f"{m.group('ind')}from {target_old} import {m.group(0)[m.start('at') - m.start():]}"
+            return m.group(0)
+
+        text = RELATIVE_IMPORT.sub(away, text)
 
         def sub(m: re.Match[str]) -> str:
             dots, mod = len(m.group("dots")), m.group("mod")
@@ -624,7 +714,7 @@ class PythonRewriter:
                 out.append(f"{im.group(1)}{new}{im.group(3)}")
             if not changed:
                 return m.group(0)
-            return f"{m.group('ind')}import {','.join(out)}"
+            return f"{m.group('ind')}import {','.join(out)}{m.group('gap')}"
 
         return PLAIN_IMPORT.sub(sub, text)
 
@@ -654,8 +744,13 @@ class PythonRewriter:
     def _symbol_string(self, token: str) -> str:
         for key in self._symbols:
             if token == key or token.startswith(key + "."):
+                if self._is_shared(key):
+                    return token  # reported by ``leftovers``: patch it where it is used
                 return self.cfg.symbol_moves[key] + token[len(key):]
         return token
+
+    def _is_shared(self, key: str) -> bool:
+        return self.cfg.symbol_moves[key].rpartition(".")[0] in self.cfg.shared_helper_modules
 
     def slash_paths(self, text: str) -> str:
         def sub(m: re.Match[str]) -> str:
@@ -702,6 +797,12 @@ class PythonRewriter:
             full = re.search(rf"(?<![\w.'\"]){re.escape(key)}\b", text)
             if attr or full:
                 found.append(f"{name} now lives in {home}")
+            if self._is_shared(key):
+                for target in sorted(set(re.findall(rf"(?<=['\"])({re.escape(key)}(?:\.\w+)*)(?=['\"])", text))):
+                    found.append(
+                        f'patch target "{target}" was not rewritten: {name} now lives in {home} and '
+                        "is imported by name into the modules that use it, so patch it where it is used"
+                    )
         return found
 
 
@@ -854,6 +955,34 @@ class TsRewriter:
         return TS_SPEC.sub(sub, text)
 
 
+# ------------------------------------------------------------------------ module exports
+
+_COMMENTS = re.compile(r"/\*.*?\*/|(?<![:\"'`\\])//[^\n]*", re.S)
+_EXPORT_DECL = re.compile(
+    r"^[ \t]*export[ \t]+(?:declare[ \t]+)?(?:abstract[ \t]+)?(?:async[ \t]+)?"
+    r"(?:function\*?|const|let|var|class|enum|interface|type)[ \t]+([A-Za-z_$][\w$]*)", re.M
+)
+_EXPORT_LIST = re.compile(r"^[ \t]*export[ \t]+(?:type[ \t]+)?\{([^}]*)\}", re.M)
+_EXPORT_DEFAULT = re.compile(r"^[ \t]*export[ \t]+default\b", re.M)
+_EXPORT_STAR = re.compile(r"^[ \t]*export[ \t]+\*(?:[ \t]+as[ \t]+([A-Za-z_$][\w$]*))?[ \t]+from\b", re.M)
+
+
+def exports_of(text: str) -> set[str]:
+    """Names a TypeScript/JavaScript module exports (``default`` for the default export)."""
+    text = _COMMENTS.sub("", text)
+    names = set(_EXPORT_DECL.findall(text))
+    if _EXPORT_DEFAULT.search(text):
+        names.add("default")
+    for body in _EXPORT_LIST.findall(text):
+        for item in body.split(","):
+            item = re.sub(r"^\s*type\s+", "", item.strip())
+            if item:
+                names.add(re.split(r"\s+as\s+", item)[-1].strip())
+    for alias in _EXPORT_STAR.findall(text):
+        names.add(alias or "*")
+    return names
+
+
 # ------------------------------------------------------------------------------ env text
 
 ENV_NAMES = (".toml", ".json", ".yml", ".yaml", ".sh")
@@ -878,6 +1007,14 @@ def env_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
     pattern = re.compile(
         r"(?<![A-Za-z0-9_])(?<!-\$\{)(" + "|".join(re.escape(k) for k in sorted(renames, key=len, reverse=True)) + r")(?![A-Za-z0-9_])"
     )
+    return lambda text: pattern.sub(lambda m: renames[m.group(1)], text)
+
+
+def identifier_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
+    """Whole-word rewriter for renamed identifiers (``$`` counts as a word character for TS), or None."""
+    if not renames:
+        return None
+    pattern = re.compile(r"(?<![\w$])(" + "|".join(re.escape(k) for k in sorted(renames, key=len, reverse=True)) + r")(?![\w$])")
     return lambda text: pattern.sub(lambda m: renames[m.group(1)], text)
 
 
@@ -919,6 +1056,7 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
     py = PythonRewriter(cfg, plan, index)
     ts = TsRewriter(cfg, plan)
     env = env_rewriter(cfg.env_renames)
+    ident = identifier_rewriter(cfg.identifier_renames)
     verb = "would change" if check else "changed"
 
     # --- text rewrites, computed against the old locations before anything moves -------
@@ -933,7 +1071,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         name = posixpath.basename(f)
         is_py, is_ts, is_text = f.endswith(".py"), ts.handles(f), is_env_text(f)
         is_pyproject = name == "pyproject.toml"
-        if not (is_py or is_ts or is_pyproject or is_text):
+        is_script = f.endswith(TS_SUFFIXES)
+        if not (is_py or is_ts or is_pyproject or is_text or (is_script and ident is not None)):
             continue
         if (root / f).is_symlink():
             continue
@@ -951,6 +1090,8 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             after = ts.rewrite(after, f, new)
         if env is not None and is_text:
             after = env(after)
+        if ident is not None and (is_py or is_script):
+            after = ident(after)
         if after != before:
             changes[new] = (f, after)
         if mention:
@@ -978,6 +1119,15 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
             same.append(f"{loser} ({'identical' if c.same_content[loser] else 'different'}; {hint})")
         where = f" [decided at {c.meeting}]" if c.meeting and c.meeting != c.dst else ""
         out(f"collision: {c.dst}: kept {c.winner}, dropped {'; '.join(same)}{where}")
+        if c.winner.endswith(TS_SUFFIXES):
+            kept_exports = exports_of(read_text(root / c.winner) or "")
+            for loser in c.losers:
+                if loser.endswith(TS_SUFFIXES):
+                    extra = sorted(exports_of(read_text(root / loser) or "") - kept_exports)
+                    if extra:
+                        hand.append(
+                            f"{c.dst}: dropped {loser} exports {', '.join(extra)} that the kept {c.winner} lacks"
+                        )
     for message in plan.conflicts:
         out(f"conflict: {message}")
     for message in index.conflicts:
@@ -988,6 +1138,10 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         out(f"check by hand: {line}")
     if ts.unresolved:
         out(f"note: {len(set(ts.unresolved))} alias specifier(s) did not resolve to a file (kept by prefix)")
+    dir_renames = case_renames(root, {posixpath.dirname(dst) for dst in plan.moves.values()})
+    for disk, wanted in dir_renames:
+        out(f"note: {disk} is spelled {wanted} in the new layout (case-insensitive disk): "
+            f"{'would be ' if check else ''}renamed in two steps")
     ignored_left = _ignored_under_old_paths(root, cfg)
     for rel in ignored_left:
         out(f"note: ignored, not moved: {rel}")
@@ -1002,7 +1156,7 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
 
     # --- apply ------------------------------------------------------------------------------
     try:
-        _apply(root, plan, tracked, changes)
+        _apply(root, plan, tracked, changes, dir_renames)
     except (GitError, OSError) as exc:
         out(f"error: {exc}")
         out("The tree may be half converted. Running the codemod again finishes the job; "
@@ -1034,7 +1188,10 @@ def _ignored_under_old_paths(root: Path, cfg: Config) -> list[str]:
     return kept
 
 
-def _apply(root: Path, plan: Plan, tracked: set[str], changes: dict[str, tuple[str, str]]) -> None:
+def _apply(root: Path, plan: Plan, tracked: set[str], changes: dict[str, tuple[str, str]],
+           renames: list[tuple[str, str]] | None = None) -> None:
+    # 0. a destination directory that exists under another spelling gets the table's spelling
+    _rename_dirs(root, renames or [])
     # 1. losers of a collision
     for loser, dst in plan.drops.items():
         if loser in tracked:

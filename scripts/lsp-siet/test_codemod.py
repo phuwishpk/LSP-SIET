@@ -317,6 +317,40 @@ def test_collision_non_source_host_wins(tmp_path):
     assert apply(root, check=True)[0] == 0
 
 
+def test_collision_warns_when_the_dropped_page_exports_what_the_kept_one_lacks(tmp_path):
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/frontend/src/app/(dashboard)/a/page.tsx": dedent("""
+            export const dynamic = 'force-dynamic'
+            export const revalidate = 0
+            export async function generateMetadata() { return {} }
+            export const metadata = { title: 'A' }
+            export default function Page() { return null }
+        """),
+        "siet-platform/frontend/src/app/(dashboard)/a/page.tsx": "export { default } from '@siet/kmitl-rag/app/a/page'\n",
+        # same exports on both sides (default re-export vs default function): nothing to say
+        "open-notebook/frontend/src/app/(dashboard)/b/page.tsx": "export default function B() { return null }\n",
+        "siet-platform/frontend/src/app/(dashboard)/b/page.tsx": "export { default } from '@siet/x/b'\n",
+        # an extra named export that is not route config
+        "open-notebook/frontend/src/lib/util.ts": "export const keep = 1\nexport function extraHelper() {}\n",
+        "siet-platform/frontend/src/lib/util.ts": "export const keep = 2\n",
+        # a loser that is not a TS module is not read for exports
+        "open-notebook/frontend/src/lib/data.json": '{"export": 1}\n',
+        "siet-platform/frontend/src/lib/data.json": '{"export": 2}\n',
+    })
+    code, lines = apply(root)
+    assert code == 0
+    page = next(line for line in lines if line.startswith("check by hand: ") and "a/page.tsx" in line)
+    assert page == (
+        "check by hand: platform/frontend/src/app/(dashboard)/a/page.tsx: dropped "
+        "open-notebook/frontend/src/app/(dashboard)/a/page.tsx exports dynamic, generateMetadata, "
+        "metadata, revalidate that the kept siet-platform/frontend/src/app/(dashboard)/a/page.tsx lacks"
+    )
+    util = next(line for line in lines if line.startswith("check by hand: ") and "util.ts" in line)
+    assert "exports extraHelper that the kept" in util
+    assert not any("b/page.tsx" in line and line.startswith("check by hand") for line in lines)
+    assert not any("data.json" in line and line.startswith("check by hand") for line in lines)
+
+
 def test_collision_winner_stable_under_chained_move(tmp_path):
     """A later rule that moves a collided file again must not change who wins (Task 12 / Task 17).
 
@@ -495,6 +529,75 @@ def test_two_files_from_the_same_side_never_win_over_each_other(tmp_path):
     assert read(root, "extra/a.ts") == "two\n"
 
 
+# ------------------------------------------------- case-only renames (R22, macOS disks)
+
+
+class FakeCaseInsensitiveDisk:
+    """The two questions ``case_renames`` asks of a disk, answered like APFS/NTFS would."""
+
+    def __init__(self, tree: dict[str, list[str]]):
+        self.tree = {path.lower(): (path, names) for path, names in tree.items()}
+
+    def names(self, path: Path):
+        hit = self.tree.get(str(path).lower())
+        return list(hit[1]) if hit else None
+
+    def lexists(self, path: Path) -> bool:
+        return str(path).lower() in self.tree or any(
+            str(path).lower() == f"{parent}/{n.lower()}"
+            for parent, (_, names) in self.tree.items() for n in names
+        )
+
+
+def test_case_renames_plans_a_two_step_rename_for_a_differently_spelled_directory():
+    disk = FakeCaseInsensitiveDisk({"/r": ["My-ai-quiz", "docs"], "/r/My-ai-quiz": ["src"]})
+    plan = codemod.case_renames(Path("/r"), ["my-ai-quiz/app/src", "docs/x"], names=disk.names, exists=disk.lexists)
+    assert plan == [("My-ai-quiz", "my-ai-quiz")]
+
+
+def test_case_renames_follow_the_wanted_spelling_down_the_path():
+    disk = FakeCaseInsensitiveDisk({
+        "/r": ["My-ai-quiz"], "/r/My-ai-quiz": ["App"], "/r/My-ai-quiz/App": ["src"],
+    })
+    plan = codemod.case_renames(Path("/r"), ["my-ai-quiz/app/src/x"], names=disk.names, exists=disk.lexists)
+    assert plan == [("My-ai-quiz", "my-ai-quiz"), ("my-ai-quiz/App", "my-ai-quiz/app")]
+
+
+def test_case_renames_ignores_a_case_sensitive_disk_where_both_spellings_coexist():
+    """On Linux ``My-ai-quiz`` and ``my-ai-quiz`` are two directories: nothing to fix."""
+    listing = {"/r": ["My-ai-quiz"], "/r/My-ai-quiz": ["src"]}
+    plan = codemod.case_renames(
+        Path("/r"), ["my-ai-quiz/app/src"],
+        names=lambda p: listing.get(str(p)), exists=lambda p: str(p) in listing,
+    )
+    assert plan == []
+
+
+def test_case_renames_leaves_a_correctly_spelled_tree_and_a_missing_one_alone():
+    disk = FakeCaseInsensitiveDisk({"/r": ["my-ai-quiz"], "/r/my-ai-quiz": ["app"]})
+    assert codemod.case_renames(Path("/r"), ["my-ai-quiz/app", "ai-roadmap/app"],
+                                names=disk.names, exists=disk.lexists) == []
+
+
+def test_old_directory_spelled_with_other_case_ends_up_spelled_like_the_table(tmp_path):
+    """My-ai-quiz -> my-ai-quiz/app: on a case-insensitive disk the new directory used to be
+    created *inside* the old one and kept its spelling (checked on whatever disk runs the suite)."""
+    root = make_repo(tmp_path / "r", {
+        "My-ai-quiz/src/app/page.tsx": "export default 1\n",
+        "My-ai-quiz/package.json": "{}\n",
+    })
+    code, _ = apply(root)
+    assert code == 0
+    assert sorted(os.listdir(root)) == [".git", "my-ai-quiz"], os.listdir(root)
+    assert os.listdir(root / "my-ai-quiz") == ["app"]
+    assert sorted(os.listdir(root / "my-ai-quiz/app")) == ["package.json", "src"]
+    assert tracked(root) == {"my-ai-quiz/app/package.json", "my-ai-quiz/app/src/app/page.tsx"}
+    assert git(root, "status", "--porcelain").count("D ") == 0  # renames only, nothing deleted
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    assert apply(root, check=True)[0] == 0
+
+
 def test_symbol_split(tmp_path):
     root = make_repo(tmp_path / "r", {
         "siet-platform/siet_platform/__init__.py": "",
@@ -586,6 +689,51 @@ def test_task10_table_on_an_old_layout_branch(tmp_path):
     assert 'patch("kmitl_rag.routers.sources.repo_query")' in moved_test
 
 
+def test_patch_targets_that_moved_into_a_shared_helper_are_reported_not_rewritten(tmp_path):
+    """The quiz and roadmap services from-import ``_invoke_chat`` & co from ai_helpers, so
+    ``patch("siet_platform.ai_helpers._invoke_chat")`` would silently intercept nothing."""
+    root = make_repo(tmp_path / "r", {
+        "community/tests/test_x.py": dedent("""
+            from unittest import mock
+            from siet_platform.features.service import _invoke_chat, generate_quiz
+            from siet_platform.routers.features import _charge
+
+            def test_x(monkeypatch):
+                with mock.patch("siet_platform.features.service._invoke_chat") as chat:
+                    pass
+                monkeypatch.setattr("siet_platform.features.service._retrieve_rag_context", None)
+                with mock.patch("siet_platform.routers.features._charge"):
+                    pass
+                with mock.patch("siet_platform.features.service.generate_quiz"):
+                    pass
+        """),
+    })
+    code, lines = apply(root)
+    assert code == 0
+    text = read(root, "community/tests/test_x.py")
+    # imports are split to the new homes as before ...
+    assert "from siet_platform.ai_helpers import _invoke_chat\n" in text
+    assert "from siet_platform.http import _charge\n" in text
+    # ... a patch target that has a single new home still follows ...
+    assert 'mock.patch("siet_quiz.service.generate_quiz")' in text
+    # ... and one that moved into a shared helper is left as it was and reported
+    assert 'mock.patch("siet_platform.features.service._invoke_chat")' in text
+    assert 'setattr("siet_platform.features.service._retrieve_rag_context", None)' in text
+    assert 'mock.patch("siet_platform.routers.features._charge")' in text
+    hand = [line for line in lines if line.startswith("check by hand: community/tests/test_x.py: patch target")]
+    assert len(hand) == 3, hand
+    assert any('"siet_platform.features.service._invoke_chat"' in line
+               and "now lives in siet_platform.ai_helpers._invoke_chat" in line
+               and "patch it where it is used" in line for line in hand)
+    assert any('"siet_platform.routers.features._charge"' in line and "siet_platform.http._charge" in line for line in hand)
+    # the second run still reports them (the check has to stay visible until they are fixed)
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    code, lines = apply(root, check=True)
+    assert code == 0
+    assert sum(1 for line in lines if "patch target" in line) == 3
+
+
 def test_entry_point_group(tmp_path):
     root = make_repo(tmp_path / "r", {
         "kmitl-rag/pyproject.toml": dedent("""
@@ -668,7 +816,7 @@ def test_surreal_namespace_untouched(tmp_path):
             def f(): ...
             submit("open_notebook", "embed_source", {})
             NAMES = ["open_notebook.process_source", "open_notebook.run_transformation"]
-            def open_notebook_error_handler(): ...
+            def open_notebook_helper(): ...
             open_notebook_root = Path(__file__)
         '''),
     })
@@ -687,7 +835,7 @@ def test_surreal_namespace_untouched(tmp_path):
     assert 'submit("open_notebook", "embed_source", {})' in api
     assert '"open_notebook.process_source"' in api  # a command name, not a module
     assert '"open_notebook.run_transformation"' in api
-    assert "def open_notebook_error_handler" in api
+    assert "def open_notebook_helper" in api  # an identifier that is not in IDENTIFIER_RENAMES
     assert "open_notebook_root = Path" in api
 
 
@@ -724,6 +872,70 @@ def test_python_relative_imports(tmp_path):
     # moved together: relative imports are left alone
     assert read(root, "platform/siet_core/utils/__init__.py") == "from .chunking import chunk\nfrom . import helpers\n"
     assert read(root, "platform/siet_core/utils/helpers.py") == "from ..config import X\nfrom .chunking import chunk\n"
+
+
+def test_plain_import_keeps_the_whitespace_before_a_trailing_comment(tmp_path):
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/open_notebook/__init__.py": "",
+        "open-notebook/open_notebook/graphs/__init__.py": "",
+        "open-notebook/open_notebook/graphs/source.py": "x = 1\n",
+        "open-notebook/tests/test_a.py": dedent("""
+            def test_a():
+                import open_notebook.graphs.source  # noqa: F401  (enables logs)
+                import open_notebook.graphs.source, os  # noqa
+                import open_notebook.graphs.source\t# tab
+                import open_notebook.graphs.source;import os
+                import open_notebook.graphs.source
+        """),
+    })
+    apply(root)
+    assert read(root, "platform/tests/test_a.py") == dedent("""
+        def test_a():
+            import siet_core.graphs.source  # noqa: F401  (enables logs)
+            import siet_core.graphs.source, os  # noqa
+            import siet_core.graphs.source\t# tab
+            import siet_core.graphs.source;import os
+            import siet_core.graphs.source
+    """)
+
+
+def test_relative_import_of_a_module_that_moved_to_another_package(tmp_path):
+    """``from . import notes`` where notes.py went to kmitl_rag: the sibling is not a sibling any more."""
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/routers/__init__.py": "",
+        "open-notebook/api/routers/notes.py": "x = 1\n",
+        "open-notebook/api/routers/health.py": dedent("""
+            from . import notes
+            from . import health as me, notes as n  # keep this
+            from .notes import x
+            from .. import routers
+        """),
+        "open-notebook/api/main.py": dedent("""
+            from .routers import (
+                health,
+                notes,  # the notes API
+            )
+            from .routers import health as h
+        """),
+    })
+    code, lines = apply(root)
+    assert code == 0
+    assert read(root, "platform/api/routers/health.py") == dedent("""
+        from kmitl_rag.routers import notes
+        from api.routers import health as me  # keep this
+        from kmitl_rag.routers import notes as n
+        from kmitl_rag.routers.notes import x
+        from .. import routers
+    """)
+    assert read(root, "platform/api/main.py") == dedent("""
+        from api.routers import health
+        from kmitl_rag.routers import (
+            notes,  # the notes API
+        )
+        from .routers import health as h
+    """)
+    assert (root / "kmitl-rag/kmitl_rag/routers/notes.py").exists()
 
 
 def test_python_relative_import_of_split_files(tmp_path):
@@ -869,6 +1081,66 @@ def test_scripts_dir_of_the_tool_is_left_alone(tmp_path):
     })
     apply(root)
     assert read(root, "scripts/lsp-siet/moves.py") == body
+
+
+def test_identifier_renames_python_and_typescript_whole_word(tmp_path):
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/open_notebook/__init__.py": "",
+        "open-notebook/open_notebook/exceptions.py": "class OpenNotebookError(Exception): ...\n",
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/main.py": dedent("""
+            from open_notebook.exceptions import OpenNotebookError as E, OpenNotebookError
+            from open_notebook import exceptions
+
+            @app.exception_handler(OpenNotebookError)
+            async def open_notebook_error_handler(request, exc): ...
+
+            app.add_exception_handler(OpenNotebookError, open_notebook_error_handler)
+            raise exceptions.OpenNotebookError("x")
+            class MyOpenNotebookError(Exception): ...
+            name = "OpenNotebookError"
+            # R21: persisted names and the surreal-commands app are not identifiers to rename
+            ns = "open_notebook"
+            submit_command("open_notebook", "open_notebook.process_source")
+            @command("embed", app="open_notebook")
+            def f(): ...
+        """),
+        "open-notebook/frontend/src/lib/hooks/use-create-dialogs.tsx": dedent("""
+            export interface Dialogs { openNotebookDialog: () => void }
+            const openNotebookDialog = useCallback(() => setOpen(true), [])
+            const notopenNotebookDialog2 = 1, $openNotebookDialog = 2
+        """),
+        "community/frontend/src/x.tsx": "const { openNotebookDialog } = useCreateDialogs()\n",
+        "open-notebook/README.md": "OpenNotebookError stays in prose\n",
+    })
+    apply(root)
+    main = read(root, "platform/api/main.py")
+    assert "from siet_core.exceptions import SietError as E, SietError\n" in main
+    assert "@app.exception_handler(SietError)\nasync def siet_error_handler(request, exc)" in main
+    assert "app.add_exception_handler(SietError, siet_error_handler)" in main
+    assert 'raise exceptions.SietError("x")' in main
+    assert 'name = "SietError"' in main
+    assert "class MyOpenNotebookError(Exception)" in main  # not a whole word
+    assert 'ns = "open_notebook"' in main
+    assert 'submit_command("open_notebook", "open_notebook.process_source")' in main
+    assert '@command("embed", app="open_notebook")' in main
+    tsx = read(root, "platform/frontend/src/lib/hooks/use-create-dialogs.tsx")
+    assert "openCreateNotebookDialog: () => void" in tsx
+    assert "const openCreateNotebookDialog = useCallback" in tsx
+    assert "notopenNotebookDialog2" in tsx and "$openNotebookDialog" in tsx  # other identifiers
+    assert read(root, "community/frontend/src/x.tsx") == "const { openCreateNotebookDialog } = useCreateDialogs()\n"
+    assert read(root, "platform/README.md") == "OpenNotebookError stays in prose\n"
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "codemod")
+    assert apply(root, check=True)[0] == 0  # idempotent
+
+
+def test_identifier_table_names_the_renames_of_the_restructure():
+    assert moves.IDENTIFIER_RENAMES == {
+        "OpenNotebookError": "SietError",
+        "open_notebook_error_handler": "siet_error_handler",
+        "openNotebookDialog": "openCreateNotebookDialog",
+    }
 
 
 def test_env_renames(tmp_path):
@@ -1223,6 +1495,43 @@ def test_move_table_is_consistent():
     assert "@siet/platform/" not in cfg.ts_aliases_new.values()
     assert cfg.module_renames == {"open_notebook": "siet_core"}
     assert cfg.entry_point_group == ("open_notebook.extensions", "siet.extensions")
+
+
+NOTEBOOK_COMPONENTS_OLD = "open-notebook/frontend/src/app/(dashboard)/notebooks/components"
+
+
+def test_notebook_page_components_are_one_directory_rule_with_two_exceptions():
+    cfg = codemod.Config.from_moves()
+    plan = codemod.Plan(cfg, [], set())
+    rules = [(old, new) for old, new in cfg.moves if old.startswith(NOTEBOOK_COMPONENTS_OLD)]
+    assert len(rules) == 3, rules  # the directory and the two NoteEditorDialog files
+    # a file nobody listed (a teammate's new component) follows the directory
+    for name in ("BrandNew.tsx", "BrandNew.test.tsx", "hooks/useThing.ts"):
+        assert plan.final_path(f"{NOTEBOOK_COMPONENTS_OLD}/{name}")[0] == \
+            f"kmitl-rag/frontend/src/app/(dashboard)/notebooks/components/{name}"
+    # ModalProvider (host) opens NoteEditorDialog, so it stays in the host
+    for name in ("NoteEditorDialog.tsx", "NoteEditorDialog.test.tsx"):
+        assert plan.final_path(f"{NOTEBOOK_COMPONENTS_OLD}/{name}")[0] == \
+            f"platform/frontend/src/app/(dashboard)/notebooks/components/{name}"
+    # the table lists nothing per component any more
+    for name in ("ChatColumn", "NotebookCard", "NotesColumn", "SourcesColumn"):
+        assert not any(name in old for old, _ in cfg.moves), name
+
+
+def test_no_move_source_is_a_path_that_still_exists():
+    """MOVES is keyed by old-layout paths: the host keeps a route stub at several new paths
+    (platform/frontend/src/app/...), and a rule keyed at a stub would move the stub on every run."""
+    done = subprocess.run(["git", "ls-files", "-z"], cwd=HERE.parents[1], capture_output=True, text=True)
+    if done.returncode != 0:
+        pytest.skip("not a git checkout")
+    present = [p for p in done.stdout.split("\0") if p]
+    clashes = [
+        f"{old} -> {new}: {p}"
+        for old, new in moves.MOVES
+        for p in present
+        if p == old.strip("/") or p.startswith(old.strip("/") + "/")
+    ]
+    assert not clashes, "\n".join(clashes[:10])
 
 
 def test_malformed_rules_are_refused():

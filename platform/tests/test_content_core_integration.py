@@ -15,7 +15,7 @@ from loguru import logger
 
 
 def test_content_core_logs_are_enabled():
-    import siet_core.graphs.source# noqa: F401  (enables content_core logs)
+    import siet_core.graphs.source  # noqa: F401  (enables content_core logs)
 
     messages: list[str] = []
     sink_id = logger.add(lambda m: messages.append(m.record["message"]), level="INFO")
