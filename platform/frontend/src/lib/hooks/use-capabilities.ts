@@ -8,7 +8,7 @@ export const CAPABILITIES_QUERY_KEYS = {
 /**
  * Hook reporting which opt-in extraction runtimes (Docling, Crawl4AI local) are
  * available. These only change when the container is restarted with different
- * OPEN_NOTEBOOK_ENABLE_* flags, so cache aggressively like the providers list.
+ * LSP_SIET_ENABLE_* flags, so cache aggressively like the providers list.
  */
 export function useCapabilities() {
   return useQuery({

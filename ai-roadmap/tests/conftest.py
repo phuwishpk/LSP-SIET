@@ -9,7 +9,8 @@ from pathlib import Path
 
 # Same bootstrap as platform/tests/conftest.py: no password gate, .env loaded,
 # platform/ importable.
-os.environ["OPEN_NOTEBOOK_PASSWORD"] = ""
+os.environ["LSP_SIET_PASSWORD"] = ""
+os.environ["OPEN_NOTEBOOK_PASSWORD"] = ""  # the old name is a fallback: blank it too
 
 from dotenv import load_dotenv
 

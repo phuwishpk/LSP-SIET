@@ -22,10 +22,12 @@ async def _request(
     password: str | None,
     credentials: bytes | None = None,
 ) -> int:
+    # Neither name may leak in from the environment (the old one is a fallback).
+    monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD", raising=False)
     if password is None:
-        monkeypatch.delenv("OPEN_NOTEBOOK_PASSWORD", raising=False)
+        monkeypatch.delenv("LSP_SIET_PASSWORD", raising=False)
     else:
-        monkeypatch.setenv("OPEN_NOTEBOOK_PASSWORD", password)
+        monkeypatch.setenv("LSP_SIET_PASSWORD", password)
 
     headers = []
     if credentials is not None:

@@ -7,6 +7,7 @@
  * The answer is turned into the shape the player in this app reads.
  */
 
+import { env } from '../../lib/env';
 import { toAppQuestion, type SystemQuestion } from '../../lib/quizFormat';
 
 export const maxDuration = 60;
@@ -30,9 +31,9 @@ interface GenerateQuizRequest {
 const PASS_HEADERS = ['x-points-required', 'x-points-balance', 'x-points-kind', 'retry-after'];
 
 export async function POST(req: Request) {
-  const base = process.env.OPEN_NOTEBOOK_API_URL;
+  const base = env('LSP_SIET_API_URL');
   if (!base) {
-    return Response.json({ detail: 'OPEN_NOTEBOOK_API_URL is not set for the quiz app' }, { status: 500 });
+    return Response.json({ detail: 'LSP_SIET_API_URL is not set for the quiz app' }, { status: 500 });
   }
   const authorization = req.headers.get('authorization');
   if (!authorization) {

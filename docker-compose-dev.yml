@@ -116,7 +116,7 @@ services:
       - MARIADB_USER=workspace
       - MARIADB_PASSWORD=${MARIADB_PASSWORD:-workspace_password}
       - MARIADB_DATABASE=workspace
-      - OPEN_NOTEBOOK_ENCRYPTION_KEY=${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}
+      - LSP_SIET_ENCRYPTION_KEY=${LSP_SIET_ENCRYPTION_KEY:-${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}}
       - JWT_SECRET=${JWT_SECRET:-}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001,http://localhost:3002,http://localhost}
       - WORKSPACE_DISABLE_REGISTRATION=${WORKSPACE_DISABLE_REGISTRATION:-false}
@@ -222,9 +222,9 @@ services:
     container_name: kmitlai_dev_my_ai_quiz
     environment:
       - NEXT_PUBLIC_API_URL=/api
-      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_lsp_siet_api:5055
-      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_lsp_siet_api:5055
-      - OPEN_NOTEBOOK_API_KEY=${OPEN_NOTEBOOK_PASSWORD:-}
+      - NEXT_PUBLIC_LSP_SIET_API_URL=http://kmitlai_dev_lsp_siet_api:5055
+      - LSP_SIET_API_URL=http://kmitlai_dev_lsp_siet_api:5055
+      - LSP_SIET_API_KEY=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}
       - NODE_ENV=production
     networks:
       - kmitlai_default
@@ -267,7 +267,7 @@ services:
       - POCKETBASE_URL=http://kmitlai_dev_ai_roadmap_pocketbase:8090
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
-      - OPEN_NOTEBOOK_API_URL=http://kmitlai_dev_lsp_siet_api:5055
+      - LSP_SIET_API_URL=http://kmitlai_dev_lsp_siet_api:5055
       - NODE_ENV=production
     networks:
       - kmitlai_default

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import math
-import os
 import re
 import unicodedata
 from datetime import datetime, timedelta, timezone
@@ -12,25 +11,26 @@ from typing import Any, Dict, List, Optional, Tuple
 
 from loguru import logger
 
+from siet_core.env import env
 from siet_platform.cache.metrics import cache_metrics
 from siet_platform.cache.service import cache_service
 from siet_platform.cache.threshold_tuner import threshold_tuner
 from siet_core.utils.embedding import generate_embedding
 
 
-ANSWER_CACHE_TTL = int(os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_TTL", "3600"))
+ANSWER_CACHE_TTL = int(env("LSP_SIET_ANSWER_CACHE_TTL", "3600"))
 ANSWER_CACHE_THRESHOLD = float(
-    os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_SIMILARITY", "0.94")
+    env("LSP_SIET_ANSWER_CACHE_SIMILARITY", "0.94")
 )
 ANSWER_CACHE_MAX_ENTRIES = int(
-    os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_MAX_ENTRIES", "100")
+    env("LSP_SIET_ANSWER_CACHE_MAX_ENTRIES", "100")
 )
 # Phase 1: separate thresholds for high-confidence hits vs intent-validated hits
 ANSWER_CACHE_HIGH_THRESHOLD = float(
-    os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_HIGH_SIMILARITY", "0.97")
+    env("LSP_SIET_ANSWER_CACHE_HIGH_SIMILARITY", "0.97")
 )
 ANSWER_CACHE_MID_THRESHOLD = float(
-    os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_MID_SIMILARITY", "0.92")
+    env("LSP_SIET_ANSWER_CACHE_MID_SIMILARITY", "0.92")
 )
 
 

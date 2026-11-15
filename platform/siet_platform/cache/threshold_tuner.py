@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import datetime, timezone
 from typing import Optional
 
 from loguru import logger
 
+from siet_core.env import env
 from siet_platform.cache.metrics import cache_metrics
 from siet_platform.config import (
     ANSWER_CACHE_TUNER_ENABLED,
@@ -24,10 +24,10 @@ from siet_platform.config import (
 
 
 DEFAULT_HIGH_THRESHOLD = float(
-    os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_HIGH_SIMILARITY", "0.97")
+    env("LSP_SIET_ANSWER_CACHE_HIGH_SIMILARITY", "0.97")
 )
 DEFAULT_MID_THRESHOLD = float(
-    os.getenv("OPEN_NOTEBOOK_ANSWER_CACHE_MID_SIMILARITY", "0.92")
+    env("LSP_SIET_ANSWER_CACHE_MID_SIMILARITY", "0.92")
 )
 _MIN_GAP = 0.001
 

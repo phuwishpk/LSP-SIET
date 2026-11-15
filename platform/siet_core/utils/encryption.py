@@ -4,9 +4,11 @@ Field-level encryption for sensitive data using API keys.
 This module provides encryption/decryption for API keys stored in the database.
 Fernet uses AES-128-CBC with HMAC-SHA256 for authenticated encryption.
 
-OPEN_NOTEBOOK_ENCRYPTION_KEY accepts **any string**. A Fernet key is derived
+LSP_SIET_ENCRYPTION_KEY accepts **any string**. A Fernet key is derived
 from it via PBKDF2-HMAC-SHA256, so users can set a simple passphrase like
-``OPEN_NOTEBOOK_ENCRYPTION_KEY=my-secret`` and it will work. Values written
+``LSP_SIET_ENCRYPTION_KEY=my-secret`` and it will work. The setting's old name
+still works (see siet_core.env) and derives the very same key, so credentials
+stored under it keep decrypting. Values written
 by versions predating the PBKDF2 derivation (bare SHA-256, unmarked) still
 decrypt through the legacy path.
 
@@ -20,28 +22,31 @@ Usage:
 
 import base64
 import hashlib
-import os
 from pathlib import Path
 from typing import Optional
 
 from cryptography.fernet import Fernet, InvalidToken
 from loguru import logger
 
+from siet_core.env import env
+
 
 def get_secret_from_env(var_name: str) -> Optional[str]:
     """
     Get a secret from environment, supporting Docker secrets pattern.
 
-    Checks for VAR_FILE first (Docker secrets), then falls back to VAR.
+    Checks for VAR_FILE first (Docker secrets), then falls back to VAR. Both go
+    through ``env()``, so for a renamed setting the old name (and its _FILE
+    variant) is read when the new one is not set.
 
     Args:
-        var_name: Base name of the environment variable (e.g., "OPEN_NOTEBOOK_ENCRYPTION_KEY")
+        var_name: Base name of the environment variable (e.g., "LSP_SIET_ENCRYPTION_KEY")
 
     Returns:
         The secret value, or None if not configured.
     """
     # Check for _FILE variant first (Docker secrets)
-    file_path = os.environ.get(f"{var_name}_FILE")
+    file_path = env(f"{var_name}_FILE")
     if file_path:
         try:
             path = Path(file_path)
@@ -58,7 +63,7 @@ def get_secret_from_env(var_name: str) -> Optional[str]:
             logger.error(f"Failed to read {var_name} from file {file_path}: {e}")
 
     # Fall back to direct environment variable
-    return os.environ.get(var_name)
+    return env(var_name)
 
 
 def _get_or_create_encryption_key() -> str:
@@ -66,10 +71,11 @@ def _get_or_create_encryption_key() -> str:
     Get encryption key from environment, requires explicit configuration.
 
     Priority:
-    1. OPEN_NOTEBOOK_ENCRYPTION_KEY_FILE (Docker secrets)
-    2. OPEN_NOTEBOOK_ENCRYPTION_KEY (environment variable)
+    1. LSP_SIET_ENCRYPTION_KEY_FILE (Docker secrets)
+    2. LSP_SIET_ENCRYPTION_KEY (environment variable)
+    (each also under its old name, after the new one: see siet_core.env)
 
-    For production deployments, you MUST set OPEN_NOTEBOOK_ENCRYPTION_KEY explicitly!
+    For production deployments, you MUST set LSP_SIET_ENCRYPTION_KEY explicitly!
 
     Returns:
         Encryption key string.
@@ -78,12 +84,12 @@ def _get_or_create_encryption_key() -> str:
         ValueError: If no encryption key is configured.
     """
     # First check environment/Docker secrets
-    key = get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY")
+    key = get_secret_from_env("LSP_SIET_ENCRYPTION_KEY")
     if key:
         return key
 
     raise ValueError(
-        "OPEN_NOTEBOOK_ENCRYPTION_KEY is not set. "
+        "LSP_SIET_ENCRYPTION_KEY is not set. "
         "Set this environment variable to any secret string to enable "
         "encrypted storage of API keys in the database."
     )
@@ -112,7 +118,7 @@ PBKDF2_MARKER: str = "pbkdf2v1:"
 PBKDF2_ITERATIONS: int = 600_000
 
 # Fixed application salt (domain separation). Shared by all deployments by
-# design: the threat model assumes a high-entropy OPEN_NOTEBOOK_ENCRYPTION_KEY
+# design: the threat model assumes a high-entropy LSP_SIET_ENCRYPTION_KEY
 # (see docs/7-DEVELOPMENT/security.md), so the salt slows brute force without
 # acting as a per-install secret. Recorded in ADR-009.
 PBKDF2_SALT: bytes = b"open-notebook-credential-v1"
@@ -273,7 +279,7 @@ def decrypt_value(value: str) -> str:
         except InvalidToken as e:
             raise ValueError(
                 "Decryption failed: versioned value could not be decrypted. "
-                "Check OPEN_NOTEBOOK_ENCRYPTION_KEY configuration."
+                "Check LSP_SIET_ENCRYPTION_KEY configuration."
             ) from e
         except Exception as e:
             logger.error(f"Decryption failed: {e}")
@@ -286,7 +292,7 @@ def decrypt_value(value: str) -> str:
             # Looks like encrypted data but failed to decrypt - likely wrong key
             raise ValueError(
                 "Decryption failed: data appears to be encrypted but key is incorrect. "
-                "Check OPEN_NOTEBOOK_ENCRYPTION_KEY configuration."
+                "Check LSP_SIET_ENCRYPTION_KEY configuration."
             )
         # Not a valid token - treat as legacy plaintext
         return value

@@ -67,7 +67,7 @@ CORS_IS_DEFAULT_WILDCARD = _cors_origins_raw is None
 # exact reflect-any-Origin behavior this flag exists to prevent.
 CORS_ALLOW_CREDENTIALS = "*" not in CORS_ALLOWED_ORIGINS
 
-# Parsed once at module load; OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB changes require a restart.
+# Parsed once at module load; LSP_SIET_MAX_UPLOAD_SIZE_MB changes require a restart.
 MAX_UPLOAD_SIZE_BYTES = get_max_upload_size_bytes()
 
 DATABASE_STARTUP_RETRY_ATTEMPTS = 12
@@ -178,11 +178,11 @@ async def lifespan(app: FastAPI):
     logger.info("Starting API initialization...")
 
     # Security check: Encryption key
-    if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):
+    if not get_secret_from_env("LSP_SIET_ENCRYPTION_KEY"):
         logger.warning(
-            "OPEN_NOTEBOOK_ENCRYPTION_KEY not set. "
+            "LSP_SIET_ENCRYPTION_KEY not set. "
             "API key encryption will fail until this is configured. "
-            "Set OPEN_NOTEBOOK_ENCRYPTION_KEY to any secret string."
+            "Set LSP_SIET_ENCRYPTION_KEY to any secret string."
         )
 
     # Run database migrations
@@ -249,7 +249,7 @@ app.add_middleware(
 # is rejected before spending any work checking credentials.
 logger.info(
     f"Max request body size: {MAX_UPLOAD_SIZE_BYTES / (1024 * 1024):g}MB "
-    "(set OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB to change)"
+    "(set LSP_SIET_MAX_UPLOAD_SIZE_MB to change)"
 )
 app.add_middleware(MaxBodySizeMiddleware, max_body_size=MAX_UPLOAD_SIZE_BYTES)
 

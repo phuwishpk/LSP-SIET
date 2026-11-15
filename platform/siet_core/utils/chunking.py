@@ -9,12 +9,11 @@ Key functions:
 - chunk_text(): Splits text into chunks using appropriate splitter for content type
 
 Environment Variables:
-    OPEN_NOTEBOOK_CHUNK_SIZE: Maximum chunk size in tokens (default: 400)
-    OPEN_NOTEBOOK_CHUNK_OVERLAP: Overlap between chunks in tokens (default: 15% of CHUNK_SIZE)
-    OPEN_NOTEBOOK_MIN_CHUNK_SIZE: Minimum chunk size in tokens (default: 5)
+    LSP_SIET_CHUNK_SIZE: Maximum chunk size in tokens (default: 400)
+    LSP_SIET_CHUNK_OVERLAP: Overlap between chunks in tokens (default: 15% of CHUNK_SIZE)
+    LSP_SIET_MIN_CHUNK_SIZE: Minimum chunk size in tokens (default: 5)
 """
 
-import os
 import re
 from enum import Enum
 from pathlib import Path
@@ -27,31 +26,33 @@ from langchain_text_splitters import (
 )
 from loguru import logger
 
+from siet_core.env import env
+
 from .token_utils import token_count
 
 
 def _get_chunk_size() -> int:
     """Get chunk size from environment variable or use default."""
-    chunk_size_str = os.getenv("OPEN_NOTEBOOK_CHUNK_SIZE")
+    chunk_size_str = env("LSP_SIET_CHUNK_SIZE")
     if chunk_size_str:
         try:
             chunk_size = int(chunk_size_str)
             if chunk_size < 100:
                 logger.warning(
-                    f"OPEN_NOTEBOOK_CHUNK_SIZE ({chunk_size}) is too small. "
+                    f"LSP_SIET_CHUNK_SIZE ({chunk_size}) is too small. "
                     f"Using minimum value of 100."
                 )
                 return 100
             if chunk_size > 8192:
                 logger.warning(
-                    f"OPEN_NOTEBOOK_CHUNK_SIZE ({chunk_size}) is very large. "
+                    f"LSP_SIET_CHUNK_SIZE ({chunk_size}) is very large. "
                     f"This may cause issues with some embedding models."
                 )
             logger.info(f"Using custom chunk size: {chunk_size} tokens")
             return chunk_size
         except ValueError:
             logger.warning(
-                f"Invalid OPEN_NOTEBOOK_CHUNK_SIZE value: '{chunk_size_str}'. "
+                f"Invalid LSP_SIET_CHUNK_SIZE value: '{chunk_size_str}'. "
                 f"Using default: 400"
             )
     return 400
@@ -59,19 +60,19 @@ def _get_chunk_size() -> int:
 
 def _get_chunk_overlap(chunk_size: int) -> int:
     """Get chunk overlap from environment variable or calculate default (15% of chunk size)."""
-    overlap_str = os.getenv("OPEN_NOTEBOOK_CHUNK_OVERLAP")
+    overlap_str = env("LSP_SIET_CHUNK_OVERLAP")
     if overlap_str:
         try:
             overlap = int(overlap_str)
             if overlap < 0:
                 logger.warning(
-                    f"OPEN_NOTEBOOK_CHUNK_OVERLAP ({overlap}) cannot be negative. "
+                    f"LSP_SIET_CHUNK_OVERLAP ({overlap}) cannot be negative. "
                     f"Using 0."
                 )
                 return 0
             if overlap >= chunk_size:
                 logger.warning(
-                    f"OPEN_NOTEBOOK_CHUNK_OVERLAP ({overlap}) cannot be >= chunk size ({chunk_size}). "
+                    f"LSP_SIET_CHUNK_OVERLAP ({overlap}) cannot be >= chunk size ({chunk_size}). "
                     f"Using 15% of chunk size: {int(chunk_size * 0.15)}"
                 )
                 return int(chunk_size * 0.15)
@@ -79,7 +80,7 @@ def _get_chunk_overlap(chunk_size: int) -> int:
             return overlap
         except ValueError:
             logger.warning(
-                f"Invalid OPEN_NOTEBOOK_CHUNK_OVERLAP value: '{overlap_str}'. "
+                f"Invalid LSP_SIET_CHUNK_OVERLAP value: '{overlap_str}'. "
                 f"Using default: 15% of chunk size"
             )
     return int(chunk_size * 0.15)
@@ -94,20 +95,20 @@ def _get_min_chunk_size() -> int:
     llama.cpp's OpenAI-compatible endpoint, for example, returns null vector
     elements for such inputs and crashes downstream parsing.
     """
-    raw = os.getenv("OPEN_NOTEBOOK_MIN_CHUNK_SIZE")
+    raw = env("LSP_SIET_MIN_CHUNK_SIZE")
     if raw is None:
         return 5
     try:
         value = int(raw)
         if value < 0:
             logger.warning(
-                f"OPEN_NOTEBOOK_MIN_CHUNK_SIZE ({value}) cannot be negative. Using 0."
+                f"LSP_SIET_MIN_CHUNK_SIZE ({value}) cannot be negative. Using 0."
             )
             return 0
         return value
     except ValueError:
         logger.warning(
-            f"Invalid OPEN_NOTEBOOK_MIN_CHUNK_SIZE value: '{raw}'. Using default: 5"
+            f"Invalid LSP_SIET_MIN_CHUNK_SIZE value: '{raw}'. Using default: 5"
         )
         return 5
 

@@ -101,8 +101,8 @@ def crawl4ai_available() -> bool:
 # Engine name -> (availability probe, env var that enables it). Engines absent
 # from this map need no runtime and are always usable.
 _ENGINE_RUNTIMES: dict[str, tuple[str, str]] = {
-    "crawl4ai": ("crawl4ai_available", "OPEN_NOTEBOOK_ENABLE_CRAWL4AI"),
-    "docling": ("docling_available", "OPEN_NOTEBOOK_ENABLE_DOCLING"),
+    "crawl4ai": ("crawl4ai_available", "LSP_SIET_ENABLE_CRAWL4AI"),
+    "docling": ("docling_available", "LSP_SIET_ENABLE_DOCLING"),
 }
 
 

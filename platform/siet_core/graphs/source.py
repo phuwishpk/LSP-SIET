@@ -66,7 +66,7 @@ def _usable_engine(engine: str, kind: str) -> str:
 
     The engine choice is persisted in the database; runtime availability comes
     from environment flags that are re-evaluated on every boot. A redeploy that
-    drops OPEN_NOTEBOOK_ENABLE_CRAWL4AI/_DOCLING (or a failed on-demand install)
+    drops LSP_SIET_ENABLE_CRAWL4AI/_DOCLING (or a failed on-demand install)
     therefore leaves a stored selection pointing at an absent runtime, and
     passing it through fails every extraction with no usable diagnostic. Falling
     back to content-core's "auto" chain keeps ingestion working, loudly.

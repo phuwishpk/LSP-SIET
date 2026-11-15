@@ -61,7 +61,9 @@ What it does, in this order
    back in the new alias form. A relative specifier stays as it is while it still
    resolves to the same file from the new location; otherwise it becomes an alias.
 4. **Text.** ``ENV_RENAMES`` keys, whole word, in ``*.toml *.json *.yml *.yaml
-   Makefile Dockerfile* .env.example *.sh``.
+   Makefile Dockerfile* .env.example *.sh`` (not where the key is the fallback in a
+   ``${NEW:-${OLD:-default}}`` expression; Python and TypeScript sources, where the
+   ``LEGACY_NAMES`` tables live, are not text files in this sense and are never touched).
 
 Mentions of the old directory names in those file types, and ignored local directories
 left under old paths, are listed as ``check by hand`` / ``note`` lines; they never
@@ -865,10 +867,16 @@ def is_env_text(path: str) -> bool:
 
 
 def env_rewriter(renames: dict[str, str]) -> Callable[[str], str] | None:
+    """Whole-word rewriter for the setting names, or None when there is nothing to rename.
+
+    A name right after ``-${`` is left alone: that is the old name as the fallback in a
+    converted file's ``${NEW:-${OLD:-default}}`` (compose reads the new name, then the old
+    one), and renaming it would turn the fallback into a second copy of the new name.
+    """
     if not renames:
         return None
     pattern = re.compile(
-        r"(?<![A-Za-z0-9_])(" + "|".join(re.escape(k) for k in sorted(renames, key=len, reverse=True)) + r")(?![A-Za-z0-9_])"
+        r"(?<![A-Za-z0-9_])(?<!-\$\{)(" + "|".join(re.escape(k) for k in sorted(renames, key=len, reverse=True)) + r")(?![A-Za-z0-9_])"
     )
     return lambda text: pattern.sub(lambda m: renames[m.group(1)], text)
 

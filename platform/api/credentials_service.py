@@ -63,10 +63,10 @@ PROVIDER_MODALITIES: Dict[str, List[str]] = {
 
 def require_encryption_key() -> None:
     """Raise ValueError if encryption key is not configured."""
-    if not get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"):
+    if not get_secret_from_env("LSP_SIET_ENCRYPTION_KEY"):
         raise ValueError(
             "Encryption key not configured. "
-            "Set OPEN_NOTEBOOK_ENCRYPTION_KEY to enable storing API keys."
+            "Set LSP_SIET_ENCRYPTION_KEY to enable storing API keys."
         )
 
 
@@ -216,7 +216,7 @@ async def get_provider_status() -> dict:
     Get configuration status: encryption key status, and per-provider
     configured/source information.
     """
-    encryption_configured = bool(get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY"))
+    encryption_configured = bool(get_secret_from_env("LSP_SIET_ENCRYPTION_KEY"))
 
     configured: Dict[str, bool] = {}
     source: Dict[str, str] = {}

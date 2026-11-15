@@ -20,7 +20,7 @@ env-check:  ## Verify .env exists (copy from .env.example if missing)
 	@if [ ! -f $(ENV_FILE) ]; then \
 		echo "✗ Missing $(ENV_FILE). Copying from .env.example..."; \
 		cp .env.example $(ENV_FILE); \
-		echo "  ✓ Created $(ENV_FILE). Edit it to set OPEN_NOTEBOOK_ENCRYPTION_KEY and API keys."; \
+		echo "  ✓ Created $(ENV_FILE). Edit it to set LSP_SIET_ENCRYPTION_KEY and API keys."; \
 	else \
 		echo "✓ $(ENV_FILE) exists."; \
 	fi

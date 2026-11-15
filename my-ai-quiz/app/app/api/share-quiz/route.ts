@@ -1,10 +1,12 @@
+import { env } from '../../lib/env';
+
 /**
  * Server-side bridge: POST /quiz/api/share-quiz
  * Body: { session_id: string, content?: string, title?: string }
  * Creates a SIET Space community post that embeds the generated quiz.
  */
 export async function POST(req: Request) {
-  const workspaceApiUrl = process.env.OPEN_NOTEBOOK_API_URL;
+  const workspaceApiUrl = env('LSP_SIET_API_URL');
   const authorization = req.headers.get('authorization');
   if (!workspaceApiUrl || !authorization) {
     return Response.json({ error: 'Not signed in to the workspace' }, { status: 401 });

@@ -14,15 +14,15 @@ class PasswordAuthMiddleware(BaseHTTPMiddleware):
     """
     Middleware to check password authentication for all API requests.
     Auth is fully disabled (no hardcoded default password) if
-    OPEN_NOTEBOOK_PASSWORD is not set.
-    Supports Docker secrets via OPEN_NOTEBOOK_PASSWORD_FILE.
+    LSP_SIET_PASSWORD is not set.
+    Supports Docker secrets via LSP_SIET_PASSWORD_FILE.
     """
 
     def __init__(
         self, app: ASGIApp, excluded_paths: Optional[list[str]] = None
     ) -> None:
         super().__init__(app)
-        self.password = get_secret_from_env("OPEN_NOTEBOOK_PASSWORD")
+        self.password = get_secret_from_env("LSP_SIET_PASSWORD")
         self.excluded_paths: list[str] = excluded_paths or [
             "/",
             "/health",

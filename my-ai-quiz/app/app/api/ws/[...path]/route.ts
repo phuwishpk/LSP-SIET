@@ -1,8 +1,10 @@
+import { env } from '../../../lib/env';
+
 /**
  * Server-side relay to the SIET Space API (Open Notebook).
  *
  * The browser calls `/quiz/api/ws/<path>`; this forwards it to
- * `${OPEN_NOTEBOOK_API_URL}/api/<path>` with the caller's Authorization header.
+ * `${LSP_SIET_API_URL}/api/<path>` with the caller's Authorization header.
  * The API does all the authentication and permission checks - this only keeps
  * the browser from needing the API's address (which differs per deployment).
  * Same rules as the AI Roadmap app's relay.
@@ -14,9 +16,9 @@ const REQUEST_HEADERS = ['authorization', 'content-type', 'accept'];
 const RESPONSE_HEADERS = ['content-type', 'retry-after', 'x-points-required', 'x-points-balance', 'x-points-kind'];
 
 async function relay(req: Request, { params }: { params: Promise<{ path: string[] }> }) {
-  const base = process.env.OPEN_NOTEBOOK_API_URL;
+  const base = env('LSP_SIET_API_URL');
   if (!base) {
-    return Response.json({ detail: 'OPEN_NOTEBOOK_API_URL is not set for the quiz app' }, { status: 500 });
+    return Response.json({ detail: 'LSP_SIET_API_URL is not set for the quiz app' }, { status: 500 });
   }
   const segments = (await params).path || [];
   const path = segments.join('/');

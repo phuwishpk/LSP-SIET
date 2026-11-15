@@ -15,6 +15,8 @@ import shlex
 import sys
 from pathlib import Path
 
+import pytest
+
 sys.dont_write_bytecode = True  # keep scripts/lsp-siet/ free of .pyc files
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -166,3 +168,89 @@ def test_known_failures_file_is_sorted_and_used_by_ci():
     assert all(i == i.rstrip() and "::" in i for i in ids), "an id has trailing blanks or is not a node id"
     workflow = (ROOT / ".github/workflows/image.yml").read_text(encoding="utf-8")
     assert "docs/lsp-siet/known-failures.txt" in workflow and '--deselect "$id"' in workflow
+
+
+# --- settings: LSP_SIET_* in the infra files, the old OPEN_NOTEBOOK_* names only as fallbacks ---
+
+COMPOSE_FILES = ["docker-compose.yml", "docker-compose-dev.yml", "docker-compose.prod.yml"]
+# `- LSP_SIET_<container variable>=${LSP_SIET_<.env name>:-${OPEN_NOTEBOOK_<.env name>:-default}}`
+FALLBACK = re.compile(r"- LSP_SIET_(\w+)=\$\{LSP_SIET_(\w+):-\$\{OPEN_NOTEBOOK_\2:-")
+
+
+def test_infra_names_settings_with_the_new_names_only_as_fallbacks():
+    """Production .env files keep the old names; the infra reads them only as `${NEW:-${OLD:-x}}`."""
+    hits = []
+    for path in infra_files():
+        text = path.read_text(encoding="utf-8", errors="replace")
+        for number, line in enumerate(text.splitlines(), 1):
+            for match in re.finditer(r"OPEN_NOTEBOOK_", line):
+                if line[: match.start()].endswith("-${"):
+                    continue
+                hits.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")
+    assert not hits, "old setting names outside a fallback:\n" + "\n".join(hits)
+
+
+def legacy_names() -> dict[str, str]:
+    """new -> old, read from the table in platform/siet_core/env.py (it is not importable here)."""
+    text = (ROOT / "platform/siet_core/env.py").read_text(encoding="utf-8")
+    return dict(re.findall(r'"((?:NEXT_PUBLIC_)?LSP_SIET_\w+)": "((?:NEXT_PUBLIC_)?OPEN_NOTEBOOK_\w+)"', text))
+
+
+def test_compose_reads_every_renamed_setting_with_its_old_name_as_fallback():
+    """`${LSP_SIET_X:-...}` of a renamed setting must be `${LSP_SIET_X:-${OPEN_NOTEBOOK_X:-...}}`."""
+    table = legacy_names()
+    assert len(table) > 40, "could not read LEGACY_NAMES"
+    missing = []
+    for compose in COMPOSE_FILES:
+        for number, line in enumerate((ROOT / compose).read_text(encoding="utf-8").splitlines(), 1):
+            for match in re.finditer(r"\$\{(LSP_SIET_\w+):-", line):
+                new = match.group(1)
+                if new in table and not line[match.end():].startswith("${" + table[new] + ":-"):
+                    missing.append(f"{compose}:{number}: {new} has no {table[new]} fallback")
+    assert not missing, "\n".join(missing)
+
+
+def compose_environment(compose: str, env_file: Path) -> dict[str, dict[str, str]]:
+    import json
+    import subprocess
+
+    done = subprocess.run(
+        ["docker", "compose", "-f", str(ROOT / compose), "--env-file", str(env_file), "config", "--format", "json"],
+        capture_output=True, text=True, cwd=ROOT,
+    )
+    assert done.returncode == 0, done.stderr
+    return {name: svc.get("environment") or {} for name, svc in json.loads(done.stdout)["services"].items()}
+
+
+def has_docker_compose() -> bool:
+    import shutil
+    import subprocess
+
+    if not shutil.which("docker"):
+        return False
+    return subprocess.run(["docker", "compose", "version"], capture_output=True).returncode == 0
+
+
+@pytest.mark.skipif(not has_docker_compose(), reason="docker compose is not installed")
+@pytest.mark.parametrize("compose", COMPOSE_FILES)
+def test_compose_reads_the_old_setting_names_and_prefers_the_new(compose, tmp_path):
+    text = (ROOT / compose).read_text(encoding="utf-8")
+    pairs = sorted(set(FALLBACK.findall(text)))  # (container variable, .env name)
+    assert pairs, f"{compose} has no setting with a fallback"
+
+    def resolved(lines: str, name: str) -> dict[str, str]:
+        env_file = tmp_path / name
+        env_file.write_text(lines)
+        return {k: v for env in compose_environment(compose, env_file).values() for k, v in env.items()}
+
+    seen = resolved("".join(f"OPEN_NOTEBOOK_{n}=old-{n}\n" for _, n in pairs), "old.env")
+    for var, n in pairs:
+        assert seen.get(f"LSP_SIET_{var}") == f"old-{n}", f"{compose}: an OPEN_NOTEBOOK_{n} .env line is lost"
+
+    seen = resolved("".join(f"OPEN_NOTEBOOK_{n}=old-{n}\nLSP_SIET_{n}=new-{n}\n" for _, n in pairs), "both.env")
+    for var, n in pairs:
+        assert seen.get(f"LSP_SIET_{var}") == f"new-{n}", f"{compose}: LSP_SIET_{n} does not win"
+
+    seen = resolved("".join(f"OPEN_NOTEBOOK_{n}=old-{n}\nLSP_SIET_{n}=\n" for _, n in pairs), "blank.env")
+    for var, n in pairs:
+        assert seen.get(f"LSP_SIET_{var}") == f"old-{n}", f"{compose}: a blank LSP_SIET_{n} shadows the old name"

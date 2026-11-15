@@ -21,8 +21,14 @@ from siet_core.utils.encryption import decrypt_value, encrypt_value
 @pytest.fixture()
 def enc_key(monkeypatch):
     """Isolate the module from ambient env and cached keys per test."""
-    monkeypatch.setenv("OPEN_NOTEBOOK_ENCRYPTION_KEY", "test-passphrase")
-    monkeypatch.delenv("OPEN_NOTEBOOK_ENCRYPTION_KEY_FILE", raising=False)
+    # The old names are fallbacks: none of them may leak in from the environment.
+    for name in (
+        "LSP_SIET_ENCRYPTION_KEY_FILE",
+        "OPEN_NOTEBOOK_ENCRYPTION_KEY",
+        "OPEN_NOTEBOOK_ENCRYPTION_KEY_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("LSP_SIET_ENCRYPTION_KEY", "test-passphrase")
     monkeypatch.setattr(enc, "_ENCRYPTION_KEY", None)
     monkeypatch.setattr(enc, "_FERNET", None)
     monkeypatch.setattr(enc, "_FERNET_LEGACY", None)
@@ -83,7 +89,7 @@ def test_legacy_plaintext_passthrough(fast_kdf):
 def test_marked_value_wrong_key_raises(fast_kdf, monkeypatch):
     """A marked value under the wrong key raises, never returns ciphertext."""
     stored = encrypt_value("sk-live-secret")
-    monkeypatch.setenv("OPEN_NOTEBOOK_ENCRYPTION_KEY", "wrong-passphrase")
+    monkeypatch.setenv("LSP_SIET_ENCRYPTION_KEY", "wrong-passphrase")
     monkeypatch.setattr(enc, "_ENCRYPTION_KEY", None)
     monkeypatch.setattr(enc, "_FERNET", None)
     monkeypatch.setattr(enc, "_FERNET_LEGACY", None)
@@ -290,8 +296,13 @@ async def test_pass_requires_encryption_key(patch_repo, monkeypatch):
     """Without a configured key the pass fails closed before touching rows."""
     from api.credentials_service import migrate_encryption_scheme
 
-    monkeypatch.delenv("OPEN_NOTEBOOK_ENCRYPTION_KEY", raising=False)
-    monkeypatch.delenv("OPEN_NOTEBOOK_ENCRYPTION_KEY_FILE", raising=False)
+    for name in (
+        "LSP_SIET_ENCRYPTION_KEY",
+        "LSP_SIET_ENCRYPTION_KEY_FILE",
+        "OPEN_NOTEBOOK_ENCRYPTION_KEY",
+        "OPEN_NOTEBOOK_ENCRYPTION_KEY_FILE",
+    ):
+        monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr(enc, "_ENCRYPTION_KEY", None)
     monkeypatch.setattr(enc, "_FERNET", None)
     monkeypatch.setattr(enc, "_FERNET_LEGACY", None)

@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import { env } from "./src/lib/env";
 
 // Next.js dev server blocks cross-origin requests (including the HMR
 // websocket) from any host not in this list, to guard against DNS
@@ -23,7 +24,7 @@ const nextConfig: NextConfig = {
   // Otherwise Next.js truncates large multipart requests before they reach the API.
   experimental: {
     externalDir: true,
-    proxyClientMaxBodySize: `${process.env.OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB || '2048'}mb`,
+    proxyClientMaxBodySize: `${env('LSP_SIET_MAX_UPLOAD_SIZE_MB') || '2048'}mb`,
   } as NextConfig['experimental'],
 
   // API Rewrites: Proxy /api/* requests to FastAPI backend

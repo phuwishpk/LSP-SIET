@@ -1,8 +1,8 @@
-import os
-
 from loguru import logger
 from starlette.datastructures import Headers
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
+
+from siet_core.env import env
 
 # Matches the file-size guidance already documented in
 # docs/3-USER-GUIDE/adding-sources.md ("Very large files (>100MB) - Timeout").
@@ -12,19 +12,19 @@ DEFAULT_MAX_UPLOAD_SIZE_MB = 100
 def get_max_upload_size_bytes() -> int:
     """Read the configured max request body size, in bytes.
 
-    Configurable via OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB for deployments that
+    Configurable via LSP_SIET_MAX_UPLOAD_SIZE_MB for deployments that
     need larger audio/video uploads; falls back to the default on unset,
     malformed, or non-positive values (a zero/negative limit would reject
     every request that has a body).
     """
-    raw = os.environ.get("OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB", "").strip()
+    raw = env("LSP_SIET_MAX_UPLOAD_SIZE_MB", "").strip()
     try:
         mb = float(raw) if raw else DEFAULT_MAX_UPLOAD_SIZE_MB
     except ValueError:
         mb = DEFAULT_MAX_UPLOAD_SIZE_MB
     if mb <= 0:
         logger.warning(
-            f"OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB={raw!r} is not a positive size; "
+            f"LSP_SIET_MAX_UPLOAD_SIZE_MB={raw!r} is not a positive size; "
             f"using the default of {DEFAULT_MAX_UPLOAD_SIZE_MB}MB"
         )
         mb = DEFAULT_MAX_UPLOAD_SIZE_MB

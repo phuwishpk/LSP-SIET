@@ -36,7 +36,7 @@ PUBLIC_PATHS = {
 
 def _jwt_enabled() -> bool:
     secret = get_secret_from_env("JWT_SECRET") or get_secret_from_env(
-        "OPEN_NOTEBOOK_ENCRYPTION_KEY"
+        "LSP_SIET_ENCRYPTION_KEY"
     )
     return bool(secret)
 
@@ -47,7 +47,7 @@ def _try_resolve_jwt(token: str) -> Optional[str]:
         from siet_platform.auth_jwt import JWT_AUDIENCE, JWT_ISSUER, decode_access_token
 
         secret = get_secret_from_env("JWT_SECRET") or get_secret_from_env(
-            "OPEN_NOTEBOOK_ENCRYPTION_KEY"
+            "LSP_SIET_ENCRYPTION_KEY"
         )
         if not secret:
             return None

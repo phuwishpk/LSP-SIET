@@ -1,8 +1,10 @@
+import { env } from '../../../lib/env'
+
 /**
  * Server-side relay to the SIET Space API (Open Notebook).
  *
  * The browser calls `/roadmap/api/ws/<path>`; this forwards it to
- * `${OPEN_NOTEBOOK_API_URL}/api/<path>` with the caller's Authorization header.
+ * `${LSP_SIET_API_URL}/api/<path>` with the caller's Authorization header.
  * The API does all the authentication and permission checks - this only keeps
  * the browser from needing the API's address (which differs per deployment).
  */
@@ -28,9 +30,9 @@ async function readBody(req) {
 }
 
 export default async function handler(req, res) {
-  const base = process.env.OPEN_NOTEBOOK_API_URL
+  const base = env('LSP_SIET_API_URL')
   if (!base) {
-    return res.status(500).json({ detail: 'OPEN_NOTEBOOK_API_URL is not set for the roadmap app' })
+    return res.status(500).json({ detail: 'LSP_SIET_API_URL is not set for the roadmap app' })
   }
   const segments = [].concat(req.query.path || [])
   const path = segments.join('/')

@@ -7,6 +7,8 @@ circuit breaker. (open-notebook's own /api/config stays in api.routers.config.)
 from fastapi import APIRouter, Request
 from loguru import logger
 
+from siet_core.env import env
+
 router = APIRouter()
 
 
@@ -245,9 +247,7 @@ async def get_threshold_history():
     """
     from siet_platform.cache.tuner_decision_log import get_history
 
-    limit_str = __import__("os").environ.get(
-        "OPEN_NOTEBOOK_TUNER_HISTORY_LIMIT", "100"
-    )
+    limit_str = env("LSP_SIET_TUNER_HISTORY_LIMIT", "100")
     limit = max(1, min(1000, int(limit_str)))
     history = await get_history(limit=limit)
     return {"count": len(history), "decisions": history}

@@ -898,6 +898,39 @@ def test_env_renames(tmp_path):
     assert read(root, "readme.md") == "OPEN_NOTEBOOK_PASSWORD stays in prose\n"
 
 
+def test_env_renames_keep_the_fallback_names_of_a_converted_tree(tmp_path):
+    """A tree that already has LSP_SIET_* names mentions the old ones only as fallbacks."""
+    compose = (
+        "environment:\n"
+        "  - LSP_SIET_PASSWORD=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}\n"
+        "  - LSP_SIET_API_KEY=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD}}\n"
+    )
+    tables = {
+        "platform/siet_core/env.py": 'LEGACY_NAMES = {\n    "LSP_SIET_PASSWORD": "OPEN_NOTEBOOK_PASSWORD",\n}\n',
+        "platform/frontend/src/lib/env.ts": "export const LEGACY_NAMES = {\n  LSP_SIET_PASSWORD: 'OPEN_NOTEBOOK_PASSWORD',\n}\n",
+        "ai-roadmap/app/src/lib/env.js": "export const LEGACY_NAMES = {\n  LSP_SIET_PASSWORD: 'OPEN_NOTEBOOK_PASSWORD',\n}\n",
+    }
+    root = make_repo(tmp_path / "r", {"docker-compose.yml": compose, **tables})
+    apply(root, config(env_renames={"OPEN_NOTEBOOK_PASSWORD": "LSP_SIET_PASSWORD"}))
+    assert read(root, "docker-compose.yml") == compose
+    for path, body in tables.items():
+        assert read(root, path) == body
+
+
+def test_env_renames_still_rewrite_a_plain_reference_next_to_a_fallback(tmp_path):
+    root = make_repo(tmp_path / "r", {
+        "docker-compose.yml": (
+            "  - A=${OPEN_NOTEBOOK_PASSWORD:-x}\n"
+            "  - B=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-x}} ${OPEN_NOTEBOOK_PASSWORD}\n"
+        ),
+    })
+    apply(root, config(env_renames={"OPEN_NOTEBOOK_PASSWORD": "LSP_SIET_PASSWORD"}))
+    assert read(root, "docker-compose.yml") == (
+        "  - A=${LSP_SIET_PASSWORD:-x}\n"
+        "  - B=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-x}} ${LSP_SIET_PASSWORD}\n"
+    )
+
+
 def test_chained_moves_reach_the_final_path_in_one_run(tmp_path):
     """Rules added by later tasks apply to branches that still have the old layout."""
     root = make_repo(tmp_path / "r", {

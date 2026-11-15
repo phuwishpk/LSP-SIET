@@ -30,7 +30,7 @@ class TestEngineRuntimeMissing:
             "siet_core.utils.runtime_capabilities.crawl4ai_available",
             return_value=False,
         ):
-            assert engine_runtime_missing("crawl4ai") == "OPEN_NOTEBOOK_ENABLE_CRAWL4AI"
+            assert engine_runtime_missing("crawl4ai") == "LSP_SIET_ENABLE_CRAWL4AI"
 
     def test_crawl4ai_is_usable_when_available(self):
         with patch(
@@ -44,7 +44,7 @@ class TestEngineRuntimeMissing:
             "siet_core.utils.runtime_capabilities.docling_available",
             return_value=False,
         ):
-            assert engine_runtime_missing("docling") == "OPEN_NOTEBOOK_ENABLE_DOCLING"
+            assert engine_runtime_missing("docling") == "LSP_SIET_ENABLE_DOCLING"
 
     def test_docling_is_usable_when_available(self):
         with patch(
@@ -61,7 +61,7 @@ class TestEngineRuntimeMissing:
         ):
             assert (
                 engine_runtime_missing("  Crawl4AI  ")
-                == "OPEN_NOTEBOOK_ENABLE_CRAWL4AI"
+                == "LSP_SIET_ENABLE_CRAWL4AI"
             )
 
     def test_remote_crawl4ai_counts_as_available(self):

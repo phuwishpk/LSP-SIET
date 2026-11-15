@@ -11,13 +11,13 @@ to ensure consistent behavior and proper handling of large content.
 """
 
 import asyncio
-import os
 from typing import List, Optional
 
 import numpy as np
 from loguru import logger
 
 from siet_core import extensions
+from siet_core.env import env
 
 from .chunking import CHUNK_SIZE, ContentType, chunk_text
 from .token_utils import token_count
@@ -30,7 +30,7 @@ def _get_embedding_batch_size() -> int:
     This is intentionally configurable because provider limits vary widely, and
     CPU-only local embedding endpoints often need smaller batches than cloud APIs.
     """
-    raw = os.getenv("OPEN_NOTEBOOK_EMBEDDING_BATCH_SIZE", "50").strip()
+    raw = env("LSP_SIET_EMBEDDING_BATCH_SIZE", "50").strip()
     try:
         value = int(raw)
         if value < 1:
@@ -38,7 +38,7 @@ def _get_embedding_batch_size() -> int:
         return value
     except ValueError:
         logger.warning(
-            "Invalid OPEN_NOTEBOOK_EMBEDDING_BATCH_SIZE='{}'; falling back to 50",
+            "Invalid LSP_SIET_EMBEDDING_BATCH_SIZE='{}'; falling back to 50",
             raw,
         )
         return 50

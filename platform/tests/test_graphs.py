@@ -513,7 +513,7 @@ class TestContentProcessDeleteSource:
 
         The selection is persisted in the database while runtime availability
         comes from environment flags, so a redeploy that drops
-        OPEN_NOTEBOOK_ENABLE_CRAWL4AI leaves the setting pointing at a runtime
+        LSP_SIET_ENABLE_CRAWL4AI leaves the setting pointing at a runtime
         that is not installed. Passing it through failed every URL ingestion
         with "Could not extract any text content from this source" and no clue
         as to why; the extraction must degrade to content-core's "auto" chain
@@ -550,8 +550,8 @@ class TestContentProcessDeleteSource:
         with patch(
             "siet_core.graphs.source.engine_runtime_missing",
             side_effect=lambda engine: {
-                "crawl4ai": "OPEN_NOTEBOOK_ENABLE_CRAWL4AI",
-                "docling": "OPEN_NOTEBOOK_ENABLE_DOCLING",
+                "crawl4ai": "LSP_SIET_ENABLE_CRAWL4AI",
+                "docling": "LSP_SIET_ENABLE_DOCLING",
             }.get(engine),
         ):
             await content_process(cast(SourceState, state))

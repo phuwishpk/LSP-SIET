@@ -44,13 +44,13 @@ def get_jwt_secret() -> Optional[str]:
     """
     Resolve the signing secret.
 
-    Priority: ``JWT_SECRET`` env -> ``OPEN_NOTEBOOK_ENCRYPTION_KEY`` (reuse
+    Priority: ``JWT_SECRET`` env -> ``LSP_SIET_ENCRYPTION_KEY`` (reuse
     the existing app-wide secret) -> ``None`` (JWT auth disabled).
     """
     secret = get_secret_from_env("JWT_SECRET")
     if secret:
         return secret
-    return get_secret_from_env("OPEN_NOTEBOOK_ENCRYPTION_KEY")
+    return get_secret_from_env("LSP_SIET_ENCRYPTION_KEY")
 
 
 def get_token_ttl() -> int:
@@ -93,7 +93,7 @@ def issue_access_token(user: User) -> tuple[str, int]:
     secret = get_jwt_secret()
     if not secret:
         raise RuntimeError(
-            "Cannot issue JWT: set JWT_SECRET or OPEN_NOTEBOOK_ENCRYPTION_KEY"
+            "Cannot issue JWT: set JWT_SECRET or LSP_SIET_ENCRYPTION_KEY"
         )
     token = jwt.encode(payload, secret, algorithm=JWT_ALGORITHM)
     return token, expires_at

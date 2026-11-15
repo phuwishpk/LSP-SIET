@@ -473,7 +473,7 @@ class ApiKeyStatusResponse(BaseModel):
     )
     encryption_configured: bool = Field(
         ...,
-        description="Whether OPEN_NOTEBOOK_ENCRYPTION_KEY is set (required to store keys in database)",
+        description="Whether LSP_SIET_ENCRYPTION_KEY is set (required to store keys in database)",
     )
 
 
@@ -564,7 +564,7 @@ class CapabilitiesResponse(BaseModel):
     """Runtime availability of the opt-in heavy extraction engines.
 
     Reflects what is actually importable/reachable in this container — not merely
-    what the OPEN_NOTEBOOK_ENABLE_* flags request — so the UI can gate engine
+    what the LSP_SIET_ENABLE_* flags request — so the UI can gate engine
     options honestly (e.g. still show "unavailable" while a first-boot install
     is in progress). See docs/7-DEVELOPMENT/decisions/ADR-007-optin-runtimes.md.
     """
