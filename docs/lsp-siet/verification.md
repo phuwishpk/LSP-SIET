@@ -148,7 +148,7 @@ perl -0pi -e 's/\n[^\n]*\e\[[^\n]*\n*\z/\n/' "$BK/surreal.surql"
 [ -s "$BK/surreal.surql" ]                                || die "surreal.surql ว่าง"
 grep -q '^OPTION IMPORT;' "$BK/surreal.surql"             || die "surreal.surql ไม่มีหัวไฟล์ export"
 grep -q '^-- TABLE DATA: source$' "$BK/surreal.surql"     || die "surreal.surql ไม่มีข้อมูลตาราง source"
-tail -n 3 "$BK/surreal.surql" | grep -q ';$'              || die "surreal.surql ถูกตัดกลางคัน"
+grep -v '^[[:space:]]*$' "$BK/surreal.surql" | tail -n 1 | grep -q ';$' || die "surreal.surql ถูกตัดกลางคัน"
 ! tail -n 3 "$BK/surreal.surql" | grep -q $'\e'           || die "ยังมี log ปนท้าย surreal.surql"
 # MariaDB
 docker exec kmitl_mariadb sh -c 'mariadb-dump --single-transaction --routines --triggers -uroot -p"$MARIADB_ROOT_PASSWORD" --databases workspace' > "$BK/mariadb.sql"
@@ -222,12 +222,12 @@ docker logs kmitl_open_notebook_api 2>&1 | grep -E 'SIET migration|deprecated|ER
 #   ต้องเห็น "Running SIET migration k9" และ "SIET migrations applied: k9" ครั้งเดียว และ
 #   "OPEN_NOTEBOOK_ENCRYPTION_KEY is deprecated ... (the old name still works)" — ปกติในทาง A
 echo "SELECT version FROM _siet_migrations ORDER BY version;" | sq            # 1..9
-curl -s http://localhost:5055/; echo                                           # {"message":"LSP-SIET API is running"}
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/login            # 200
-curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://localhost:3000/podcasts   # 307 -> /
-curl -s http://localhost:3000/config/apps; echo                                # quizUrl/roadmapUrl ตาม .env
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/quiz              # 200
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3002/roadmap           # 200
+curl -s http://localhost:5055/ || echo "curl failed: http://localhost:5055/" ; echo                                           # {"message":"LSP-SIET API is running"}
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/login || echo "curl failed: http://localhost:3000/login"            # 200
+curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://localhost:3000/podcasts || echo "curl failed: http://localhost:3000/podcasts"   # 307 -> /
+curl -s http://localhost:3000/config/apps || echo "curl failed: http://localhost:3000/config/apps" ; echo                                # quizUrl/roadmapUrl ตาม .env
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/quiz || echo "curl failed: http://localhost:3001/quiz"              # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3002/roadmap || echo "curl failed: http://localhost:3002/roadmap"           # 200
 docker logs kmitl_my_ai_quiz 2>&1 | grep deprecated || true                   # OPEN_NOTEBOOK_API_URL is deprecated = ปกติ
 EOF
 ```
@@ -314,7 +314,9 @@ cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
 die() { echo "STOP: $*" >&2; exit 1; }
 BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup"
 [ -s "$BK/deployed-ref.txt" ] || die "ยังไม่ได้รัน B1"
-REF=$(cut -d' ' -f1 "$BK/deployed-ref.txt")
+SHA=$(cut -d' ' -f2 "$BK/deployed-ref.txt")          # commit ที่ B1 build ไว้ — ไม่ใช่ origin/main ณ ตอนนี้
+git cat-file -e "$SHA^{commit}"                       || die "ไม่มี commit $SHA"
+git merge-base --is-ancestor main "$SHA"              || die "main ไม่ fast-forward ไป $SHA ได้ — แก้ก่อน down"
 for i in lsp-siet my-ai-quiz ai-roadmap; do docker image inspect "kmitlai/${i}:local" >/dev/null || die "ไม่มี image kmitlai/${i}:local"; done
 for d in surreal_data notebook_data redis_data; do
   [ -d "open-notebook/$d" ] && [ -n "$(ls -A "open-notebook/$d")" ] || die "open-notebook/$d ไม่มีหรือว่าง"
@@ -329,7 +331,8 @@ cp -a open-notebook/surreal_data "$BK/surreal_data-files"
 
 # 2) checkout (branch ตอนนี้เป็นของเพื่อน: feat/rag-community-search)
 git switch main
-git merge --ff-only "$REF"
+git merge --ff-only "$SHA"
+[ "$(git rev-parse HEAD)" = "$SHA" ]                  || die "HEAD ไม่ใช่ $SHA"
 [ -f docker/platform/Dockerfile ] && grep -q 'container_name: lsp_siet_api' docker-compose.yml || die "checkout ไม่ใช่ layout ใหม่"
 
 # 3) macOS ไม่แยกตัวพิมพ์: โฟลเดอร์ต้องชื่อ my-ai-quiz ตัวเล็ก
@@ -356,28 +359,46 @@ EOF
 ```
 
 **B3 — `.env`: เปลี่ยนชื่อในที่เดิม + ค่าของโดเมน** (ห้ามเพิ่ม `LSP_SIET_ENCRYPTION_KEY` ใหม่คู่กับบรรทัดเก่า: ถ้าค่าต่างกัน
-ชื่อใหม่ชนะเงียบ ๆ แล้ว credential ที่เก็บไว้ถอดรหัสไม่ได้และทุกคนถูก logout) แก้ค่าในสี่บรรทัด `setenv` ให้ตรงกับที่ตกลง
-ก่อนรัน
+ชื่อใหม่ชนะเงียบ ๆ แล้ว credential ที่เก็บไว้ถอดรหัสไม่ได้และทุกคนถูก logout) ถ้าค่าที่ตกลงต่างจากนี้ แก้ในฟังก์ชัน
+`want()` ก่อนรัน (ค่าห้ามมี `|` หรือ `&`) บล็อกเช็กหลังแก้ว่าแต่ละคีย์มีบรรทัดเดียวและค่าตรง จำนวนบรรทัดเพิ่มเท่ากับคีย์ที่
+เพิ่มใหม่ และบรรทัดอื่นทุกบรรทัดเหมือน `env.before` (หลังเปลี่ยนชื่อ) ทุกตัวอักษร
 
 ```bash
 cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
 die() { echo "STOP: $*" >&2; exit 1; }
 BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -s "$BK/env.before" ] || die "ไม่มี $BK/env.before"
-setenv() { if grep -q "^$1=" .env; then sed -i '' -E "s|^$1=.*|$1=$2|" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi; }
-sed -i '' -E 's/^OPEN_NOTEBOOK_/LSP_SIET_/' .env
-setenv API_URL https://lsp-siet.site
-setenv FRONTEND_URL https://lsp-siet.site
-setenv MY_AI_QUIZ_URL /quiz
-setenv AI_ROADMAP_URL /roadmap
-setenv CORS_ORIGINS https://lsp-siet.site
-setenv GOOGLE_OAUTH_REDIRECT_URI ''
-setenv GOOGLE_OAUTH_MOCK 0
-! grep -q '^OPEN_NOTEBOOK_' .env                                         || die "ยังมีบรรทัด OPEN_NOTEBOOK_"
-[ "$(grep -cE '^(LSP_SIET|OPEN_NOTEBOOK)_ENCRYPTION_KEY=' .env)" = 1 ]   || die "ENCRYPTION_KEY ต้องมีบรรทัดเดียว"
 set -a; . ./.env; set +a
-[ "$(grep '^LSP_SIET_ENCRYPTION_KEY=' .env | cut -d= -f2-)" = "$(grep '^OPEN_NOTEBOOK_ENCRYPTION_KEY=' "$BK/env.before" | cut -d= -f2-)" ] || die "ENCRYPTION_KEY เปลี่ยนค่า"
 case "${WORKSPACE_SEED_ADMIN_PASSWORD:-admin1}" in admin1|'') die "ตั้ง WORKSPACE_SEED_ADMIN_PASSWORD ใน .env เป็นรหัสที่แข็งแรงก่อน (ใช้เป็นรหัส admin1 ทุกครั้งที่ start)";; esac
 [ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" ] || echo "หมายเหตุ: GOOGLE_OAUTH_CLIENT_ID ว่าง — ปุ่ม Google login จะใช้ไม่ได้ (admin1 ยัง login ได้)"
+[ "$(grep -cE '^(LSP_SIET|OPEN_NOTEBOOK)_ENCRYPTION_KEY=' .env)" = 1 ]   || die "ENCRYPTION_KEY ต้องมีบรรทัดเดียว (ก่อนแก้)"
+KEYS="API_URL FRONTEND_URL MY_AI_QUIZ_URL AI_ROADMAP_URL CORS_ORIGINS GOOGLE_OAUTH_REDIRECT_URI GOOGLE_OAUTH_MOCK"
+want() { case "$1" in
+  API_URL|FRONTEND_URL|CORS_ORIGINS) echo https://lsp-siet.site;;
+  MY_AI_QUIZ_URL) echo /quiz;;  AI_ROADMAP_URL) echo /roadmap;;
+  GOOGLE_OAUTH_REDIRECT_URI) echo '';;   # ว่าง = ${FRONTEND_URL}/auth/google/callback
+  GOOGLE_OAUTH_MOCK) echo 0;;
+  *) die "ไม่รู้จัก $1";; esac; }
+[ -z "$(tail -c 1 .env)" ] || echo >> .env           # บรรทัดสุดท้ายต้องจบด้วย newline ก่อน append
+sed -i '' -E 's/^OPEN_NOTEBOOK_/LSP_SIET_/' .env
+before=$(wc -l < .env | tr -d ' '); added=0
+for k in $KEYS; do
+  [ "$(grep -c "^$k=" .env || true)" -le 1 ] || die "$k มีหลายบรรทัดใน .env — แก้ด้วยมือก่อน"
+  v=$(want "$k")
+  if grep -q "^$k=" .env; then sed -i '' -E "s|^$k=.*|$k=$v|" .env
+  else printf '%s=%s\n' "$k" "$v" >> .env; added=$((added + 1)); fi
+done
+after=$(wc -l < .env | tr -d ' ')
+[ "$after" -eq $((before + added)) ]                 || die ".env มี $after บรรทัด ควรเป็น $before + $added"
+for k in $KEYS; do
+  [ "$(grep -c "^$k=" .env || true)" = 1 ]           || die "$k ต้องมีบรรทัดเดียว"
+  [ "$(grep "^$k=" .env | cut -d= -f2-)" = "$(want "$k")" ] || die "$k ค่าไม่ตรง"
+done
+pat="^($(echo $KEYS | tr ' ' '|'))="
+diff <(sed -E 's/^OPEN_NOTEBOOK_/LSP_SIET_/' "$BK/env.before" | grep -vE "$pat") <(grep -vE "$pat" .env) \
+  || die "บรรทัดอื่นใน .env ไม่เหมือน env.before (ดู diff ด้านบน)"
+! grep -q '^OPEN_NOTEBOOK_' .env                                         || die "ยังมีบรรทัด OPEN_NOTEBOOK_"
+[ "$(grep -cE '^(LSP_SIET|OPEN_NOTEBOOK)_ENCRYPTION_KEY=' .env)" = 1 ]   || die "ENCRYPTION_KEY ต้องมีบรรทัดเดียว"
+[ "$(grep '^LSP_SIET_ENCRYPTION_KEY=' .env | cut -d= -f2-)" = "$(grep '^OPEN_NOTEBOOK_ENCRYPTION_KEY=' "$BK/env.before" | cut -d= -f2-)" ] || die "ENCRYPTION_KEY เปลี่ยนค่า"
 grep -E '^[A-Z_]+=' .env | cut -d= -f1 | tr '\n' ' '; echo; echo "B3 OK"
 EOF
 ```
@@ -396,6 +417,7 @@ grep -qE '^ +MY_AI_QUIZ_URL: /quiz$' "$R"                  || die "MY_AI_QUIZ_UR
 grep -qE '^ +AI_ROADMAP_URL: /roadmap$' "$R"               || die "AI_ROADMAP_URL"
 grep -qE '^ +CORS_ORIGINS: https://lsp-siet\.site$' "$R"   || die "CORS_ORIGINS"
 grep -qE '^ +GOOGLE_OAUTH_MOCK: "?0"?$' "$R"               || die "GOOGLE_OAUTH_MOCK ต้องเป็น 0"
+grep -qE '^ +GOOGLE_OAUTH_REDIRECT_URI: (""|https://lsp-siet\.site/auth/google/callback)$' "$R" || die "GOOGLE_OAUTH_REDIRECT_URI"
 ! grep -q 'change-me-to-a-secret-string' "$R"              || die "ENCRYPTION_KEY เป็นค่า default"
 grep -q "source: $PWD/platform/surreal_data$" "$R"          || die "compose ไม่ได้ mount platform/surreal_data"
 grep -q 'localhost:300[0-2]' "$R" && grep -n 'localhost:300[0-2]' "$R"   # เหลือได้แค่ NEXT_PUBLIC_API_URL / CORS dev: อ่านดู
@@ -415,12 +437,12 @@ sq() { docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8
 docker logs lsp_siet_api 2>&1 | grep -E 'SIET migration|deprecated|ERROR' | head -20 || true   # k9 ครั้งเดียว, ไม่มี deprecated
 echo "SELECT version FROM _siet_migrations ORDER BY version;" | sq                               # 1..9
 H='Host: lsp-siet.site'
-curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/login                          # 200
-curl -s -H "$H" http://localhost/config; echo                    # {"apiUrl":"https://lsp-siet.site"} — ถ้าเป็น localhost:3000 = เบราว์เซอร์จะพัง
-curl -s -H "$H" http://localhost/config/apps; echo               # {"quizUrl":"/quiz","roadmapUrl":"/roadmap"}
-curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/quiz                           # 200
-curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/roadmap                        # 200
-curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/api/auth/status                # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/login || echo "curl failed: http://localhost/login"                          # 200
+curl -s -H "$H" http://localhost/config || echo "curl failed: http://localhost/config" ; echo                    # {"apiUrl":"https://lsp-siet.site"} — ถ้าเป็น localhost:3000 = เบราว์เซอร์จะพัง
+curl -s -H "$H" http://localhost/config/apps || echo "curl failed: http://localhost/config/apps" ; echo               # {"quizUrl":"/quiz","roadmapUrl":"/roadmap"}
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/quiz || echo "curl failed: http://localhost/quiz"                           # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/roadmap || echo "curl failed: http://localhost/roadmap"                        # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/api/auth/status || echo "curl failed: http://localhost/api/auth/status"                # 200
 EOF
 ```
 
