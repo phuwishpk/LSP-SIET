@@ -342,4 +342,18 @@ D1 และ D2 เป็นการแบ่งโดเมนข้อมู�
 | `prompt_hash` | String, nullable | ลายนิ้วมือคำขอสำหรับตรวจสอบ/ป้องกันงานซ้ำ |
 | `created_at`, `updated_at` | Datetime | เวลาสร้างและแก้ไขเซสชัน |
 
-SurrealDB ของระบบยังจัดเก็บ `notebook`, `source`, `source_embedding`, `source_insight`, `note` และ `quiz_session` ตามหน้าที่ของระบบ Open Notebook และ AI ส่วนประวัติการสนทนา RAG ใน MariaDB แยกเป็น `rag_conversations` และ `rag_messages` เพื่อไม่ปะปนกับยอดเครดิตใน `rag_credit_sessions` โครงสร้างเหล่านี้เชื่อมโยงด้วยรหัสอ้างอิงที่จัดการในชั้นแอปพลิเคชัน
+**ตารางที่ 3.19 `quiz_session`**
+
+| ฟิลด์ | ชนิดข้อมูลเชิงตรรกะ | คำอธิบาย |
+|---|---|---|
+| `id` | Record ID | รหัสเซสชันแบบทดสอบ |
+| `owner_id` | String | เจ้าของเซสชัน |
+| `topic` | String | หัวข้อที่ใช้สร้างแบบทดสอบ |
+| `language` | String | ภาษาของคำถาม |
+| `question_count` | Integer | จำนวนข้อที่ร้องขอ |
+| `questions` | Array<Object> | คำถาม ตัวเลือก คำตอบที่ถูกต้อง และคำอธิบาย |
+| `notebook_id`, `model_id` | `option<record<notebook>>` / `option<record<model>>` | Notebook และแบบจำลองที่ระบุในคำขอ หากมี |
+| `prompt_hash` | String | ลายนิ้วมือคำขอสำหรับแคชและตรวจสอบงาน |
+| `created_at`, `updated_at` | Datetime | เวลาสร้างและแก้ไขเซสชัน |
+
+SurrealDB ของระบบยังจัดเก็บ `notebook`, `source`, `source_embedding`, `source_insight` และ `note` ตามหน้าที่ของระบบ Open Notebook และ AI ส่วนประวัติการสนทนา RAG ใน MariaDB แยกเป็น `rag_conversations` และ `rag_messages` เพื่อไม่ปะปนกับยอดเครดิตใน `rag_credit_sessions` โครงสร้างเหล่านี้เชื่อมโยงด้วยรหัสอ้างอิงที่จัดการในชั้นแอปพลิเคชัน
