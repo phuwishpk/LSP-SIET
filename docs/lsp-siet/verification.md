@@ -81,8 +81,9 @@ admin: 96 เหมือน / 6 ต่าง · teacher: 88 / 5 · student: 81 
    ยังเป็น compose แบบ local ports (`3000:8502`, `5055`, `3001`, `3002`, PocketBase, Traefik gate-auth)
    ส่วน `main` และ `refactor/lsp-siet` เป็น compose ของ lsp-siet.site (ไม่เปิดพอร์ตแอปบน host, ไม่มี
    PocketBase) ความต่างนี้มีอยู่ก่อน restructure แต่กำหนดว่า deploy แบบไหนได้ (ข้อ 3)
-2. คำสั่ง `/surreal export … -` เขียน log `INFO … exported successfully` ต่อท้ายไฟล์ทาง stdout ด้วย:
-   ต้องตัดบรรทัดนั้นทิ้งก่อน import (`grep -v $'\x1b'`) ไม่งั้น import ล้มที่บรรทัดสุดท้าย
+2. export รอบนี้ (`/surreal export … - > file` ผ่าน `docker exec`) มีบรรทัด log สี `INFO … exported successfully`
+   ติดมาท้ายไฟล์ ทำให้ import ล้มที่บรรทัดสุดท้าย (ลองซ้ำกับฐานเล็กแล้ว log ไปทาง stderr — จึงไม่แน่ว่าจะติดมาทุกครั้ง)
+   runbook ใช้ `--log none … 2>/dev/null` แล้วตัด **เฉพาะ** บรรทัดสุดท้ายที่มีรหัสสี ESC (ถ้ามี) และเช็กว่าไม่เหลือ
 3. คำสั่งที่ handler ถูกลบ (`generate_podcast`) ที่ยังเป็น `new` จะค้างอยู่ตลอดและ worker พยายามรันใหม่
    ทุกครั้งที่ start (log traceback แล้วทำต่อ) ตอนนี้ production มี 0 แถว — ข้อ 3.1 มีคำสั่งเช็กก่อน deploy
 4. `deploy/migrate-to-allinone.sh` (ทางไป all-in-one บน server) ถ้ารันจาก checkout ใหม่: ค่า default
@@ -104,7 +105,7 @@ admin: 96 เหมือน / 6 ต่าง · teacher: 88 / 5 · student: 81 
 ## 3. PRODUCTION DEPLOY RUNBOOK
 
 > **เจ้าของระบบเป็นผู้ตัดสินใจ deploy** รันทีละบล็อก อ่านผลก่อนไปบล็อกถัดไป คำสั่งทั้งหมดรันที่
-> `/Users/phuwish/kmitlAI` (เครื่องนี้) zsh: เขียน `kmitlai/${i}:local` ไม่ใช่ `kmitlai/$i:local`
+> `/Users/phuwish/kmitlAI` (เครื่องนี้)
 
 มีสองทาง เลือกทางเดียว:
 
@@ -113,80 +114,142 @@ admin: 96 เหมือน / 6 ต่าง · teacher: 88 / 5 · student: 81 
   ทดสอบสภาพนี้ตรง ๆ (image ใหม่ + env ชื่อเดิม + compose เก่าส่ง `OPEN_NOTEBOOK_*`) และเป็นวิธีเดียวกับที่ deploy
   ครั้งก่อน ๆ บนเครื่องนี้
 - **ทาง B — เปลี่ยน checkout เป็น layout ใหม่ทั้งหมด**: ชื่อ service/คอนเทนเนอร์/image ใหม่, โฟลเดอร์ข้อมูลย้าย,
-  `.env` เปลี่ยนชื่อ และได้ compose ของ `main` (lsp-siet.site, ไม่มีพอร์ต 3000/3001/3002/5055 บน host,
-  ไม่มี PocketBase) — ทำเมื่อพร้อมเปลี่ยนรูปแบบเครื่องนี้ไปเป็นแบบ `main` แล้วเท่านั้น
+  `.env` เปลี่ยนชื่อ **และตั้งค่าโดเมน** (`API_URL`, `FRONTEND_URL`, URL ของ quiz/roadmap, CORS, ปิด Google mock,
+  รหัส admin1) และได้ compose ของ `main` (lsp-siet.site, ไม่มีพอร์ต 3000/3001/3002/5055 บน host, ไม่มี PocketBase) —
+  ทำเมื่อพร้อมเปลี่ยนเครื่องนี้ไปเป็นแบบ `main` และโดเมนชี้มาที่เครื่องนี้แล้วเท่านั้น
 
-### 3.1 ก่อนเริ่ม (ทั้งสองทาง)
+### 3.0 วิธีใช้บล็อกคำสั่ง
+
+ทุกบล็อกเขียนเป็น `cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF' … EOF`: วางทั้งบล็อกทีเดียวใน terminal
+(zsh ก็ได้ — ตัวบล็อกรันด้วย bash เสมอ กับดัก zsh อย่าง `kmitlai/$i:local` หรือ glob ไม่เจอจึงไม่เกิด) ถ้าคำสั่งไหนล้ม
+หรือเจอ `STOP:` บล็อกหยุดทันทีและ terminal ไม่ปิด **อ่านผลลัพธ์ก่อนไปบล็อกถัดไป**
+ตัวแปรไม่ข้ามบล็อก: ทุกบล็อกหา backup ล่าสุดเองจาก `backups/pre-lsp-siet-*` จึงรันใน shell ใหม่ได้ (เช่น rollback
+ตอนตีสองในหน้าต่างใหม่) บล็อกที่ต้องใช้รหัสอ่าน `.env` ด้วย `set -a; . ./.env; set +a` — ถ้าค่าใดใน `.env` มีช่องว่าง
+หรือ `$` ต้องใส่ quote ให้ค่านั้นก่อน ตัว script มาทาง stdin (heredoc) อย่าแทรกคำสั่งที่อ่าน stdin (`docker compose` ในบล็อก
+จึงมี `</dev/null`)
+
+### 3.1 ก่อนเริ่ม: backup และเช็ก (ทั้งสองทาง)
 
 ```bash
-cd /Users/phuwish/kmitlAI
-docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}'      # จดไว้เทียบหลัง deploy
-git status --short; git branch --show-current                  # รู้ว่า checkout อยู่ที่ไหน
-REF=main                                                       # หรือ commit ที่จะ deploy (หลัง merge refactor/lsp-siet)
-TS=$(date +%Y%m%d-%H%M%S); BK=backups/pre-lsp-siet-$TS; mkdir -p "$BK"
-
-# backup SurrealDB ทาง stdout (ไม่เขียนไฟล์ในคอนเทนเนอร์) แล้วตัดบรรทัด log ท้ายไฟล์
-docker exec kmitlai-surrealdb-1 /surreal export --conn http://localhost:8000 --user root --pass "$(grep '^SURREAL_PASSWORD=' .env | cut -d= -f2-)" --ns open_notebook --db open_notebook - | grep -v $'\x1b' > "$BK/surreal.surql"
-# backup MariaDB
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+set -a; . ./.env; set +a
+TS=$(date +%Y%m%d-%H%M%S); BK=backups/pre-lsp-siet-$TS
+[ ! -e "$BK" ] || die "$BK มีอยู่แล้ว"
+mkdir -p "$BK"
+docker ps --format '{{.Names}}\t{{.Image}}\t{{.Status}}' > "$BK/docker-ps.txt"
+git rev-parse HEAD > "$BK/git-head.txt"; git branch --show-current > "$BK/git-branch.txt"
+cp -p .env "$BK/env.before"
+# SurrealDB: export ทาง stdout (ไม่เขียนไฟล์ในคอนเทนเนอร์); ถ้ามีบรรทัด log สีต่อท้าย ตัดเฉพาะบรรทัดสุดท้ายนั้น
+docker exec kmitlai-surrealdb-1 /surreal export --log none --conn http://localhost:8000 \
+  --user "${SURREAL_USER:-root}" --pass "${SURREAL_PASSWORD:-root}" --ns open_notebook --db open_notebook - \
+  2>/dev/null > "$BK/surreal.surql"
+perl -0pi -e 's/\n[^\n]*\e\[[^\n]*\n*\z/\n/' "$BK/surreal.surql"
+[ -s "$BK/surreal.surql" ]                                || die "surreal.surql ว่าง"
+grep -q '^OPTION IMPORT;' "$BK/surreal.surql"             || die "surreal.surql ไม่มีหัวไฟล์ export"
+grep -q '^-- TABLE DATA: source$' "$BK/surreal.surql"     || die "surreal.surql ไม่มีข้อมูลตาราง source"
+tail -n 3 "$BK/surreal.surql" | grep -q ';$'              || die "surreal.surql ถูกตัดกลางคัน"
+! tail -n 3 "$BK/surreal.surql" | grep -q $'\e'           || die "ยังมี log ปนท้าย surreal.surql"
+# MariaDB
 docker exec kmitl_mariadb sh -c 'mariadb-dump --single-transaction --routines --triggers -uroot -p"$MARIADB_ROOT_PASSWORD" --databases workspace' > "$BK/mariadb.sql"
-ls -la "$BK"                                                   # สองไฟล์ต้องไม่ว่าง
-
-# คำสั่งที่ handler ถูกลบ: ควรเป็น 0 (ถ้าไม่ใช่ 0 ดูหมายเหตุด้านล่าง)
-echo "SELECT name, status, count() AS n FROM command WHERE name = 'generate_podcast' AND status IN ['new','running'] GROUP BY name, status;" | docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8000 --user root --pass "$(grep '^SURREAL_PASSWORD=' .env | cut -d= -f2-)" --ns open_notebook --db open_notebook --json --hide-welcome
-
-# transformation ที่ใส่ summary ให้ source ใหม่อัตโนมัติ (ตอน 2026-11-15 มี 1 ตัว: Dense Summary)
-echo "SELECT name, apply_default FROM transformation WHERE apply_default = true;" | docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8000 --user root --pass "$(grep '^SURREAL_PASSWORD=' .env | cut -d= -f2-)" --ns open_notebook --db open_notebook --json --hide-welcome
+[ -s "$BK/mariadb.sql" ]                                  || die "mariadb.sql ว่าง"
+tail -n 1 "$BK/mariadb.sql" | grep -q '^-- Dump completed' || die "mariadb.sql ไม่จบ"
+echo "backup OK: $BK"; ls -la "$BK"
+EOF
 ```
 
-ถ้ามี `generate_podcast` ค้าง: ไม่ทำอะไรก็ได้ (worker จะ log error ทุกครั้งที่ start แล้วทำงานต่อ) หรือปิดมัน
-ด้วยมือ — เป็นการเปลี่ยนข้อมูล เจ้าของระบบตัดสินใจ:
+SurrealDB 2.6.5 ไม่เขียน `COMMIT TRANSACTION;` ท้าย export (ลองแล้ว) จึงเช็กหัวไฟล์ ตาราง `source` และ `;` ท้ายไฟล์แทน
+
+เช็กข้อมูล (อ่านอย่างเดียว):
+
+```bash
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+set -a; . ./.env; set +a
+sq() { docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8000 --user "${SURREAL_USER:-root}" --pass "${SURREAL_PASSWORD:-root}" --ns open_notebook --db open_notebook --json --hide-welcome; }
+echo "-- generate_podcast ที่ค้าง (ควรว่าง):"
+echo "SELECT name, status, count() AS n FROM command WHERE name = 'generate_podcast' AND status IN ['new','running'] GROUP BY name, status;" | sq
+echo "-- transformation ที่ apply_default (2026-11-15: Dense Summary ตัวเดียว):"
+echo "SELECT id, name, apply_default FROM transformation WHERE apply_default = true;" | sq
+echo "-- migration: core ต้องเป็น 25, _siet_migrations 1..8 ก่อน deploy"
+echo "SELECT count() FROM _sbl_migrations GROUP ALL; SELECT version FROM _siet_migrations ORDER BY version;" | sq
+EOF
+```
+
+ถ้ามี `generate_podcast` ค้าง: ไม่ทำอะไรก็ได้ (worker จะ log error ทุกครั้งที่ start แล้วทำงานต่อ) หรือปิดมัน — เป็นการแก้ข้อมูล
+เจ้าของระบบตัดสินใจ (ส่งผ่าน `sq` แบบเดียวกับข้างบน):
 `UPDATE command SET status = 'failed', error_message = 'podcast feature removed' WHERE name = 'generate_podcast' AND status IN ['new','running'];`
 
-ถ้า `apply_default` ไม่มีสักตัว: source ที่ upload ใหม่จะไม่มี summary — ตั้ง Dense Summary เป็น default ก่อน
-(หน้า /transformations ถูกลบแล้ว ต้องทำทาง SurrealDB) หรือยอมรับ
+ถ้า `apply_default` ว่าง: source ที่ upload ใหม่จะไม่มี summary (หน้า /transformations ถูกลบแล้ว) — ถ้าต้องการให้
+Dense Summary เป็นค่าเริ่มต้น ดูก่อนว่ามีกี่แถว แล้วค่อยตั้ง (แก้ข้อมูล — เจ้าของระบบตัดสินใจ):
+`SELECT id, name, apply_default FROM transformation WHERE name = 'Dense Summary';` แล้ว
+`UPDATE transformation SET apply_default = true WHERE name = 'Dense Summary';`
 
 ### 3.2 ทาง A — สลับ image (compose เก่า, `.env` เดิม, ข้อมูลอยู่ที่เดิม)
 
 ```bash
-cd /Users/phuwish/kmitlAI
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup — รัน 3.1 ก่อน"
+TS=${BK##*-lsp-siet-}
+[ -s "$BK/surreal.surql" ] && [ -s "$BK/mariadb.sql" ] && [ -s "$BK/env.before" ] || die "backup $BK ไม่ครบ"
+git fetch origin
+REF=origin/main                       # หรือ commit อื่นที่ตกลงจะ deploy
 SRC=$(mktemp -d /tmp/lsp-siet-src.XXXX); git archive "$REF" | tar -x -C "$SRC"
-
-# tag ของเดิมไว้ rollback
-for i in open-notebook my-ai-quiz ai-roadmap-generator; do docker tag kmitlai/${i}:local kmitlai/${i}:pre-lsp-siet-$TS; done
-
+[ -f "$SRC/docker/platform/Dockerfile" ] || die "$REF ยังไม่ใช่ layout ใหม่ (ไม่มี docker/platform/Dockerfile)"
+for i in open-notebook my-ai-quiz ai-roadmap-generator; do
+  docker image inspect "kmitlai/${i}:pre-lsp-siet-$TS" >/dev/null 2>&1 || docker tag "kmitlai/${i}:local" "kmitlai/${i}:pre-lsp-siet-$TS"
+done
 # build จากโค้ดใหม่ แล้วใช้ "ชื่อ image เดิม" ที่ compose เก่าอ้าง
-docker build -f "$SRC/docker/platform/Dockerfile"   -t kmitlai/open-notebook:local        "$SRC"
-docker build -f "$SRC/my-ai-quiz/app/Dockerfile"    -t kmitlai/my-ai-quiz:local           "$SRC"
-docker build -f "$SRC/ai-roadmap/app/Dockerfile"    -t kmitlai/ai-roadmap-generator:local "$SRC"
-
-docker compose -p kmitlai up -d --no-deps --no-build open_notebook_api my_ai_quiz ai_roadmap_generator
+docker build -f "$SRC/docker/platform/Dockerfile" -t kmitlai/open-notebook:local        "$SRC"
+docker build -f "$SRC/my-ai-quiz/app/Dockerfile"  -t kmitlai/my-ai-quiz:local           "$SRC"
+docker build -f "$SRC/ai-roadmap/app/Dockerfile"  -t kmitlai/ai-roadmap-generator:local "$SRC"
+echo "$REF $(git rev-parse "$REF")" > "$BK/deployed-ref.txt"
+docker compose -p kmitlai up -d --no-deps --no-build open_notebook_api my_ai_quiz ai_roadmap_generator </dev/null
+EOF
 ```
+
+**ระวังหลังทาง A:** checkout ยังเป็นโค้ดเก่า — `make up`, `make build`, `docker compose up --build` หรือ
+`docker compose build` จาก `/Users/phuwish/kmitlAI` จะ build โค้ดเก่าทับ image ใหม่ (ชื่อ tag เดียวกัน) ใช้
+`--no-build` เสมอจนกว่าจะเปลี่ยน checkout (ทาง B)
 
 ตรวจหลัง deploy:
 
 ```bash
-docker logs kmitl_open_notebook_api 2>&1 | grep -E 'SIET migration|deprecated|ERROR' | head -20
-#   ต้องเห็น: "Running SIET migration k9" และ "SIET migrations applied: k9" ครั้งเดียว
-#   และ "OPEN_NOTEBOOK_ENCRYPTION_KEY is deprecated ... (the old name still works)" — ปกติในทาง A
-echo "SELECT version FROM _siet_migrations ORDER BY version;" | docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8000 --user root --pass "$(grep '^SURREAL_PASSWORD=' .env | cut -d= -f2-)" --ns open_notebook --db open_notebook --json --hide-welcome   # 1..9
-curl -s http://localhost:5055/ ; echo                       # {"message":"LSP-SIET API is running"}
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/login          # 200 (title LSP-SIET)
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+set -a; . ./.env; set +a
+sq() { docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8000 --user "${SURREAL_USER:-root}" --pass "${SURREAL_PASSWORD:-root}" --ns open_notebook --db open_notebook --json --hide-welcome; }
+docker logs kmitl_open_notebook_api 2>&1 | grep -E 'SIET migration|deprecated|ERROR' | head -20 || true
+#   ต้องเห็น "Running SIET migration k9" และ "SIET migrations applied: k9" ครั้งเดียว และ
+#   "OPEN_NOTEBOOK_ENCRYPTION_KEY is deprecated ... (the old name still works)" — ปกติในทาง A
+echo "SELECT version FROM _siet_migrations ORDER BY version;" | sq            # 1..9
+curl -s http://localhost:5055/; echo                                           # {"message":"LSP-SIET API is running"}
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3000/login            # 200
 curl -s -o /dev/null -w '%{http_code} %{redirect_url}\n' http://localhost:3000/podcasts   # 307 -> /
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/quiz            # 200
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3002/roadmap         # 200
-docker logs kmitl_my_ai_quiz 2>&1 | grep deprecated          # OPEN_NOTEBOOK_API_URL is deprecated ... = ปกติ
+curl -s http://localhost:3000/config/apps; echo                                # quizUrl/roadmapUrl ตาม .env
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3001/quiz              # 200
+curl -s -o /dev/null -w '%{http_code}\n' http://localhost:3002/roadmap           # 200
+docker logs kmitl_my_ai_quiz 2>&1 | grep deprecated || true                   # OPEN_NOTEBOOK_API_URL is deprecated = ปกติ
+EOF
 ```
 
-จากนั้นเข้าเว็บจริง: login, เปิด notebook + chat เก่า 1 อัน, upload ข้อความสั้น 1 ชิ้นแล้วรอ summary,
-/admin/rag, /admin/quiz, /admin/roadmap, ทำ quiz และ roadmap อย่างละครั้ง
+จากนั้นในเบราว์เซอร์จริง: login, เปิด notebook + chat เก่า 1 อัน, upload ข้อความสั้น 1 ชิ้นแล้วรอ summary,
+/admin/rag, /admin/quiz, /admin/roadmap, กดไป quiz และ roadmap จากเมนูของ SIET Space แล้วดูว่าเข้าได้โดยยัง login อยู่
+และทำ quiz / roadmap อย่างละครั้ง
 
 **Rollback ทาง A** (ข้อมูลไม่ต้องคืน: k9 ลบแค่ตาราง podcast ที่ว่าง และ image เดิมทำงานบน DB ที่ผ่าน k9 ได้ —
 ซ้อมแล้วในข้อ 2):
 
 ```bash
-cd /Users/phuwish/kmitlAI
-for i in open-notebook my-ai-quiz ai-roadmap-generator; do docker tag kmitlai/${i}:pre-lsp-siet-$TS kmitlai/${i}:local; done
-docker compose -p kmitlai up -d --no-deps --no-build open_notebook_api my_ai_quiz ai_roadmap_generator
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup"
+TS=${BK##*-lsp-siet-}
+for i in open-notebook my-ai-quiz ai-roadmap-generator; do
+  docker image inspect "kmitlai/${i}:pre-lsp-siet-$TS" >/dev/null 2>&1 || die "ไม่มี kmitlai/${i}:pre-lsp-siet-$TS"
+done
+for i in open-notebook my-ai-quiz ai-roadmap-generator; do docker tag "kmitlai/${i}:pre-lsp-siet-$TS" "kmitlai/${i}:local"; done
+docker compose -p kmitlai up -d --no-deps --no-build open_notebook_api my_ai_quiz ai_roadmap_generator </dev/null
+EOF
 ```
 
 ### 3.3 ทาง B — เปลี่ยน checkout เป็น layout ใหม่
@@ -206,69 +269,199 @@ docker compose -p kmitlai up -d --no-deps --no-build open_notebook_api my_ai_qui
 | all-in-one: quiz อยู่ที่ `/opt/quiz/My-ai-quiz/…` | `/opt/quiz/my-ai-quiz/app/…` |
 | `OPEN_NOTEBOOK_*` ใน `.env` | `LSP_SIET_*` (ชื่อเดิมยังใช้ได้ผ่าน fallback) |
 
-ขั้นตอน:
+**ทาง B เปลี่ยนวิธีเข้าเว็บด้วย** compose เก่าตั้งค่าพวกนี้ไว้ในตัวไฟล์ compose เอง ส่วน compose ใหม่อ่านจาก `.env`
+และไม่เปิดพอร์ตบน host:
+
+| ค่า | compose เก่า (ตอนนี้) | compose ใหม่ | ต้องตั้งใน `.env` สำหรับ lsp-siet.site |
+|---|---|---|---|
+| พอร์ต host | 3000, 5055, 3001, 3002, 80 | 80 เท่านั้น (Traefik ตอบเฉพาะ `Host(lsp-siet.site)`) | — |
+| `API_URL` (ที่เบราว์เซอร์เรียก API, ส่งผ่าน `/config`) | ฝังไว้ `http://localhost:3000` | `${API_URL:-http://localhost:3000}` — `.env` ตอนนี้ไม่มีคีย์นี้ | `API_URL=https://lsp-siet.site` |
+| `FRONTEND_URL` (OAuth redirect) | จาก `.env` (ค่าแบบพอร์ต local) | จาก `.env` | `FRONTEND_URL=https://lsp-siet.site` |
+| `GOOGLE_OAUTH_REDIRECT_URI` | จาก `.env` | จาก `.env` | ว่าง (= `${FRONTEND_URL}/auth/google/callback`) หรือ `https://lsp-siet.site/auth/google/callback` และต้องลงทะเบียนใน Google Cloud |
+| `MY_AI_QUIZ_URL`, `AI_ROADMAP_URL` | จาก `.env` (`http://localhost:3001/quiz`, `:3002/roadmap` แบบ) | จาก `.env` | `/quiz`, `/roadmap` (ลบบรรทัดก็ได้ — default เป็น path) |
+| `CORS_ORIGINS` | จาก `.env` (localhost) | จาก `.env` | `https://lsp-siet.site` |
+| `GOOGLE_OAUTH_MOCK` | `.env` ตอนนี้ตั้งไว้เปิด | จาก `.env` | `0` — **mock บนโดเมนสาธารณะ = ใครก็พิมพ์อีเมลอะไรก็ได้ รวมอีเมลใน `WORKSPACE_ADMIN_EMAILS` แล้วได้สิทธิ์ admin** |
+| `WORKSPACE_SEED_ADMIN_PASSWORD` | ฝังไว้ `admin1` (ค่าใน `.env` ถูกเมิน) | `${WORKSPACE_SEED_ADMIN_PASSWORD:-admin1}` | รหัสที่แข็งแรง — **ทุกครั้งที่ API start รหัสของ `admin1` ถูกตั้งเป็นค่านี้** ค่าที่อยู่ใน `.env` ตอนนี้จะเริ่มมีผลทันทีที่ใช้ทาง B |
+
+ถ้าโดเมน lsp-siet.site ยังไม่ได้ชี้มาที่เครื่องนี้ (tunnel) หลังทาง B จะเข้าเว็บจากเบราว์เซอร์ไม่ได้เลย — ใช้ทาง A
+
+**B1 — build image ใหม่ก่อน (stack เดิมยังรันอยู่)**
 
 ```bash
-cd /Users/phuwish/kmitlAI
-# 1) หยุด stack ด้วยไฟล์ compose "เก่า" ก่อน checkout — ถ้า down ทีหลังด้วยไฟล์ใหม่
-#    kmitl_open_notebook_api / kmitl_ai_roadmap_pocketbase จะค้างเป็น orphan
-docker compose -p kmitlai down          # named volume kmitlai_mariadb_data ยังอยู่ (ไม่มี -v)
-cp -a open-notebook/surreal_data "$BK/surreal_data-files"     # สำเนาไฟล์ SurrealDB ตอนหยุดแล้ว
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup — รัน 3.1 ก่อน"
+TS=${BK##*-lsp-siet-}
+[ -s "$BK/surreal.surql" ] && [ -s "$BK/mariadb.sql" ] && [ -s "$BK/env.before" ] || die "backup $BK ไม่ครบ"
+git fetch origin
+REF=origin/main
+SRC=$(mktemp -d /tmp/lsp-siet-src.XXXX); git archive "$REF" | tar -x -C "$SRC"
+[ -f "$SRC/docker/platform/Dockerfile" ] || die "$REF ยังไม่ใช่ layout ใหม่"
+docker image inspect "kmitlai/my-ai-quiz:pre-lsp-siet-$TS" >/dev/null 2>&1 || docker tag kmitlai/my-ai-quiz:local "kmitlai/my-ai-quiz:pre-lsp-siet-$TS"
+docker build -f "$SRC/docker/platform/Dockerfile" -t kmitlai/lsp-siet:local   "$SRC"
+docker build -f "$SRC/my-ai-quiz/app/Dockerfile"  -t kmitlai/my-ai-quiz:local "$SRC"
+docker build -f "$SRC/ai-roadmap/app/Dockerfile"  -t kmitlai/ai-roadmap:local "$SRC"
+echo "$REF $(git rev-parse "$REF")" > "$BK/deployed-ref.txt"
+echo "B1 OK"
+EOF
+```
 
-# 2) checkout (branch ปัจจุบันเป็นของเพื่อน: feat/rag-community-search — ตัดสินใจเองว่าจะไป branch ไหน)
-git checkout main && git pull --ff-only
+**B2 — หยุด stack, checkout, ย้ายโฟลเดอร์ข้อมูล** (ทุกเช็กอยู่ก่อน `down`; หลัง `down` ถ้าบล็อกหยุดกลางทาง ให้รัน
+Rollback ทาง B ซึ่งรับสภาพครึ่งทางได้)
 
-# 3) macOS ไม่แยกตัวพิมพ์: ถ้ายังเห็น My-ai-quiz ให้ rename สองจังหวะ
-/bin/ls -d */ | grep -i quiz
-git ls-files My-ai-quiz | head -1        # ต้องว่าง (git เก็บเป็น my-ai-quiz/)
-[ -d My-ai-quiz ] && /bin/ls -d */ | grep -q '^My-ai-quiz/$' && mv My-ai-quiz my-ai-quiz.tmp && mv my-ai-quiz.tmp my-ai-quiz
-rm -f my-ai-quiz/tsconfig.tsbuildinfo   # ไฟล์ ignored ของแอปเก่าที่ค้างอยู่ระดับบน (ตอนนี้มีแค่ไฟล์นี้)
+```bash
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup"
+[ -s "$BK/deployed-ref.txt" ] || die "ยังไม่ได้รัน B1"
+REF=$(cut -d' ' -f1 "$BK/deployed-ref.txt")
+for i in lsp-siet my-ai-quiz ai-roadmap; do docker image inspect "kmitlai/${i}:local" >/dev/null || die "ไม่มี image kmitlai/${i}:local"; done
+for d in surreal_data notebook_data redis_data; do
+  [ -d "open-notebook/$d" ] && [ -n "$(ls -A "open-notebook/$d")" ] || die "open-notebook/$d ไม่มีหรือว่าง"
+  [ ! -e "platform/$d" ] || [ -z "$(ls -A "platform/$d")" ] || die "platform/$d มีข้อมูลอยู่แล้ว — ตรวจก่อนว่าชุดไหนถูก"
+done
+[ -f open-notebook/surreal_data/mydatabase.db/CURRENT ] || die "ไม่พบไฟล์ rocksdb ใน open-notebook/surreal_data/mydatabase.db"
+[ -z "$(git status --porcelain --untracked-files=no)" ] || die "working tree มีไฟล์ที่แก้ค้าง — commit/stash ก่อน"
 
-# 4) ย้ายโฟลเดอร์ข้อมูล (ignored จึงไม่ย้ายตาม git) — ต้องทำก่อน compose up ไม่งั้น SurrealDB ขึ้นมาว่าง
-for d in surreal_data notebook_data redis_data; do [ -n "$(ls -A platform/$d 2>/dev/null)" ] && echo "STOP: platform/$d มีข้อมูลอยู่แล้ว"; done
-#    ถ้ามีบรรทัด STOP อย่าทำต่อ — ตรวจก่อนว่าข้อมูลชุดไหนถูก
+# 1) หยุดด้วยไฟล์ compose "เก่า" ก่อน checkout (down ทีหลังด้วยไฟล์ใหม่ = orphan ค้าง)
+docker compose -p kmitlai down </dev/null            # named volume kmitlai_mariadb_data ยังอยู่ (ไม่มี -v)
+cp -a open-notebook/surreal_data "$BK/surreal_data-files"
+
+# 2) checkout (branch ตอนนี้เป็นของเพื่อน: feat/rag-community-search)
+git switch main
+git merge --ff-only "$REF"
+[ -f docker/platform/Dockerfile ] && grep -q 'container_name: lsp_siet_api' docker-compose.yml || die "checkout ไม่ใช่ layout ใหม่"
+
+# 3) macOS ไม่แยกตัวพิมพ์: โฟลเดอร์ต้องชื่อ my-ai-quiz ตัวเล็ก
+if /bin/ls -1 | grep -qx 'My-ai-quiz'; then mv My-ai-quiz my-ai-quiz.tmp && mv my-ai-quiz.tmp my-ai-quiz; fi
+/bin/ls -1 | grep -qx 'my-ai-quiz' || die "ไม่มีโฟลเดอร์ my-ai-quiz"
+[ -f my-ai-quiz/app/Dockerfile ] || die "my-ai-quiz/app/Dockerfile หาย"
+rm -f my-ai-quiz/tsconfig.tsbuildinfo                # ไฟล์ ignored ของแอปเก่าที่ค้างระดับบน
+
+# 4) ย้ายโฟลเดอร์ข้อมูล (ignored จึงไม่ย้ายตาม git)
 mkdir -p platform ai-roadmap/app
-for d in surreal_data notebook_data redis_data; do rmdir "platform/$d" 2>/dev/null; mv "open-notebook/$d" "platform/$d"; done
-[ -d ai-roadmap-generator/pb_data ] && mv ai-roadmap-generator/pb_data ai-roadmap/app/pb_data
-ls platform/surreal_data platform/notebook_data | head        # ต้องมีไฟล์
+for d in surreal_data notebook_data redis_data; do
+  [ -e "platform/$d" ] && { rmdir "platform/$d" || die "platform/$d ไม่ว่าง"; }
+  mv "open-notebook/$d" "platform/$d"
+  [ -n "$(ls -A "platform/$d")" ] && [ ! -e "open-notebook/$d" ] || die "ย้าย $d ไม่สำเร็จ"
+done
+if [ -d ai-roadmap-generator/pb_data ]; then
+  [ ! -e ai-roadmap/app/pb_data ] || die "ai-roadmap/app/pb_data มีอยู่แล้ว"
+  mv ai-roadmap-generator/pb_data ai-roadmap/app/pb_data
+fi
+echo "B2 OK"; ls platform/surreal_data platform/notebook_data | head
 #    ที่เหลือใน open-notebook/ และ ai-roadmap-generator/ เป็นไฟล์ ignored (.venv, .next, node_modules,
 #    data/, surreal_data_dev/) — เก็บไว้จนพ้นช่วง rollback แล้วค่อยลบ
-
-# 5) เปลี่ยนชื่อบรรทัดใน .env "ในที่เดิม" (ห้ามเพิ่ม LSP_SIET_ENCRYPTION_KEY ใหม่คู่กับบรรทัดเก่า:
-#    ถ้าค่าต่างกัน ชื่อใหม่ชนะเงียบ ๆ แล้ว credential ที่เก็บไว้ถอดรหัสไม่ได้ และทุกคนถูก logout)
-cp .env "$BK/env.before"
-sed -i '' -E 's/^OPEN_NOTEBOOK_/LSP_SIET_/' .env
-grep -c '^OPEN_NOTEBOOK_' .env; grep -E '^LSP_SIET_' .env | cut -d= -f1    # 0 บรรทัดเก่า; ENCRYPTION_KEY, PASSWORD, ANSWER_CACHE_TUNER_ENABLED
-grep -E '^(LSP_SIET|OPEN_NOTEBOOK)_ENCRYPTION_KEY=' .env | wc -l          # ต้องเป็น 1
-
-# 6) build + start (quiz ใช้ชื่อ image เดิม: tag ของเดิมไว้ก่อน build ทับ)
-docker tag kmitlai/my-ai-quiz:local kmitlai/my-ai-quiz:pre-lsp-siet-$TS
-docker compose -p kmitlai build lsp_siet_api my_ai_quiz ai_roadmap_generator
-docker compose -p kmitlai up -d
+EOF
 ```
 
-ตรวจหลัง deploy เหมือนทาง A แต่: คอนเทนเนอร์ชื่อ `lsp_siet_api` (`docker logs lsp_siet_api`), ไม่มี warning
-`deprecated` แล้ว, และ compose ใหม่ **ไม่เปิดพอร์ต 3000/3001/3002/5055 บน host** — ทดสอบผ่าน Traefik:
-`curl -s -o /dev/null -w '%{http_code}\n' -H 'Host: lsp-siet.site' http://localhost/login` (หรือผ่าน
-https://lsp-siet.site ถ้า tunnel ต่ออยู่) ถ้ายังต้องการ :3000/:3001/:3002 บนเครื่องนี้ ใช้ทาง A
-
-**Rollback ทาง B** — คืน compose **และ** image พร้อมกันเสมอ: compose ใหม่ส่งเฉพาะ `LSP_SIET_*` เข้าคอนเทนเนอร์
-image เก่าภายใต้ compose ใหม่จะไม่เห็น key/password (ได้ key default → credential ถอดรหัสไม่ได้, JWT เดิมใช้ไม่ได้)
+**B3 — `.env`: เปลี่ยนชื่อในที่เดิม + ค่าของโดเมน** (ห้ามเพิ่ม `LSP_SIET_ENCRYPTION_KEY` ใหม่คู่กับบรรทัดเก่า: ถ้าค่าต่างกัน
+ชื่อใหม่ชนะเงียบ ๆ แล้ว credential ที่เก็บไว้ถอดรหัสไม่ได้และทุกคนถูก logout) แก้ค่าในสี่บรรทัด `setenv` ให้ตรงกับที่ตกลง
+ก่อนรัน
 
 ```bash
-cd /Users/phuwish/kmitlAI
-docker compose -p kmitlai down --remove-orphans
-cp "$BK/env.before" .env                                    # คืนชื่อ OPEN_NOTEBOOK_* (compose เก่าอ่านแค่ชื่อเดิม)
-for d in surreal_data notebook_data redis_data; do mkdir -p open-notebook; mv "platform/$d" "open-notebook/$d"; done
-[ -d ai-roadmap/app/pb_data ] && mkdir -p ai-roadmap-generator && mv ai-roadmap/app/pb_data ai-roadmap-generator/pb_data
-docker tag kmitlai/my-ai-quiz:pre-lsp-siet-$TS kmitlai/my-ai-quiz:local
-git checkout feat/rag-community-search                      # หรือ ref ที่รันอยู่ก่อน deploy
-/bin/ls -d */ | grep -i quiz                                # ถ้าเห็น my-ai-quiz ตัวเล็กแต่ git ต้องการ My-ai-quiz: mv my-ai-quiz x.tmp && mv x.tmp My-ai-quiz
-docker compose -p kmitlai up -d --no-build                  # kmitlai/open-notebook:local, kmitlai/ai-roadmap-generator:local ยังอยู่ (ทาง B ใช้ชื่อใหม่ ไม่ได้ทับ)
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -s "$BK/env.before" ] || die "ไม่มี $BK/env.before"
+setenv() { if grep -q "^$1=" .env; then sed -i '' -E "s|^$1=.*|$1=$2|" .env; else printf '%s=%s\n' "$1" "$2" >> .env; fi; }
+sed -i '' -E 's/^OPEN_NOTEBOOK_/LSP_SIET_/' .env
+setenv API_URL https://lsp-siet.site
+setenv FRONTEND_URL https://lsp-siet.site
+setenv MY_AI_QUIZ_URL /quiz
+setenv AI_ROADMAP_URL /roadmap
+setenv CORS_ORIGINS https://lsp-siet.site
+setenv GOOGLE_OAUTH_REDIRECT_URI ''
+setenv GOOGLE_OAUTH_MOCK 0
+! grep -q '^OPEN_NOTEBOOK_' .env                                         || die "ยังมีบรรทัด OPEN_NOTEBOOK_"
+[ "$(grep -cE '^(LSP_SIET|OPEN_NOTEBOOK)_ENCRYPTION_KEY=' .env)" = 1 ]   || die "ENCRYPTION_KEY ต้องมีบรรทัดเดียว"
+set -a; . ./.env; set +a
+[ "$(grep '^LSP_SIET_ENCRYPTION_KEY=' .env | cut -d= -f2-)" = "$(grep '^OPEN_NOTEBOOK_ENCRYPTION_KEY=' "$BK/env.before" | cut -d= -f2-)" ] || die "ENCRYPTION_KEY เปลี่ยนค่า"
+case "${WORKSPACE_SEED_ADMIN_PASSWORD:-admin1}" in admin1|'') die "ตั้ง WORKSPACE_SEED_ADMIN_PASSWORD ใน .env เป็นรหัสที่แข็งแรงก่อน (ใช้เป็นรหัส admin1 ทุกครั้งที่ start)";; esac
+[ -n "${GOOGLE_OAUTH_CLIENT_ID:-}" ] || echo "หมายเหตุ: GOOGLE_OAUTH_CLIENT_ID ว่าง — ปุ่ม Google login จะใช้ไม่ได้ (admin1 ยัง login ได้)"
+grep -E '^[A-Z_]+=' .env | cut -d= -f1 | tr '\n' ' '; echo; echo "B3 OK"
+EOF
 ```
 
-k9 ไม่ต้องย้อน (ลบแค่ตาราง podcast ที่ว่าง; image เก่าทำงานได้ — ซ้อมแล้ว) ถ้าต้องการ DB ตอนก่อน deploy
-ทุกไบต์: หยุด SurrealDB แล้วคืน `$BK/surreal_data-files` เป็น `open-notebook/surreal_data`
+**B4 — ดูค่าที่ compose จะส่งจริง แล้วค่อย start**
+
+```bash
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup"
+docker compose -p kmitlai config </dev/null > "$BK/compose-rendered.yml"      # มี secret: อยู่ใน backups/ ที่ git ignore
+R="$BK/compose-rendered.yml"
+grep -qE '^ +API_URL: https://lsp-siet\.site$' "$R"        || die "API_URL ไม่ใช่ https://lsp-siet.site"
+grep -qE '^ +FRONTEND_URL: https://lsp-siet\.site$' "$R"   || die "FRONTEND_URL"
+grep -qE '^ +MY_AI_QUIZ_URL: /quiz$' "$R"                  || die "MY_AI_QUIZ_URL"
+grep -qE '^ +AI_ROADMAP_URL: /roadmap$' "$R"               || die "AI_ROADMAP_URL"
+grep -qE '^ +CORS_ORIGINS: https://lsp-siet\.site$' "$R"   || die "CORS_ORIGINS"
+grep -qE '^ +GOOGLE_OAUTH_MOCK: "?0"?$' "$R"               || die "GOOGLE_OAUTH_MOCK ต้องเป็น 0"
+! grep -q 'change-me-to-a-secret-string' "$R"              || die "ENCRYPTION_KEY เป็นค่า default"
+grep -q "source: $PWD/platform/surreal_data$" "$R"          || die "compose ไม่ได้ mount platform/surreal_data"
+grep -q 'localhost:300[0-2]' "$R" && grep -n 'localhost:300[0-2]' "$R"   # เหลือได้แค่ NEXT_PUBLIC_API_URL / CORS dev: อ่านดู
+# ประตูสุดท้าย: โฟลเดอร์ข้อมูลต้องไม่ว่าง ไม่งั้น SurrealDB ขึ้นมาเป็นฐานว่าง
+[ -f platform/surreal_data/mydatabase.db/CURRENT ]         || die "platform/surreal_data ว่าง"
+[ -n "$(ls -A platform/notebook_data)" ]                   || die "platform/notebook_data ว่าง"
+docker compose -p kmitlai up -d --no-build </dev/null
+EOF
+```
+
+ตรวจหลัง deploy:
+
+```bash
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+set -a; . ./.env; set +a
+sq() { docker exec -i kmitlai-surrealdb-1 /surreal sql --conn http://localhost:8000 --user "${SURREAL_USER:-root}" --pass "${SURREAL_PASSWORD:-root}" --ns open_notebook --db open_notebook --json --hide-welcome; }
+docker logs lsp_siet_api 2>&1 | grep -E 'SIET migration|deprecated|ERROR' | head -20 || true   # k9 ครั้งเดียว, ไม่มี deprecated
+echo "SELECT version FROM _siet_migrations ORDER BY version;" | sq                               # 1..9
+H='Host: lsp-siet.site'
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/login                          # 200
+curl -s -H "$H" http://localhost/config; echo                    # {"apiUrl":"https://lsp-siet.site"} — ถ้าเป็น localhost:3000 = เบราว์เซอร์จะพัง
+curl -s -H "$H" http://localhost/config/apps; echo               # {"quizUrl":"/quiz","roadmapUrl":"/roadmap"}
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/quiz                           # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/roadmap                        # 200
+curl -s -o /dev/null -w '%{http_code}\n' -H "$H" http://localhost/api/auth/status                # 200
+EOF
+```
+
+curl ผ่าน `Host:` ยืนยันได้แค่ว่า Traefik ส่งถึงคอนเทนเนอร์ **ต้องเช็กในเบราว์เซอร์จริงที่ https://lsp-siet.site ด้วย**:
+login (Google ถ้าตั้งไว้ และ admin1), เปิด notebook + chat เก่า, upload ข้อความสั้นแล้วรอ summary, /admin/rag,
+/admin/quiz, /admin/roadmap, กดไป quiz และ roadmap จากเมนูแล้วดูว่าเข้าได้โดยยัง login อยู่ (hand-off) และ DevTools →
+Network ไม่มี request ไป `localhost`
+
+**Rollback ทาง B** — คืน compose **และ** image **และ** `.env` พร้อมกันเสมอ: compose ใหม่ส่งเฉพาะ `LSP_SIET_*` เข้าคอนเทนเนอร์
+ส่วน compose เก่าอ่านแค่ `OPEN_NOTEBOOK_ENCRYPTION_KEY` — ถ้าไม่คืน `.env` คอนเทนเนอร์เก่าจะได้ key default (credential
+ถอดรหัสไม่ได้, JWT เดิมใช้ไม่ได้) บล็อกนี้รับสภาพครึ่งทางของ B2 ได้
+
+```bash
+cd /Users/phuwish/kmitlAI && bash -euo pipefail <<'EOF'
+die() { echo "STOP: $*" >&2; exit 1; }
+BK=$(ls -d backups/pre-lsp-siet-* 2>/dev/null | tail -1 || true); [ -n "$BK" ] || die "ไม่มี backup"
+TS=${BK##*-lsp-siet-}
+[ -s "$BK/env.before" ] && [ -s "$BK/git-branch.txt" ] || die "$BK ไม่มี env.before / git-branch.txt"
+grep -q '^OPEN_NOTEBOOK_ENCRYPTION_KEY=' "$BK/env.before" || die "env.before ไม่มี OPEN_NOTEBOOK_ENCRYPTION_KEY"
+docker compose -p kmitlai down --remove-orphans </dev/null
+cp -p "$BK/env.before" .env
+mkdir -p open-notebook
+for d in surreal_data notebook_data redis_data; do
+  if [ -d "platform/$d" ]; then
+    [ ! -e "open-notebook/$d" ] || [ -z "$(ls -A "open-notebook/$d")" ] || die "open-notebook/$d มีข้อมูลอยู่แล้ว"
+    [ -e "open-notebook/$d" ] && rmdir "open-notebook/$d"
+    mv "platform/$d" "open-notebook/$d"
+  fi
+done
+if [ -d ai-roadmap/app/pb_data ] && [ ! -e ai-roadmap-generator/pb_data ]; then mkdir -p ai-roadmap-generator; mv ai-roadmap/app/pb_data ai-roadmap-generator/pb_data; fi
+if docker image inspect "kmitlai/my-ai-quiz:pre-lsp-siet-$TS" >/dev/null 2>&1; then docker tag "kmitlai/my-ai-quiz:pre-lsp-siet-$TS" kmitlai/my-ai-quiz:local; fi
+git switch "$(cat "$BK/git-branch.txt")"
+[ "$(git rev-parse HEAD)" = "$(cat "$BK/git-head.txt")" ] || echo "หมายเหตุ: HEAD ไม่ตรงกับตอน backup ($(cat "$BK/git-head.txt"))"
+[ -f docker/open-notebook/Dockerfile ] || die "checkout ไม่ใช่ layout เดิม"
+[ -f open-notebook/surreal_data/mydatabase.db/CURRENT ] || die "open-notebook/surreal_data ว่าง — อย่า up"
+docker compose -p kmitlai up -d --no-build </dev/null   # kmitlai/open-notebook:local, kmitlai/ai-roadmap-generator:local ยังเป็นของเดิม
+EOF
+```
+
+k9 ไม่ต้องย้อน (ลบแค่ตาราง podcast ที่ว่าง; image เก่าทำงานได้ — ซ้อมแล้ว) ถ้าต้องการ SurrealDB ตอนก่อน deploy ทุกไบต์:
+หลัง rollback หยุด `surrealdb` แล้วคืน `$BK/surreal_data-files` เป็น `open-notebook/surreal_data`
 
 ### 3.4 เรื่องที่ต้องรู้ (ทั้งสองทาง)
 
@@ -298,6 +491,9 @@ python3 scripts/lsp-siet/get_snapshot.py save http://127.0.0.1:25055 new-admin.j
 python3 scripts/lsp-siet/get_snapshot.py diff base-admin.json new-admin.json
 ```
 
-SurrealDB export → import (v2.6.5): `grep -v $'\x1b'` ตัด log แล้ว
+`get_snapshot.py` ส่งแค่ GET แต่ GET บางตัวเขียนข้อมูล (เช่นการเปิด source/notebook ถูกบันทึกเป็น recently-viewed)
+จึงใช้กับ stack ทดสอบเท่านั้น ห้ามชี้ไปที่ production
+
+SurrealDB export → import (v2.6.5): ตัดบรรทัด log สีท้ายไฟล์ (ถ้ามี) แล้ว
 `sed -E 's/^DEFINE FIELD /DEFINE FIELD OVERWRITE /'` (เหมือน `lsp-backup`) แล้ว `surreal import` ลงฐานว่าง
 ไฟล์ export / dump / env / JWT ของรอบนี้มีข้อมูลส่วนบุคคลและ secret — ลบทิ้งแล้วหลังตรวจ ไม่ได้ commit
