@@ -12,14 +12,24 @@
 
 ## 1. ทำ 3 ขั้น
 
-ก่อนเริ่ม commit หรือ stash งานค้างให้หมด (สคริปต์ไม่ยอมรันบน working tree ที่มีของค้าง) แล้ว:
+**ผู้ดูแล (Phuwish) ต้องทำก่อนทีมเริ่ม:** `refactor/lsp-siet` ต้อง **มี `main` ล่าสุดอยู่แล้ว** (merge `origin/main` เข้า branch แล้ว push) —
+ถ้า branch นั้นขาดคอมมิตของ `main` สคริปต์จะนับไฟล์ที่คนอื่นแก้บน `main` เป็นของ branch คุณด้วย ตรวจเองได้ด้วย `git merge-base --is-ancestor origin/main $R`
+(exit 0 = ใช้ได้; ไม่ใช่ = บอกพี่ก่อน)
+
+ก่อนเริ่ม commit งานค้างให้หมด **รวมไฟล์ใหม่ที่ยังไม่เคย commit** (สคริปต์ไม่ยอมรันบน working tree ที่มีของค้าง; ไฟล์ใหม่ที่สคริปต์ย้ายแล้ว stage ให้
+จะถูก `git reset --hard` ลบตอน undo) อย่าใช้ `git stash`: `git stash pop` หลังย้ายแล้วจะคืนไฟล์ไปไว้ที่ path ของโครงสร้างเดิม
+(สคริปต์ไม่รู้จัก stash) · ไฟล์ที่เป็น CRLF ที่สคริปต์เขียนทับอาจกลายเป็น LF — ถ้า `git diff --stat` โชว์ว่าทั้งไฟล์เปลี่ยน ให้แปลงกลับเป็น CRLF
+
+### 1a. ตอนนี้: `refactor/lsp-siet` ยังไม่ได้รวมเข้า `main`
 
 ```bash
 git fetch origin
-R=origin/refactor/lsp-siet            # ตอนนี้ branch นี้ยังไม่ได้รวมเข้า main
+R=origin/refactor/lsp-siet
+git rev-parse --verify -q $R >/dev/null || echo "ไม่มี $R: พี่ยังไม่ได้ push branch โครงสร้างใหม่ — รอก่อน อย่ารันกับ ref อื่น"
+git ls-tree origin/main platform/siet_core   # ต้องไม่พิมพ์อะไร; ถ้าพิมพ์ = main รวมแล้ว ไปที่ 1b
 
 # 1) เอา main ล่าสุดเข้า branch ก่อน — ยังเป็นโครงสร้างเดิม แก้ conflict แบบที่เคยทำ
-git merge main
+git merge origin/main
 
 # 2) เอาสคริปต์มาวางใน branch แล้วรัน (ดูก่อนด้วย --check ได้ มันไม่เขียนอะไร)
 git checkout $R -- scripts/lsp-siet
@@ -31,6 +41,34 @@ git add -A && git commit -m "chore: LSP-SIET codemod"
 git merge $R
 ```
 
+### 1b. หลัง `main` รวมโครงสร้างใหม่แล้ว (`origin/main` เป็นโครงสร้างใหม่)
+
+branch ที่แตกจาก `main` หลังโครงสร้างใหม่อยู่แล้ว ไม่ต้องทำอะไรในหัวข้อนี้ — ใช้กับ branch ที่แตกก่อนนั้นเท่านั้น
+
+ใช้ `origin/main` แทน `$R` และ **อย่า `git merge origin/main` ก่อนแปลง** (มันดึงโครงสร้างใหม่เข้ามาก่อนที่ไฟล์ของคุณจะถูกแปลง) —
+ขั้น 1 เปลี่ยนเป็นรวมแท็ก `lsp-siet-base` แทน (= `8efc391`, คอมมิตสุดท้ายของ `main` ก่อนโครงสร้างใหม่ ยังเป็นโครงสร้างเดิม):
+
+```bash
+git fetch origin --tags
+R=origin/main
+git rev-parse --verify -q lsp-siet-base >/dev/null || echo "ไม่มีแท็ก lsp-siet-base: พี่ยังไม่ได้ push แท็ก — รอก่อน"
+
+# 1) เอา main เท่าที่ยังเป็นโครงสร้างเดิมเข้า branch (แทน git merge main)
+git merge lsp-siet-base
+
+# 2) เหมือน 1a แต่ R คือ origin/main
+git checkout $R -- scripts/lsp-siet
+python3 scripts/lsp-siet/codemod.py --since $R --check
+python3 scripts/lsp-siet/codemod.py --since $R
+git add -A && git commit -m "chore: LSP-SIET codemod"
+
+# 3) รวม main (โครงสร้างใหม่ + งานของคนอื่นที่เข้ามาหลังจากนั้น)
+git merge $R
+```
+
+**พี่ (owner) ทำครั้งเดียวตอน push:** `git tag lsp-siet-base 8efc391 && git push origin lsp-siet-base`
+(แท็กไม่ถูกสร้างล่วงหน้า เพราะ ref ใช้ร่วมกับเครื่อง production)
+
 - `--since $R` = แปลงเฉพาะไฟล์ที่ branch คุณแก้หรือเพิ่มนับจากจุดที่แยกจาก `$R` (ไฟล์ใหม่ที่ยังไม่ commit ก็นับ)
   **อย่าลืมใส่** — ถ้าไม่ใส่ มันจะย้ายทั้ง repo แล้วชนกับไฟล์ที่โครงสร้างใหม่ลบทิ้งไปเป็นร้อยไฟล์ (rename/delete)
 - ไฟล์ที่ `$R` มีอยู่แล้ว (เช่น `docker-compose.yml`, `community/siet_community/extension.py`) สคริปต์แปลง **เฉพาะบรรทัดที่คุณแก้/เพิ่ม**
@@ -41,8 +79,12 @@ git merge $R
   (ถ้า `$R` มี commit ใหม่หลังจากที่คุณเอาสคริปต์มา แล้ว git บอกว่า `scripts/lsp-siet` ชนกัน ให้เลือกฝั่ง `$R`:
   `git checkout --theirs scripts/lsp-siet && git add scripts/lsp-siet`)
 - `--check` คืน exit 1 เมื่อมีของให้แปลง (ไม่ใช่ error) และ 0 เมื่อไม่มีอะไรเหลือ
-- ย้อนกลับได้ทุกจุด: ก่อน commit ขั้น 2 ใช้ `git reset --hard && git clean -fd scripts` (ไฟล์ใหม่ที่ยังไม่เคย commit ซึ่งถูกย้ายแล้ว ให้ย้ายกลับเอง) · ขั้น 3 ที่ยังค้าง conflict ใช้ `git merge --abort` · merge เสร็จแล้วใช้ `git reset --hard ORIG_HEAD`
-- ถ้า `main` รวม `refactor/lsp-siet` ไปแล้ว **อย่าทำขั้น 1** (มันจะดึงโครงสร้างใหม่เข้ามาก่อนแปลง) — บอกพี่ก่อน
+- ย้อนกลับได้ทุกจุด: ก่อน commit ขั้น 2 ใช้ `git reset --hard && git clean -fd scripts/lsp-siet` (ลบสคริปต์ที่เอามาวางด้วย: `git checkout $R -- scripts/lsp-siet`
+  ใหม่ก่อนรันอีกรอบ; อย่าใช้ `git clean -fd scripts` — มันลบไฟล์ใหม่ของคุณใต้ `scripts/` อื่น ๆ ด้วย) · ขั้น 3 ที่ยังค้าง conflict ใช้ `git merge --abort` ·
+  merge เสร็จแล้วใช้ `git reset --hard ORIG_HEAD`
+  - macOS: หลัง `reset --hard` โฟลเดอร์บนดิสก์อาจยังสะกด `my-ai-quiz` (ตัวเล็ก) ทั้งที่ git บอก `My-ai-quiz/…` — **รันสคริปต์ซ้ำได้เลย** สคริปต์รู้จักสถานะนี้
+    (บรรทัด `note: My-ai-quiz is spelled my-ai-quiz on this disk …`) ถ้าอยากให้ดิสก์ตรงกับดัชนีก่อน: `mv my-ai-quiz tmp-quiz && mv tmp-quiz My-ai-quiz`
+- ถ้า `refactor/lsp-siet` ถูกรวมเข้า `main` ไปแล้ว ให้ใช้ 1b เท่านั้น (อย่าทำ `git merge origin/main` ในขั้น 1 ของ 1a)
 
 ## 2. อ่านผลของสคริปต์
 
@@ -50,13 +92,13 @@ git merge $R
 
 | ข้อความ | หมายถึง | ต้องทำ |
 |---|---|---|
-| `… has neither X nor Y (the restructure deleted or split it)` | คุณแก้ไฟล์ที่โครงสร้างใหม่ **ลบหรือแตกเป็นหลายไฟล์** (ข้อ 5) | ย้ายสิ่งที่คุณแก้ไปไฟล์ใหม่ด้วยมือ; ใช้ `git diff <base> HEAD -- <ไฟล์เดิม>` (ในบรรทัดมีคำสั่งให้) ดูว่าคุณแก้อะไร **ก่อน commit ขั้น 2** |
+| `… has neither X nor Y` (หรือ `has no X`) `(the restructure deleted or split it)` | คุณแก้ไฟล์ที่โครงสร้างใหม่ **ลบหรือแตกเป็นหลายไฟล์** (ข้อ 5) | ย้ายสิ่งที่คุณแก้ไปไฟล์ใหม่ด้วยมือ; ใช้ `git diff <base> HEAD -- <ไฟล์เดิม>` (ในบรรทัดมีคำสั่งให้) ดูว่าคุณแก้อะไร **ก่อน commit ขั้น 2** |
 | `imports siet_platform.features.service, which does not exist …` | import จากโมดูลที่ไม่มีแล้ว (เช่น คุณเพิ่มฟังก์ชันใหม่ใน `features/service.py`) | เปลี่ยนเป็นโมดูลใหม่ที่ฟังก์ชันนั้นไปอยู่ |
 | `patch target "…" was not rewritten …` | string ใน `mock.patch(...)`/`monkeypatch.setattr(...)` (ข้อ 6) | patch ที่โมดูลที่ **ใช้** ฟังก์ชัน |
 | `dropped … exports dynamic that the kept … lacks` | ไฟล์สองฝั่งชื่อซ้ำกัน (หน้า/โมดูลของ host กับของ `siet-platform`); ไฟล์ที่ไม่ถูกเก็บมี `export` ที่ไฟล์ที่เก็บไม่มี (`dynamic`, `revalidate`, `metadata`, `generateMetadata` …) | ถ้ายังต้องใช้ ให้เพิ่ม `export` นั้นในไฟล์ที่เก็บ (ตัวอย่างจริง: `/config/apps` ต้อง `export const dynamic = 'force-dynamic'`) |
 | `collision: … kept A, dropped B` | โครงสร้างเดิมมีสองไฟล์ชื่อซ้ำกัน (`open-notebook/…` กับ `siet-platform/…`) ตอนนี้เหลือไฟล์เดียว | ถ้า B ที่ถูกทิ้งมีการแก้ของคุณ ให้เอามาใส่ A ด้วยมือ (`git show HEAD:B`) |
 | `your edits stay in this file; … wins at …` | คุณแก้ไฟล์ที่ "แพ้" ในข้างบน | สคริปต์ไม่ลบ (กันงานคุณหาย) git จะฟ้อง conflict ตอนขั้น 3 — เอาส่วนที่แก้ไปใส่ไฟล์ที่ชนะ |
-| `conflict: … is spelled … on this disk but git's index has …` | (macOS) ดัชนีของ git สะกดโฟลเดอร์ต่างจากบนดิสก์ (มักเกิดจาก `git add` ไฟล์ใหม่ใต้ `My-ai-quiz/` หลังโฟลเดอร์ถูกเปลี่ยนเป็น `my-ai-quiz/` แล้ว) สคริปต์เลยไม่ย้ายไฟล์นั้น (ไม่งั้นมันจะซ้อนลงไปอีกชั้น) | `git mv` ผ่านชื่อชั่วคราวให้ดัชนีสะกดเหมือนดิสก์ แล้วรันใหม่ |
+| `conflict: … is spelled … on this disk and git's index holds files of that directory under both spellings` | (macOS) ดัชนีมีไฟล์ในโฟลเดอร์เดียวกันสะกดสองแบบ (มักเกิดจาก `git add` ไฟล์ใหม่ใต้ `My-ai-quiz/` หลังโฟลเดอร์ถูกเปลี่ยนเป็น `my-ai-quiz/` แล้ว) สคริปต์เลยไม่ย้ายไฟล์นั้น (ไม่งั้นมันจะซ้อนลงไปอีกชั้น) | ในบรรทัดมีคำสั่งให้สองแบบ: ไฟล์ยังเป็นโครงสร้างเดิม → `git mv <เดิม> <path ใหม่>` ตามที่บรรทัดบอก · ไฟล์เป็นโครงสร้างใหม่อยู่แล้ว → `git mv` ผ่านชื่อชั่วคราวให้ดัชนีสะกดเหมือนดิสก์ แล้วรันใหม่ |
 | `still mentions open-notebook (2x)` | ในไฟล์ข้อความ (Makefile, yml, md) ยังมีชื่อโฟลเดอร์เก่า | แก้เองตามตารางข้อ 3 |
 | `note: ignored, not moved: …` | โฟลเดอร์ที่ git ไม่ track (`node_modules`, ข้อมูล dev) ไม่ถูกย้าย | ย้ายเอง ดูข้อ 7 |
 
