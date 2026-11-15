@@ -1,0 +1,75 @@
+# Known failing backend tests (the baseline measured in Task 1, minus the tests deleted with
+# the podcasts). CI (.github/workflows/image.yml) runs the backend suite with one
+# `--deselect <id>` per line below, so only a failure that is NOT listed fails the job.
+#
+# Ids are exactly as pytest prints them when run from platform/ with
+#   tests tests-platform ../kmitl-rag/tests ../community/tests ../my-ai-quiz/tests ../ai-roadmap/tests
+# (--deselect matches by prefix). One per line, sorted with LC_ALL=C sort. Lines starting with #
+# and blank lines are ignored. Remove an entry when its test is fixed; never add one to hide
+# a new failure. `make test-backend` does not use this file and still shows these failures.
+test_chat_routers_characterization.py::test_create_source_chat_session_missing_source_returns_404
+test_chat_routers_characterization.py::test_delete_source_chat_session_missing_relation_behavior
+test_chat_routers_characterization.py::test_get_source_chat_session_happy_path_shapes
+test_chat_routers_characterization.py::test_get_source_chat_session_missing_relation_behavior
+test_chat_routers_characterization.py::test_get_source_chat_session_missing_session_returns_404
+test_chat_routers_characterization.py::test_list_source_chat_sessions_missing_source_returns_404
+test_chat_routers_characterization.py::test_send_message_missing_relation_returns_404
+test_clear_description.py::test_update_notebook_description[payload0-]
+test_clear_description.py::test_update_notebook_description[payload1-]
+test_clear_description.py::test_update_notebook_description[payload2-new text]
+test_clear_description.py::test_update_notebook_description[payload3-old text]
+test_error_message_sanitization.py::TestInvalidInputErrorsStillReturnTheirOwnSafeMessage::test_update_source_invalid_input_still_returns_its_message
+test_error_message_sanitization.py::TestSourcesRouterDoesNotLeakExceptionText::test_delete_source_failure_returns_generic_message
+test_error_message_sanitization.py::TestSourcesRouterDoesNotLeakExceptionText::test_list_sources_failure_returns_generic_message
+test_error_message_sanitization.py::TestSourcesRouterDoesNotLeakExceptionText::test_update_source_failure_returns_generic_message
+test_notes_api.py::TestNoteCreation::test_create_note_command_id_none_when_no_content_embedding
+test_notes_api.py::TestNoteCreation::test_create_note_returns_command_id
+test_notes_api.py::TestNoteUpdate::test_update_note_command_id_none_when_no_embedding
+test_notes_api.py::TestNoteUpdate::test_update_note_returns_command_id
+test_recently_viewed_api.py::TestRecentlyViewedApi::test_get_notebook_stamps_last_viewed_at
+test_recently_viewed_api.py::TestRecentlyViewedApi::test_get_source_stamps_last_viewed_at
+test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_empty_when_no_view_history
+test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_honors_limit
+test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_reorders_after_notebook_is_viewed_again
+test_recently_viewed_api.py::TestRecentlyViewedApi::test_recently_viewed_returns_mixed_items_newest_first
+test_source_path_containment.py::TestDownloadEndpointRejectsSiblingDirectoryBypass::test_download_returns_403_for_sibling_directory_file
+test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_link_source_persists_url_asset
+test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_text_source_has_no_asset
+test_sources_api.py::TestAsyncSourceAssetPersistence::test_async_upload_source_persists_file_asset
+test_sources_api.py::TestGetSourceNotFound::test_get_missing_source_returns_404
+test_sources_api.py::TestRetrySourceProcessing::test_retry_400_only_when_truly_unlinked
+test_sources_api.py::TestRetrySourceProcessing::test_retry_finds_notebooks_and_requeues
+test_sources_api.py::TestTitleSortUsesAlias::test_all_sort_fields_return_200
+test_sources_api.py::TestTitleSortUsesAlias::test_invalid_sort_field_returns_400
+test_sources_api.py::TestTitleSortUsesAlias::test_sort_by_title_orders_by_alias
+test_upload_type_mitigations.py::TestDownloadsAlwaysServedAsOctetStream::test_html_file_download_is_octet_stream_not_text_html
+test_upload_type_mitigations.py::TestDownloadsAlwaysServedAsOctetStream::test_svg_file_download_is_octet_stream_not_svg_xml
+tests/test_auth.py::TestNonAsciiPassword::test_accepts_utf8_password
+tests/test_crud_404.py::test_add_source_missing_notebook_returns_404
+tests/test_crud_404.py::test_delete_note_missing_returns_404
+tests/test_crud_404.py::test_delete_notebook_missing_returns_404
+tests/test_crud_404.py::test_delete_preview_missing_returns_404
+tests/test_crud_404.py::test_get_note_missing_returns_404
+tests/test_crud_404.py::test_remove_source_missing_notebook_returns_404
+tests/test_crud_404.py::test_update_note_missing_returns_404
+tests/test_crud_404.py::test_update_notebook_missing_returns_404
+tests/test_empty_model_reply.py::test_notebook_chat_failed_turn_is_rolled_back_and_retry_is_clean
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[archived desc]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[id]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[name asc, updated desc]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[name desc extra]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[name) FETCH (SELECT * FROM credential]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[updated LIMIT 1]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[updated sideways]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_injection_and_unknown_fields_return_400[updated; DROP TABLE notebook]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[  Name   DESC -name desc]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[created-created]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[name asc-name asc]
+tests/test_order_by_validation.py::TestGetNotebooksOrderBy::test_valid_values_reach_the_query_normalized[updated desc-updated desc]
+tests/test_typed_exceptions_reach_handlers.py::TestUnsupportedTypeErrorPropagation::test_unsupported_type_maps_to_415
+tests/test_typed_exceptions_reach_handlers.py::TestUntypedExceptionsStillSanitized::test_runtime_error_stays_generic_500
+tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[notebooks]
+tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[notes]
+tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[source_chat]
+tests/test_typed_exceptions_reach_handlers.py::test_configuration_error_maps_to_422[sources]

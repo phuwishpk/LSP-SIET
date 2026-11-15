@@ -154,3 +154,15 @@ def test_exists_exact_is_case_sensitive():
     assert exists_exact("my-ai-quiz/app/package-lock.json*")
     assert not exists_exact("My-ai-quiz/app/Dockerfile")
     assert not exists_exact("my-ai-quiz/App")
+
+
+def test_known_failures_file_is_sorted_and_used_by_ci():
+    """CI deselects exactly the ids in docs/lsp-siet/known-failures.txt (one per line, C-sorted)."""
+    lines = (ROOT / "docs/lsp-siet/known-failures.txt").read_text(encoding="utf-8").splitlines()
+    ids = [line for line in lines if line and not line.startswith("#")]
+    assert ids, "known-failures.txt lists no test"
+    assert ids == sorted(ids, key=lambda s: s.encode()), "ids must be sorted with LC_ALL=C sort"
+    assert len(ids) == len(set(ids)), "duplicate ids"
+    assert all(i == i.rstrip() and "::" in i for i in ids), "an id has trailing blanks or is not a node id"
+    workflow = (ROOT / ".github/workflows/image.yml").read_text(encoding="utf-8")
+    assert "docs/lsp-siet/known-failures.txt" in workflow and '--deselect "$id"' in workflow
