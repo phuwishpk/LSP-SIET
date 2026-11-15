@@ -39,6 +39,34 @@ MOVES: list[tuple[str, str]] = [
     ("siet-platform", "platform"),
     ("My-ai-quiz", "my-ai-quiz/app"),
     ("ai-roadmap-generator", "ai-roadmap/app"),
+    # Task 10: the notebooks/sources API is KMITL RAG's (kmitl_rag.extension.finalize mounts it)
+    ("platform/api/routers/notebooks.py", "kmitl-rag/kmitl_rag/routers/notebooks.py"),
+    ("platform/api/routers/sources.py", "kmitl-rag/kmitl_rag/routers/sources.py"),
+    ("platform/api/routers/notes.py", "kmitl-rag/kmitl_rag/routers/notes.py"),
+    ("platform/api/routers/chat.py", "kmitl-rag/kmitl_rag/routers/chat.py"),
+    ("platform/api/routers/source_chat.py", "kmitl-rag/kmitl_rag/routers/source_chat.py"),
+    ("platform/api/routers/_chat_shared.py", "kmitl-rag/kmitl_rag/routers/_chat_shared.py"),
+    ("platform/api/routers/embedding.py", "kmitl-rag/kmitl_rag/routers/embedding.py"),
+    ("platform/api/routers/embedding_rebuild.py", "kmitl-rag/kmitl_rag/routers/embedding_rebuild.py"),
+    ("platform/api/routers/insights.py", "kmitl-rag/kmitl_rag/routers/insights.py"),
+    ("platform/api/routers/transformations.py", "kmitl-rag/kmitl_rag/routers/transformations.py"),
+    ("platform/api/routers/search.py", "kmitl-rag/kmitl_rag/routers/search.py"),
+    # ... with the tests that exercise only those routers
+    ("platform/tests/test_chat_routers_characterization.py", "kmitl-rag/tests/test_chat_routers_characterization.py"),
+    ("platform/tests/test_clear_description.py", "kmitl-rag/tests/test_clear_description.py"),
+    ("platform/tests/test_context_endpoint_characterization.py", "kmitl-rag/tests/test_context_endpoint_characterization.py"),
+    ("platform/tests/test_create_insight_empty_source.py", "kmitl-rag/tests/test_create_insight_empty_source.py"),
+    ("platform/tests/test_error_message_sanitization.py", "kmitl-rag/tests/test_error_message_sanitization.py"),
+    ("platform/tests/test_notes_api.py", "kmitl-rag/tests/test_notes_api.py"),
+    ("platform/tests/test_recently_viewed_api.py", "kmitl-rag/tests/test_recently_viewed_api.py"),
+    ("platform/tests/test_source_default_transformations.py", "kmitl-rag/tests/test_source_default_transformations.py"),
+    ("platform/tests/test_source_path_containment.py", "kmitl-rag/tests/test_source_path_containment.py"),
+    ("platform/tests/test_sources_api.py", "kmitl-rag/tests/test_sources_api.py"),
+    ("platform/tests/test_transformations_readonly.py", "kmitl-rag/tests/test_transformations_readonly.py"),
+    ("platform/tests/test_upload_toctou_race.py", "kmitl-rag/tests/test_upload_toctou_race.py"),
+    ("platform/tests/test_upload_type_mitigations.py", "kmitl-rag/tests/test_upload_type_mitigations.py"),
+    # Task 10: the quiz tests follow siet_quiz (the shared RAG helper test is split off by hand)
+    ("platform/tests-platform/test_quiz_generation.py", "my-ai-quiz/tests/test_quiz_generation.py"),
 ]
 
 # When two files land on the same new path, the first (glob, winner_prefix) whose glob
@@ -80,8 +108,75 @@ MODULE_RENAMES: dict[str, str] = {"open_notebook": "siet_core"}
 # pyproject.toml entry-point group (old, new).
 ENTRY_POINT_GROUP: tuple[str, str] = ("open_notebook.extensions", "siet.extensions")
 
-# "final.module.Name": "new.module.Name"  (Task 10 fills).
-SYMBOL_MOVES: dict[str, str] = {}
+# "final.module.Name": "new.module.Name".
+SYMBOL_MOVES: dict[str, str] = {
+    # Task 10: siet_platform/features splits into siet_quiz, siet_roadmap and
+    # siet_platform.ai_helpers; its router into siet_quiz/siet_roadmap routers.features and
+    # the shared request helpers of siet_platform.http.
+    "siet_platform.features.domain.QuizSession": "siet_quiz.domain.QuizSession",
+    "siet_platform.features.domain.RoadmapSession": "siet_roadmap.domain.RoadmapSession",
+    "siet_platform.features.service.MAX_RAG_CONTEXT_CHARS": "siet_platform.ai_helpers.MAX_RAG_CONTEXT_CHARS",
+    "siet_platform.features.service._hash_prompt": "siet_platform.ai_helpers._hash_prompt",
+    "siet_platform.features.service._retrieve_rag_context": "siet_platform.ai_helpers._retrieve_rag_context",
+    "siet_platform.features.service._format_rag_chunks": "siet_platform.ai_helpers._format_rag_chunks",
+    "siet_platform.features.service._extract_json": "siet_platform.ai_helpers._extract_json",
+    "siet_platform.features.service._invoke_chat": "siet_platform.ai_helpers._invoke_chat",
+    "siet_platform.features.service.model_manager": "siet_platform.ai_helpers.model_manager",
+    "siet_platform.features.service.text_search": "siet_platform.ai_helpers.text_search",
+    "siet_platform.features.service.QUIZ_TYPES": "siet_quiz.service.QUIZ_TYPES",
+    "siet_platform.features.service.QUESTION_TYPES": "siet_quiz.service.QUESTION_TYPES",
+    "siet_platform.features.service.DIFFICULTIES": "siet_quiz.service.DIFFICULTIES",
+    "siet_platform.features.service.QuizOption": "siet_quiz.service.QuizOption",
+    "siet_platform.features.service.QuizQuestion": "siet_quiz.service.QuizQuestion",
+    "siet_platform.features.service.QuizResponse": "siet_quiz.service.QuizResponse",
+    "siet_platform.features.service._BLANK_RE": "siet_quiz.service._BLANK_RE",
+    "siet_platform.features.service._TYPE_ALIASES": "siet_quiz.service._TYPE_ALIASES",
+    "siet_platform.features.service._question_type": "siet_quiz.service._question_type",
+    "siet_platform.features.service._text": "siet_quiz.service._text",
+    "siet_platform.features.service._explanation": "siet_quiz.service._explanation",
+    "siet_platform.features.service._clean_mcq": "siet_quiz.service._clean_mcq",
+    "siet_platform.features.service._clean_fill": "siet_quiz.service._clean_fill",
+    "siet_platform.features.service._clean_matching": "siet_quiz.service._clean_matching",
+    "siet_platform.features.service._CLEANERS": "siet_quiz.service._CLEANERS",
+    "siet_platform.features.service._enforce_quiz_invariants": "siet_quiz.service._enforce_quiz_invariants",
+    "siet_platform.features.service._DIFFICULTY_TEXT": "siet_quiz.service._DIFFICULTY_TEXT",
+    "siet_platform.features.service._TYPE_TEXT": "siet_quiz.service._TYPE_TEXT",
+    "siet_platform.features.service._QUIZ_SYSTEM_PROMPT": "siet_quiz.service._QUIZ_SYSTEM_PROMPT",
+    "siet_platform.features.service._quiz_prompt": "siet_quiz.service._quiz_prompt",
+    "siet_platform.features.service.generate_quiz": "siet_quiz.service.generate_quiz",
+    "siet_platform.features.service._persist_quiz": "siet_quiz.service._persist_quiz",
+    "siet_platform.features.service.RoadmapNode": "siet_roadmap.service.RoadmapNode",
+    "siet_platform.features.service.RoadmapEdge": "siet_roadmap.service.RoadmapEdge",
+    "siet_platform.features.service.RoadmapResponse": "siet_roadmap.service.RoadmapResponse",
+    "siet_platform.features.service._enforce_roadmap_invariants": "siet_roadmap.service._enforce_roadmap_invariants",
+    "siet_platform.features.service.generate_roadmap": "siet_roadmap.service.generate_roadmap",
+    "siet_platform.features.service._persist_roadmap": "siet_roadmap.service._persist_roadmap",
+    "siet_platform.features.schemas.QuizOptionPayload": "siet_quiz.schemas.QuizOptionPayload",
+    "siet_platform.features.schemas.QuizQuestionPayload": "siet_quiz.schemas.QuizQuestionPayload",
+    "siet_platform.features.schemas.QuizGenerateRequest": "siet_quiz.schemas.QuizGenerateRequest",
+    "siet_platform.features.schemas.QuizSessionResponse": "siet_quiz.schemas.QuizSessionResponse",
+    "siet_platform.features.schemas.QuizSessionSummary": "siet_quiz.schemas.QuizSessionSummary",
+    "siet_platform.features.schemas.QuizGenerateResponse": "siet_quiz.schemas.QuizGenerateResponse",
+    "siet_platform.features.schemas.RoadmapNodePayload": "siet_roadmap.schemas.RoadmapNodePayload",
+    "siet_platform.features.schemas.RoadmapEdgePayload": "siet_roadmap.schemas.RoadmapEdgePayload",
+    "siet_platform.features.schemas.RoadmapGenerateRequest": "siet_roadmap.schemas.RoadmapGenerateRequest",
+    "siet_platform.features.schemas.RoadmapSessionResponse": "siet_roadmap.schemas.RoadmapSessionResponse",
+    "siet_platform.features.schemas.RoadmapSessionSummary": "siet_roadmap.schemas.RoadmapSessionSummary",
+    "siet_platform.features.schemas.RoadmapGenerateResponse": "siet_roadmap.schemas.RoadmapGenerateResponse",
+    "siet_platform.routers.features.DEFAULT_OWNER_ID": "siet_platform.http.DEFAULT_OWNER_ID",
+    "siet_platform.routers.features._insufficient": "siet_platform.http._insufficient",
+    "siet_platform.routers.features._charge": "siet_platform.http._charge",
+    "siet_platform.routers.features._resolve_owner_id": "siet_platform.http._resolve_owner_id",
+    "siet_platform.routers.features._session_to_quiz_response": "siet_quiz.routers.features._session_to_quiz_response",
+    "siet_platform.routers.features.list_quiz_sessions": "siet_quiz.routers.features.list_quiz_sessions",
+    "siet_platform.routers.features.get_quiz_session": "siet_quiz.routers.features.get_quiz_session",
+    "siet_platform.routers.features.delete_quiz_session": "siet_quiz.routers.features.delete_quiz_session",
+    "siet_platform.routers.features._session_to_roadmap_response": "siet_roadmap.routers.features._session_to_roadmap_response",
+    "siet_platform.routers.features.generate_roadmap": "siet_roadmap.routers.features.generate_roadmap",
+    "siet_platform.routers.features.list_roadmap_sessions": "siet_roadmap.routers.features.list_roadmap_sessions",
+    "siet_platform.routers.features.get_roadmap_session": "siet_roadmap.routers.features.get_roadmap_session",
+    "siet_platform.routers.features.delete_roadmap_session": "siet_roadmap.routers.features.delete_roadmap_session",
+}
 
 # Whole-word renames in .toml/.json/.yml/Makefile/Dockerfile*/.env.example/.sh (Task 15 fills).
 ENV_RENAMES: dict[str, str] = {}

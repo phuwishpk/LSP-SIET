@@ -1,0 +1,19 @@
+[project]
+name = "siet-quiz"
+version = "0.1.0"
+description = "AI quiz on top of lsp-siet-platform: quiz generation (multiple choice, fill in the blank, matching), saved quiz sessions and the admin delete."
+requires-python = ">=3.11,<3.13"
+dependencies = ["lsp-siet-platform"]
+
+[project.entry-points."siet.extensions"]
+siet_quiz = "siet_quiz.extension"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["siet_quiz*"]
+
+[tool.uv.sources]
+lsp-siet-platform = { path = "../platform", editable = true }

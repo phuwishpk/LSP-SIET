@@ -137,10 +137,10 @@ def _history(graph, thread_id):
 
 @pytest.mark.asyncio
 async def test_source_chat_failed_turn_is_rolled_back_and_retry_is_clean():
-    from api.routers.source_chat import stream_source_chat_response
+    from kmitl_rag.routers.source_chat import stream_source_chat_response
 
     graph = _toy_graph(["", "the answer"])
-    with patch("api.routers.source_chat.source_chat_graph", graph):
+    with patch("kmitl_rag.routers.source_chat.source_chat_graph", graph):
         failed = await _events(
             stream_source_chat_response("chat_session:s", "source:1", "question")
         )
@@ -173,12 +173,12 @@ def test_notebook_chat_failed_turn_is_rolled_back_and_retry_is_clean():
     graph = _toy_graph(["", "the answer"])
     session = MagicMock(model_override=None, save=AsyncMock())
     with (
-        patch("api.routers.chat.chat_graph", graph),
+        patch("kmitl_rag.routers.chat.chat_graph", graph),
         patch(
-            "api.routers.chat.get_session_or_404",
+            "kmitl_rag.routers.chat.get_session_or_404",
             new=AsyncMock(return_value=("chat_session:n", session)),
         ),
-        patch("api.routers.chat.repo_query", new=AsyncMock(return_value=[])),
+        patch("kmitl_rag.routers.chat.repo_query", new=AsyncMock(return_value=[])),
     ):
         payload = {"session_id": "chat_session:n", "message": "question", "context": {}}
         failed = client.post("/api/chat/execute", json=payload)

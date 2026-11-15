@@ -75,7 +75,7 @@ class TestGetNotebooksOrderBy:
     )
     def test_valid_values_reach_the_query_normalized(self, client, order_by, expected):
         with patch(
-            "api.routers.notebooks.repo_query", new_callable=AsyncMock
+            "kmitl_rag.routers.notebooks.repo_query", new_callable=AsyncMock
         ) as mock_query:
             mock_query.return_value = []
             response = client.get("/api/notebooks", params={"order_by": order_by})
@@ -100,7 +100,7 @@ class TestGetNotebooksOrderBy:
     )
     def test_injection_and_unknown_fields_return_400(self, client, order_by):
         with patch(
-            "api.routers.notebooks.repo_query", new_callable=AsyncMock
+            "kmitl_rag.routers.notebooks.repo_query", new_callable=AsyncMock
         ) as mock_query:
             response = client.get("/api/notebooks", params={"order_by": order_by})
 

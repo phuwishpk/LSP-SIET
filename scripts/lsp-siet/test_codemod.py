@@ -544,6 +544,44 @@ def test_symbol_split_keeps_unmoved_names_and_renames(tmp_path):
     assert 'mock.patch("siet_quiz.service.make_quiz.helper")' in text
 
 
+def test_task10_table_on_an_old_layout_branch(tmp_path):
+    """The real table: a community file and a router test from before the restructure."""
+    root = make_repo(tmp_path / "r", {
+        "community/siet_community/x.py": dedent("""
+            from siet_platform.features.domain import QuizSession, RoadmapSession
+            from siet_platform.features.service import _extract_json, generate_quiz
+            from siet_platform.features.schemas import QuizGenerateRequest, RoadmapGenerateResponse
+            from siet_platform.routers.features import _charge, _resolve_owner_id, _session_to_quiz_response
+        """),
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/routers/__init__.py": "",
+        "open-notebook/api/routers/sources.py": "x = 1\n",
+        "open-notebook/tests/test_sources_api.py": dedent("""
+            from api.routers.sources import x
+            from unittest.mock import patch
+            p = patch("api.routers.sources.repo_query")
+        """),
+    })
+    apply(root)
+    text = read(root, "community/siet_community/x.py")
+    for line in (
+        "from siet_quiz.domain import QuizSession\n",
+        "from siet_roadmap.domain import RoadmapSession\n",
+        "from siet_platform.ai_helpers import _extract_json\n",
+        "from siet_quiz.service import generate_quiz\n",
+        "from siet_quiz.schemas import QuizGenerateRequest\n",
+        "from siet_roadmap.schemas import RoadmapGenerateResponse\n",
+        "from siet_platform.http import _charge, _resolve_owner_id\n",
+        "from siet_quiz.routers.features import _session_to_quiz_response\n",
+    ):
+        assert line in text, line
+    assert "siet_platform.features" not in text and "siet_platform.routers.features" not in text
+    assert read(root, "kmitl-rag/kmitl_rag/routers/sources.py") == "x = 1\n"
+    moved_test = read(root, "kmitl-rag/tests/test_sources_api.py")
+    assert "from kmitl_rag.routers.sources import x\n" in moved_test
+    assert 'patch("kmitl_rag.routers.sources.repo_query")' in moved_test
+
+
 def test_entry_point_group(tmp_path):
     root = make_repo(tmp_path / "r", {
         "kmitl-rag/pyproject.toml": dedent("""
@@ -693,7 +731,11 @@ def test_python_relative_import_of_split_files(tmp_path):
         "siet-platform/siet_platform/cache.py": "c = 1\n",
     }
     root = make_repo(tmp_path / "r", files)
-    cfg = config(extra_moves=[("siet-platform/siet_platform/features/quiz.py", "my-ai-quiz/siet_quiz/quiz.py")])
+    # Relative imports only: the real SYMBOL_MOVES would also send QuizSession to siet_quiz.
+    cfg = config(
+        extra_moves=[("siet-platform/siet_platform/features/quiz.py", "my-ai-quiz/siet_quiz/quiz.py")],
+        symbol_moves={},
+    )
     apply(root, cfg)
     text = read(root, "my-ai-quiz/siet_quiz/quiz.py")
     assert "from siet_platform.features.domain import QuizSession\n" in text

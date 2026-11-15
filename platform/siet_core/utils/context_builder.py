@@ -2,7 +2,7 @@
 
 This is the single implementation behind:
 
-- ``POST /api/chat/context`` (`api/routers/chat.py`) — assembles notebook
+- ``POST /api/chat/context`` (`kmitl_rag/routers/chat.py`) — assembles notebook
   context from a source/note inclusion config, via
   :func:`build_notebook_context`.
 - the source-chat graph (`siet_core/graphs/source_chat.py`) — assembles

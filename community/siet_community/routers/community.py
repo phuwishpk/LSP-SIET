@@ -39,7 +39,8 @@ from siet_platform import audit, library, notifications as inbox, points, rateli
 from siet_community import repository as repo
 from siet_platform.cache.service import cache_service
 from siet_core.config import DATA_FOLDER
-from siet_platform.features.domain import QuizSession, RoadmapSession
+from siet_quiz.domain import QuizSession
+from siet_roadmap.domain import RoadmapSession
 from siet_platform.http import (
     _guard_spam,
     _insufficient,
@@ -2144,7 +2145,7 @@ async def study_quiz(
     body: StudyQuizBody, user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Generate a quiz grounded in the selected course material / own documents."""
-    from siet_platform.features import service as feature_service
+    from siet_quiz import service as feature_service
 
     uid = _uid(user)
     notebook_ids, source_ids, label = await _study_scope(user, body)

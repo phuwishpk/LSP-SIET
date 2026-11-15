@@ -1831,6 +1831,8 @@ dependencies = [
     { name = "python-dotenv" },
     { name = "redis", extra = ["hiredis"] },
     { name = "siet-community" },
+    { name = "siet-quiz" },
+    { name = "siet-roadmap" },
     { name = "sqlalchemy", extra = ["asyncio"] },
     { name = "surreal-commands" },
     { name = "surrealdb" },
@@ -1885,6 +1887,8 @@ requires-dist = [
     { name = "python-dotenv", specifier = ">=1.2.2" },
     { name = "redis", extras = ["hiredis"], specifier = ">=5.0.0" },
     { name = "siet-community", editable = "../community" },
+    { name = "siet-quiz", editable = "../my-ai-quiz" },
+    { name = "siet-roadmap", editable = "../ai-roadmap" },
     { name = "sqlalchemy", extras = ["asyncio"], specifier = ">=2.0" },
     { name = "surreal-commands", specifier = ">=1.3.1,<2" },
     { name = "surrealdb", specifier = ">=1.0.4" },
@@ -3329,13 +3333,39 @@ source = { editable = "../community" }
 dependencies = [
     { name = "kmitl-rag" },
     { name = "lsp-siet-platform" },
+    { name = "siet-quiz" },
+    { name = "siet-roadmap" },
 ]
 
 [package.metadata]
 requires-dist = [
     { name = "kmitl-rag", editable = "../kmitl-rag" },
     { name = "lsp-siet-platform", editable = "." },
+    { name = "siet-quiz", editable = "../my-ai-quiz" },
+    { name = "siet-roadmap", editable = "../ai-roadmap" },
 ]
+
+[[package]]
+name = "siet-quiz"
+version = "0.1.0"
+source = { editable = "../my-ai-quiz" }
+dependencies = [
+    { name = "lsp-siet-platform" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "lsp-siet-platform", editable = "." }]
+
+[[package]]
+name = "siet-roadmap"
+version = "0.1.0"
+source = { editable = "../ai-roadmap" }
+dependencies = [
+    { name = "lsp-siet-platform" },
+]
+
+[package.metadata]
+requires-dist = [{ name = "lsp-siet-platform", editable = "." }]
 
 [[package]]
 name = "six"

@@ -30,10 +30,10 @@ from siet_platform.cache.service import cache_service
 from kmitl_rag import ask as rag, grounding
 from siet_platform.retrieval import content_key
 from siet_platform.config import DEFAULT_CACHE_TTL
-from siet_platform.features.domain import RoadmapSession
+from siet_roadmap.domain import RoadmapSession
 from siet_core.exceptions import ExternalServiceError, InvalidInputError
 from siet_platform import usage
-from siet_platform.features.service import _extract_json, _hash_prompt, _invoke_chat
+from siet_platform.ai_helpers import _extract_json, _hash_prompt, _invoke_chat
 
 STAGES: Tuple[str, ...] = ("พื้นฐาน", "แนวคิดหลัก", "ฝึกปฏิบัติ", "ประยุกต์", "ทบทวน/ประเมิน")
 # How big a plan is, and how far a node is broken down, is the model's call.

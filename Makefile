@@ -76,9 +76,9 @@ nuke: down  ## Stop + remove everything including volumes (DESTROYS DATA)
 # .env loading is off: api/main.py calls load_dotenv(), which finds this repo's
 # root .env, and whether a test then sees JWT_SECRET depends on test order.
 PYTEST ?= uv run --no-sync python -m pytest
-SIET_TEST_DIRS = tests tests-platform ../kmitl-rag/tests ../community/tests
+SIET_TEST_DIRS = tests tests-platform ../kmitl-rag/tests ../my-ai-quiz/tests ../ai-roadmap/tests ../community/tests
 
-test-backend:  ## Run backend tests (platform + kmitl-rag + community)
+test-backend:  ## Run backend tests (platform + kmitl-rag + quiz + roadmap + community)
 	cd platform && PYTHON_DOTENV_DISABLED=1 $(PYTEST) -q $(SIET_TEST_DIRS) $(ARGS)
 
 # One-time move of the KMITL SurrealDB migration records (core 19-25) to the

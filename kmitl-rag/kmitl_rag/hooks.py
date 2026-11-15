@@ -57,7 +57,7 @@ async def _filter_message(
 
 
 async def _filter_messages(messages, *, context=None):
-    """The list form (api.routers._chat_shared.ChatMessage items) of _filter_message."""
+    """The list form (kmitl_rag.routers._chat_shared.ChatMessage items) of _filter_message."""
     for message in messages:
         message.content = await _filter_message(message.content, message=message, context=context)
     return messages

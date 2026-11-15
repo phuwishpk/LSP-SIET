@@ -17,7 +17,7 @@ from loguru import logger
 from pydantic import BaseModel, Field
 
 from api.dependencies import _resolve_owner_id, owner_can_access
-from api.routers.chat import ChatMessage, SuccessResponse, UpdateSessionRequest
+from kmitl_rag.routers.chat import ChatMessage, SuccessResponse, UpdateSessionRequest
 from kmitl_rag.chat_filters import (
     _filter_url_citations,
     _pin_relevant_excerpts,

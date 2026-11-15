@@ -42,21 +42,21 @@ def _boom(*_args, **_kwargs):
 CASES = [
     (
         "chat",
-        "api.routers.chat.Notebook.get",
+        "kmitl_rag.routers.chat.Notebook.get",
         "GET",
         "/api/chat/sessions?notebook_id=notebook:1",
         None,
     ),
     (
         "source_chat",
-        "api.routers._chat_shared.Source.get",
+        "kmitl_rag.routers._chat_shared.Source.get",
         "GET",
         "/api/sources/xyz/chat/sessions",
         None,
     ),
-    ("sources", "api.routers.sources.repo_query", "GET", "/api/sources", None),
-    ("notebooks", "api.routers.notebooks.repo_query", "GET", "/api/notebooks", None),
-    ("notes", "api.routers.notes.Note.get_all", "GET", "/api/notes", None),
+    ("sources", "kmitl_rag.routers.sources.repo_query", "GET", "/api/sources", None),
+    ("notebooks", "kmitl_rag.routers.notebooks.repo_query", "GET", "/api/notebooks", None),
+    ("notes", "kmitl_rag.routers.notes.Note.get_all", "GET", "/api/notes", None),
     ("models", "api.routers.models.Model.get_all", "GET", "/api/models", None),
     (
         "commands",
@@ -74,28 +74,28 @@ CASES = [
     ),
     (
         "embedding",
-        "api.routers.embedding.model_manager.get_embedding_model",
+        "kmitl_rag.routers.embedding.model_manager.get_embedding_model",
         "POST",
         "/api/embed",
         {"item_id": "source:1", "item_type": "source"},
     ),
     (
         "embedding_rebuild",
-        "api.routers.embedding_rebuild.repo_query",
+        "kmitl_rag.routers.embedding_rebuild.repo_query",
         "POST",
         "/api/embeddings/rebuild",
         {"mode": "existing"},
     ),
     (
         "insights",
-        "api.routers.insights.SourceInsight.get",
+        "kmitl_rag.routers.insights.SourceInsight.get",
         "GET",
         "/api/insights/source_insight:1",
         None,
     ),
     (
         "search",
-        "api.routers.search.text_search",
+        "kmitl_rag.routers.search.text_search",
         "POST",
         "/api/search",
         {"query": "hello", "type": "text"},
@@ -109,7 +109,7 @@ CASES = [
     ),
     (
         "transformations",
-        "api.routers.transformations.Transformation.get_all",
+        "kmitl_rag.routers.transformations.Transformation.get_all",
         "GET",
         "/api/transformations",
         None,
@@ -157,7 +157,7 @@ class TestUnsupportedTypeErrorPropagation:
         from siet_core.exceptions import UnsupportedTypeException
 
         with patch(
-            "api.routers.sources.repo_query",
+            "kmitl_rag.routers.sources.repo_query",
             new=AsyncMock(
                 side_effect=UnsupportedTypeException(
                     "Unsupported file type: application/zip"
@@ -178,7 +178,7 @@ class TestUntypedExceptionsStillSanitized:
 
     def test_runtime_error_stays_generic_500(self, client):
         with patch(
-            "api.routers.sources.repo_query",
+            "kmitl_rag.routers.sources.repo_query",
             new=AsyncMock(side_effect=RuntimeError(self.SECRET)),
         ):
             response = client.get("/api/sources")

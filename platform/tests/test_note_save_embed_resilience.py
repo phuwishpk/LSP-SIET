@@ -1,7 +1,7 @@
 """
 Tests for Note.save()'s embed_note submission resilience
 (siet_core/domain/notebook.py) and its one caller that needs the
-opposite behavior (api/routers/embedding.py).
+opposite behavior (kmitl_rag/routers/embedding.py).
 
 Note.save()'s embed_note submission is now wrapped in try/except: the note
 itself is already durably saved by the time it's attempted (verified
@@ -10,7 +10,7 @@ transient submission failure shouldn't turn an otherwise-successful save
 into a 500, unlike Source.vectorize()/add_insight() which are dedicated
 "submit this job" calls with nothing useful to fall back on.
 
-api/routers/embedding.py's POST /embed endpoint is the one exception: for
+kmitl_rag/routers/embedding.py's POST /embed endpoint is the one exception: for
 item_type=note it reuses Note.save() specifically *because* embedding
 submission is the explicit point of that call (mirroring
 Source.vectorize()) - so it now explicitly checks for a submission failure
@@ -101,14 +101,14 @@ class TestNoteSaveEmbedResilience:
 
 
 class TestEmbeddingEndpointNoteBranch:
-    """api/routers/embedding.py: POST /api/embed with item_type=note."""
+    """kmitl_rag/routers/embedding.py: POST /api/embed with item_type=note."""
 
     def test_returns_500_when_submission_fails_with_content(self, client):
         note = Note(title="Test", content="some content")
         object.__setattr__(note, "id", "note:abc123")
 
         with (
-            patch("api.routers.embedding.Note.get", new=AsyncMock(return_value=note)),
+            patch("kmitl_rag.routers.embedding.Note.get", new=AsyncMock(return_value=note)),
             patch.object(Note, "save", new=AsyncMock(return_value=None)),
             patch(
                 "siet_core.ai.models.model_manager.get_embedding_model",
@@ -132,7 +132,7 @@ class TestEmbeddingEndpointNoteBranch:
         object.__setattr__(note, "id", "note:abc123")
 
         with (
-            patch("api.routers.embedding.Note.get", new=AsyncMock(return_value=note)),
+            patch("kmitl_rag.routers.embedding.Note.get", new=AsyncMock(return_value=note)),
             patch.object(Note, "save", new=AsyncMock(return_value="command:abc123")),
             patch(
                 "siet_core.ai.models.model_manager.get_embedding_model",
@@ -160,7 +160,7 @@ class TestEmbeddingEndpointNoteBranch:
         object.__setattr__(note, "id", "note:abc123")
 
         with (
-            patch("api.routers.embedding.Note.get", new=AsyncMock(return_value=note)),
+            patch("kmitl_rag.routers.embedding.Note.get", new=AsyncMock(return_value=note)),
             patch.object(Note, "save", new=AsyncMock(return_value=None)),
             patch(
                 "siet_core.ai.models.model_manager.get_embedding_model",

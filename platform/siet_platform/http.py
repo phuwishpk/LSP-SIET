@@ -1,7 +1,8 @@
 """
-HTTP helpers shared by the SIET routers (community, KMITL RAG, admin): the
-caller's id, error envelopes that never leak internals, the spam gate, and
-turning a knowledge scope / dropdown pick into notebook ids.
+HTTP helpers shared by the SIET routers (community, KMITL RAG, quiz, roadmap,
+admin): the caller's id, error envelopes that never leak internals, the spam
+gate, turning a knowledge scope / dropdown pick into notebook ids, and the owner
+id / point charge of the AI feature routes (/features/quiz/*, /features/roadmap/*).
 """
 
 from __future__ import annotations
@@ -10,7 +11,7 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Any, List, Optional
 
-from fastapi import HTTPException, status
+from fastapi import Header, HTTPException, Request, status
 from loguru import logger
 
 from siet_platform import audit, library, points, ratelimit
@@ -174,3 +175,42 @@ def _viewer_window(days: int, tz_offset: int) -> tuple[datetime, timezone]:
     viewer_zone = timezone(timedelta(minutes=tz_offset))
     today = datetime.now(viewer_zone).replace(hour=0, minute=0, second=0, microsecond=0)
     return (today - timedelta(days=days - 1)).astimezone(timezone.utc), viewer_zone
+
+
+# ---------------------------------------------------------------------------
+# AI feature routes (siet_quiz, siet_roadmap and community's quiz generation)
+# ---------------------------------------------------------------------------
+
+DEFAULT_OWNER_ID = "default"
+
+
+async def _charge(user: Optional[User], kind: str) -> Optional[points.Charge]:
+    """Charge the wallet when the caller is a workspace user (JWT)."""
+    if user is None or user.id is None:
+        return None  # legacy shared-password callers have no wallet
+    try:
+        return await points.charge(user, kind, ref_type=kind)
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+
+def _resolve_owner_id(
+    request: Request,
+    x_owner_id: Optional[str] = Header(default=None, alias="X-Owner-Id"),
+) -> str:
+    """
+    Read the per-user identifier from the request.
+
+    Priority:
+      1. ``X-Owner-Id`` header supplied by the caller
+      2. ``request.state.owner_id`` populated by the auth middleware
+         (resolved from the verified JWT subject)
+      3. ``"default"`` so legacy single-user setups keep working
+    """
+    header_value = (x_owner_id or "").strip()
+    if header_value:
+        return header_value
+    state_owner = getattr(request.state, "owner_id", None)
+    if state_owner:
+        return str(state_owner)
+    return DEFAULT_OWNER_ID

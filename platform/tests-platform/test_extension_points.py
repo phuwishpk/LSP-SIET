@@ -99,7 +99,13 @@ def test_siet_packages_register_their_hooks():
     from siet_platform.auth_backend import WorkspaceAuthBackend
 
     names = [m.__name__ for m in extensions.extensions()]
-    assert names == ["siet_platform.extension", "kmitl_rag.extension", "siet_community.extension"]
+    assert names == [
+        "siet_platform.extension",
+        "siet_quiz.extension",
+        "siet_roadmap.extension",
+        "kmitl_rag.extension",
+        "siet_community.extension",
+    ]
     assert isinstance(extensions.auth_backend(), WorkspaceAuthBackend)
     for name in ("source.context", "chat.prompt_data", "chat.context", "chat.message", "chat.model",
                  "source_chat.prompt_data", "chat.messages"):

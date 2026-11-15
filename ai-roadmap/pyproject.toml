@@ -1,0 +1,19 @@
+[project]
+name = "siet-roadmap"
+version = "0.1.0"
+description = "AI roadmap on top of lsp-siet-platform: project roadmap generation, saved roadmap sessions and the admin delete."
+requires-python = ">=3.11,<3.13"
+dependencies = ["lsp-siet-platform"]
+
+[project.entry-points."siet.extensions"]
+siet_roadmap = "siet_roadmap.extension"
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["siet_roadmap*"]
+
+[tool.uv.sources]
+lsp-siet-platform = { path = "../platform", editable = true }

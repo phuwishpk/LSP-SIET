@@ -97,7 +97,7 @@ def _source() -> Source:
 class TestInsightTimestampSerialization:
     """API must emit null for missing timestamps and ISO strings otherwise."""
 
-    @patch("api.routers.insights.SourceInsight.get", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.insights.SourceInsight.get", new_callable=AsyncMock)
     def test_get_insight_absent_timestamps_are_null(self, mock_get, client):
         insight = _insight()
         mock_get.return_value = insight
@@ -113,7 +113,7 @@ class TestInsightTimestampSerialization:
         assert body["created"] is None
         assert body["updated"] is None
 
-    @patch("api.routers.insights.SourceInsight.get", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.insights.SourceInsight.get", new_callable=AsyncMock)
     def test_get_insight_present_timestamps_are_iso(self, mock_get, client):
         ts = datetime(2026, 7, 11, 12, 30, 45, tzinfo=timezone.utc)
         mock_get.return_value = _insight(created=ts, updated=ts)
@@ -129,7 +129,7 @@ class TestInsightTimestampSerialization:
         assert body["created"] == "2026-07-11T12:30:45+00:00"
         assert body["updated"] == "2026-07-11T12:30:45+00:00"
 
-    @patch("api.routers.sources.Source.get", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.sources.Source.get", new_callable=AsyncMock)
     def test_list_source_insights_never_serializes_the_string_none(
         self, mock_get, client
     ):

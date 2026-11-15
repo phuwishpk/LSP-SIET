@@ -19,7 +19,7 @@ def register() -> None:
 
 def install(app) -> None:
     from siet_platform.auth_roles import RoleAccessMiddleware
-    from siet_platform.routers import admin, cache_admin, features, google_auth, users
+    from siet_platform.routers import admin, cache_admin, google_auth, users
 
     # Added before open-notebook's password middleware so that it *runs after*
     # it (Starlette executes middleware in reverse registration order) and can
@@ -32,7 +32,6 @@ def install(app) -> None:
     # open-notebook's password-only route of the same path (see finalize).
     app.include_router(users.router, prefix="/api", tags=["users"])
     app.include_router(google_auth.router, prefix="/api", tags=["auth"])
-    app.include_router(features.router, prefix="/api", tags=["features"])
     app.include_router(admin.router, prefix="/api", tags=["admin"])
     app.include_router(cache_admin.router, prefix="/api", tags=["config"])
 

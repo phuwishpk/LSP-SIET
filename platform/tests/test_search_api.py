@@ -33,7 +33,7 @@ class TestSearchLimitValidation:
         )
         assert response.status_code == 422
 
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_valid_limit_returns_200(self, mock_text_search, client):
         mock_text_search.return_value = []
         response = client.post(
@@ -203,7 +203,7 @@ class TestNotebookScopedSearchApi:
     """POST /api/search accepts a notebook scope and forwards it (#574, #87)."""
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_notebook_ids_are_forwarded_to_text_search(
         self, mock_text_search, mock_query, client
     ):
@@ -228,9 +228,9 @@ class TestNotebookScopedSearchApi:
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
     @patch(
-        "api.routers.search.model_manager.get_embedding_model", new_callable=AsyncMock
+        "kmitl_rag.routers.search.model_manager.get_embedding_model", new_callable=AsyncMock
     )
-    @patch("api.routers.search.vector_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.vector_search", new_callable=AsyncMock)
     def test_single_notebook_id_is_forwarded_to_vector_search(
         self, mock_vector_search, mock_embedding, mock_query, client
     ):
@@ -247,7 +247,7 @@ class TestNotebookScopedSearchApi:
         assert mock_vector_search.await_args.kwargs["notebook_ids"] == ["notebook:a"]
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_no_scope_means_global_search(self, mock_text_search, mock_query, client):
         mock_text_search.return_value = []
         response = client.post("/api/search", json={"query": "x", "type": "text"})
@@ -257,7 +257,7 @@ class TestNotebookScopedSearchApi:
         mock_query.assert_not_awaited()
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_unknown_notebook_returns_404(self, mock_text_search, mock_query, client):
         mock_query.return_value = _found("notebook:a")
         response = client.post(
@@ -273,7 +273,7 @@ class TestNotebookScopedSearchApi:
         mock_text_search.assert_not_awaited()
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_database_failure_during_scope_check_is_not_a_404(
         self, mock_text_search, mock_query, client
     ):
@@ -288,7 +288,7 @@ class TestNotebookScopedSearchApi:
         mock_text_search.assert_not_awaited()
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_non_notebook_id_returns_400(self, mock_text_search, mock_query, client):
         response = client.post(
             "/api/search",
@@ -299,7 +299,7 @@ class TestNotebookScopedSearchApi:
         mock_text_search.assert_not_awaited()
 
     @patch("siet_core.domain.notebook.repo_query", new_callable=AsyncMock)
-    @patch("api.routers.search.text_search", new_callable=AsyncMock)
+    @patch("kmitl_rag.routers.search.text_search", new_callable=AsyncMock)
     def test_empty_notebook_id_is_rejected_not_widened(
         self, mock_text_search, mock_query, client
     ):

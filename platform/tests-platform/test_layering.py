@@ -1,11 +1,14 @@
 """
-The layering of the backend (docs/ARCHITECTURE.md):
+The layering of the backend (docs/ARCHITECTURE.md), a graph rather than a line:
 
-    siet_core / api / commands  <-  siet_platform  <-  kmitl_rag  <-  siet_community
+    siet_core / api / commands  <-  siet_platform  <-  kmitl_rag     <-  siet_community
+                                    siet_platform  <-  siet_quiz     <-  siet_community
+                                    siet_platform  <-  siet_roadmap  <-  siet_community
 
-A package may import only from its own layer or the ones to its left; siet_core, api
-and commands import none of the SIET packages (they reach them through siet_core.extensions).
-Tests may cross layers.
+A package may import only the packages ALLOWED lists for it: siet_core, api and
+commands import none of the SIET packages (they reach them through
+siet_core.extensions); kmitl_rag, siet_quiz and siet_roadmap know nothing of each
+other; only siet_community may import all of them. Tests may cross layers.
 """
 
 import ast
@@ -14,11 +17,21 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parents[2]
-LAYERS = ["core", "siet_platform", "kmitl_rag", "siet_community"]
+CORE_MODULES = {"siet_core", "api", "commands"}
+ALLOWED: dict[str, set[str]] = {
+    "core": {"core"},
+    "siet_platform": {"core", "siet_platform"},
+    "kmitl_rag": {"core", "siet_platform", "kmitl_rag"},
+    "siet_quiz": {"core", "siet_platform", "siet_quiz"},
+    "siet_roadmap": {"core", "siet_platform", "siet_roadmap"},
+    "siet_community": {"core", "siet_platform", "kmitl_rag", "siet_quiz", "siet_roadmap", "siet_community"},
+}
 SOURCES = {
     "core": [ROOT / "platform" / d for d in ("api", "siet_core", "commands")],
     "siet_platform": [ROOT / "platform" / "siet_platform"],
     "kmitl_rag": [ROOT / "kmitl-rag" / "kmitl_rag"],
+    "siet_quiz": [ROOT / "my-ai-quiz" / "siet_quiz"],
+    "siet_roadmap": [ROOT / "ai-roadmap" / "siet_roadmap"],
     "siet_community": [ROOT / "community" / "siet_community"],
 }
 
@@ -35,12 +48,20 @@ def imported_modules(path: Path):
 
 def layer_of(module: str):
     top = module.split(".")[0]
-    return top if top in LAYERS else None
+    if top in CORE_MODULES:
+        return "core"
+    return top if top in ALLOWED else None
 
 
-@pytest.mark.parametrize("layer", LAYERS)
-def test_no_imports_from_higher_layers(layer):
-    allowed = set(LAYERS[: LAYERS.index(layer) + 1])
+def test_every_layer_has_its_sources_and_rules():
+    assert set(SOURCES) == set(ALLOWED)
+    for layer, allowed in ALLOWED.items():
+        assert layer in allowed and allowed <= set(ALLOWED)
+
+
+@pytest.mark.parametrize("layer", list(ALLOWED))
+def test_no_imports_against_the_graph(layer):
+    allowed = ALLOWED[layer]
     offenders = []
     for base in SOURCES[layer]:
         assert base.is_dir(), f"layer {layer}: source directory {base} is missing"

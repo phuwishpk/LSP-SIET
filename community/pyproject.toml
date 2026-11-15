@@ -1,9 +1,9 @@
 [project]
 name = "siet-community"
 version = "0.1.0"
-description = "SIET Space community on top of lsp-siet-platform and kmitl-rag: course rooms, feed, comments, quiz/roadmap cards, moderation, teacher and admin consoles."
+description = "SIET Space community on top of lsp-siet-platform, kmitl-rag, siet-quiz and siet-roadmap: course rooms, feed, comments, quiz/roadmap cards, moderation, teacher and admin consoles."
 requires-python = ">=3.11,<3.13"
-dependencies = ["lsp-siet-platform", "kmitl-rag"]
+dependencies = ["lsp-siet-platform", "kmitl-rag", "siet-quiz", "siet-roadmap"]
 
 [project.entry-points."siet.extensions"]
 siet_community = "siet_community.extension"
@@ -18,3 +18,5 @@ include = ["siet_community*"]
 [tool.uv.sources]
 lsp-siet-platform = { path = "../platform", editable = true }
 kmitl-rag = { path = "../kmitl-rag", editable = true }
+siet-quiz = { path = "../my-ai-quiz", editable = true }
+siet-roadmap = { path = "../ai-roadmap", editable = true }

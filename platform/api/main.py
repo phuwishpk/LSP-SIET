@@ -25,22 +25,12 @@ from api.middleware import MaxBodySizeMiddleware, get_max_upload_size_bytes
 from api.routers import (
     auth,
     capabilities,
-    chat,
     config,
     credentials,
-    embedding,
-    embedding_rebuild,
-    insights,
     languages,
     models,
-    notebooks,
-    notes,
     providers,
-    search,
     settings,
-    source_chat,
-    sources,
-    transformations,
 )
 from api.routers import commands as commands_router
 from siet_core import extensions
@@ -387,23 +377,13 @@ async def open_notebook_error_handler(request: Request, exc: OpenNotebookError):
 
 
 # Include routers
+# The notebooks/sources/notes/chat/search API is KMITL RAG's: kmitl_rag.extension
+# mounts it in finalize() (extensions.finalize_app below).
 app.include_router(auth.router, prefix="/api", tags=["auth"])
 app.include_router(config.router, prefix="/api", tags=["config"])
-app.include_router(notebooks.router, prefix="/api", tags=["notebooks"])
-app.include_router(search.router, prefix="/api", tags=["search"])
 app.include_router(models.router, prefix="/api", tags=["models"])
-app.include_router(transformations.router, prefix="/api", tags=["transformations"])
-app.include_router(notes.router, prefix="/api", tags=["notes"])
-app.include_router(embedding.router, prefix="/api", tags=["embedding"])
-app.include_router(
-    embedding_rebuild.router, prefix="/api/embeddings", tags=["embeddings"]
-)
 app.include_router(settings.router, prefix="/api", tags=["settings"])
-app.include_router(sources.router, prefix="/api", tags=["sources"])
-app.include_router(insights.router, prefix="/api", tags=["insights"])
 app.include_router(commands_router.router, prefix="/api", tags=["commands"])
-app.include_router(chat.router, prefix="/api", tags=["chat"])
-app.include_router(source_chat.router, prefix="/api", tags=["source-chat"])
 app.include_router(credentials.router, prefix="/api", tags=["credentials"])
 app.include_router(providers.router, prefix="/api", tags=["providers"])
 app.include_router(capabilities.router, prefix="/api", tags=["capabilities"])

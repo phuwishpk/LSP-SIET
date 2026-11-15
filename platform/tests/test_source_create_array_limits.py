@@ -3,7 +3,7 @@ Tests for max_length on SourceCreate.notebooks/transformations
 (api/models.py).
 
 Both are iterated with a per-item DB lookup (Notebook.get()/
-Transformation.get()) in api/routers/sources.py's create_source() - an
+Transformation.get()) in kmitl_rag/routers/sources.py's create_source() - an
 unbounded array let a caller amplify a single request into an arbitrarily
 large number of sequential DB round trips.
 """

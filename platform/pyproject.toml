@@ -54,6 +54,8 @@ dependencies = [
     "filetype>=1.2.0",
     # KMITL: SIET packages at the repo root (docs/ARCHITECTURE.md)
     "kmitl-rag",
+    "siet-quiz",
+    "siet-roadmap",
     "siet-community",
 ]
 
@@ -62,6 +64,8 @@ siet_platform = "siet_platform.extension"
 
 [tool.uv.sources]
 kmitl-rag = { path = "../kmitl-rag", editable = true }
+siet-quiz = { path = "../my-ai-quiz", editable = true }
+siet-roadmap = { path = "../ai-roadmap", editable = true }
 siet-community = { path = "../community", editable = true }
 
 [tool.setuptools]
