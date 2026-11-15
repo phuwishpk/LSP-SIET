@@ -16,6 +16,8 @@ first only creates rename/delete conflicts with the restructure's own deletions.
 imports and aliases still uses the whole tree, so the converted files point at the final paths.
 A collision loser that the branch edited is not dropped (the edit would be lost): it stays and a
 ``check by hand`` line says so, git then reports the conflict with the restructure's version.
+Edited files that REF deleted or split (``features/service.py``) are listed too: the merge can
+not carry those edits over, they are ported by hand.
 
 Run it from the root of the checkout to convert (``--root`` overrides). It works on the
 repository itself and on a teammate's branch that still has the old layout (new files
@@ -72,6 +74,8 @@ What it does, in this order
      (``siet_platform.ai_helpers``, ``siet_platform.http``) is not rewritten: the quiz and
      roadmap modules import it by name, so patching the helper intercepts nothing. It is
      reported as ``check by hand: patch target ...`` (patch where the name is used);
+   * an import of one of our own packages whose module is not in the converted layout (a
+     symbol added to a file the restructure split, say) is reported as ``check by hand``;
    * ``IDENTIFIER_RENAMES`` (``OpenNotebookError`` -> ``SietError`` ...) are renamed whole-word
      in every Python and TypeScript/JavaScript file; the persisted ``open_notebook`` values
      above are values, not identifiers, and are never in that table.
@@ -566,6 +570,37 @@ class ModuleIndex:
 
 
 # ---------------------------------------------------------------------------- Python edits
+
+IMPORTED_MODULE = re.compile(
+    r"^[ \t]*(?:from[ \t]+(?P<from>[A-Za-z_][\w.]*)[ \t]+import\b"
+    r"|import[ \t]+(?P<plain>[A-Za-z_][\w.]*(?:[ \t]+as[ \t]+\w+)?(?:[ \t]*,[ \t]*[A-Za-z_][\w.]*(?:[ \t]+as[ \t]+\w+)?)*))",
+    re.M,
+)
+
+
+def module_set(paths: Iterable[str], roots: tuple[str, ...]) -> set[str]:
+    """Dotted modules (and their parent packages) of the Python files among ``paths``."""
+    found: set[str] = set()
+    for path in paths:
+        item = module_of(path, roots) if path.endswith(".py") else None
+        if item:
+            parts = item[0].split(".")
+            found.update(".".join(parts[:i]) for i in range(1, len(parts) + 1))
+    return found
+
+
+def missing_imports(text: str, modules: set[str], tops: set[str]) -> list[str]:
+    """Imported modules of our own packages that exist nowhere in the final layout."""
+    found: list[str] = []
+    for m in IMPORTED_MODULE.finditer(text):
+        names = [m.group("from")] if m.group("from") else [
+            part.strip().split()[0] for part in m.group("plain").split(",")
+        ]
+        for name in names:
+            if name and name.split(".")[0] in tops and name not in modules and name not in found:
+                found.append(name)
+    return found
+
 
 
 @dataclass
@@ -1110,6 +1145,14 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
 
     plan = Plan(cfg, files, tracked).build(root, no_moves, only)
     index = ModuleIndex(cfg, plan)
+    # modules of our own packages as the merged tree will have them: the restructure's (--since) plus
+    # the converted files, or just the converted tree
+    final_paths = {plan.resolve.get(f, f) for f in (only if only is not None else files)}
+    if only is not None:
+        final_paths |= set(git_list(root, "ls-tree", "-r", "--name-only", since))
+    final_modules = module_set(final_paths, index.roots)
+    own_tops = {m.split(".")[0] for m in module_set(
+        (p for p in final_paths if any(p.startswith(r + "/") for r in cfg.py_roots_new)), tuple(cfg.py_roots_new))}
     py = PythonRewriter(cfg, plan, index)
     ts = TsRewriter(cfg, plan)
     env = env_rewriter(cfg.env_renames)
@@ -1141,6 +1184,11 @@ def run(root: Path | str, cfg: Config | None = None, *, check: bool = False, no_
         if is_py:
             after = py.rewrite(after, f, new)
             hand += [f"{new}: {line}" for line in py.leftovers(after)]
+            hand += [
+                f"{new}: imports {name}, which does not exist in the converted layout "
+                "(a module the restructure split or removed?)"
+                for name in missing_imports(after, final_modules, own_tops)
+            ]
         if is_pyproject:
             after = rewrite_pyproject(after, py)
         if is_ts:

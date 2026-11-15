@@ -1092,6 +1092,38 @@ def test_since_reports_edited_files_the_restructure_deleted_or_split(tmp_path):
     assert "mine = 1" in read(root, "platform/api/gone.py")
 
 
+def test_since_reports_imports_of_modules_the_restructure_removed(tmp_path):
+    """A new file importing from a module R split away (a symbol SYMBOL_MOVES never heard of)."""
+    root = make_repo(tmp_path / "r", {
+        "open-notebook/api/__init__.py": "",
+        "open-notebook/api/gone.py": lines_of("gone"),
+        "open-notebook/api/stay.py": lines_of("stay"),
+    })
+    git(root, "branch", "-M", "main")
+    git(root, "checkout", "-q", "-b", "R")
+    apply(root)
+    git(root, "rm", "-q", "-f", "platform/api/gone.py")
+    git(root, "commit", "-q", "-m", "restructure")
+    git(root, "checkout", "-q", "main")
+    git(root, "checkout", "-q", "-b", "mate")
+    write(root, "open-notebook/api/consumer.py", dedent("""
+        import json, os
+        from api.stay import stay_1
+        from api.gone import gone_1
+        import api.gone as g
+        from api import stay
+        from pathlib import Path
+    """))
+    git(root, "add", "-A")
+    git(root, "commit", "-q", "-m", "work")
+    code, lines = apply(root, since="R")
+    assert code == 0, lines
+    hand = [line for line in lines if line.startswith("check by hand: ") and "does not exist" in line]
+    assert [h.split(": imports ")[1].split(",")[0] for h in hand] == ["api.gone"], hand
+    assert all(h.startswith("check by hand: platform/api/consumer.py:") for h in hand)
+    assert all("api.stay" not in h and "json" not in h for h in hand)
+
+
 def test_since_without_the_option_converts_the_whole_tree(tmp_path):
     root = make_old_layout_repo(tmp_path)
     apply(root)
