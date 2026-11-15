@@ -48,6 +48,10 @@ EXCLUDED: list[tuple[str, str]] = [
     ),
     ("docs/handoff/after-community-merge.md", "merge checklist of 2026-10, with the pre-restructure paths"),
     ("docs/handoff/siet-split.md", "hand-off of the 2026-10-23 code split, with the pre-restructure paths"),
+    (
+        "docs/handoff/lsp-siet.md",
+        "the teammates' conversion guide: its job is to name the old layout, env names and identifiers next to the new ones",
+    ),
     ("**/uv.lock", "generated lock file"),
     ("**/package-lock.json", "generated lock file"),
 ]
