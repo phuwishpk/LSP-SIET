@@ -117,7 +117,7 @@ export async function api<T = unknown>(
   if (!response.ok) {
     const fallback =
       response.status === 401
-        ? 'เซสชันหมดอายุ กรุณาเปิดแอปนี้ใหม่จาก SIET Space'
+        ? 'เซสชันหมดอายุ กรุณาเปิดแอปนี้ใหม่จาก Nungsue'
         : `เกิดข้อผิดพลาด (HTTP ${response.status})`;
     throw new ApiError(response.status, detailOf(data, fallback), data, response.headers);
   }

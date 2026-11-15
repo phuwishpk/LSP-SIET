@@ -190,7 +190,7 @@ function CommunityContent() {
       {/* Same sidebar, in a drawer, for screens narrower than lg. */}
       <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
         <SheetContent
-          title="เมนู SIET Space"
+          title="เมนู Nungsue"
           description="ห้องเรียน คลังความรู้ และเครื่องมือ AI"
           className="community-theme"
         >
@@ -504,7 +504,7 @@ function CommunityContent() {
                             : viewTitle[view]}
                       </h1>
                       <p className="text-xs text-muted-foreground">
-                        โพสต์และสื่อการเรียนรู้จากชุมชน SIET Space
+                        โพสต์และสื่อการเรียนรู้จากชุมชน Nungsue
                       </p>
                     </div>
                     <div className="flex items-center gap-2">

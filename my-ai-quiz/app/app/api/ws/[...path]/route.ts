@@ -50,7 +50,7 @@ async function relay(req: Request, { params }: { params: Promise<{ path: string[
     return new Response(await upstream.arrayBuffer(), { status: upstream.status, headers: out });
   } catch (error) {
     return Response.json(
-      { detail: `เชื่อมต่อ SIET Space ไม่ได้: ${error instanceof Error ? error.message : String(error)}` },
+      { detail: `เชื่อมต่อ Nungsue ไม่ได้: ${error instanceof Error ? error.message : String(error)}` },
       { status: 502 }
     );
   }

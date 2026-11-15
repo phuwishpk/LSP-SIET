@@ -19,7 +19,7 @@ export default function AdminCommunityPage() {
           <AdminPageHeader
             icon={MessageSquare}
             title="จัดการ Community"
-            description="ความเคลื่อนไหวในฟีด โพสต์ ความคิดเห็น รายงานเนื้อหา ห้อง และหมวดหมู่รายวิชาของ SIET Space"
+            description="ความเคลื่อนไหวในฟีด โพสต์ ความคิดเห็น รายงานเนื้อหา ห้อง และหมวดหมู่รายวิชาของ Nungsue"
           />
 
           <Tabs defaultValue="overview">

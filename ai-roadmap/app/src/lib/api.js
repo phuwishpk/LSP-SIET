@@ -55,7 +55,7 @@ export async function ws(path, { method = 'GET', json, form, signal } = {}) {
 
   if (response.status === 401) {
     const redirected = redirectToLogin()
-    throw new ApiError(401, 'กรุณาเข้าสู่ระบบผ่าน SIET Space', { headers: response.headers, data, redirected })
+    throw new ApiError(401, 'กรุณาเข้าสู่ระบบผ่าน Nungsue', { headers: response.headers, data, redirected })
   }
   if (!response.ok) {
     throw new ApiError(response.status, detailOf(data, `เกิดข้อผิดพลาด (${response.status})`), {

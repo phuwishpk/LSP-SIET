@@ -665,7 +665,7 @@ export function Navbar({
         {/* Brand logo & tagline */}
         <a
           href={buildCrossUrl(homeUrl || `${workspaceUrl}/community`)}
-          title={homeUrl ? 'กลับไปหน้าที่เปิดมาใน SIET Space' : undefined}
+          title={homeUrl ? 'กลับไปหน้าที่เปิดมาใน Nungsue' : undefined}
           onClick={(event) => openInHost(event, onHome)}
           aria-current={activeRoute === 'community' ? 'page' : undefined}
           className="flex min-h-[44px] shrink-0 items-center gap-[10px] rounded-[12px] px-[6px] py-[4px] text-left transition-colors hover:bg-[#FFF8FA] no-underline dark:hover:bg-zinc-800"
@@ -681,7 +681,7 @@ export function Navbar({
             {logoSrc ? (
               <img
                 src={logoSrc}
-                alt="SIET Space"
+                alt="Nungsue"
                 width={32}
                 height={32}
                 className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
@@ -695,7 +695,7 @@ export function Navbar({
                 size={32}
                 className="h-[28px] w-[28px] object-contain drop-shadow-xs select-none"
                 style={LOGO_IMG_STYLE}
-                alt="SIET Space"
+                alt="Nungsue"
               />
             )}
           </div>
@@ -735,7 +735,7 @@ export function Navbar({
               type="text"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
-              aria-label={searchPlaceholder || 'ค้นหาใน SIET Space'}
+              aria-label={searchPlaceholder || 'ค้นหาใน Nungsue'}
               placeholder={searchPlaceholder}
               className="h-[44px] w-full cursor-text rounded-full border border-solid border-[#EAE6EA] bg-[#FAF7F9] pl-[36px] pr-[48px] text-[12px] text-[#202124] placeholder:text-[#707070] transition-all duration-200 hover:border-[#D6D0D6] hover:bg-white focus:border-[#ED4988] focus-visible:border-[#ED4988] sm:text-[14px] dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-400 dark:hover:bg-zinc-800/80 dark:focus:bg-zinc-900"
             />
@@ -1060,7 +1060,7 @@ export function Navbar({
                           }`}
                         >
                           <CircleCheck className="h-3 w-3" />
-                          สมาชิก SIET Space · {roleLabel(user.role)}
+                          สมาชิก Nungsue · {roleLabel(user.role)}
                         </span>
                       </div>
                     </div>

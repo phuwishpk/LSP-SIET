@@ -255,7 +255,7 @@ export function SoloQuizSetup() {
                 <p className="mt-0.5">
                   เปิดแอปนี้จากเมนู “แอป AI Quiz” ใน{' '}
                   <a href={`${getWorkspaceUrl()}/community`} className="font-bold underline">
-                    SIET Space
+                    Nungsue
                   </a>{' '}
                   เพื่อใช้แต้มและคลังความรู้ของบัญชีคุณ
                 </p>
@@ -577,7 +577,7 @@ export function SoloQuizSetup() {
                         <>
                           {' '}· ขาดอีก {missing} แต้ม รับแต้มเพิ่มได้จากการโพสต์และช่วยตอบใน{' '}
                           <a href={`${getWorkspaceUrl()}/community`} className="font-bold underline">
-                            SIET Space
+                            Nungsue
                           </a>
                         </>
                       )}

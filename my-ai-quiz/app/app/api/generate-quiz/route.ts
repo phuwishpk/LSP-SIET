@@ -37,7 +37,7 @@ export async function POST(req: Request) {
   }
   const authorization = req.headers.get('authorization');
   if (!authorization) {
-    return Response.json({ detail: 'กรุณาเปิดแอปนี้จาก SIET Space เพื่อเข้าสู่ระบบก่อน' }, { status: 401 });
+    return Response.json({ detail: 'กรุณาเปิดแอปนี้จาก Nungsue เพื่อเข้าสู่ระบบก่อน' }, { status: 401 });
   }
 
   const body: GenerateQuizRequest = await req.json().catch(() => ({}));
@@ -68,7 +68,7 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     return Response.json(
-      { detail: `เชื่อมต่อ SIET Space ไม่ได้: ${error instanceof Error ? error.message : String(error)}` },
+      { detail: `เชื่อมต่อ Nungsue ไม่ได้: ${error instanceof Error ? error.message : String(error)}` },
       { status: 502 }
     );
   }

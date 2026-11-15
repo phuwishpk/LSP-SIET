@@ -63,6 +63,6 @@ export default async function handler(req, res) {
     }
     return res.send(Buffer.from(await upstream.arrayBuffer()))
   } catch (error) {
-    return res.status(502).json({ detail: `เชื่อมต่อ SIET Space ไม่ได้: ${error?.message || error}` })
+    return res.status(502).json({ detail: `เชื่อมต่อ Nungsue ไม่ได้: ${error?.message || error}` })
   }
 }

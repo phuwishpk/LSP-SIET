@@ -100,7 +100,7 @@ export function RegisterForm() {
           <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-2">
             <UserPlus className="w-6 h-6 text-primary" />
           </div>
-          <CardTitle>สมัครสมาชิก SIET Space</CardTitle>
+          <CardTitle>สมัครสมาชิก Nungsue</CardTitle>
           <CardDescription>
             หนึ่งบัญชีใช้ได้ทั้งชุมชน AI Quiz และ AI Roadmap · รับ 20 แต้มทันที
           </CardDescription>

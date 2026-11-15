@@ -102,7 +102,7 @@ describe('Sheet — ลิ้นชักเมนู', () => {
   it('keeps its contents out of the tree until it is opened', () => {
     const { rerender } = render(
       <Sheet open={false}>
-        <SheetContent title="เมนู SIET Space">
+        <SheetContent title="เมนู Nungsue">
           <button type="button">ห้องวิชา</button>
         </SheetContent>
       </Sheet>
@@ -111,13 +111,13 @@ describe('Sheet — ลิ้นชักเมนู', () => {
 
     rerender(
       <Sheet open>
-        <SheetContent title="เมนู SIET Space">
+        <SheetContent title="เมนู Nungsue">
           <button type="button">ห้องวิชา</button>
         </SheetContent>
       </Sheet>
     )
     expect(screen.getByText('ห้องวิชา')).toBeTruthy()
-    expect(screen.getByText('เมนู SIET Space')).toBeTruthy()
+    expect(screen.getByText('เมนู Nungsue')).toBeTruthy()
     expect(screen.getByRole('button', { name: 'ปิดเมนู' })).toBeTruthy()
   })
 
@@ -125,7 +125,7 @@ describe('Sheet — ลิ้นชักเมนู', () => {
     const onOpenChange = vi.fn()
     render(
       <Sheet open onOpenChange={onOpenChange}>
-        <SheetContent title="เมนู SIET Space">
+        <SheetContent title="เมนู Nungsue">
           <button type="button">ห้องวิชา</button>
         </SheetContent>
       </Sheet>

@@ -6,7 +6,7 @@ export default function Document() {
     <Html lang="th">
       <Head>
         <link rel="icon" href="/roadmap/favicon.svg" />
-        <meta name="description" content="AI Roadmap ของ SIET Space: สร้างแผนการเรียนจากคลังความรู้ของรายวิชา" />
+        <meta name="description" content="AI Roadmap ของ Nungsue: สร้างแผนการเรียนจากคลังความรู้ของรายวิชา" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         {/* DESIGN.md: Nunito for Latin/digits (Thai falls back to IBM Plex Sans Thai) */}

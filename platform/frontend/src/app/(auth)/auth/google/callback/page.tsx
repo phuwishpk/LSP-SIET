@@ -68,7 +68,7 @@ function GoogleCallback() {
           return
         }
         if (data.welcome_granted) {
-          toast.success(`ยินดีต้อนรับสู่ SIET Space! รับแต้มเริ่มต้น ${data.user.points_balance ?? 20} แต้ม 🎁`)
+          toast.success(`ยินดีต้อนรับสู่ Nungsue! รับแต้มเริ่มต้น ${data.user.points_balance ?? 20} แต้ม 🎁`)
         }
         router.replace(data.next || '/community')
       } catch (err) {

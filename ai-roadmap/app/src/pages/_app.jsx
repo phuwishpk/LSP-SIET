@@ -44,9 +44,9 @@ function Shell({ Component, pageProps }) {
             <section className="system-state-card" role="alert">
               <WifiOff aria-hidden="true" className="system-state-icon system-state-error" />
               <h1 className="h2">เข้าสู่ระบบไม่สำเร็จ</h1>
-              <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ SIET Space ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
+              <p className="muted">เซสชันหมดอายุ หรือเชื่อมต่อ Nungsue ไม่ได้ กรุณาเข้าสู่ระบบใหม่แล้วกลับมาที่ AI Roadmap อีกครั้ง</p>
               <a className="btn btn-primary" href={communityUrl()}>
-                ไปที่ SIET Space
+                ไปที่ Nungsue
               </a>
             </section>
           </main>
@@ -62,7 +62,7 @@ export default function MyApp(props) {
   return (
     <>
       <Head>
-        <title>AI Roadmap · SIET Space</title>
+        <title>AI Roadmap · Nungsue</title>
         <meta name="viewport" content="width=device-width, initial-scale=1" />
       </Head>
       <WorkspaceProvider>

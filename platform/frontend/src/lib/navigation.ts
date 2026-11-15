@@ -24,7 +24,7 @@ import { isAdmin, isStaff, type Role } from '@/lib/roles'
  */
 export const getWorkspaceNavigation = (t: TFunction, role: Role) => [
   {
-    title: t('navigation.community', 'SIET Space'),
+    title: t('navigation.community', 'Nungsue'),
     items: [
       { name: t('navigation.communityFeed', 'ชุมชน (Community)'), href: '/community', icon: Users },
     ],

@@ -262,7 +262,7 @@ export default function UserProfilePage() {
                   ? `รหัสนักศึกษา ${studentId}`
                   : profileUser?.role
                     ? roleLabel(profileUser.role)
-                    : 'สมาชิก SIET Space')}
+                    : 'สมาชิก Nungsue')}
               </p>
               <p className="max-w-xl text-sm leading-relaxed text-muted-foreground">
                 {profileEdits?.bio ||
@@ -319,7 +319,7 @@ export default function UserProfilePage() {
               <div>
                 <h2 className="text-base font-semibold">เกี่ยวกับฉัน</h2>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  ข้อมูลสมาชิกที่แสดงในชุมชน SIET Space
+                  ข้อมูลสมาชิกที่แสดงในชุมชน Nungsue
                 </p>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">

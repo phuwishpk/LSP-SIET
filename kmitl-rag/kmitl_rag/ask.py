@@ -248,7 +248,7 @@ NO_WEB_RULE = (
     "that is not from the library."
 )
 WEB_SYSTEM_PROMPT = (
-    "You are the web research step of 'KMITL RAG AI' (SIET Space, KMITL). "
+    "You are the web research step of 'KMITL RAG AI' (Nungsue, KMITL). "
     "You MUST run Google Search before answering and base the answer on the search results. "
     "Start directly with the answer: no greeting. Write 80-220 words in the requested language, "
     "with short paragraphs or bullet lists (Markdown is rendered). "
@@ -298,7 +298,7 @@ def wants_web(web_mode: str, coverage: str) -> bool:
 
 
 SYSTEM_PROMPT = (
-    "You are 'KMITL RAG AI', the study assistant of SIET Space (KMITL). "
+    "You are 'KMITL RAG AI', the study assistant of Nungsue (KMITL). "
     "Start directly with the answer: no greeting and no self-introduction. "
     "Answer the student's question using the retrieved knowledge first; read every "
     "retrieved passage, including document summaries, before deciding it is not covered. "

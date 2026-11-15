@@ -79,7 +79,7 @@ export function CommunityRulesContent() {
           <Check className="h-4 w-4" aria-hidden="true" />
         </span>
         <p className="text-xs font-medium leading-relaxed">
-          การเข้าร่วมกิจกรรมช่วยให้พื้นที่ SIET Space ยังคงมีประโยชน์และปลอดภัยสำหรับนักเรียนทุกคน
+          การเข้าร่วมกิจกรรมช่วยให้พื้นที่ Nungsue ยังคงมีประโยชน์และปลอดภัยสำหรับนักเรียนทุกคน
         </p>
       </div>
     </div>

@@ -28,7 +28,7 @@ interface AppCard {
 const APP_CARDS: AppCard[] = [
   {
     id: 'community',
-    title: 'SIET Space',
+    title: 'Nungsue',
     description:
       'ชุมชนแชร์สรุป ควิซ และ Roadmap สไตล์ Facebook พร้อมกระเป๋าแต้มและ KMITL RAG AI',
     icon: Users,

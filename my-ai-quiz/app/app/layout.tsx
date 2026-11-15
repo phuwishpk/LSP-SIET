@@ -6,7 +6,7 @@ import { WorkspaceNavbar } from "./components/WorkspaceNavbar";
 import { themeBootScript } from "./lib/theme";
 
 export const metadata: Metadata = {
-  title: "AI Quiz · SIET Space",
+  title: "AI Quiz · Nungsue",
   description: "แบบทดสอบ AI จากคลังความรู้ของรายวิชา",
 };
 
