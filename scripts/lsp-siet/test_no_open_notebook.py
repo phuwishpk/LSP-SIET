@@ -73,6 +73,14 @@ ALLOWED: list[tuple[str, str, str]] = [
         "compose fallback: LSP_SIET_X=${LSP_SIET_X:-${OPEN_NOTEBOOK_X:-default}} so an old .env still reaches the container",
     ),
     (
+        r"docker-compose(\.prod)?\.yml",
+        r"^\s*- (NEXT_PUBLIC_)?OPEN_NOTEBOOK_[A-Z0-9_]+=",
+        "rollback passthrough (R38): for one release the compose files also hand the container the old setting name, "
+        "with the value of its LSP_SIET_* twin, because an image from before the restructure (deploy.sh rollback, a "
+        "retagged old image) reads only the old names and would find no encryption key or password. Remove these "
+        "lines (they carry a ROLLBACK comment) after the first release on the new layout",
+    ),
+    (
         r"docker/allinone/rootfs/etc/s6-overlay/s6-rc\.d/quiz/run",
         r"OPEN_NOTEBOOK_PASSWORD",
         "env fallback in the all-in-one quiz service (old .env password still reaches the quiz app)",

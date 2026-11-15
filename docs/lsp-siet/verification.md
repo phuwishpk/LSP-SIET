@@ -500,6 +500,18 @@ k9 ไม่ต้องย้อน (ลบแค่ตาราง podcast ท
   rollback อย่างน้อยหนึ่งสัปดาห์ แล้วค่อย `docker image rm`
 - **all-in-one บน server** (`deploy/migrate-to-allinone.sh`): ดู finding ข้อ 4 — ย้ายโฟลเดอร์ข้อมูลก่อน (หรือส่ง
   `OLD_SURREAL_DIR` / `OLD_APP_DIR`) และหยุด stack เก่าด้วย compose เก่า (หรือ `--remove-orphans`)
+- **Rollback ของ server (`deploy/deploy.sh`, all-in-one) ข้ามการเปลี่ยนชื่อ env** (ruling R38): image ก่อน restructure อ่านเฉพาะชื่อเก่า
+  (`OPEN_NOTEBOOK_ENCRYPTION_KEY`, `OPEN_NOTEBOOK_PASSWORD`, `OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB`, `OPEN_NOTEBOOK_ANSWER_CACHE_*`; ฝั่ง quiz/roadmap
+  `OPEN_NOTEBOOK_API_URL`, `OPEN_NOTEBOOK_API_KEY`, `NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL`) ถ้า compose ใหม่ส่งแต่ `LSP_SIET_*` image เก่าจะไม่เห็น key —
+  credential ที่เก็บไว้ถอดรหัสไม่ได้ และ token ใช้ไม่ได้ ตอนนี้ `docker-compose.prod.yml` และ `docker-compose.yml` ส่ง **ทั้งสองชื่อด้วยค่าเดียวกัน**
+  (บล็อกที่มีคอมเมนต์ `# ROLLBACK, remove after the first release on the new layout`; `test_infra_paths.py` พิสูจน์ด้วย `docker compose config` ว่าค่าเท่ากัน
+  ทั้งกรณี `.env` มีแต่ชื่อเก่าและกรณีมีสองชื่อ) ดังนั้น auto-rollback ของ `deploy.sh` ไป tag ก่อน restructure และการ retag image เก่า
+  (`docker tag kmitlai/open-notebook:pre-lsp-siet-$TS kmitlai/lsp-siet:local` แล้ว `up --no-build`) ใช้ชื่อ env ได้ **ลบบล็อก ROLLBACK ได้หลัง release แรกบน layout ใหม่
+  เท่านั้น** (ก่อนลบ ต้องไม่มี tag ก่อน restructure ที่อาจถูกย้อนไป)
+  - `deploy/deploy.sh` ไม่ต้องแก้: ชื่อ container `lsp-siet`, project `lsp-siet`, volume `lsp_data` (`/data`), image `ghcr.io/phuwishpk/lsp-siet`, พอร์ต และ
+    `HEALTHCHECK` ของ image เหมือนกับ `main` ก่อน restructure (`git diff 8efc391 HEAD -- deploy/deploy.sh docker-compose.prod.yml` เหลือเฉพาะบรรทัด env)
+  - ข้อมูล: `k9` ลบแค่ตาราง podcast ที่ว่าง และ image เก่าอ่านฐานที่ผ่าน k9 แล้วได้ (ซ้อมในข้อ 2); chat ที่สร้าง **หลัง** deploy เก็บ class path `siet_core.*`
+    ใน LangGraph checkpoint — image เก่าโหลดเป็น dict ได้หรือไม่ **ยังไม่ได้ซ้อม** (ทิศทางไปข้างหน้าเท่านั้นที่ซ้อมแล้ว)
 - `.env.example` มี `LSP_SIET_ENCRYPTION_KEY=`: อย่าคัดลอกบรรทัดนั้นมาเพิ่มใน `.env` ที่มีชื่อเดิมอยู่แล้ว
   (API ไม่เตือนเมื่อสองชื่อมีค่าต่างกัน)
 

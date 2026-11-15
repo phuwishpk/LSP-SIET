@@ -192,17 +192,100 @@ COMPOSE_FILES = ["docker-compose.yml", "docker-compose-dev.yml", "docker-compose
 FALLBACK = re.compile(r"- LSP_SIET_(\w+)=\$\{LSP_SIET_(\w+):-\$\{OPEN_NOTEBOOK_\2:-")
 
 
+# Rollback passthrough (ruling R38): for one release docker-compose.yml and docker-compose.prod.yml also set
+# the OLD container variable, to exactly the value of its LSP_SIET_* twin, because an image from before the
+# restructure (deploy.sh's rollback, or a retagged kmitlai/open-notebook image) reads only the old names.
+#   - OPEN_NOTEBOOK_X=<rhs>          needs   - LSP_SIET_X=<rhs>          (same file, same right-hand side)
+#   - NEXT_PUBLIC_OPEN_NOTEBOOK_X=<rhs>      - NEXT_PUBLIC_LSP_SIET_X=<rhs>
+ROLLBACK_FILES = ["docker-compose.yml", "docker-compose.prod.yml"]
+PASSTHROUGH = re.compile(r"^\s*- (NEXT_PUBLIC_)?OPEN_NOTEBOOK_(\w+)=(.*)$")
+ENV_ITEM = re.compile(r"^\s*- ((?:NEXT_PUBLIC_)?(?:LSP_SIET|OPEN_NOTEBOOK)_\w+)=(.*)$")
+
+# What the compose files of main (8efc391) handed to the containers under old names, per file and service.
+OLD_IMAGE_SETTINGS: dict[str, dict[str, list[str]]] = {
+    "docker-compose.prod.yml": {
+        "lsp-siet": [
+            "ENCRYPTION_KEY", "PASSWORD", "MAX_UPLOAD_SIZE_MB", "ANSWER_CACHE_INTENT_TIMEOUT_MS",
+            "ANSWER_CACHE_TUNER_ENABLED", "ANSWER_CACHE_TUNER_INTERVAL", "ANSWER_CACHE_TUNER_HIGH_MIN",
+            "ANSWER_CACHE_TUNER_HIGH_MAX", "ANSWER_CACHE_TUNER_MID_MIN", "ANSWER_CACHE_TUNER_MID_MAX",
+        ],
+    },
+    "docker-compose.yml": {
+        "lsp_siet_api": [
+            "ENCRYPTION_KEY", "MAX_UPLOAD_SIZE_MB", "ANSWER_CACHE_INTENT_TIMEOUT_MS",
+            "ANSWER_CACHE_TUNER_ENABLED", "ANSWER_CACHE_TUNER_INTERVAL", "ANSWER_CACHE_TUNER_HIGH_MIN",
+            "ANSWER_CACHE_TUNER_HIGH_MAX", "ANSWER_CACHE_TUNER_MID_MIN", "ANSWER_CACHE_TUNER_MID_MAX",
+        ],
+        "my_ai_quiz": ["NEXT_PUBLIC_API_URL", "API_URL", "API_KEY"],
+        "ai_roadmap_generator": ["API_URL"],
+    },
+}
+
+
+def rollback_passthrough_lines(text: str) -> dict[int, tuple[str, str]]:
+    """line number -> (old container variable, right-hand side) of every passthrough line that has its LSP_SIET_ twin."""
+    twins = {name: rhs for line in text.splitlines() if (m := ENV_ITEM.match(line)) for name, rhs in [m.groups()]}
+    found: dict[int, tuple[str, str]] = {}
+    for number, line in enumerate(text.splitlines(), 1):
+        m = PASSTHROUGH.match(line)
+        if not m:
+            continue
+        prefix, name, rhs = m.group(1) or "", m.group(2), m.group(3)
+        if twins.get(f"{prefix}LSP_SIET_{name}") == rhs:
+            found[number] = (f"{prefix}OPEN_NOTEBOOK_{name}", rhs)
+    return found
+
+
 def test_infra_names_settings_with_the_new_names_only_as_fallbacks():
-    """Production .env files keep the old names; the infra reads them only as `${NEW:-${OLD:-x}}`."""
+    """Production .env files keep the old names; the infra reads them only as `${NEW:-${OLD:-x}}`
+    (and, in the two compose files that can start an old image, passes them on under the old name: R38)."""
     hits = []
     for path in infra_files():
+        rel = str(path.relative_to(ROOT))
         text = path.read_text(encoding="utf-8", errors="replace")
+        passthrough = rollback_passthrough_lines(text) if rel in ROLLBACK_FILES else {}
         for number, line in enumerate(text.splitlines(), 1):
+            if number in passthrough:
+                continue
             for match in re.finditer(r"OPEN_NOTEBOOK_", line):
                 if line[: match.start()].endswith("-${"):
                     continue
-                hits.append(f"{path.relative_to(ROOT)}:{number}: {line.strip()}")
+                hits.append(f"{rel}:{number}: {line.strip()}")
     assert not hits, "old setting names outside a fallback:\n" + "\n".join(hits)
+
+
+@pytest.mark.parametrize("compose", ROLLBACK_FILES)
+def test_rollback_passthrough_says_when_to_remove_it(compose):
+    lines = (ROOT / compose).read_text(encoding="utf-8").splitlines()
+    marks = [n for n, line in enumerate(lines, 1) if line.lstrip().startswith("#") and "ROLLBACK" in line
+             and "remove after the first release on the new layout" in line]
+    passthrough = rollback_passthrough_lines("\n".join(lines))
+    assert passthrough and marks, f"{compose} has no rollback passthrough lines or no ROLLBACK comment"
+    # every passthrough line sits in a block that starts with such a comment (list items in between only)
+    for number in passthrough:
+        n = number - 1
+        while n >= 1 and lines[n - 1].lstrip().startswith("- "):
+            n -= 1
+        while n >= 1 and lines[n - 1].lstrip().startswith("#"):
+            if n in marks:
+                break
+            n -= 1
+        assert n in marks, f"{compose}:{number}: passthrough line without a ROLLBACK comment above its block"
+
+
+@pytest.mark.parametrize("compose", ROLLBACK_FILES)
+def test_compose_passes_every_old_setting_an_old_image_reads(compose):
+    """The settings the compose files of main handed to the containers under the old names (derived from
+    8efc391) are all passed on under those names, so a pre-restructure image finds its key and password."""
+    lines = (ROOT / compose).read_text(encoding="utf-8")
+    present = {name for name, _ in rollback_passthrough_lines(lines).values()}
+    missing = [
+        f"{service}: OPEN_NOTEBOOK_{var}"
+        for service, variables in OLD_IMAGE_SETTINGS[compose].items()
+        for var in variables
+        if (f"NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL" if var == "NEXT_PUBLIC_API_URL" else f"OPEN_NOTEBOOK_{var}") not in present
+    ]
+    assert not missing, f"{compose} does not pass these old names (a pre-restructure image would not see them):\n" + "\n".join(missing)
 
 
 def legacy_names() -> dict[str, str]:
@@ -269,3 +352,35 @@ def test_compose_reads_the_old_setting_names_and_prefers_the_new(compose, tmp_pa
     seen = resolved("".join(f"OPEN_NOTEBOOK_{n}=old-{n}\nLSP_SIET_{n}=\n" for _, n in pairs), "blank.env")
     for var, n in pairs:
         assert seen.get(f"LSP_SIET_{var}") == f"old-{n}", f"{compose}: a blank LSP_SIET_{n} shadows the old name"
+
+
+@pytest.mark.skipif(not has_docker_compose(), reason="docker compose is not installed")
+@pytest.mark.parametrize("compose", ROLLBACK_FILES)
+def test_old_image_under_the_new_compose_gets_the_old_names_with_equal_values(compose, tmp_path):
+    """`docker compose config` with an .env that only has the old names: every container variable of a
+    pre-restructure image exists and equals its LSP_SIET_ twin; with both names set, both carry the new value."""
+    twins = sorted({
+        (name, rhs) for name, rhs in rollback_passthrough_lines((ROOT / compose).read_text(encoding="utf-8")).values()
+    })
+    assert twins
+
+    def containers(lines: str, name: str) -> dict[str, dict[str, str]]:
+        env_file = tmp_path / name
+        env_file.write_text(lines)
+        return compose_environment(compose, env_file)
+
+    old_only = "OPEN_NOTEBOOK_ENCRYPTION_KEY=old-key\nOPEN_NOTEBOOK_PASSWORD=old-pass\nOPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=512\n"
+    both = old_only + "LSP_SIET_ENCRYPTION_KEY=new-key\nLSP_SIET_PASSWORD=new-pass\nLSP_SIET_MAX_UPLOAD_SIZE_MB=1024\n"
+    for env_name, content, key, password in (("old.env", old_only, "old-key", "old-pass"), ("both.env", both, "new-key", "new-pass")):
+        services = containers(content, env_name)
+        for service, variables in OLD_IMAGE_SETTINGS[compose].items():
+            env = services[service]
+            for var in variables:
+                old_name = "NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL" if var == "NEXT_PUBLIC_API_URL" else f"OPEN_NOTEBOOK_{var}"
+                new_name = old_name.replace("OPEN_NOTEBOOK", "LSP_SIET")
+                assert old_name in env, f"{compose}/{service}: {old_name} is not passed ({env_name})"
+                assert env[old_name] == env[new_name], f"{compose}/{service}: {old_name}={env[old_name]!r} differs from {new_name}={env[new_name]!r} ({env_name})"
+        env = next(e for e in services.values() if "OPEN_NOTEBOOK_ENCRYPTION_KEY" in e)
+        assert env["OPEN_NOTEBOOK_ENCRYPTION_KEY"] == key and env["LSP_SIET_ENCRYPTION_KEY"] == key
+        if "OPEN_NOTEBOOK_PASSWORD" in env:
+            assert env["OPEN_NOTEBOOK_PASSWORD"] == password

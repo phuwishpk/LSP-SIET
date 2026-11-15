@@ -132,6 +132,18 @@ services:
       - LSP_SIET_ANSWER_CACHE_TUNER_HIGH_MAX=${LSP_SIET_ANSWER_CACHE_TUNER_HIGH_MAX:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MAX:-0.99}}
       - LSP_SIET_ANSWER_CACHE_TUNER_MID_MIN=${LSP_SIET_ANSWER_CACHE_TUNER_MID_MIN:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN:-0.85}}
       - LSP_SIET_ANSWER_CACHE_TUNER_MID_MAX=${LSP_SIET_ANSWER_CACHE_TUNER_MID_MAX:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MAX:-0.97}}
+      # ROLLBACK, remove after the first release on the new layout: an image from before the
+      # restructure reads the settings under their old names, so the same values are passed under
+      # those too (new name first, then the old .env name, then the default: a pair never differs).
+      - OPEN_NOTEBOOK_ENCRYPTION_KEY=${LSP_SIET_ENCRYPTION_KEY:-${OPEN_NOTEBOOK_ENCRYPTION_KEY:-change-me-to-a-secret-string}}
+      - OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB=${LSP_SIET_MAX_UPLOAD_SIZE_MB:-${OPEN_NOTEBOOK_MAX_UPLOAD_SIZE_MB:-2048}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS=${LSP_SIET_ANSWER_CACHE_INTENT_TIMEOUT_MS:-${OPEN_NOTEBOOK_ANSWER_CACHE_INTENT_TIMEOUT_MS:-10000}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_ENABLED=${LSP_SIET_ANSWER_CACHE_TUNER_ENABLED:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_ENABLED:-0}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_INTERVAL=${LSP_SIET_ANSWER_CACHE_TUNER_INTERVAL:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_INTERVAL:-300}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MIN=${LSP_SIET_ANSWER_CACHE_TUNER_HIGH_MIN:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MIN:-0.94}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MAX=${LSP_SIET_ANSWER_CACHE_TUNER_HIGH_MAX:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_HIGH_MAX:-0.99}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN=${LSP_SIET_ANSWER_CACHE_TUNER_MID_MIN:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MIN:-0.85}}
+      - OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MAX=${LSP_SIET_ANSWER_CACHE_TUNER_MID_MAX:-${OPEN_NOTEBOOK_ANSWER_CACHE_TUNER_MID_MAX:-0.97}}
       - TIKTOKEN_CACHE_DIR=/app/tiktoken-cache
       # Relative paths behind Traefik
       - NEXT_PUBLIC_MY_AI_QUIZ_URL=/quiz
@@ -201,6 +213,11 @@ services:
       - NEXT_PUBLIC_LSP_SIET_API_URL=http://lsp_siet_api:5055
       - LSP_SIET_API_URL=http://lsp_siet_api:5055
       - LSP_SIET_API_KEY=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}
+      # ROLLBACK, remove after the first release on the new layout: the quiz image from before the
+      # restructure reads these under the old names (the API service was renamed, so the URL is the new one)
+      - NEXT_PUBLIC_OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055
+      - OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055
+      - OPEN_NOTEBOOK_API_KEY=${LSP_SIET_PASSWORD:-${OPEN_NOTEBOOK_PASSWORD:-}}
       - NODE_ENV=production
     networks:
       - kmitlai_default
@@ -227,6 +244,8 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - GOOGLE_GENERATIVE_AI_API_KEY=${GOOGLE_GENERATIVE_AI_API_KEY:-}
       - LSP_SIET_API_URL=http://lsp_siet_api:5055
+      # ROLLBACK, remove after the first release on the new layout: the roadmap image from before the restructure reads this old name
+      - OPEN_NOTEBOOK_API_URL=http://lsp_siet_api:5055
       - NODE_ENV=production
     networks:
       - kmitlai_default
