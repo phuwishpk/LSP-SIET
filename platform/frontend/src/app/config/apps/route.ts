@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
 
+// read at request time, not baked in at build
+export const dynamic = 'force-dynamic'
+
 /**
  * GET /config/apps: URLs of the two standalone apps (My-ai-quiz,
  * ai-roadmap-generator).
