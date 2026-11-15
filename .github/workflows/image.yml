@@ -111,10 +111,13 @@ jobs:
       cancel-in-progress: false
     steps:
       - name: Tailscale up
-        uses: tailscale/github-action@v2
+        # v2 cannot verify the checksum for `version: latest` (empty SHA256SUM),
+        # so use v4 and pin the client; ping proves the route before SSH.
+        uses: tailscale/github-action@v4
         with:
           authkey: ${{ secrets.TS_AUTHKEY }}
-          version: latest
+          version: 1.104.7
+          ping: 100.89.116.6
       - name: SSH deploy
         env:
           SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
