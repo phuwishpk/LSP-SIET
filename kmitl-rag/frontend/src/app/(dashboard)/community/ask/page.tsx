@@ -32,7 +32,7 @@ import { OwlMascot } from '@siet/kmitl-rag/components/common/OwlMascot'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { AnswerReferences } from '@siet/kmitl-rag/components/community/AnswerReferences'
 import { AskHistoryPanel } from '@siet/kmitl-rag/components/community/AskHistoryPanel'
-import { UploadCard } from '@siet/platform/components/community/LibraryPanel'
+import { UploadCard } from '@/components/community/LibraryPanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   ASK_HISTORY_KEYS,
@@ -41,21 +41,21 @@ import {
   useCourses,
   useWallet,
   toastApiError,
-} from '@siet/platform/lib/hooks/use-community'
+} from '@/lib/hooks/use-community'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
-import { useKnowledge, useLibrary } from '@siet/platform/lib/hooks/use-library'
+import { useKnowledge, useLibrary } from '@/lib/hooks/use-library'
 import {
   describeApiError,
   type AskCitation,
   type AskWebMode,
   type AskWebSource,
   type RagStoredMessage,
-} from '@siet/platform/lib/api/community'
+} from '@/lib/api/community'
 import { useAuthStore } from '@/lib/stores/auth-store'
-import { isStaff, type Role } from '@siet/platform/lib/roles'
-import type { AskScope } from '@siet/platform/lib/api/library'
-import { answerSourceNote, roomLabel } from '@siet/platform/lib/utils/community-format'
+import { isStaff, type Role } from '@/lib/roles'
+import type { AskScope } from '@/lib/api/library'
+import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
 import { decodePick, pickFromParams, pickToAskFields } from '@siet/kmitl-rag/lib/utils/knowledge-pick'
 import { cn } from '@/lib/utils'
 

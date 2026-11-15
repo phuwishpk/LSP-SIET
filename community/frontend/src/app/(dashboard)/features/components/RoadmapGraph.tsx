@@ -3,7 +3,7 @@
 import { useMemo } from 'react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
-import { RoadmapNodePayload, RoadmapEdgePayload } from '@siet/platform/lib/api/features'
+import { RoadmapNodePayload, RoadmapEdgePayload } from '@/lib/api/features'
 
 interface RoadmapGraphProps {
   nodes: RoadmapNodePayload[]

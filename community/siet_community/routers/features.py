@@ -11,7 +11,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from loguru import logger
 
-from open_notebook.exceptions import (
+from siet_core.exceptions import (
     ConfigurationError,
     DatabaseOperationError,
     ExternalServiceError,

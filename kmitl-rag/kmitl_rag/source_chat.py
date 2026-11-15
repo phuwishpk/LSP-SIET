@@ -1,5 +1,5 @@
 """
-Source chat addition (hook into open_notebook.graphs.source_chat): the
+Source chat addition (hook into siet_core.graphs.source_chat): the
 passages of the source that best match the latest question are pinned at the
 top of the context, so an answer deep in a long document is not missed.
 """
@@ -9,8 +9,8 @@ from typing import Any, Dict, List
 
 from loguru import logger
 
-from open_notebook.database.repository import ensure_record_id, repo_query
-from open_notebook.utils.embedding import generate_embedding
+from siet_core.database.repository import ensure_record_id, repo_query
+from siet_core.utils.embedding import generate_embedding
 
 def pin_relevant_chunks(
     prompt_data: Dict[str, Any], *, source_id: str, messages: List[Any]

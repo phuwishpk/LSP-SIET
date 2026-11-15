@@ -7,13 +7,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { BrainCircuit, Coins, Download, Gamepad2, HandCoins, Share2, Sparkles, Target } from 'lucide-react'
-import { RangeSelect } from '@siet/platform/components/admin/controls'
-import { BarList, DailyColumns } from '@siet/platform/components/admin/StatCharts'
-import { StatTile } from '@siet/platform/components/admin/StatTile'
+import { RangeSelect } from '@/components/admin/controls'
+import { BarList, DailyColumns } from '@/components/admin/StatCharts'
+import { StatTile } from '@/components/admin/StatTile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminQuizStats } from '@siet/platform/lib/hooks/use-admin'
-import { displayName } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminQuizStats } from '@/lib/hooks/use-admin'
+import { displayName } from '@/lib/utils/community-format'
 
 /** A score nobody has earned yet reads as a dash, not as 0%. */
 export const scoreLabel = (pct: number | null) => (pct === null ? '—' : `${pct}%`)

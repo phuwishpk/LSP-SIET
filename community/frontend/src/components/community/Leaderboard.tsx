@@ -2,10 +2,10 @@
 
 import { Map, Trophy } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar } from '@siet/platform/components/ui/avatar'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useLeaderboard, usePopularRoadmaps } from '@siet/platform/lib/hooks/use-community'
-import { displayName } from '@siet/platform/lib/utils/community-format'
+import { Avatar } from '@/components/ui/avatar'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useLeaderboard, usePopularRoadmaps } from '@/lib/hooks/use-community'
+import { displayName } from '@/lib/utils/community-format'
 
 const MEDALS = ['🥇', '🥈', '🥉']
 

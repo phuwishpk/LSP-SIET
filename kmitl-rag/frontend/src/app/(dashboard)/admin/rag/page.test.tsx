@@ -4,7 +4,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@/components/layout/AppShell', () => ({
   AppShell: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }))
-vi.mock('@siet/platform/components/admin/AdminPageHeader', () => ({
+vi.mock('@/components/admin/AdminPageHeader', () => ({
   AdminPageHeader: ({ title }: { title: string }) => <h1>{title}</h1>,
 }))
 vi.mock('@siet/kmitl-rag/components/admin/rag/RagStatsPanel', () => ({ RagStatsPanel: () => <div>stats-panel</div> }))

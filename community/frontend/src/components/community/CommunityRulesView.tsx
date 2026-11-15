@@ -11,8 +11,8 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useWallet } from '@siet/platform/lib/hooks/use-community'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useWallet } from '@/lib/hooks/use-community'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { cn } from '@/lib/utils'
 

@@ -38,7 +38,7 @@ from siet_community import moderation
 from siet_platform import audit, library, notifications as inbox, points, ratelimit, throttle
 from siet_community import repository as repo
 from siet_platform.cache.service import cache_service
-from open_notebook.config import DATA_FOLDER
+from siet_core.config import DATA_FOLDER
 from siet_platform.features.domain import QuizSession, RoadmapSession
 from siet_platform.http import (
     _guard_spam,
@@ -51,7 +51,7 @@ from siet_platform.http import (
     _uid,
 )
 from siet_platform.users import USER_ROLE_ADMIN, USER_ROLE_TEACHER, User
-from open_notebook.exceptions import (
+from siet_core.exceptions import (
     ConfigurationError,
     ExternalServiceError,
     InvalidInputError,

@@ -30,7 +30,7 @@ from siet_platform.retrieval import (
     search_in_notebooks,
     source_summaries,
 )
-from open_notebook.domain.notebook import text_search, vector_search
+from siet_core.domain.notebook import text_search, vector_search
 
 ANSWER_CACHE_TTL = int(os.getenv("RAG_ANSWER_CACHE_TTL", "600") or 600)
 

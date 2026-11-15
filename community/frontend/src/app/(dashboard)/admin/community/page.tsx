@@ -3,7 +3,7 @@
 import { MessageSquare } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AdminPageHeader } from '@siet/platform/components/admin/AdminPageHeader'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { CategoriesPanel } from '@siet/community/components/admin/community/CategoriesPanel'
 import { CommentsPanel } from '@siet/community/components/admin/community/CommentsPanel'
 import { ReportsPanel } from '@siet/community/components/admin/community/ReportsPanel'

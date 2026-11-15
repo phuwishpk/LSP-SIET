@@ -1,11 +1,11 @@
 [project]
 name = "kmitl-rag"
 version = "0.1.0"
-description = "KMITL RAG AI on top of open-notebook and siet-platform: grounded quick-ask with web fallback, ask history, notebook-scoped ask and global chat, and the answer filters used by every chat."
+description = "KMITL RAG AI on top of lsp-siet-platform: grounded quick-ask with web fallback, ask history, notebook-scoped ask and global chat, and the answer filters used by every chat."
 requires-python = ">=3.11,<3.13"
-dependencies = ["siet-platform"]
+dependencies = ["lsp-siet-platform"]
 
-[project.entry-points."open_notebook.extensions"]
+[project.entry-points."siet.extensions"]
 kmitl_rag = "kmitl_rag.extension"
 
 [build-system]
@@ -16,4 +16,4 @@ build-backend = "setuptools.build_meta"
 include = ["kmitl_rag*"]
 
 [tool.uv.sources]
-siet-platform = { path = "../siet-platform", editable = true }
+lsp-siet-platform = { path = "../platform", editable = true }

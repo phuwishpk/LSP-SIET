@@ -1,6 +1,6 @@
 """
 siet-community as an open-notebook extension (entry point group
-``open_notebook.extensions``, see open_notebook/extensions.py).
+``siet.extensions``, see siet_core/extensions.py).
 
 register()   seeds the demo categories and course rooms with the seed accounts
 install()    /community/*, the community part of /admin/*, and
@@ -11,7 +11,7 @@ ORDER = 30
 
 
 def register() -> None:
-    from open_notebook import extensions
+    from siet_core import extensions
     from siet_community.catalog import seed_catalog
 
     extensions.on("siet.seed_demo_data", seed_catalog)

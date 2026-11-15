@@ -16,9 +16,9 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminPosts, useModeratePost } from '@siet/platform/lib/hooks/use-admin'
-import { displayName, postTypeLabel, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminPosts, useModeratePost } from '@/lib/hooks/use-admin'
+import { displayName, postTypeLabel, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 const TYPES = [

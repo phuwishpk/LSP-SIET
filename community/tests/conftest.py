@@ -1,6 +1,6 @@
 """
-Run these tests from open-notebook/ with its virtualenv (see `make test-backend`):
-the package imports open_notebook and api, which live there.
+Run these tests from platform/ with its virtualenv (see `make test-backend`):
+the package imports siet_core and api, which live there.
 """
 
 import os
@@ -10,18 +10,18 @@ from pathlib import Path
 
 import pytest
 
-# Same bootstrap as open-notebook/tests/conftest.py: no password gate, .env loaded,
-# open-notebook/ importable.
+# Same bootstrap as platform/tests/conftest.py: no password gate, .env loaded,
+# platform/ importable.
 os.environ["OPEN_NOTEBOOK_PASSWORD"] = ""
 
 from dotenv import load_dotenv
 
-open_notebook_root = Path(__file__).resolve().parents[2] / "open-notebook"
-dotenv_path = open_notebook_root / ".env"
+platform_root = Path(__file__).resolve().parents[2] / "platform"
+dotenv_path = platform_root / ".env"
 if dotenv_path.exists():
     load_dotenv(dotenv_path)
 
-sys.path.insert(0, str(open_notebook_root))
+sys.path.insert(0, str(platform_root))
 
 
 @pytest.fixture(autouse=True)

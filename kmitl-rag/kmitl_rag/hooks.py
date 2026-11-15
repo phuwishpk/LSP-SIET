@@ -1,6 +1,6 @@
 """
 What kmitl-rag plugs into open-notebook's extension points
-(open_notebook.extensions; the call sites are listed in docs/ARCHITECTURE.md).
+(siet_core.extensions; the call sites are listed in docs/ARCHITECTURE.md).
 
 * chat.context            notebook chat: pin the notebook passages that match
                           the question ahead of the user-selected context
@@ -12,7 +12,7 @@ What kmitl-rag plugs into open-notebook's extension points
 
 from typing import Any, Dict, Optional, Union
 
-from open_notebook import extensions
+from siet_core import extensions
 
 
 def register() -> None:

@@ -7,13 +7,13 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Coins, Footprints, GitBranch, Map as MapIcon, Share2, Sparkles } from 'lucide-react'
-import { RangeSelect } from '@siet/platform/components/admin/controls'
-import { BarList, DailyColumns } from '@siet/platform/components/admin/StatCharts'
-import { StatTile } from '@siet/platform/components/admin/StatTile'
+import { RangeSelect } from '@/components/admin/controls'
+import { BarList, DailyColumns } from '@/components/admin/StatCharts'
+import { StatTile } from '@/components/admin/StatTile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminRoadmapStats } from '@siet/platform/lib/hooks/use-admin'
-import { displayName } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminRoadmapStats } from '@/lib/hooks/use-admin'
+import { displayName } from '@/lib/utils/community-format'
 
 export function RoadmapStatsPanel() {
   const [days, setDays] = useState(30)

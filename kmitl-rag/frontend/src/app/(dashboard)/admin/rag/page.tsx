@@ -3,7 +3,7 @@
 import { Database } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AdminPageHeader } from '@siet/platform/components/admin/AdminPageHeader'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { RagDocumentsPanel } from '@siet/kmitl-rag/components/admin/rag/RagDocumentsPanel'
 import { RagKnowledgePanel } from '@siet/kmitl-rag/components/admin/rag/RagKnowledgePanel'
 import { RagStatsPanel } from '@siet/kmitl-rag/components/admin/rag/RagStatsPanel'

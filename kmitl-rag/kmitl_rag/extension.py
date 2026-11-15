@@ -1,6 +1,6 @@
 """
 kmitl-rag as an open-notebook extension (entry point group
-``open_notebook.extensions``, see open_notebook/extensions.py).
+``siet.extensions``, see siet_core/extensions.py).
 
 register()   chat hooks (kmitl_rag.hooks)
 install()    /community/knowledge + /community/ask*, /admin/rag/*,

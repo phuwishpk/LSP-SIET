@@ -13,9 +13,9 @@ import { PostCounts } from '@siet/community/components/admin/PostCounts'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminRoadmapPosts, useModeratePost } from '@siet/platform/lib/hooks/use-admin'
-import { displayName, timeAgo } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminRoadmapPosts, useModeratePost } from '@/lib/hooks/use-admin'
+import { displayName, timeAgo } from '@/lib/utils/community-format'
 import { cn } from '@/lib/utils'
 
 const PAGE = 25

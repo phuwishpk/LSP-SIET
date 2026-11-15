@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 
 from kmitl_rag import history as repo
 from kmitl_rag.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
-from open_notebook.exceptions import (
+from siet_core.exceptions import (
     ConfigurationError,
     ExternalServiceError,
     InvalidInputError,

@@ -5,9 +5,9 @@ import { ArrowRight, ChevronDown, ChevronUp, Footprints, Map, Sparkles } from 'l
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { RoadmapPlanView } from '@siet/community/components/community/RoadmapPlanView'
-import type { CommunityPost, RoadmapEmbed as RoadmapEmbedData } from '@siet/platform/lib/api/community'
-import { openRoadmapApp } from '@siet/platform/lib/external-apps'
-import { useRoadmapFollow } from '@siet/platform/lib/hooks/use-community'
+import type { CommunityPost, RoadmapEmbed as RoadmapEmbedData } from '@/lib/api/community'
+import { openRoadmapApp } from '@/lib/external-apps'
+import { useRoadmapFollow } from '@/lib/hooks/use-community'
 
 /** `roadmap_session:abc` -> the page of that roadmap inside the roadmap app. */
 const roadmapPath = (sessionId: string) => `/roadmap/${sessionId.replace(':', '-')}`

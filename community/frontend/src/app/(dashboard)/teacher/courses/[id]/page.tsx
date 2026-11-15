@@ -47,7 +47,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { useAuth } from '@/lib/hooks/use-auth'
 import {
   useArchiveCourse,
@@ -58,11 +58,11 @@ import {
   useRemoveMember,
   useSetMemberRole,
   useUpdateCourseSettings,
-} from '@siet/platform/lib/hooks/use-courses'
-import { suggestJoinCode, type CourseDetail, type CourseMember } from '@siet/platform/lib/api/courses'
-import { displayName, timeAgo } from '@siet/platform/lib/utils/community-format'
-import { useResolveRoomReport, useRoomReports } from '@siet/platform/lib/hooks/use-moderation'
-import { REPORT_TARGET_LABELS, type Report } from '@siet/platform/lib/api/moderation'
+} from '@/lib/hooks/use-courses'
+import { suggestJoinCode, type CourseDetail, type CourseMember } from '@/lib/api/courses'
+import { displayName, timeAgo } from '@/lib/utils/community-format'
+import { useResolveRoomReport, useRoomReports } from '@/lib/hooks/use-moderation'
+import { REPORT_TARGET_LABELS, type Report } from '@/lib/api/moderation'
 import { cn } from '@/lib/utils'
 
 export default function TeacherCoursePage({ params }: { params: Promise<{ id: string }> }) {

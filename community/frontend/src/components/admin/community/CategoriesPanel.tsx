@@ -19,19 +19,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { EmptyState } from '@siet/platform/components/admin/controls'
+import { EmptyState } from '@/components/admin/controls'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
   useAdminCategories,
   useCreateCategory,
   useDeleteCategory,
   useUpdateCategory,
-} from '@siet/platform/lib/hooks/use-courses'
-import type { Category } from '@siet/platform/lib/api/courses'
+} from '@/lib/hooks/use-courses'
+import type { Category } from '@/lib/api/courses'
 
 export function CategoriesPanel() {
   const { data, isLoading } = useAdminCategories()

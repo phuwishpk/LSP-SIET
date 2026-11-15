@@ -70,15 +70,16 @@ clean: down  ## Stop and remove containers + networks (keeps volumes)
 nuke: down  ## Stop + remove everything including volumes (DESTROYS DATA)
 	$(COMPOSE) $(COMPOSE_FILE) down --remove-orphans --volumes
 	@echo "✗ All volumes removed. The next `make up` will start from scratch."
-# Backend tests of open-notebook and the SIET packages, run with open-notebook's
-# virtualenv (the packages are installed into it as editable path dependencies).
+# Backend tests of platform (siet_core, api, siet_platform) and the SIET packages, run
+# with platform's virtualenv (the packages are installed into it as editable path
+# dependencies).
 # .env loading is off: api/main.py calls load_dotenv(), which finds this repo's
 # root .env, and whether a test then sees JWT_SECRET depends on test order.
 PYTEST ?= uv run --no-sync python -m pytest
-SIET_TEST_DIRS = tests ../siet-platform/tests ../kmitl-rag/tests ../community/tests
+SIET_TEST_DIRS = tests tests-platform ../kmitl-rag/tests ../community/tests
 
-test-backend:  ## Run backend tests (open-notebook + siet-platform + kmitl-rag + community)
-	cd open-notebook && PYTHON_DOTENV_DISABLED=1 $(PYTEST) -q $(SIET_TEST_DIRS) $(ARGS)
+test-backend:  ## Run backend tests (platform + kmitl-rag + community)
+	cd platform && PYTHON_DOTENV_DISABLED=1 $(PYTEST) -q $(SIET_TEST_DIRS) $(ARGS)
 
 # One-time move of the KMITL SurrealDB migration records (core 19-25) to the
 # SIET track (_siet_migrations, k2-k8). Needs the image built from this branch.
@@ -108,16 +109,16 @@ migrate-split:  ## One-time: move KMITL migration records to the SIET track (CON
 	$(SPLIT_COMPOSE) run --rm --no-deps $(SPLIT_API) /app/.venv/bin/python -m siet_platform.migrations.split --backup-done
 	@echo "Backup: $(BACKUP_DIR). Start the stack again (make up / make up-dev)."
 
-# The SIET frontend packages (siet-platform/frontend, kmitl-rag/frontend,
-# community/frontend) are compiled into open-notebook's Next.js app and resolve
-# react & co. through its node_modules, via a symlink in each package. So does
-# shared/ (components imported as @shared/*, e.g. the mascot).
-SIET_FRONTENDS = siet-platform kmitl-rag community
+# The SIET frontend packages (kmitl-rag/frontend, community/frontend) are compiled
+# into the host Next.js app (platform/frontend) and resolve react & co. through its
+# node_modules, via a symlink in each package. So does shared/ (components imported
+# as @shared/*, e.g. the mascot).
+SIET_FRONTENDS = kmitl-rag community
 
-frontend-links:  ## Link each SIET frontend package to open-notebook/frontend/node_modules
-	@for d in $(SIET_FRONTENDS); do ln -sfn ../../open-notebook/frontend/node_modules $$d/frontend/node_modules; done
-	@ln -sfn ../open-notebook/frontend/node_modules shared/node_modules
+frontend-links:  ## Link each SIET frontend package to platform/frontend/node_modules
+	@for d in $(SIET_FRONTENDS); do ln -sfn ../../platform/frontend/node_modules $$d/frontend/node_modules; done
+	@ln -sfn ../platform/frontend/node_modules shared/node_modules
 	@echo "linked: $(SIET_FRONTENDS) shared"
 
-test-frontend: frontend-links  ## Typecheck and run frontend tests (open-notebook + SIET packages)
-	cd open-notebook/frontend && npx tsc --noEmit -p . && npx vitest run $(ARGS)
+test-frontend: frontend-links  ## Typecheck and run frontend tests (platform + SIET packages)
+	cd platform/frontend && npx tsc --noEmit -p . && npx vitest run $(ARGS)

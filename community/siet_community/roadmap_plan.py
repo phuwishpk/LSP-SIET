@@ -31,7 +31,7 @@ from kmitl_rag import ask as rag, grounding
 from siet_platform.retrieval import content_key
 from siet_platform.config import DEFAULT_CACHE_TTL
 from siet_platform.features.domain import RoadmapSession
-from open_notebook.exceptions import ExternalServiceError, InvalidInputError
+from siet_core.exceptions import ExternalServiceError, InvalidInputError
 from siet_platform import usage
 from siet_platform.features.service import _extract_json, _hash_prompt, _invoke_chat
 

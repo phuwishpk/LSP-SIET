@@ -9,13 +9,13 @@
  */
 import { useState } from 'react'
 import { BookOpenCheck, Coins, Globe2, MessagesSquare, Timer, Users, Wallet, Zap } from 'lucide-react'
-import { RangeSelect } from '@siet/platform/components/admin/controls'
-import { BarList, DailyColumns } from '@siet/platform/components/admin/StatCharts'
-import { StatTile } from '@siet/platform/components/admin/StatTile'
+import { RangeSelect } from '@/components/admin/controls'
+import { BarList, DailyColumns } from '@/components/admin/StatCharts'
+import { StatTile } from '@/components/admin/StatTile'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
-import { useAdminRagStats } from '@siet/platform/lib/hooks/use-admin'
-import { displayName, roleLabel } from '@siet/platform/lib/utils/community-format'
+import { Skeleton } from '@/components/ui/skeleton'
+import { useAdminRagStats } from '@/lib/hooks/use-admin'
+import { displayName, roleLabel } from '@/lib/utils/community-format'
 
 const fmtThb = (n: number) =>
   `฿${new Intl.NumberFormat('th-TH', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n)}`

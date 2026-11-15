@@ -2,8 +2,8 @@
 
 from typing import ClassVar, List, Optional
 
-from open_notebook.database.repository import repo_query
-from open_notebook.domain.base import ObjectModel
+from siet_core.database.repository import repo_query
+from siet_core.domain.base import ObjectModel
 
 
 # -----------------------------------------------------------------------------

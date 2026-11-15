@@ -18,7 +18,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
-import { Skeleton } from '@siet/platform/components/ui/skeleton'
+import { Skeleton } from '@/components/ui/skeleton'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
 import { useAuth } from '@/lib/hooks/use-auth'
@@ -31,26 +31,26 @@ import {
   useJoinCourse,
   useSavedCollections,
   useWallet,
-} from '@siet/platform/lib/hooks/use-community'
-import { communityApi, type FeedFilters } from '@siet/platform/lib/api/community'
-import { roomLabel } from '@siet/platform/lib/utils/community-format'
+} from '@/lib/hooks/use-community'
+import { communityApi, type FeedFilters } from '@/lib/api/community'
+import { roomLabel } from '@/lib/utils/community-format'
 import { CourseSidebar, type FeedView } from '@siet/community/components/community/CourseSidebar'
-import { Sheet, SheetContent } from '@siet/platform/components/ui/sheet'
+import { Sheet, SheetContent } from '@/components/ui/sheet'
 import { CreatorBox } from '@siet/community/components/community/CreatorBox'
 import { PostCard } from '@siet/community/components/community/PostCard'
 import { InstructorMediaView } from '@siet/community/components/community/InstructorMediaView'
 import { SavedSummariesView, SavedSummaryTools } from '@siet/community/components/community/SavedSummariesView'
 import { AiQuickWidget } from '@siet/kmitl-rag/components/community/AiQuickWidget'
 import { ShareMyWorkButton } from '@siet/community/components/community/ShareMyWorkDialog'
-import { LibraryPanel } from '@siet/platform/components/community/LibraryPanel'
+import { LibraryPanel } from '@/components/community/LibraryPanel'
 import {
   CommunityCreditsPanel,
   CommunityRulesContent,
 } from '@siet/community/components/community/CommunityRulesView'
 import type { AskFocus } from '@siet/kmitl-rag/components/community/AiQuickWidget'
-import type { LibraryDocument } from '@siet/platform/lib/api/library'
-import { openQuizApp, openRoadmapApp } from '@siet/platform/lib/external-apps'
-import { useGenerateQuiz } from '@siet/platform/lib/hooks/use-features'
+import type { LibraryDocument } from '@/lib/api/library'
+import { openQuizApp, openRoadmapApp } from '@/lib/external-apps'
+import { useGenerateQuiz } from '@/lib/hooks/use-features'
 import Link from 'next/link'
 
 export default function CommunityPage() {

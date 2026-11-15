@@ -3,7 +3,7 @@
 import { BrainCircuit } from 'lucide-react'
 import { AppShell } from '@/components/layout/AppShell'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { AdminPageHeader } from '@siet/platform/components/admin/AdminPageHeader'
+import { AdminPageHeader } from '@/components/admin/AdminPageHeader'
 import { QuizListPanel } from '@siet/community/components/admin/quiz/QuizListPanel'
 import { QuizStatsPanel } from '@siet/community/components/admin/quiz/QuizStatsPanel'
 import { SharedQuizzesPanel } from '@siet/community/components/admin/quiz/SharedQuizzesPanel'
