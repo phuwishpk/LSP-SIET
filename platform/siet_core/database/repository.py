@@ -227,17 +227,34 @@ async def repo_delete(record_id: Union[str, RecordID]):
         raise RuntimeError(f"Failed to delete record: {str(e)}")
 
 
+# One source_embedding row carries a 3072-float vector (~30 KB on the wire). On the
+# production server (3.3 GB RAM, small RocksDB write buffers) batches of 50 such rows
+# could stall SurrealDB until it dropped the websocket ("Failed to create record"),
+# so a 348-page PDF never got its embeddings. Ten rows per batch kept 600 rows at
+# ~14 s with no stall.
+EMBEDDING_INSERT_BATCH_SIZE = int(os.getenv("LSP_SIET_EMBEDDING_INSERT_BATCH", "10") or 10)
+DEFAULT_INSERT_BATCH_SIZE = 50
+
+
 async def repo_insert(
     table: str,
     data: List[Dict[str, Any]],
     ignore_duplicates: bool = False,
-    batch_size: int = 50,
+    batch_size: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
-    """Insert records in bounded batches using a single database connection."""
+    """Insert records in bounded batches using a single database connection.
+
+    ``batch_size`` defaults to EMBEDDING_INSERT_BATCH_SIZE for ``source_embedding``
+    (large vector rows) and DEFAULT_INSERT_BATCH_SIZE for everything else.
+    """
     if not data:
         return []
     if isinstance(data, dict):
         data = [data]
+    if batch_size is None:
+        batch_size = (
+            EMBEDDING_INSERT_BATCH_SIZE if table == "source_embedding" else DEFAULT_INSERT_BATCH_SIZE
+        )
 
     results = []
     if batch_size <= 0:

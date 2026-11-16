@@ -23,7 +23,7 @@ async def test_insert_batches_share_one_connection(connection):
     records = [{"id": RecordID("source_embedding", str(i))} for i in range(120)]
     db.insert.side_effect = lambda table, batch: batch
 
-    result = await repository.repo_insert("source_embedding", records)
+    result = await repository.repo_insert("source_embedding", records, batch_size=50)
 
     assert db.insert.await_args_list == [
         call("source_embedding", records[:50]),
@@ -34,6 +34,24 @@ async def test_insert_batches_share_one_connection(connection):
     factory.assert_called_once_with()
     context.__aenter__.assert_awaited_once()
     context.__aexit__.assert_awaited_once()
+
+
+@pytest.mark.asyncio
+async def test_embedding_rows_default_to_small_batches(connection):
+    """Vector rows go in batches of EMBEDDING_INSERT_BATCH_SIZE; other tables keep 50."""
+    db, _, _ = connection
+    db.insert.side_effect = lambda table, batch: batch
+    rows = [{"id": RecordID("source_embedding", str(i))} for i in range(25)]
+    await repository.repo_insert("source_embedding", rows)
+    size = repository.EMBEDDING_INSERT_BATCH_SIZE
+    assert [len(c.args[1]) for c in db.insert.await_args_list] == [
+        min(size, 25 - i) for i in range(0, 25, size)
+    ]
+
+    db.insert.reset_mock()
+    other = [{"id": RecordID("note", str(i))} for i in range(60)]
+    await repository.repo_insert("note", other)
+    assert [len(c.args[1]) for c in db.insert.await_args_list] == [50, 10]
 
 
 @pytest.mark.asyncio
