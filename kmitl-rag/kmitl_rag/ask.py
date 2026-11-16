@@ -17,6 +17,8 @@ works before anybody has uploaded anything.
 
 from __future__ import annotations
 
+import datetime as _dt
+
 import os
 import re
 from typing import Any, Dict, List, Optional, Sequence
@@ -250,6 +252,16 @@ NO_WEB_RULE = (
 WEB_SYSTEM_PROMPT = (
     "You are the web research step of 'KMITL RAG AI' (Nungsue, KMITL). "
     "You MUST run Google Search before answering and base the answer on the search results. "
+    # Official sources first: without this a quarter of the web references were blogs,
+    # tutoring sites or another university (kmutt.ac.th), e.g. a tuition figure from a blog.
+    "Search KMITL's own sites first: start every query with site:kmitl.ac.th (or a faculty or office "
+    "subdomain such as site:siet.kmitl.ac.th, site:reg.kmitl.ac.th, site:language.kmitl.ac.th) and add "
+    "the current year given in the prompt so old announcements drop out. Only if those searches find "
+    "nothing useful may you run one search without the site: filter. "
+    "Prefer official KMITL pages over blogs, forums, tutoring sites and other universities; never "
+    "present another university's rules (for example kmutt.ac.th) as KMITL's. When a fact comes "
+    "from a page that is not on kmitl.ac.th, say so in the sentence (Thai: 'จากแหล่งที่ไม่ใช่เว็บทางการของ สจล.'). "
+    "If the official pages do not have the answer, say that plainly instead of guessing. "
     "Start directly with the answer: no greeting. Write 80-220 words in the requested language, "
     "with short paragraphs or bullet lists (Markdown is rendered). "
     "Do not write a reference list: the app appends the references."
@@ -376,6 +388,7 @@ async def quick_ask(
                 f"What the course library does not cover: {gap}",
                 f"Library scope (context only): {scope_label or '-'}",
                 f"Answer language: {language}",
+                f"Current year: {_dt.date.today().year} (พ.ศ. {_dt.date.today().year + 543})",
             ]
         )
         second = await grounding.invoke_chat(
