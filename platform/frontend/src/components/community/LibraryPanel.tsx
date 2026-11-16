@@ -78,7 +78,7 @@ export function LibraryPanel({ isStaff, courseId, onAskDocument }: LibraryPanelP
                 <Badge variant="secondary">วิชา {stats.course_docs}</Badge>
                 <Badge variant="secondary">ของฉัน {stats.my_docs}</Badge>
                 {stats.processing > 0 && (
-                  <Badge className="gap-1 bg-amber-500 hover:bg-amber-500">
+                  <Badge className="gap-1 bg-amber-500 text-amber-950 dark:text-amber-950 hover:bg-amber-500">
                     <Loader2 className="h-3 w-3 animate-spin" /> กำลังประมวลผล {stats.processing}
                   </Badge>
                 )}

@@ -82,7 +82,7 @@ export function QuizEmbed({ post, embed }: QuizEmbedProps) {
   return (
     <div className="rounded-xl border border-emerald-200/70 bg-emerald-50/40 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge className="gap-1 bg-emerald-600 hover:bg-emerald-600">
+        <Badge className="gap-1 bg-emerald-700 text-white dark:text-white hover:bg-emerald-700">
           <GraduationCap className="h-3 w-3" /> AI Quiz
         </Badge>
         <p className="font-semibold">{embed.topic || post.title}</p>

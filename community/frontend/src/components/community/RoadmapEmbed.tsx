@@ -37,7 +37,7 @@ export function RoadmapEmbed({ post, embed }: RoadmapEmbedProps) {
   return (
     <div className="rounded-xl border border-orange-200/70 bg-orange-50/40 p-4 dark:border-orange-900/60 dark:bg-orange-950/20">
       <div className="flex flex-wrap items-center gap-2">
-        <Badge className="gap-1 bg-orange-600 hover:bg-orange-600">
+        <Badge className="gap-1 bg-orange-700 text-white dark:text-white hover:bg-orange-700">
           <Map className="h-3 w-3" /> AI Roadmap
         </Badge>
         <p className="font-semibold">{embed.title || post.title}</p>
