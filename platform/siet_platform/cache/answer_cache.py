@@ -193,6 +193,8 @@ def _entry_metadata(entry: Dict[str, Any]) -> Dict[str, Any]:
         "cached_question": entry.get("normalized_question") or entry.get("question"),
         "created_at": entry.get("created_at"),
         "expires_at": entry.get("expires_at"),
+        # the caller's whole result, when it stored one (None for plain answers)
+        "payload": entry.get("payload"),
     }
 
 
@@ -317,7 +319,8 @@ async def get_cached_answer(
             await cache_service.set_json(
                 f"answer:semantic:{scope}",
                 entries[-ANSWER_CACHE_MAX_ENTRIES:],
-                ttl=ANSWER_CACHE_TTL,
+                # keep the TTL the entries were stored with (e.g. a day for web results)
+                ttl=int((best[1] or {}).get("ttl") or ANSWER_CACHE_TTL),
             )
         except Exception as exc:
             logger.debug(f"Failed to persist hit_count: {exc}")
@@ -352,6 +355,7 @@ async def get_cached_answer(
             ),
             "candidate_intent": best[1].get("intent"),
             "candidate_entities": best[1].get("entities"),
+            "candidate_payload": best[1].get("payload"),
             "hit_count": int((best[1] or {}).get("hit_count", 0) or 0),
             **_entry_metadata(best[1]),
         }
@@ -382,6 +386,8 @@ async def set_cached_answer(
     entities: Optional[Dict[str, Any]] = None,
     quality_score: Optional[float] = None,
     model_id: Optional[str] = None,
+    payload: Optional[Dict[str, Any]] = None,
+    ttl: Optional[int] = None,
 ) -> None:
     """
     Store an answer for free exact hits and low-cost semantic hits.
@@ -426,8 +432,9 @@ async def set_cached_answer(
             entities = extracted_entities
 
     scope = _hash(f"{context_key}:{_normalize_language_tag(language)}")
+    ttl_seconds = int(ttl or ANSWER_CACHE_TTL)
     now = datetime.now(timezone.utc)
-    expires_at = now + timedelta(seconds=ANSWER_CACHE_TTL)
+    expires_at = now + timedelta(seconds=ttl_seconds)
     metadata: Dict[str, Any] = {
         "question": question,
         "normalized_question": normalized,
@@ -443,13 +450,17 @@ async def set_cached_answer(
         metadata["entities"] = entities
     if quality_score is not None:
         metadata["quality_score"] = float(quality_score)
+    if payload is not None:
+        metadata["payload"] = payload
+    if ttl is not None:
+        metadata["ttl"] = ttl_seconds
     if scope_metadata:
         metadata.update(scope_metadata)
 
     await cache_service.set_json(
         f"answer:exact:{scope}:{_hash(normalized)}",
         metadata,
-        ttl=ANSWER_CACHE_TTL,
+        ttl=ttl_seconds,
     )
     cache_metrics.record_answer_set()
 
@@ -469,7 +480,7 @@ async def set_cached_answer(
     metadata["embedding"] = query_embedding
     entries.append(metadata)
     await cache_service.set_json(
-        index_key, entries[-ANSWER_CACHE_MAX_ENTRIES:], ttl=ANSWER_CACHE_TTL
+        index_key, entries[-ANSWER_CACHE_MAX_ENTRIES:], ttl=ttl_seconds
     )
 
 
