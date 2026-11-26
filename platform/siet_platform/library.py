@@ -429,7 +429,7 @@ async def list_shared_notebooks(
     workspace, marked ``visibility="private"`` — the operator is accountable for
     all content and must be able to inspect what the AI can be asked about.
 
-    Each item: ``{id, name, description, kind, visibility, owner_label,
+    Each item: ``{id, name, description, kind, course_id, visibility, owner_label,
     archived, source_count, sources: [{id, title, chunks}]}``. Only notebooks
     holding at least one source are returned, so empty scratch notebooks never
     show up.
@@ -477,6 +477,8 @@ async def list_shared_notebooks(
         if not nb_id:
             continue
         owner = str(row.get("owner_id") or "")
+        course_key = owner.split(":", 1)[1] if owner.startswith("course:") else ""
+        course_id = int(course_key) if course_key.isdigit() else None
         # Belt and braces: a personal library whose MariaDB link was lost is
         # still private, whoever owns it.
         is_personal = nb_id in ctx["personal_notebooks"] or name.startswith(PERSONAL_NOTEBOOK_PREFIX)
@@ -501,7 +503,7 @@ async def list_shared_notebooks(
                 who = person.get("display_name") or person.get("username") or (owner or "ไม่ทราบเจ้าของ")
                 owner_label = f"ส่วนตัวของ {who}"
         elif kind == "course":
-            course = ctx["courses"].get(int(owner.split(":", 1)[1]), {})
+            course = ctx["courses"].get(course_id, {}) if course_id is not None else {}
             owner_label = f"คลังวิชา {course.get('code') or ''}".strip()
         elif owner.isdigit():
             person = ctx["staff"].get(int(owner), {})
@@ -515,6 +517,8 @@ async def list_shared_notebooks(
                 "name": name or "Notebook",
                 "description": str(row.get("description") or ""),
                 "kind": kind,
+                # the course room a course library belongs to (None otherwise)
+                "course_id": course_id if kind == "course" else None,
                 "visibility": visibility,
                 "archived": bool(row.get("archived")),
                 "owner_label": owner_label,

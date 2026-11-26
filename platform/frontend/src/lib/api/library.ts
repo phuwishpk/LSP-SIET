@@ -62,6 +62,8 @@ export interface KnowledgeNotebook {
   description: string
   /** staff/course are shared with everyone; personal/student only reach an admin. */
   kind: 'staff' | 'course' | 'personal' | 'student'
+  /** The course room a course library belongs to; null for every other kind. */
+  course_id: number | null
   visibility: 'shared' | 'private'
   archived: boolean
   owner_label: string
