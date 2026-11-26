@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useId } from 'react';
 
 export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate';
 
@@ -8,15 +8,31 @@ export interface PinkOwlMascotProps {
   mood?: OwlMood;
   className?: string;
   size?: number | string;
+  /** Keep the pose but stop every animation (e.g. older chat bubbles). */
+  still?: boolean;
+  /** Accessible name; without it the owl is decorative (hidden from screen readers). */
+  label?: string;
 }
 
 export function PinkOwlMascot({
   mood = 'idle',
   className = '',
   size = 200,
+  still = false,
+  label,
 }: PinkOwlMascotProps) {
+  // Several owls can share a page: SVG ids are document-global, so each owl
+  // gets its own gradient/filter ids or the later ones paint with the first's.
+  const uid = useId().replace(/:/g, '');
+  const ids = {
+    body: `bodyGrad-${uid}`,
+    shadow: `softShadow-${uid}`,
+    cap: `capTopGrad-${uid}`,
+    tassel: `tasselGoldGrad-${uid}`,
+  };
+  const a11y = label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true as const };
   return (
-    <div className={`relative flex items-center justify-center select-none ${className}`}>
+    <div className={`relative flex items-center justify-center select-none ${className}`} {...a11y}>
       <style jsx>{`
         /* --- Base Animations --- */
         .owl-whole {
@@ -120,10 +136,21 @@ export function PinkOwlMascot({
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(2px); }
         }
+
+        /* หยุดนิ่ง: คงท่าไว้ แต่ไม่ขยับ */
+        .owl-still,
+        .owl-still * {
+          animation: none !important;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          * {
+            animation: none !important;
+          }
+        }
       `}</style>
 
       <div
-        className={`relative ${mood ? `action-${mood}` : 'action-idle'}`}
+        className={`relative ${mood ? `action-${mood}` : 'action-idle'}${still ? ' owl-still' : ''}`}
         style={{ width: size, height: typeof size === 'number' ? size * 1.13 : size }}
       >
         <svg
@@ -134,22 +161,22 @@ export function PinkOwlMascot({
         >
           <defs>
             {/* Body Gradient */}
-            <radialGradient id="bodyGrad" cx="35%" cy="30%" r="75%">
+            <radialGradient id={ids.body} cx="35%" cy="30%" r="75%">
               <stop offset="0%" stopColor="#fb7185" />
               <stop offset="65%" stopColor="#f43f5e" />
               <stop offset="100%" stopColor="#e11d48" />
             </radialGradient>
             {/* Shadow Filter */}
-            <filter id="softShadow" x="-10%" y="-10%" width="120%" height="130%">
+            <filter id={ids.shadow} x="-10%" y="-10%" width="120%" height="130%">
               <feDropShadow dx="0" dy="7" stdDeviation="5" floodColor="#881337" floodOpacity="0.18" />
             </filter>
             {/* Cap Gradients */}
-            <linearGradient id="capTopGradFixed" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={ids.cap} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#334155"/>
               <stop offset="50%" stopColor="#1E293B"/>
               <stop offset="100%" stopColor="#0F172A"/>
             </linearGradient>
-            <linearGradient id="tasselGoldGradFixed" x1="0%" y1="0%" x2="100%" y2="100%">
+            <linearGradient id={ids.tassel} x1="0%" y1="0%" x2="100%" y2="100%">
               <stop offset="0%" stopColor="#FDE047"/>
               <stop offset="60%" stopColor="#F59E0B"/>
               <stop offset="100%" stopColor="#B45309"/>
@@ -175,8 +202,8 @@ export function PinkOwlMascot({
             {/* ลำตัว Duo Body */}
             <path
               d="M 85 90 C 70 70 65 48 78 45 C 92 42 110 65 150 65 C 190 65 208 42 222 45 C 235 48 230 70 215 90 C 248 125 252 230 230 280 C 210 310 90 310 70 280 C 48 230 52 125 85 90 Z" 
-              fill="url(#bodyGrad)"
-              filter="url(#softShadow)"
+              fill={`url(#${ids.body})`}
+              filter={`url(#${ids.shadow})`}
             />
 
             {/* ท้องสีชมพูอ่อน */}
@@ -250,15 +277,15 @@ export function PinkOwlMascot({
               <path d="M 124 48 L 180 70 L 240 53 L 240 58 L 180 75 L 124 53 Z" fill="#0F172A"/>
               <path
                 d="M 180 26 C 196 30 226 40 238 51 C 240 53 239 55 235 56 L 182 72 C 178 73 174 73 170 71 L 124 52 C 120 50 121 47 125 45 L 172 27 C 175 26 178 26 180 26 Z"
-                fill="url(#capTopGradFixed)"
+                fill={`url(#${ids.cap})`}
                 stroke="#1E293B"
                 strokeWidth="1.8"
               />
               <ellipse cx="180" cy="50" rx="4.5" ry="3" fill="#F59E0B" stroke="#B45309" strokeWidth="1.2"/>
               <g className="cap-tassel">
-                <path d="M 180 50 C 196 53 214 60 216 68 C 218 73 215 82 214 92" fill="none" stroke="url(#tasselGoldGradFixed)" strokeWidth="3" strokeLinecap="round"/>
+                <path d="M 180 50 C 196 53 214 60 216 68 C 218 73 215 82 214 92" fill="none" stroke={`url(#${ids.tassel})`} strokeWidth="3" strokeLinecap="round"/>
                 <circle cx="214" cy="92" r="3.2" fill="#D97706"/>
-                <path d="M 212 94 C 209 98 207 106 209 116 C 210 118 218 118 219 116 C 221 106 219 98 216 94 Z" fill="url(#tasselGoldGradFixed)" stroke="#B45309" strokeWidth="1"/>
+                <path d="M 212 94 C 209 98 207 106 209 116 C 210 118 218 118 219 116 C 221 106 219 98 216 94 Z" fill={`url(#${ids.tassel})`} stroke="#B45309" strokeWidth="1"/>
               </g>
             </g>
           </g>

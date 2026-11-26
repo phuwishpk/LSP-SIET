@@ -35,7 +35,7 @@ export default defineConfig({
       // shared/ (navbar, mascot) - same as `@shared/*` in tsconfig.json
       '@shared': path.resolve(__dirname, '../../shared'),
     },
-    include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)', ...sietTests],
+    include: ['src/**/*.{test,spec}.?(c|m)[jt]s?(x)', ...sietTests, '../../shared/**/*.{test,spec}.?(c|m)[jt]s?(x)'],
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html']
