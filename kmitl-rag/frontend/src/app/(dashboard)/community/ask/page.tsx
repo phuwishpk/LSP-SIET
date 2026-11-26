@@ -15,13 +15,9 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeft,
   Coins,
-  FileText,
-  Globe2,
-  Lock,
   Plus,
   RotateCcw,
   Send,
-  Users,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -54,9 +50,14 @@ import {
 } from '@/lib/api/community'
 import { useAuthStore } from '@/lib/stores/auth-store'
 import { isStaff, type Role } from '@/lib/roles'
-import type { AskScope } from '@/lib/api/library'
-import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
-import { decodePick, pickFromParams, pickToAskFields } from '@siet/kmitl-rag/lib/utils/knowledge-pick'
+import { answerSourceNote } from '@/lib/utils/community-format'
+import {
+  choiceFromParams,
+  choiceToAskFields,
+  describeChoice,
+  type SourceChoice,
+} from '@siet/kmitl-rag/lib/utils/source-choice'
+import { SourcePicker } from '@siet/kmitl-rag/components/community/SourcePicker'
 import { avatarIsStill } from '@siet/kmitl-rag/lib/utils/ask-avatar'
 import { cn } from '@/lib/utils'
 
@@ -123,16 +124,8 @@ function AskContent() {
   const { data: library } = useLibrary()
   const { data: knowledge } = useKnowledge()
 
-  const initialCourse = params.get('course') ? Number(params.get('course')) : null
-  // ?doc=12, ?notebook=notebook:abc or ?source=source:xyz preselect the dropdown.
-  const initialPick = pickFromParams(params)
-
-  const [scope, setScope] = useState<AskScope>(
-    initialPick ? 'document' : initialCourse ? 'course' : 'auto'
-  )
-  const [scopeCourseId, setScopeCourseId] = useState<number | null>(initialCourse)
-  // Encoded dropdown value: an uploaded document, a whole notebook, or one source.
-  const [pickValue, setPickValue] = useState<string | null>(initialPick)
+  // ?course=7, ?doc=12, ?notebook=notebook:abc or ?source=source:xyz open the matching tab.
+  const [choice, setChoice] = useState<SourceChoice>(() => choiceFromParams(params, []))
   const [mode, setMode] = useState<'single' | 'session'>('single')
   // Google Search grounding: auto = only when the library does not cover the question.
   const [webMode, setWebMode] = useState<AskWebMode>('auto')
@@ -157,46 +150,35 @@ function AskContent() {
   const sessionMessages = wallet?.rules.rag_session_messages ?? 5
   const exempt = wallet?.exempt ?? false
 
-  // Only official course rooms have a shared library to search.
-  const courseOptions = useMemo(
-    () => (courses ?? []).filter((c) => c.kind !== 'club'),
-    [courses]
-  )
   const readyDocs = useMemo(
     () => (library?.items ?? []).filter((d) => d.status === 'ready'),
     [library]
   )
-  const scopeCourse = courseOptions.find((c) => c.id === scopeCourseId)
-
   // Notebooks built by admins/teachers + course libraries: the same list for
   // every role, so a student can ask about material they cannot open in /notebooks.
   const sharedNotebooks = useMemo(() => knowledge?.notebooks ?? [], [knowledge])
-  const pick = useMemo(() => decodePick(pickValue), [pickValue])
-  // Course documents are already listed as sources of their course notebook, so
-  // this group only carries the caller's own uploads (plus a deep-linked doc).
+  // Course documents are already listed under their course, so "ไฟล์ของฉัน"
+  // only carries the caller's own uploads (plus a deep-linked doc).
   const myDocs = useMemo(
     () =>
       readyDocs.filter(
-        (d) => d.scope === 'personal' || (pick?.kind === 'doc' && pick.id === d.id)
+        (d) => d.scope === 'personal' || (choice.tab === 'mine' && choice.docId === d.id)
       ),
-    [pick, readyDocs]
+    [choice, readyDocs]
   )
-  const pickLabel = useMemo(() => {
-    if (!pick) return null
-    if (pick.kind === 'doc') {
-      const doc = readyDocs.find((d) => d.id === pick.id)
-      return doc ? { kind: 'document' as const, title: doc.title, count: 1 } : null
-    }
-    for (const nb of sharedNotebooks) {
-      if (pick.kind === 'notebook' && nb.id === pick.id) {
-        return { kind: 'notebook' as const, title: nb.name, count: nb.source_count }
-      }
-      const source = pick.kind === 'source' ? nb.sources.find((x) => x.id === pick.id) : undefined
-      if (source) return { kind: 'document' as const, title: source.title, count: 1 }
-    }
-    return null
-  }, [pick, readyDocs, sharedNotebooks])
-  const nothingToPick = myDocs.length === 0 && sharedNotebooks.length === 0
+  const choiceText = describeChoice(choice, {
+    notebooks: sharedNotebooks,
+    myDocs,
+    courseCode: (id) => (courses ?? []).find((c) => c.id === id)?.code,
+  })
+
+  // A ?notebook= / ?source= link can only be placed in its tab once the list is in.
+  const placedFromLink = useRef(false)
+  useEffect(() => {
+    if (placedFromLink.current || !knowledge) return
+    placedFromLink.current = true
+    if (params.get('notebook') || params.get('source')) setChoice(choiceFromParams(params, knowledge.notebooks))
+  }, [knowledge, params])
 
   // --- a reopened conversation replaces the transcript (and resumes an open session)
   useEffect(() => {
@@ -232,14 +214,11 @@ function AskContent() {
     (raw?: string) => {
       const q = (raw ?? question).trim()
       if (!q || ask.isPending) return
-      if (scope === 'course' && !scopeCourseId) {
-        toastApiError({ message: 'เลือกวิชาก่อนถามแบบเจาะจงรายวิชา' }, 'เลือกวิชาก่อน')
-        return
-      }
-      if (scope === 'document' && !pick) {
+      const scopeFields = choiceToAskFields(choice)
+      if (!scopeFields) {
         toastApiError(
-          { message: 'เลือก notebook หรือเอกสารก่อนถามแบบเจาะจงเอกสาร' },
-          'เลือกเอกสารก่อน'
+          { message: choice.tab === 'course' ? 'เลือกวิชาก่อนถาม' : 'เลือก notebook หรือเอกสารก่อนถาม' },
+          'เลือกแหล่งข้อมูลก่อนถาม'
         )
         return
       }
@@ -250,11 +229,8 @@ function AskContent() {
           question: q,
           session_id: sessionId,
           mode,
-          scope,
-          course_id: scope === 'course' ? scopeCourseId : null,
-          document_ids: [],
-          // A dropdown pick decides scope + ids together (whole notebook vs one document).
-          ...(scope === 'document' ? pickToAskFields(pick) : {}),
+          // the picked tab decides scope + ids together (whole course/notebook vs one document)
+          ...scopeFields,
           web: webMode,
           conversation_id: conversationId,
         },
@@ -313,7 +289,7 @@ function AskContent() {
         }
       )
     },
-    [ask, conversationId, mode, pick, queryClient, question, router, scope, scopeCourseId, sessionId, webMode]
+    [ask, choice, conversationId, mode, queryClient, question, router, sessionId, webMode]
   )
 
   submitRef.current = submit
@@ -376,93 +352,20 @@ function AskContent() {
                 <CardTitle className="text-sm">ค้นคำตอบจาก</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="grid grid-cols-2 gap-1.5">
-                  <ScopeButton active={scope === 'auto'} icon={Globe2} onClick={() => setScope('auto')}>
-                    ทุกแหล่งของฉัน
-                  </ScopeButton>
-                  <ScopeButton active={scope === 'course'} icon={Users} onClick={() => setScope('course')}>
-                    รายวิชา
-                  </ScopeButton>
-                  <ScopeButton active={scope === 'personal'} icon={Lock} onClick={() => setScope('personal')}>
-                    ไฟล์ของฉัน
-                  </ScopeButton>
-                  <ScopeButton active={scope === 'document'} icon={FileText} onClick={() => setScope('document')}>
-                    เจาะจงเอกสาร
-                  </ScopeButton>
-                </div>
+                <SourcePicker
+                  value={choice}
+                  onChange={setChoice}
+                  notebooks={sharedNotebooks}
+                  myDocs={myDocs}
+                  seesEverything={knowledge?.sees_everything ?? false}
+                  onAdd={() => setAddOpen(true)}
+                />
 
-                {scope === 'course' && (
-                  <select
-                    className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                    value={scopeCourseId ?? ''}
-                    onChange={(e) => setScopeCourseId(e.target.value ? Number(e.target.value) : null)}
-                  >
-                    <option value="">— เลือกวิชา —</option>
-                    {courseOptions.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {roomLabel(c)}
-                      </option>
-                    ))}
-                  </select>
-                )}
-
-                {scope === 'document' && (
-                  <select
-                    aria-label="เลือก notebook หรือเอกสาร"
-                    className="h-8 w-full rounded-md border bg-background px-2 text-xs"
-                    value={pickValue ?? ''}
-                    onChange={(e) => setPickValue(e.target.value || null)}
-                    disabled={nothingToPick}
-                  >
-                    <option value="">
-                      {nothingToPick ? '— ยังไม่มีเอกสารให้เลือก —' : '— เลือก notebook หรือเอกสาร —'}
-                    </option>
-                    {myDocs.length > 0 && (
-                      <optgroup label="ไฟล์ของฉัน">
-                        {myDocs.map((d) => (
-                          <option key={d.id} value={`doc:${d.id}`}>
-                            {d.title}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    {sharedNotebooks.map((nb) => (
-                      <optgroup
-                        key={nb.id}
-                        label={`${nb.visibility === 'private' ? '🔒 ' : ''}${nb.name} · ${nb.owner_label}${
-                          nb.archived ? ' (เก็บถาวร)' : ''
-                        }`}
-                      >
-                        <option value={`nb:${nb.id}`}>
-                          ทั้ง notebook นี้ ({nb.source_count} เอกสาร)
-                        </option>
-                        {nb.sources.map((src) => (
-                          <option key={src.id} value={`src:${src.id}`} disabled={src.chunks === 0}>
-                            {src.title}
-                            {src.chunks === 0 ? ' (ยังไม่พร้อมค้น)' : ''}
-                          </option>
-                        ))}
-                      </optgroup>
-                    ))}
-                  </select>
-                )}
-
-                <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
-                  {scope === 'auto' &&
-                    'ค้นจากไฟล์ของคุณเอง + คลังความรู้ของทุกวิชาที่คุณเข้าร่วม + notebook ที่อาจารย์และผู้ดูแลจัดทำไว้'}
-                  {scope === 'course' &&
-                    (scopeCourse
-                      ? `ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา ${scopeCourse.code} เท่านั้น`
-                      : 'เลือกวิชาที่ต้องการให้ AI อ่านเฉพาะเอกสารของวิชานั้น')}
-                  {scope === 'personal' && 'ตอบจากไฟล์ที่คุณอัปโหลดเองเท่านั้น คนอื่นไม่เห็น'}
-                  {scope === 'document' &&
-                    (pickLabel
-                      ? pickLabel.kind === 'notebook'
-                        ? `ตอบจากทุกเอกสารใน notebook “${pickLabel.title}” (${pickLabel.count} เอกสาร)`
-                        : `ตอบจากเอกสาร “${pickLabel.title}” เท่านั้น`
-                      : nothingToPick
-                      ? 'ยังไม่มี notebook จากอาจารย์/ผู้ดูแล และคุณยังไม่ได้อัปโหลดไฟล์'
-                      : 'เลือก notebook ทั้งเล่ม หรือเอกสารหนึ่งฉบับ ให้ AI อ่านเฉพาะส่วนนั้น')}
+                <p
+                  aria-live="polite"
+                  className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground"
+                >
+                  {choiceText}
                 </p>
                 {knowledge?.sees_everything && (
                   <p className="text-[11px] text-muted-foreground">
@@ -722,38 +625,10 @@ function AskContent() {
                 : 'ไฟล์ที่อัปโหลดเป็นของคุณคนเดียว จะขึ้นในกลุ่ม “ไฟล์ของฉัน” เมื่อประมวลผลเสร็จ'}
             </DialogDescription>
           </DialogHeader>
-          <UploadCard isStaff={isStaff(role)} defaultCourseId={scopeCourseId} />
+          <UploadCard isStaff={isStaff(role)} defaultCourseId={choice.tab === 'course' ? choice.courseId : null} />
         </DialogContent>
       </Dialog>
     </div>
-  )
-}
-
-function ScopeButton({
-  active,
-  icon: Icon,
-  onClick,
-  children,
-}: {
-  active: boolean
-  icon: React.ComponentType<{ className?: string }>
-  onClick: () => void
-  children: React.ReactNode
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'flex flex-col items-start gap-1 rounded-lg border px-2.5 py-2 text-left text-[11px] transition',
-        active
-          ? 'border-primary bg-primary/10 text-primary'
-          : 'hover:bg-accent'
-      )}
-    >
-      <Icon className="h-3.5 w-3.5" />
-      {children}
-    </button>
   )
 }
 
