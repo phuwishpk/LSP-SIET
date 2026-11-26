@@ -1,4 +1,4 @@
-# KMITL RAG AI: animated owl replaces the PNG owl
+# KMITL RAG AI: animated owl + sources split by where they come from
 
 Date: 2026-11-27 · Status: approved by the owner ("ย้าย ... ไป branch ใหม่ก่อนแล้วค่อยมาทำ")
 
@@ -49,6 +49,38 @@ Additions to `shared/mascot/PinkOwlMascot.tsx`:
   ("น้องฮูก ผู้ช่วย AI" / "น้องฮูกกำลังคิดคำตอบ").
 
 Import rule: `@shared/*` is allowed from kmitl-rag (the layering test only restricts `@siet/*`).
+
+## Part 2: the source picker split by where it comes from
+
+Owner's words: "ตรง filter ตรงเอกสาร ทำให้แยก filter แยกหมวดหมู่ที่ชัดเจน", then chose **แยกแหล่งที่มา**
+(split by source type) over also splitting courses by study programme.
+
+Today the "ค้นคำตอบจาก" card has 4 buttons (ทุกแหล่งของฉัน / รายวิชา / ไฟล์ของฉัน / เจาะจงเอกสาร) and
+"เจาะจงเอกสาร" opens one native `<select>` mixing my files, every course library (~80 locally) and
+teacher/admin notebooks with no headings beyond optgroups.
+
+New card: one row of source tabs, each with its own list.
+
+| Tab | Shows | "All of it" choice → request | One item → request |
+|---|---|---|---|
+| ทุกแหล่ง | the explainer text only | `scope: 'auto'` | – |
+| ไฟล์ของฉัน | my ready personal uploads | `scope: 'personal'` (default) | `doc:<id>` pick → `scope: 'document'` |
+| รายวิชา | course libraries (`kind === 'course'`) | per course: `scope: 'course', course_id` | a source in it: `src:<id>` pick |
+| จากอาจารย์/ผู้ดูแล | `kind === 'staff'` notebooks | per notebook: `nb:<id>` pick → `scope: 'notebook'` | `src:<id>` pick |
+| ของผู้ใช้ (admin only, `sees_everything`) | `kind` personal/student | `nb:<id>` | `src:<id>` |
+
+- Lists are a radio list (one choice across the tab), notebooks/courses expandable to their documents;
+  a search box filters by name/title when the tab has more than 6 entries. Sources with
+  `chunks === 0` stay visible but disabled ("ยังไม่พร้อมค้น"). Empty tab → a short line saying why
+  plus the existing "เพิ่มเนื้อหาให้ AI อ่าน" button.
+- Requests sent to `/community/ask` keep today's shapes (no API contract change for asking).
+- Backend: `list_shared_notebooks` adds `course_id: int | null` to each item (set for course
+  libraries from `owner_id = course:<id>`), so the รายวิชา tab can send `scope: 'course'` with the
+  right id and `?course=<id>` deep links open that course selected. `KnowledgeNotebook` gains the field.
+- Deep links keep working: `?course=` → รายวิชา tab with it selected; `?doc=` → ไฟล์ของฉัน; `?notebook=`
+  / `?source=` → the tab that owns that notebook (fallback: จากอาจารย์/ผู้ดูแล).
+- The explainer line under the tabs stays and keeps saying exactly what the AI will read.
+- Not in this slice: grouping courses by study programme (owner declined), Material 3 restyle.
 
 ## Left to the builder
 

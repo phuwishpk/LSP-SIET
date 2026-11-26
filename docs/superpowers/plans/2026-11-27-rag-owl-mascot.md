@@ -1,8 +1,8 @@
-# KMITL RAG AI animated owl Implementation Plan
+# KMITL RAG AI: animated owl + source picker Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** /community/ask uses the animated shared `PinkOwlMascot` instead of the PNG `OwlMascot`, and the PNG owl is deleted.
+**Goal:** /community/ask uses the animated shared `PinkOwlMascot` instead of the PNG `OwlMascot` (PNG owl deleted), and its "ค้นคำตอบจาก" card splits sources into tabs by where they come from.
 
 **Architecture:** Give the shared SVG owl two small props (`still`, `label`) plus a reduced-motion rule, then swap the four call sites on the ask page and delete the old component, its keyframes and its images.
 
@@ -86,7 +86,61 @@ Mapping (from the spec):
   - `npx tsc --noEmit -p .` in platform/frontend → no new errors; `npx vitest run src/layering.test.ts` → PASS.
 - [ ] **Step 5: Commit** `feat(kmitl-rag): animated owl on KMITL RAG AI, PNG owl removed`.
 
-### Task 3: See it in the browser
+### Task 3: Knowledge list says which course a library belongs to
 
+**Files:**
+- Modify: `platform/siet_platform/library.py` (`list_shared_notebooks`, the dict appended at ~line 512; docstring at ~428)
+- Modify: `platform/frontend/src/lib/api/library.ts` (`KnowledgeNotebook`: add `course_id: number | null`)
+- Test: `platform/tests-platform/test_shared_notebooks_course_id.py`
+
+**Interfaces:**
+- Produces: every item of `GET /community/knowledge` → `notebooks[]` has `course_id: int | None` = `<id>` when `owner_id == "course:<id>"`, else `None` (also for a deleted course's library).
+
+- [ ] **Step 1: Write the failing test** `test_course_library_carries_its_course_id`: monkeypatch `library._sharing_context` (staff `{}`, courses `{7: {"code": "03206107"}}`, personal_notebooks `set()`), `library._course_ids_for_viewer` → `[7]`, `library.is_admin` → False and `library.repo_query` (returns, by query text: notebook rows `[{"id": "notebook:c", "name": "Prog", "owner_id": "course:7"}, {"id": "notebook:s", "name": "Staff", "owner_id": "default"}]`; reference rows linking one source to each; empty lists otherwise). Assert `course_id` is `7` for `notebook:c` and `None` for `notebook:s`.
+- [ ] **Step 2: Run** `make test-backend ARGS="platform/tests-platform/test_shared_notebooks_course_id.py"` (or `cd platform && uv run pytest tests-platform/test_shared_notebooks_course_id.py`) → FAIL (KeyError `course_id`).
+- [ ] **Step 3: Implement**: parse `owner` once (`int(owner.split(":",1)[1])` when it starts with `course:` and the rest is digits) and add `"course_id"` to the dict; add the field to the TS interface.
+- [ ] **Step 4: Run** → PASS.
+- [ ] **Step 5: Commit** `feat(library): knowledge list says which course each library belongs to`.
+
+### Task 4: Source picker split by where sources come from
+
+**Files:**
+- Create: `kmitl-rag/frontend/src/lib/utils/source-choice.ts` (pure logic) + `source-choice.test.ts`
+- Create: `kmitl-rag/frontend/src/components/community/SourcePicker.tsx` + `SourcePicker.test.tsx`
+- Modify: `kmitl-rag/frontend/src/app/(dashboard)/community/ask/page.tsx` (replace the scope buttons, both `<select>`s and the explainer in the "ค้นคำตอบจาก" card; drop `ScopeButton` if unused; `scope`/`scopeCourseId`/`pickValue` state becomes one `choice` state)
+- Keep: `knowledge-pick.ts` (its `decodePick`/`pickFromParams` are reused for deep links)
+
+**Interfaces:**
+- Consumes: Task 3's `KnowledgeNotebook.course_id`; `LibraryDocument` (ready, `scope === 'personal'`).
+- Produces (in `source-choice.ts`):
+  ```ts
+  export type SourceTab = 'auto' | 'mine' | 'course' | 'staff' | 'users'
+  export type SourceChoice =
+    | { tab: 'auto' }
+    | { tab: 'mine'; docId: number | null }              // null = all my files
+    | { tab: 'course'; courseId: number | null; sourceId?: string } // null = nothing chosen yet
+    | { tab: 'staff' | 'users'; notebookId: string | null; sourceId?: string }
+  export function tabOf(nb: KnowledgeNotebook): Exclude<SourceTab, 'auto' | 'mine'>
+  export function choiceToAskFields(c: SourceChoice, notebooks: KnowledgeNotebook[]):
+    Pick<AskRequest, 'scope' | 'course_id' | 'document_ids' | 'notebook_ids' | 'source_ids'> | null  // null = incomplete
+  export function choiceFromParams(params: { get(k: string): string | null }, notebooks: KnowledgeNotebook[]): SourceChoice
+  export function describeChoice(c: SourceChoice, notebooks: KnowledgeNotebook[], myDocs: LibraryDocument[]): string
+  ```
+  `SourcePicker({ value, onChange, notebooks, myDocs, seesEverything, onAdd })`.
+
+- [ ] **Step 1: Write the failing tests** (`source-choice.test.ts`):
+  - `tabOf`: kind course → `'course'`; staff → `'staff'`; personal/student → `'users'`.
+  - `choiceToAskFields`: `{tab:'auto'}` → `{scope:'auto', document_ids:[], notebook_ids:[], source_ids:[]}`; `{tab:'mine',docId:null}` → scope `'personal'`; `{tab:'mine',docId:12}` → scope `'document'`, `document_ids:[12]`; `{tab:'course',courseId:7}` → `{scope:'course', course_id:7, …[]}`; `{tab:'course',courseId:7,sourceId:'source:a'}` → scope `'document'`, `source_ids:['source:a']`; `{tab:'staff',notebookId:'notebook:s'}` → scope `'notebook'`, `notebook_ids:['notebook:s']`; `{tab:'course',courseId:null}` → `null`.
+  - `choiceFromParams`: `?course=7` → `{tab:'course',courseId:7}`; `?doc=12` → `{tab:'mine',docId:12}`; `?notebook=notebook:c` where that notebook is a course library with `course_id:7` → `{tab:'course',courseId:7}`; `?source=source:x` inside a staff notebook → `{tab:'staff',notebookId:<it>,sourceId:'source:x'}`; unknown source → `{tab:'staff',notebookId:null}`; nothing → `{tab:'auto'}`.
+  - `describeChoice` returns today's explainer strings for auto/personal/course (`ตอบจากเอกสารที่อาจารย์อัปโหลดในวิชา <code> เท่านั้น`)/notebook/document.
+  `SourcePicker.test.tsx`: tabs render as `role="tab"` with labels `ทุกแหล่ง`, `ไฟล์ของฉัน`, `รายวิชา`, `จากอาจารย์/ผู้ดูแล`; `ของผู้ใช้` only with `seesEverything`; clicking a course row calls `onChange({tab:'course',courseId:7})`; a source with `chunks: 0` is disabled; with 7 courses a `searchbox` appears and typing `Prog` leaves only matching rows; an empty tab shows the "เพิ่มเนื้อหาให้ AI อ่าน" button.
+- [ ] **Step 2: Run** `cd platform/frontend && npx vitest run ../../kmitl-rag/frontend/src/lib/utils/source-choice.test.ts ../../kmitl-rag/frontend/src/components/community/SourcePicker.test.tsx` → FAIL.
+- [ ] **Step 3: Implement** `source-choice.ts`, then `SourcePicker` (shadcn `Tabs` from `@/components/ui/tabs` if present, else buttons with `role="tab"`/`aria-selected`; radio rows with `role="radio"`; courses/notebooks expand with a chevron to list sources), then wire the page: `submit` uses `choiceToAskFields` and, when it returns `null`, toasts `เลือกแหล่งข้อมูลก่อนถาม`. Keep the admin note (`sees_everything`) and the add-content button.
+- [ ] **Step 4: Run** Step 2 tests + `npx vitest run "../../kmitl-rag/frontend/src/app/(dashboard)/community/ask" ../../kmitl-rag/frontend/src/lib/utils/knowledge-pick.test.ts src/layering.test.ts` + `npx tsc --noEmit -p .` → PASS / no new errors.
+- [ ] **Step 5: Commit** `feat(kmitl-rag): source picker split into tabs by where sources come from`.
+
+### Task 5: See it in the browser
+
+- [ ] Also check the picker: each tab, search in รายวิชา, deep links `?course=` / `?doc=` / `?notebook=`, a question sent from each tab gets an answer whose scope note matches the tab.
 - [ ] Run the host app in dev (`cd platform/frontend && npm run dev`, API from the running local stack on :5055) or build the image the way `prod-deploy` does; open /community/ask signed in; check: header owl idle → study while asking; empty state waves; only the newest answer's owl moves; macOS "Reduce motion" on → nothing moves; dark mode still readable.
 - [ ] No commit (verification only). Report screenshots/observations to the owner. Do not merge or push to main (push to main deploys lsp-siet.site).
