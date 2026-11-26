@@ -28,7 +28,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Textarea } from '@/components/ui/textarea'
 import { LoadingSpinner } from '@/components/common/LoadingSpinner'
-import { OwlMascot } from '@siet/kmitl-rag/components/common/OwlMascot'
+import { PinkOwlMascot } from '@shared/mascot'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { AnswerReferences } from '@siet/kmitl-rag/components/community/AnswerReferences'
 import { AskHistoryPanel } from '@siet/kmitl-rag/components/community/AskHistoryPanel'
@@ -57,6 +57,7 @@ import { isStaff, type Role } from '@/lib/roles'
 import type { AskScope } from '@/lib/api/library'
 import { answerSourceNote, roomLabel } from '@/lib/utils/community-format'
 import { decodePick, pickFromParams, pickToAskFields } from '@siet/kmitl-rag/lib/utils/knowledge-pick'
+import { avatarIsStill } from '@siet/kmitl-rag/lib/utils/ask-avatar'
 import { cn } from '@/lib/utils'
 
 interface Message {
@@ -354,7 +355,7 @@ function AskContent() {
             <ArrowLeft className="h-4 w-4" /> กลับไปฟีด
           </Button>
           <div className="flex items-center gap-2">
-            <OwlMascot state={ask.isPending ? 'thinking' : 'idle'} size={40} />
+            <PinkOwlMascot mood={ask.isPending ? 'study' : 'idle'} size={40} className="shrink-0" />
             <div>
               <h1 className="text-base font-semibold leading-tight">KMITL RAG AI</h1>
               <p className="text-xs text-muted-foreground">
@@ -581,7 +582,7 @@ function AskContent() {
                 )}
                 {messages.length === 0 && !ask.isPending && !(conversationId && stored.isLoading) && (
                   <div className="flex h-full flex-col items-center justify-center gap-4 py-8 text-center">
-                    <OwlMascot state="idle" size={72} />
+                    <PinkOwlMascot mood="wave" size={120} label="น้องฮูก ผู้ช่วย AI" />
                     <div>
                       <p className="text-sm font-medium">เริ่มถามได้เลย</p>
                       <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
@@ -606,7 +607,15 @@ function AskContent() {
 
                 {messages.map((m, i) => (
                   <div key={`${m.at}-${i}`} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
-                    {m.role === 'assistant' && <OwlMascot state="idle" size={36} className="mr-2 mt-1" />}
+                    {m.role === 'assistant' && (
+                      <PinkOwlMascot
+                        mood="idle"
+                        size={36}
+                        label="น้องฮูก ผู้ช่วย AI"
+                        still={avatarIsStill(i, messages)}
+                        className="mr-2 mt-1 shrink-0 self-start"
+                      />
+                    )}
                     <div
                       className={cn(
                         'max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed',
@@ -649,7 +658,12 @@ function AskContent() {
 
                 {ask.isPending && (
                   <div className="flex justify-start">
-                    <OwlMascot state="thinking" size={36} className="mr-2 mt-1" />
+                    <PinkOwlMascot
+                      mood="study"
+                      size={36}
+                      label="น้องฮูกกำลังคิดคำตอบ"
+                      className="mr-2 mt-1 shrink-0 self-start"
+                    />
                     <div className="rounded-2xl border bg-background px-4 py-2.5 text-sm text-muted-foreground">
                       กำลังค้นคลังความรู้และเรียบเรียงคำตอบ…
                     </div>

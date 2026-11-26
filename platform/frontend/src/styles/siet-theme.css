@@ -1054,17 +1054,6 @@ button.community-file-preview:hover {
   }
 }
 
-/* The AI owl's thinking pose: a gentle nod while an answer is being written. */
-@keyframes owl-think {
-  0%,
-  100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  50% {
-    transform: translateY(-3px) rotate(-3deg);
-  }
-}
-
 
 /* ---------------------------------------------------------------------------
    SIET Pink — "AI Learning Adventure" (root DESIGN.md), as a scoped theme.
