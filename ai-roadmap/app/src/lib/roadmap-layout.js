@@ -29,8 +29,29 @@ const STAGE_COLORS = {
 }
 const FALLBACK_COLORS = [1, 2, 3, 4, 5, 6].map((n) => `var(--stage-${n})`)
 
+/**
+ * Plans made before the Thai stage names used a software-project set
+ * (planning, design, ...). They are shown in Thai, in the colour of the
+ * matching learning stage.
+ */
+const LEGACY_STAGES = {
+  planning: { label: 'วางแผน', stage: 'พื้นฐาน' },
+  design: { label: 'ออกแบบ', stage: 'แนวคิดหลัก' },
+  development: { label: 'ลงมือทำ', stage: 'ฝึกปฏิบัติ' },
+  testing: { label: 'ทดสอบ', stage: 'ทบทวน/ประเมิน' },
+  deployment: { label: 'นำไปใช้', stage: 'ประยุกต์' },
+}
+
+const legacyOf = (category) => LEGACY_STAGES[String(category || '').trim().toLowerCase()]
+
+/** The stage name as shown to the learner. */
+export function categoryLabel(category) {
+  const text = String(category || '').trim()
+  return legacyOf(text)?.label || text || 'ทั่วไป'
+}
+
 export function categoryColor(category, index = 0) {
-  const key = String(category || '').replace(/\s+/g, '')
+  const key = (legacyOf(category)?.stage || String(category || '')).replace(/\s+/g, '')
   return STAGE_COLORS[key] || FALLBACK_COLORS[index % FALLBACK_COLORS.length]
 }
 
@@ -91,7 +112,7 @@ export function layoutRoadmap(rawNodes) {
         closeLane(lane, cursor)
         cursor = lane.top + lane.height + LANE_PAD
       }
-      lane = { category, color: categoryColor(category, lanes.length), top: cursor - LANE_PAD, height: 0 }
+      lane = { category, label: categoryLabel(category), color: categoryColor(category, lanes.length), top: cursor - LANE_PAD, height: 0 }
       lanes.push(lane)
     }
 
