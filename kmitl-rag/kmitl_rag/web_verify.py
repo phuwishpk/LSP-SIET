@@ -186,6 +186,7 @@ def rebuild_web_text(
     renumber: Dict[int, int] = {}
     pieces: List[str] = []
     seen: set[str] = set()
+    dropped_segments = 0
     for support in (metadata or {}).get("grounding_supports") or []:
         if not isinstance(support, dict):
             continue
@@ -195,7 +196,11 @@ def rebuild_web_text(
             old = chunk_to_index.get(chunk)
             if old in kept and old not in refs:
                 refs.append(old)
-        if not segment or not refs or segment in seen:
+        # Gemini's segments quote its own answer; anything else is not shown.
+        if not segment or segment in seen or segment not in (text or ""):
+            continue
+        if not refs:
+            dropped_segments += 1  # backed only by pages that are gone or not KMITL
             continue
         seen.add(segment)
         for old in refs:
@@ -209,7 +214,8 @@ def rebuild_web_text(
     if not pieces:
         return NOT_FOUND[lang], [], True
     rebuilt = " ".join(pieces)
-    removed = len(rebuilt) < len(" ".join((text or "").split())) or len(kept) < len(set(chunk_to_index.values()))
+    # A dropped sentence or page counts; connecting words between kept sentences do not.
+    removed = dropped_segments > 0 or len(kept) < len(set(chunk_to_index.values()))
     if removed:
         rebuilt = f"{rebuilt}\n\n{PARTIAL[lang]}"
     return rebuilt, sources, removed

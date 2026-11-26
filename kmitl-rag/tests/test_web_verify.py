@@ -159,3 +159,14 @@ def test_rebuild_adds_partial_line_when_something_was_dropped():
 def test_rebuild_nothing_kept_gives_not_found_line(language):
     text, sources, removed = rebuild_web_text(TEXT, META, CHUNKS, kept={}, titles={}, language=language)
     assert text == NOT_FOUND[language] and sources == [] and removed is True
+
+
+def test_rebuild_ignores_segments_that_are_not_in_the_answer():
+    meta = {"grounding_supports": [
+        {"segment": {"text": "ข้อความที่ไม่มีในคำตอบ"}, "grounding_chunk_indices": [1]},
+        {"segment": {"text": "สจล. มีนักศึกษาราว 30,000 คน"}, "grounding_chunk_indices": [1]},
+    ]}
+    text, _sources, _removed = rebuild_web_text(
+        TEXT, meta, CHUNKS, kept={2: "https://www.kmitl.ac.th/stat"}, titles={}, language="th"
+    )
+    assert "ข้อความที่ไม่มีในคำตอบ" not in text and "30,000 คน [W1]" in text

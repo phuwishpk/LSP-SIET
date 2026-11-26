@@ -18,21 +18,20 @@ works before anybody has uploaded anything.
 from __future__ import annotations
 
 import datetime as _dt
-
 import os
 import re
 from typing import Any, Dict, List, Optional, Sequence
 
 from loguru import logger
 
-from kmitl_rag import grounding
+from kmitl_rag import answer_reuse, grounding, web_verify
+from siet_core.domain.notebook import text_search, vector_search
 from siet_platform import usage
 from siet_platform.retrieval import (
     content_key,
     search_in_notebooks,
     source_summaries,
 )
-from siet_core.domain.notebook import text_search, vector_search
 
 ANSWER_CACHE_TTL = int(os.getenv("RAG_ANSWER_CACHE_TTL", "600") or 600)
 
@@ -153,12 +152,14 @@ async def retrieve(
     workspace would silently break the promise made in the UI.
     """
     results: List[Any] = []
+    used_global = False
     if notebook_ids:
         results = await _search_notebooks(question, notebook_ids, source_ids)
         if not results and not allow_global_fallback:
             return []
     if not results and allow_global_fallback:
         results = await _search_global(question)
+        used_global = bool(results)
 
     # One specific document was picked: make sure its overview is part of the
     # context even when the best-matching passages are all from the introduction.
@@ -195,6 +196,8 @@ async def retrieve(
                 "title": str(item.get("title") or f"Knowledge item {len(citations) + 1}"),
                 "snippet": snippet,
                 "score": item.get("similarity") or item.get("score"),
+                # from the whole workspace, not the chosen scope: such answers are never cached
+                **({"global": True} if used_global else {}),
             }
         )
     return citations
@@ -251,21 +254,20 @@ NO_WEB_RULE = (
 )
 WEB_SYSTEM_PROMPT = (
     "You are the web research step of 'KMITL RAG AI' (Nungsue, KMITL). "
-    "You MUST run Google Search before answering and base the answer on the search results. "
-    # Official sources first: without this a quarter of the web references were blogs,
-    # tutoring sites or another university (kmutt.ac.th), e.g. a tuition figure from a blog.
-    "Search KMITL's own sites first: start every query with site:kmitl.ac.th (or a faculty or office "
-    "subdomain such as site:siet.kmitl.ac.th, site:reg.kmitl.ac.th, site:language.kmitl.ac.th) and add "
-    "the current year given in the prompt so old announcements drop out. Only if those searches find "
-    "nothing useful may you run one search without the site: filter. "
-    "Prefer official KMITL pages over blogs, forums, tutoring sites and other universities; never "
-    "present another university's rules (for example kmutt.ac.th) as KMITL's. When a fact comes "
-    "from a page that is not on kmitl.ac.th, say so in the sentence (Thai: 'จากแหล่งที่ไม่ใช่เว็บทางการของ สจล.'). "
-    "If the official pages do not have the answer, say that plainly instead of guessing. "
-    "Start directly with the answer: no greeting. Write 80-220 words in the requested language, "
+    "You MUST run Google Search before answering and base the answer only on the search results. "
+    # KMITL only: the app shows only references on kmitl.ac.th and drops every other page.
+    "Search ONLY KMITL's own websites: every query must start with site:kmitl.ac.th or a KMITL "
+    "subdomain (for example site:siet.kmitl.ac.th, site:reg.kmitl.ac.th, site:language.kmitl.ac.th) "
+    "and add the current year given in the prompt so old announcements drop out. Never run a search "
+    "without such a site: filter and never use other websites, other universities (for example "
+    "kmutt.ac.th), blogs, forums or tutoring sites. "
+    "If KMITL's pages do not have the answer, say that plainly in one sentence instead of guessing. "
+    "Start directly with the answer: no greeting. Write 60-200 words in the requested language, "
     "with short paragraphs or bullet lists (Markdown is rendered). "
     "Do not write a reference list: the app appends the references."
 )
+WEB_CACHE_KEY = "rag-web:kmitl:v1"
+WEB_CACHE_TTL = 86400
 
 # Tolerant on purpose: models drop the "---" line, bold the labels, or stop right
 # after MISSING when there is nothing to answer from.
@@ -304,9 +306,65 @@ def split_coverage(text: str, has_citation: bool) -> Dict[str, str]:
 
 
 def wants_web(web_mode: str, coverage: str) -> bool:
+    """Search on its own: always, or (auto) only when the library has nothing."""
     if web_mode == grounding.WEB_ALWAYS:
         return True
-    return web_mode == grounding.WEB_AUTO and coverage in ("partial", "none")
+    return web_mode == grounding.WEB_AUTO and coverage == "none"
+
+
+def offers_web(web_mode: str, coverage: str, web_ran: bool) -> bool:
+    """Auto + a partly covered answer: the student may ask for the web part (ค้นเว็บเพิ่ม)."""
+    return web_mode == grounding.WEB_AUTO and coverage == "partial" and not web_ran
+
+
+async def web_step(*, topic: str, language: str, owner_id: Any, model_id: Optional[str]) -> Dict[str, Any]:
+    """
+    Look ``topic`` up on KMITL's websites: ``{text, sources, queries, searched}``.
+
+    The prompt carries only the topic, the language and the year (never the
+    student's question or scope), so the result fits anyone missing the same
+    topic and is cached for a day. Only live ``*.kmitl.ac.th`` pages survive
+    (:mod:`kmitl_rag.web_verify`) and only sentences they support are kept.
+    """
+    topic = (topic or "").strip()
+    validator_model = model_id or await answer_reuse.default_model_id()
+    hit = await answer_reuse.lookup(topic, WEB_CACHE_KEY, language, validator_model)
+    if hit:
+        return hit[0]
+    year = _dt.date.today().year
+    reply = await grounding.invoke_chat(
+        prompt="\n\n".join(
+            [
+                f"Topic to look up on KMITL websites: {topic}",
+                f"Answer language: {language}",
+                f"Current year: {year} (พ.ศ. {year + 543})",
+            ]
+        ),
+        system=WEB_SYSTEM_PROMPT,
+        owner_id=owner_id,
+        model_id=model_id,
+        use_search=True,
+    )
+    metadata = reply.get("metadata") or {}
+    found, chunk_map = grounding.web_sources(metadata)
+    kept = await web_verify.verify_sources(found)
+    text, sources, _removed = web_verify.rebuild_web_text(
+        (reply.get("text") or "").strip(),
+        metadata,
+        chunk_map,
+        kept,
+        {int(s["index"]): str(s.get("title") or "") for s in found},
+        language,
+    )
+    result = {
+        "text": text,
+        "sources": sources,
+        "queries": list(metadata.get("web_search_queries") or [])[:5],
+        "searched": bool(reply.get("search_available")),
+    }
+    if result["searched"]:
+        await answer_reuse.store(topic, WEB_CACHE_KEY, language, result, validator_model, ttl=WEB_CACHE_TTL)
+    return result
 
 
 SYSTEM_PROMPT = (
@@ -376,37 +434,21 @@ async def quick_ask(
     if parsed["coverage"] == "none" and wants_web(web_mode, "none"):
         answer = not_covered
 
-    # --- step 2: the web, only when it is needed --------------------------
+    # --- step 2: the web, only when it is needed (KMITL pages only) ----------
     sources: List[Dict[str, Any]] = []
     queries: List[str] = []
     search_ran = False
-    if wants_web(web_mode, parsed["coverage"]):
-        gap = parsed["missing"] or question
-        web_prompt = "\n\n".join(
-            [
-                f"Student question: {question}",
-                f"What the course library does not cover: {gap}",
-                f"Library scope (context only): {scope_label or '-'}",
-                f"Answer language: {language}",
-                f"Current year: {_dt.date.today().year} (พ.ศ. {_dt.date.today().year + 543})",
-            ]
+    web_ran = wants_web(web_mode, parsed["coverage"])
+    if web_ran:
+        web = await web_step(
+            topic=parsed["missing"] or question, language=language, owner_id=owner_id, model_id=model_id
         )
-        second = await grounding.invoke_chat(
-            prompt=web_prompt,
-            system=WEB_SYSTEM_PROMPT,
-            owner_id=owner_id,
-            model_id=model_id,
-            use_search=True,
-        )
-        search_ran = bool(second["search_available"])
-        web_text = (second["text"] or "").strip()
-        sources, chunk_map = grounding.web_sources(second["metadata"])
-        web_text = grounding.insert_web_markers(web_text, second["metadata"], chunk_map)
-        queries = list((second["metadata"] or {}).get("web_search_queries") or [])[:5]
-        if web_text:
-            only, extra, ungrounded = _HEADINGS.get(language[:2].lower(), _HEADINGS["en"])
-            heading = ungrounded if not sources else (only if parsed["coverage"] == "none" else extra)
-            answer = f"{answer}\n\n**{heading}**\n\n{web_text}".strip()
+        search_ran = bool(web["searched"])
+        sources = list(web["sources"])
+        queries = list(web["queries"])
+        only, extra, _ungrounded = _HEADINGS.get(language[:2].lower(), _HEADINGS["en"])
+        heading = only if parsed["coverage"] == "none" else extra
+        answer = f"{answer}\n\n**{heading}**\n\n{web['text']}".strip()
 
     used = (
         set()
@@ -425,4 +467,8 @@ async def quick_ask(
         # "full" | "partial" | "none": how well the chosen scope answered the question
         "coverage": parsed["coverage"],
         "web_searched": search_ran,
+        # what the library did not cover (drives "ค้นเว็บเพิ่ม" later)
+        "missing": parsed["missing"],
+        "web_offer": offers_web(web_mode, parsed["coverage"], web_ran),
+        "fell_back": any(c.get("global") for c in citations),
     }

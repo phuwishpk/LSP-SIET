@@ -6,8 +6,7 @@ only when the library is not enough, and the answer carries [n] / [Wn] reference
 """
 
 import pytest
-
-from kmitl_rag import ask, grounding
+from kmitl_rag import answer_reuse, ask, grounding, web_verify
 
 
 # ---------------------------------------------------------------- web mode ceiling
@@ -93,7 +92,7 @@ def test_a_model_that_ignores_the_contract_is_not_an_error():
 
 @pytest.mark.parametrize(
     "mode, coverage, expected",
-    [("auto", "full", False), ("auto", "partial", True), ("auto", "none", True),
+    [("auto", "full", False), ("auto", "partial", False), ("auto", "none", True),
      ("always", "full", True), ("off", "none", False)],
 )
 def test_wants_web(mode, coverage, expected):
@@ -114,9 +113,19 @@ def wire(monkeypatch, replies):
         calls.append(kwargs)
         return replies[len(calls) - 1]
 
+    async def every_page_is_live(sources):
+        return {int(s["index"]): f"https://www.kmitl.ac.th/p{s['index']}" for s in sources}
+
+    async def no_cache(*a, **k):
+        return None
+
     monkeypatch.delenv("RAG_WEB_GROUNDING", raising=False)
     monkeypatch.setattr(ask, "retrieve", fake_retrieve)
     monkeypatch.setattr(grounding, "invoke_chat", fake_invoke)
+    monkeypatch.setattr(web_verify, "verify_sources", every_page_is_live)
+    monkeypatch.setattr(answer_reuse, "lookup", no_cache)
+    monkeypatch.setattr(answer_reuse, "store", no_cache)
+    monkeypatch.setattr(answer_reuse, "default_model_id", no_cache)
     return calls
 
 
@@ -190,4 +199,6 @@ async def test_search_that_found_nothing_is_labelled_as_ungrounded(monkeypatch):
         {"text": "คำตอบจากความจำของโมเดล", "metadata": None, "search_available": True},
     ])
     r = await ask.quick_ask(owner_id="1", question="q", notebook_ids=["notebook:n"], web="auto", language="th")
-    assert "ไม่พบแหล่งอ้างอิงบนเว็บ" in r["answer"] and r["web_used"] is False
+    # no KMITL page backs it: the model's own text is never shown
+    assert "ไม่พบข้อมูลจากเว็บไซต์ของ สจล." in r["answer"] and "ความจำของโมเดล" not in r["answer"]
+    assert r["web_used"] is False
