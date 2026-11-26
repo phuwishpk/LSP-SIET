@@ -24,6 +24,7 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import ipaddress
+import re
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Sequence, Tuple
 from urllib.parse import urljoin, urlsplit
 
@@ -50,6 +51,8 @@ PARTIAL = {
     "th": "บางส่วนไม่พบแหล่งอ้างอิงบนเว็บไซต์ของ สจล. จึงไม่แสดง",
     "en": "Some parts had no reference on KMITL websites and are not shown.",
 }
+
+_LIST_MARKER = re.compile(r"^\s*((?:[*+-]|\d+[.)])\s+)")
 
 Fetch = Callable[[str], Awaitable[Tuple[int, Optional[str]]]]
 Resolve = Callable[[str], Awaitable[Sequence[str]]]
@@ -184,7 +187,7 @@ def rebuild_web_text(
     """
     lang = _lang(language)
     renumber: Dict[int, int] = {}
-    pieces: List[str] = []
+    kept_segments: List[Tuple[int, str, List[int]]] = []
     seen: set[str] = set()
     dropped_segments = 0
     for support in (metadata or {}).get("grounding_supports") or []:
@@ -203,9 +206,22 @@ def rebuild_web_text(
             dropped_segments += 1  # backed only by pages that are gone or not KMITL
             continue
         seen.add(segment)
+        kept_segments.append((text.find(segment), segment, refs))
+
+    # In reading order, keeping the line breaks and list markers of the original
+    # (Gemini's segments leave out the "* " that starts a bullet line).
+    pieces: List[str] = []
+    previous_end = 0
+    for position, segment, refs in sorted(kept_segments, key=lambda item: item[0]):
         for old in refs:
             renumber.setdefault(old, len(renumber) + 1)
-        pieces.append(segment + " " + "".join(f"[W{renumber[old]}]" for old in refs))
+        gap = (text or "")[previous_end:position]
+        marker = _LIST_MARKER.match(gap.split("\n")[-1])
+        lead = marker.group(1) if marker else ""
+        if pieces:
+            lead = ("\n" * min(gap.count("\n"), 2) + lead) if "\n" in gap else " "
+        pieces.append(lead + segment + " " + "".join(f"[W{renumber[old]}]" for old in refs))
+        previous_end = position + len(segment)
 
     sources = [
         {"index": new, "title": titles.get(old) or (urlsplit(kept[old]).hostname or "kmitl.ac.th"), "url": kept[old]}
@@ -213,7 +229,7 @@ def rebuild_web_text(
     ]
     if not pieces:
         return NOT_FOUND[lang], [], True
-    rebuilt = " ".join(pieces)
+    rebuilt = "".join(pieces)
     # A dropped sentence or page counts; connecting words between kept sentences do not.
     removed = dropped_segments > 0 or len(kept) < len(set(chunk_to_index.values()))
     if removed:

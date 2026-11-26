@@ -170,3 +170,14 @@ def test_rebuild_ignores_segments_that_are_not_in_the_answer():
         TEXT, meta, CHUNKS, kept={2: "https://www.kmitl.ac.th/stat"}, titles={}, language="th"
     )
     assert "ข้อความที่ไม่มีในคำตอบ" not in text and "30,000 คน [W1]" in text
+
+
+def test_rebuild_keeps_line_breaks_and_list_markers():
+    raw = "มีนักศึกษารวม 33,324 คน ดังนี้\n* **ปริญญาตรี:** 30,487 คน\n* **ปริญญาโท:** 2,020 คน"
+    meta = {"grounding_supports": [
+        {"segment": {"text": "มีนักศึกษารวม 33,324 คน"}, "grounding_chunk_indices": [1]},
+        {"segment": {"text": "**ปริญญาตรี:** 30,487 คน"}, "grounding_chunk_indices": [1]},
+        {"segment": {"text": "**ปริญญาโท:** 2,020 คน"}, "grounding_chunk_indices": [1]},
+    ]}
+    text, _s, _r = rebuild_web_text(raw, meta, {1: 1}, kept={1: "https://www.reg.kmitl.ac.th/s"}, titles={}, language="th")
+    assert text == "มีนักศึกษารวม 33,324 คน [W1]\n* **ปริญญาตรี:** 30,487 คน [W1]\n* **ปริญญาโท:** 2,020 คน [W1]"
