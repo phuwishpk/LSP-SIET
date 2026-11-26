@@ -352,10 +352,15 @@ export interface RagStoredMessage {
     grounded?: boolean
     charged?: number
     cached?: boolean
+    /** "exact" = the same question, "similar" = a similar one in the same scope */
+    cache_match?: 'exact' | 'similar' | null
     session_id?: string | null
     credits_left?: number | null
     scope?: string
     web?: AskWebMode
+    /** the library covered it partly: "ค้นเว็บเพิ่ม" may add KMITL web info once */
+    web_offer?: boolean
+    web_added?: boolean
   }
   created_at?: string | null
 }
@@ -367,8 +372,13 @@ export interface RagConversationDetail extends RagConversation {
 export interface AskResponse {
   /** The stored conversation this exchange was appended to. */
   conversation_id?: string | null
-  /** True when an identical recent question was answered from the cache (no points taken). */
+  /** The stored assistant message (for "ค้นเว็บเพิ่ม"). */
+  message_id?: number | null
+  /** True when the same or a similar question in this scope was answered from the cache (no points taken). */
   cached?: boolean
+  cache_match?: 'exact' | 'similar' | null
+  /** The library covered it partly: KMITL web info can be added on request. */
+  web_offer?: boolean
   answer: string
   citations: AskCitation[]
   web_sources?: AskWebSource[]
@@ -633,6 +643,14 @@ export const communityApi = {
     ).data,
   ask: async (body: AskRequest) =>
     (await apiClient.post<AskResponse>('/community/ask', body)).data,
+  /** "ค้นเว็บเพิ่ม": KMITL web info under one stored answer (free, once). */
+  askWeb: async (conversationId: string, messageId: number) =>
+    (
+      await apiClient.post<{ message_id: number; answer: string; web_sources: AskWebSource[] }>(
+        '/community/ask/web',
+        { conversation_id: conversationId, message_id: messageId }
+      )
+    ).data,
 
   askHistory: async (limit = 50) =>
     (await apiClient.get<{ items: RagConversation[] }>('/community/ask/history', { params: { limit } })).data,

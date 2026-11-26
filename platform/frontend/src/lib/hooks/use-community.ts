@@ -496,6 +496,18 @@ export function useAsk() {
   })
 }
 
+/** "ค้นเว็บเพิ่ม" under one stored answer. */
+export function useAskWeb() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ conversationId, messageId }: { conversationId: string; messageId: number }) =>
+      communityApi.askWeb(conversationId, messageId),
+    onSuccess: (_data, { conversationId }) => {
+      queryClient.invalidateQueries({ queryKey: ASK_HISTORY_KEYS.detail(conversationId) })
+    },
+  })
+}
+
 /** The caller's stored RAG conversations, newest first. */
 export function useAskHistory() {
   return useQuery({

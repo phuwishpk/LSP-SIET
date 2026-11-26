@@ -28,12 +28,14 @@ import { PinkOwlMascot } from '@shared/mascot'
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer'
 import { AnswerReferences } from '@siet/kmitl-rag/components/community/AnswerReferences'
 import { AskHistoryPanel } from '@siet/kmitl-rag/components/community/AskHistoryPanel'
+import { AskWebButton } from '@siet/kmitl-rag/components/community/AskWebButton'
 import { UploadCard } from '@/components/community/LibraryPanel'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import {
   ASK_HISTORY_KEYS,
   useAsk,
   useAskConversation,
+  useAskWeb,
   useCourses,
   useWallet,
   toastApiError,
@@ -68,9 +70,14 @@ interface Message {
   webSources?: AskWebSource[]
   coverage?: 'full' | 'partial' | 'none'
   cached?: boolean
+  cacheMatch?: 'exact' | 'similar' | null
   charged?: number
   scopeLabel?: string
   grounded?: boolean
+  /** stored assistant message id ("ค้นเว็บเพิ่ม" targets it) */
+  messageId?: number | null
+  webOffer?: boolean
+  webAdded?: boolean
   at: number
 }
 
@@ -87,8 +94,12 @@ function fromStored(stored: RagStoredMessage[]): Message[] {
       coverage: m.meta.coverage,
       charged: m.meta.charged,
       cached: m.meta.cached,
+      cacheMatch: m.meta.cache_match,
       scopeLabel: m.meta.scope_label,
       grounded: m.meta.grounded,
+      messageId: m.id,
+      webOffer: m.meta.web_offer,
+      webAdded: m.meta.web_added,
       at,
     }
   })
@@ -119,6 +130,9 @@ function AskContent() {
   const router = useRouter()
   const params = useSearchParams()
   const ask = useAsk()
+  const askWeb = useAskWeb()
+  // the answer whose "ค้นเว็บเพิ่ม" is running
+  const [webPendingId, setWebPendingId] = useState<number | null>(null)
   const { data: wallet } = useWallet()
   const { data: courses } = useCourses()
   const { data: library } = useLibrary()
@@ -254,9 +268,12 @@ function AskContent() {
                 webSources: data.web_sources ?? [],
                 coverage: data.coverage,
                 cached: data.cached,
+                cacheMatch: data.cache_match,
                 charged: data.charged,
                 scopeLabel: data.scope_label,
                 grounded: data.grounded,
+                messageId: data.message_id,
+                webOffer: data.web_offer,
                 at: Date.now(),
               },
             ])
@@ -293,6 +310,30 @@ function AskContent() {
   )
 
   submitRef.current = submit
+
+  // "ค้นเว็บเพิ่ม": add KMITL web info under one partly covered answer.
+  const addWeb = useCallback(
+    (messageId: number) => {
+      if (!conversationId) return
+      setWebPendingId(messageId)
+      askWeb.mutate(
+        { conversationId, messageId },
+        {
+          onSuccess: (data) =>
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.messageId === messageId
+                  ? { ...m, content: data.answer, webSources: data.web_sources, webAdded: true }
+                  : m
+              )
+            ),
+          onError: (error) => toastApiError(error, 'ค้นเว็บเพิ่มไม่สำเร็จ'),
+          onSettled: () => setWebPendingId(null),
+        }
+      )
+    },
+    [askWeb, conversationId]
+  )
 
   // "แชทใหม่": the old conversation stays in the history, the transcript resets.
   const startNew = useCallback(() => {
@@ -413,12 +454,13 @@ function AskContent() {
                 </div>
                 <p className="rounded-md bg-muted/60 px-2 py-1.5 text-[11px] leading-relaxed text-muted-foreground">
                   {webMode === 'auto' &&
-                    'ตอบจากเอกสารก่อน ถ้าคำถามอยู่นอกขอบเขตหรือเอกสารตอบได้ไม่ครบ จึงค้นเว็บเสริม'}
+                    'ตอบจากเอกสารก่อน ค้นเว็บเองเมื่อเอกสารไม่มีข้อมูลเลย ถ้าตอบได้บางส่วนจะมีปุ่ม “ค้นเว็บเพิ่ม” ให้กดเอง'}
                   {webMode === 'always' && 'ตอบจากเอกสาร แล้วค้นเว็บมาสนับสนุนเพิ่มทุกคำถาม'}
                   {webMode === 'off' && 'ตอบจากเอกสารเท่านั้น ถ้าไม่มีข้อมูล AI จะบอกตรง ๆ'}
                 </p>
                 <p className="text-[11px] text-muted-foreground">
-                  ท้ายคำตอบมีรายการอ้างอิงเสมอ: [n] จากคลังความรู้ และ [Wn] จากเว็บ
+                  ค้นเฉพาะเว็บไซต์ของ สจล. (kmitl.ac.th) และตรวจว่าทุกลิงก์เปิดได้จริง ท้ายคำตอบมีรายการอ้างอิงเสมอ:
+                  [n] จากคลังความรู้ และ [Wn] จากเว็บ สจล.
                 </p>
               </CardContent>
             </Card>
@@ -544,9 +586,19 @@ function AskContent() {
                         <AnswerReferences citations={m.citations} webSources={m.webSources} />
                       )}
 
+                      {m.role === 'assistant' && m.webOffer && m.messageId && conversationId && (
+                        <AskWebButton
+                          pending={webPendingId === m.messageId}
+                          webAdded={Boolean(m.webAdded)}
+                          onAsk={() => addWeb(m.messageId as number)}
+                        />
+                      )}
+
                       {m.role === 'assistant' && m.cached && (
                         <p className="mt-2 text-[11px] text-muted-foreground">
-                          คำตอบเดียวกับที่เพิ่งถามไปเมื่อสักครู่ ไม่ตัดแต้ม
+                          {m.cacheMatch === 'similar'
+                            ? 'ใช้คำตอบของคำถามที่คล้ายกัน ไม่ตัดแต้ม'
+                            : 'คำตอบเดียวกับที่เพิ่งถามไปเมื่อสักครู่ ไม่ตัดแต้ม'}
                         </p>
                       )}
                       {m.role === 'assistant' && (m.charged ?? 0) > 0 && (
