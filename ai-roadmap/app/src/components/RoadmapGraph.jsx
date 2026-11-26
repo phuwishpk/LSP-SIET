@@ -47,7 +47,7 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
             style={{ top: lane.top, height: lane.height }}
           >
             <span className="lane-label" style={{ color: lane.color }}>
-              {lane.category}
+              {lane.label}
             </span>
           </div>
         ))}

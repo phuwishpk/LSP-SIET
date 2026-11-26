@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { categoryColor } from '@/lib/roadmap-layout'
+import { categoryColor, categoryLabel } from '@/lib/roadmap-layout'
 import { BookOpen } from 'lucide-react'
+import { PinkOwlMascot } from '@shared/mascot'
 import { External, Plus } from './icons'
 
 function Sources({ sources }) {
@@ -95,8 +96,8 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
           {roadmap?.description && <p className="body">{roadmap.description}</p>}
         </section>
         <PlanGrounding grounding={roadmap?.grounding} />
-        <div className="panel-empty-state" role="status">
-          <BookOpen aria-hidden="true" />
+        <div className="panel-owl-hint" role="status">
+          <PinkOwlMascot mood="idle" size={56} />
           <span>กดที่หัวข้อในแผนเพื่อดูคำอธิบาย ที่มา และแหล่งความรู้ที่เกี่ยวข้อง</span>
         </div>
       </aside>
@@ -111,7 +112,7 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
         <div className="chips">
           {node.category && (
             <span className="chip" style={{ color, borderColor: color }}>
-              {node.category}
+              {categoryLabel(node.category)}
             </span>
           )}
           <span className="chip">{mainIndex ? `หัวข้อที่ ${mainIndex}` : 'หัวข้อย่อย'}</span>
@@ -143,11 +144,16 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
             <Plus />
             {expand.busy ? 'กำลังขยาย…' : expand.exempt ? 'ขยายหัวข้อนี้' : `ขยายหัวข้อนี้ · ${expand.cost} แต้ม`}
           </button>
-          <p className="hint center">
-            {expand.busy
-              ? 'AI กำลังค้นแหล่งความรู้และแตกหัวข้อย่อย ใช้เวลาประมาณครึ่งนาที'
-              : expand.disabledReason || 'AI แตกหัวข้อนี้เป็นหัวข้อย่อยเท่าที่เนื้อหาต้องใช้ โดยใช้แหล่งความรู้ชุดเดิม'}
-          </p>
+          {expand.busy ? (
+            <div className="panel-owl-hint" role="status">
+              <PinkOwlMascot mood="study" size={56} label="น้องฮูกกำลังแตกหัวข้อย่อย" />
+              <span>AI กำลังค้นแหล่งความรู้และแตกหัวข้อย่อย ใช้เวลาประมาณครึ่งนาที</span>
+            </div>
+          ) : (
+            <p className="hint center">
+              {expand.disabledReason || 'AI แตกหัวข้อนี้เป็นหัวข้อย่อยเท่าที่เนื้อหาต้องใช้ โดยใช้แหล่งความรู้ชุดเดิม'}
+            </p>
+          )}
         </section>
       )}
     </aside>

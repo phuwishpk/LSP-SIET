@@ -3,6 +3,7 @@ import Head from 'next/head'
 import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { toast } from 'react-toastify'
+import { PinkOwlMascot } from '@shared/mascot'
 import NodePanel from '@/components/NodePanel'
 import RoadmapGraph from '@/components/RoadmapGraph'
 import ShareDialog from '@/components/ShareDialog'
@@ -123,6 +124,7 @@ export default function RoadmapPage() {
   if (error) {
     return (
       <main className="center-screen">
+        <PinkOwlMascot mood="idle" size={120} />
         <h1 className="h2">เปิด Roadmap ไม่ได้</h1>
         <p className="muted">{error}</p>
         <Link className="btn btn-primary" href="/">
@@ -134,7 +136,8 @@ export default function RoadmapPage() {
   }
   if (!roadmap) {
     return (
-      <main className="center-screen">
+      <main className="center-screen" role="status">
+        <PinkOwlMascot mood="study" size={120} label="น้องฮูกกำลังเปิด Roadmap" />
         <p className="muted">กำลังโหลด Roadmap…</p>
       </main>
     )

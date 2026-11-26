@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import Head from 'next/head'
-import { LoaderCircle, WifiOff } from 'lucide-react'
+import { WifiOff } from 'lucide-react'
+import { PinkOwlMascot } from '@shared/mascot'
 import { ToastContainer } from 'react-toastify'
 import 'react-toastify/dist/ReactToastify.css'
 import '@/styles/app.css'
@@ -35,7 +36,7 @@ function Shell({ Component, pageProps }) {
         {status === 'loading' ? (
           <main className="center-screen">
             <section className="system-state-card" role="status">
-              <LoaderCircle aria-hidden="true" className="system-state-icon system-state-spinner" />
+              <PinkOwlMascot mood="study" size={96} label="น้องฮูกกำลังพาเข้าสู่ระบบ" />
               <p className="muted">กำลังเข้าสู่ระบบ…</p>
             </section>
           </main>
