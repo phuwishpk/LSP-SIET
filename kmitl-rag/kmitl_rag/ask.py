@@ -362,7 +362,9 @@ async def web_step(*, topic: str, language: str, owner_id: Any, model_id: Option
         "queries": list(metadata.get("web_search_queries") or [])[:5],
         "searched": bool(reply.get("search_available")),
     }
-    if result["searched"]:
+    # Only a result with a live KMITL page is shared: "not found" can be a slow or
+    # briefly broken faculty site, and must not be served to everyone for a day.
+    if result["searched"] and result["sources"]:
         await answer_reuse.store(topic, WEB_CACHE_KEY, language, result, validator_model, ttl=WEB_CACHE_TTL)
     return result
 

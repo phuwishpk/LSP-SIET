@@ -1263,6 +1263,13 @@ async def _embed_source(source_id: str, content: str, file_path: Optional[str]) 
             for idx, (chunk, embedding) in enumerate(zip(chunks, embeddings))
         ],
     )
+    # Touched once the chunks are searchable: KMITL RAG AI's answer cache keys on
+    # each notebook's latest source change, so answers given while this source was
+    # still being embedded are not reused afterwards.
+    await repo_query(
+        "UPDATE $source_id SET updated = time::now()",
+        {"source_id": ensure_record_id(source_id)},
+    )
     return len(chunks)
 
 

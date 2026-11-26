@@ -413,6 +413,12 @@ async def embed_source_command(input_data: EmbedSourceInput) -> EmbedSourceOutpu
                 )
             raise
 
+        # Touched once the chunks are searchable, so caches keyed on a notebook's
+        # latest source change (KMITL RAG AI answers) see the new content.
+        await repo_query(
+            "UPDATE $source_id SET updated = time::now()",
+            {"source_id": ensure_record_id(input_data.source_id)},
+        )
         return {"chunks_created": total_chunks}, f": {total_chunks} chunks"
 
     extra_fields, processing_time, error_message = await _embed_record(

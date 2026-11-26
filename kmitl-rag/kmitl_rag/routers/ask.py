@@ -379,7 +379,12 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     if cached_result is not None:
         await points.refund(charge, "cached answer – no compute cost")
         charge = None
-    elif reuse_key and not result.get("fell_back"):
+    elif (
+        reuse_key
+        and not result.get("fell_back")
+        # a web search that found no live KMITL page may succeed on the next try
+        and not (result.get("web_searched") and not result.get("web_used"))
+    ):
         # an answer built from the whole workspace is outside the scope's content key
         await answer_reuse.store(body.question, reuse_key, body.language, result, validator_model)
 

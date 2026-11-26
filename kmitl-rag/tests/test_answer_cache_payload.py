@@ -76,3 +76,26 @@ async def test_old_entries_without_payload_still_hit(cache):
     await set_cached_answer("Paging คืออะไร", "Paging คือ ...", "ctx", "th")
     answer, _emb, match = await get_cached_answer("Paging คืออะไร", "ctx", "th")
     assert answer == "Paging คือ ..." and match["payload"] is None
+
+
+@pytest.mark.asyncio
+async def test_expired_entries_are_not_served(cache):
+    await set_cached_answer("Paging คืออะไร", "Paging คือ ...", "ctx", "th", payload=PAYLOAD, ttl=60)
+    # Redis keeps the keys alive (the index is re-saved by later writes), but the entries are past due
+    for value in cache.store.values():
+        for entry in value if isinstance(value, list) else [value]:
+            entry["expires_at"] = "2000-01-01T00:00:00+00:00"
+    answer, _emb, match = await get_cached_answer("Paging คืออะไร", "ctx", "th")
+    assert answer is None and match["match_type"] == "miss"
+    answer, _emb, match = await get_cached_answer("อธิบาย paging หน่อย", "ctx", "th")
+    assert answer is None and match["match_type"] == "miss"
+
+
+@pytest.mark.asyncio
+async def test_storing_a_new_entry_drops_expired_ones_from_the_index(cache):
+    await set_cached_answer("old", "a", "ctx", "th", payload=PAYLOAD, ttl=60)
+    index = next(v for k, v in cache.store.items() if k.startswith("answer:semantic:"))
+    index[0]["expires_at"] = "2000-01-01T00:00:00+00:00"
+    await set_cached_answer("new", "b", "ctx", "th", payload=PAYLOAD, ttl=60)
+    index = next(v for k, v in cache.store.items() if k.startswith("answer:semantic:"))
+    assert [e["question"] for e in index] == ["new"]

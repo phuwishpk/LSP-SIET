@@ -124,7 +124,7 @@ class TestGetCachedAnswerMatchShape:
             "normalized_question": "what is x?",
             "hit_count": 4,
             "created_at": "2026-08-10T00:00:00+00:00",
-            "expires_at": "2026-08-10T01:00:00+00:00",
+            "expires_at": "2099-08-10T01:00:00+00:00",
         }
         with patch(
             "siet_platform.cache.answer_cache.cache_service.get_json",
@@ -165,7 +165,7 @@ class TestGetCachedAnswerMatchShape:
             "hit_count": 2,
             "embedding": [0.0] * 4,
             "created_at": "2026-08-10T00:00:00+00:00",
-            "expires_at": "2026-08-10T01:00:00+00:00",
+            "expires_at": "2099-08-10T01:00:00+00:00",
         }
         with patch(
             "siet_platform.cache.answer_cache.cache_service.get_json",

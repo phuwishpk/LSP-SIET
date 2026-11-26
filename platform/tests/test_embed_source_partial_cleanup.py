@@ -30,6 +30,8 @@ class _FakeEmbeddingTable:
         self.fail_on_batch = fail_on_batch
 
     async def repo_query(self, query, params=None):
+        if query == "UPDATE $source_id SET updated = time::now()":
+            return []  # the source is touched after a successful insert
         # Only honour the scoped form; an unscoped DELETE would fail here.
         assert query == "DELETE source_embedding WHERE source = $source_id"
         target = str(params["source_id"])

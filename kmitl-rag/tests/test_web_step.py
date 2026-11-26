@@ -130,3 +130,15 @@ def test_system_prompt_requires_site_filter():
     assert "site:kmitl.ac.th" in ask.WEB_SYSTEM_PROMPT
     assert "without the site: filter" not in ask.WEB_SYSTEM_PROMPT
     assert "never" in ask.WEB_SYSTEM_PROMPT.lower()
+
+
+@pytest.mark.asyncio
+async def test_web_step_that_found_nothing_is_not_cached(world, monkeypatch):
+    async def nothing_live(sources):
+        return {}
+
+    monkeypatch.setattr(web_verify, "verify_sources", nothing_live)
+    world["replies"] = [WEB, WEB]
+    first = await ask.web_step(topic="ปฏิทิน 2/2569", language="th", owner_id="1", model_id="model:m")
+    await ask.web_step(topic="ปฏิทิน 2/2569", language="th", owner_id="1", model_id="model:m")
+    assert first["sources"] == [] and len(world["calls"]) == 2 and world["cache"] == {}

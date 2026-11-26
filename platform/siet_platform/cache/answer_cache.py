@@ -12,11 +12,10 @@ from typing import Any, Dict, List, Optional, Tuple
 from loguru import logger
 
 from siet_core.env import env
+from siet_core.utils.embedding import generate_embedding
 from siet_platform.cache.metrics import cache_metrics
 from siet_platform.cache.service import cache_service
 from siet_platform.cache.threshold_tuner import threshold_tuner
-from siet_core.utils.embedding import generate_embedding
-
 
 ANSWER_CACHE_TTL = int(env("LSP_SIET_ANSWER_CACHE_TTL", "3600"))
 ANSWER_CACHE_THRESHOLD = float(
@@ -212,6 +211,35 @@ def _classify_semantic(similarity: float) -> str:
     return "low"
 
 
+def _expired(entry: Dict[str, Any]) -> bool:
+    """
+    True once an entry's own ``expires_at`` has passed. Redis TTLs alone do not
+    end an entry: the semantic index is one key per scope, re-saved (with a fresh
+    TTL) by every later store or hit, so each entry carries its own deadline.
+    """
+    stamp = entry.get("expires_at") if isinstance(entry, dict) else None
+    if not stamp:
+        return False
+    try:
+        deadline = datetime.fromisoformat(str(stamp))
+    except ValueError:
+        return False
+    if deadline.tzinfo is None:
+        deadline = deadline.replace(tzinfo=timezone.utc)
+    return deadline <= datetime.now(timezone.utc)
+
+
+def _remaining_ttl(entry: Dict[str, Any]) -> int:
+    """Seconds an entry has left (at least 1), else its stored/default TTL."""
+    try:
+        deadline = datetime.fromisoformat(str(entry.get("expires_at")))
+        if deadline.tzinfo is None:
+            deadline = deadline.replace(tzinfo=timezone.utc)
+        return max(1, int((deadline - datetime.now(timezone.utc)).total_seconds()))
+    except (TypeError, ValueError):
+        return int(entry.get("ttl") or ANSWER_CACHE_TTL)
+
+
 async def _increment_entry_hit_count(scope: str, normalized: str) -> int:
     """
     Phase 3: bump the hit_count of an exact-key cache entry. The hit_count
@@ -229,10 +257,8 @@ async def _increment_entry_hit_count(scope: str, normalized: str) -> int:
     # Refresh created_at only on first hit (we don't want it to drift);
     # we do bump last_hit_at so the dashboard can show recency.
     entry["last_hit_at"] = datetime.now(timezone.utc).isoformat()
-    # Preserve original TTL by re-reading and reusing it; default to our
-    # constant if the original was unset.
-    ttl = ANSWER_CACHE_TTL
-    await cache_service.set_json(exact_key, entry, ttl=ttl)
+    # Keep the entry's own deadline (a day for web results), never extend or cut it.
+    await cache_service.set_json(exact_key, entry, ttl=_remaining_ttl(entry))
     return current
 
 
@@ -262,7 +288,7 @@ async def get_cached_answer(
     scope = _hash(f"{context_key}:{_normalize_language_tag(language)}")
     exact_key = f"answer:exact:{scope}:{_hash(normalized)}"
     exact = await cache_service.get_json(exact_key)
-    if isinstance(exact, dict) and exact.get("answer"):
+    if isinstance(exact, dict) and exact.get("answer") and not _expired(exact):
         hit_count = await _increment_entry_hit_count(scope, normalized)
         cache_metrics.record_answer_entry_hit(hit_count)
         match: CacheMatch = {
@@ -281,6 +307,8 @@ async def get_cached_answer(
         return str(exact["answer"]), None, match
 
     entries = await cache_service.get_json(f"answer:semantic:{scope}") or []
+    if isinstance(entries, list):
+        entries = [entry for entry in entries if isinstance(entry, dict) and not _expired(entry)]
     if not isinstance(entries, list) or not entries:
         cache_metrics.record_answer_miss("miss")
         return None, None, _empty_match()
@@ -475,7 +503,9 @@ async def set_cached_answer(
     entries = [
         entry
         for entry in entries
-        if entry.get("normalized_question") != normalized
+        if isinstance(entry, dict)
+        and entry.get("normalized_question") != normalized
+        and not _expired(entry)
     ]
     metadata["embedding"] = query_embedding
     entries.append(metadata)

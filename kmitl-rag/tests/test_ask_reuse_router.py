@@ -201,3 +201,10 @@ async def test_session_answers_skip_cache(world):
     r = await router.ask(body(mode="session"), user=USER)
     assert world.get("lookups", 0) == 0 and world["asked"] == 1 and world["stored"] == []
     assert r["cached"] is False
+
+
+@pytest.mark.asyncio
+async def test_answers_whose_web_search_found_nothing_are_not_stored(world):
+    world["result"] = {**RESULT, "web_offer": False, "web_searched": True, "web_used": False}
+    await router.ask(body(), user=USER)
+    assert world["stored"] == []
