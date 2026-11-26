@@ -13,8 +13,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 from pydantic import BaseModel, Field
 
+from kmitl_rag import answer_reuse
 from kmitl_rag import history as repo
-from kmitl_rag.ask import ANSWER_CACHE_TTL, answer_cache_key, quick_ask
+from kmitl_rag.ask import _HEADINGS, answer_cache_key, quick_ask, web_step
 from siet_core.exceptions import (
     ConfigurationError,
     ExternalServiceError,
@@ -23,7 +24,6 @@ from siet_core.exceptions import (
 )
 from siet_platform import library, points, throttle
 from siet_platform.auth_jwt import get_current_user
-from siet_platform.cache.service import cache_service
 from siet_platform.http import (
     _guard_spam,
     _insufficient,
@@ -58,6 +58,13 @@ class AskBody(BaseModel):
     # Stored chat history: append to this conversation (must be the caller's);
     # omitted = a new conversation titled after the question.
     conversation_id: Optional[str] = Field(default=None, max_length=64)
+
+
+class AskWebBody(BaseModel):
+    """"ค้นเว็บเพิ่ม" under one stored answer."""
+
+    conversation_id: str = Field(..., max_length=64)
+    message_id: int = Field(..., ge=1)
 
 
 class RenameConversationBody(BaseModel):
@@ -111,7 +118,8 @@ async def _store_exchange(
     session_id: Optional[str],
     credits_left: Optional[int],
     cached: bool = False,
-) -> Optional[str]:
+    cache_match: Optional[str] = None,
+) -> tuple[Optional[str], Optional[int]]:
     """
     Append the question and answer to the caller's chat history.
 
@@ -124,7 +132,7 @@ async def _store_exchange(
             conversation_id = None  # not theirs or gone: start a fresh one
         if not conversation_id:
             conversation_id = await repo.create_conversation(uid, body.question, scope_label)
-        await repo.append_messages(
+        ids = await repo.append_messages(
             conversation_id,
             [
                 {
@@ -144,16 +152,21 @@ async def _store_exchange(
                         "grounded": grounded,
                         "charged": charged,
                         "cached": cached,
+                        "cache_match": cache_match,
                         "session_id": session_id,
                         "credits_left": credits_left,
+                        # "ค้นเว็บเพิ่ม": what the library did not cover, offered once
+                        "web_offer": bool(result.get("web_offer")),
+                        "missing": result.get("missing") or "",
+                        "language": body.language,
                     },
                 },
             ],
         )
-        return conversation_id
+        return conversation_id, (ids[-1] if ids else None)
     except Exception as exc:  # pragma: no cover - defensive
         logger.warning(f"rag history: could not store exchange for user {uid}: {exc}")
-        return None
+        return None, None
 
 
 def _conversation_public(row: Dict[str, Any]) -> Dict[str, Any]:
@@ -275,10 +288,14 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
 
     history = list(session["messages"]) if session else []
 
-    # Identical single questions (no conversation context) share one answer for
-    # RAG_ANSWER_CACHE_TTL seconds; a hit costs no provider call and no points.
+    # Single questions (no conversation context) reuse the answer to the same or a
+    # similar question asked in the same scope with the same content (answer_reuse);
+    # a reused answer costs no provider call and no points.
     cache_key: Optional[str] = None
     cached_result: Optional[Dict[str, Any]] = None
+    cache_match: Optional[str] = None
+    reuse_key: Optional[str] = None
+    validator_model = ""
     if not session:
         cache_key = answer_cache_key(
             question=body.question,
@@ -289,13 +306,18 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             language=body.language,
             model_id=body.model_id,
         )
-        try:
-            cached_result = await cache_service.get_json(cache_key)
-        except Exception as exc:  # the cache is optional
-            logger.debug(f"answer cache read skipped: {exc}")
-            cached_result = None
-        if not isinstance(cached_result, dict) or "answer" not in cached_result:
-            cached_result = None
+        reuse_key = await answer_reuse.scope_key(
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            allow_global_fallback=allow_fallback,
+            web=body.web,
+            language=body.language,
+            model_id=body.model_id,
+        )
+        validator_model = body.model_id or await answer_reuse.default_model_id() or ""
+        hit = await answer_reuse.lookup(body.question, reuse_key, body.language, validator_model)
+        if hit:
+            cached_result, cache_match = hit
 
     leader: Optional["asyncio.Future[Optional[Dict[str, Any]]]"] = None
     if cache_key and cached_result is None:
@@ -304,7 +326,7 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
             # shield: a follower that disconnects must not cancel the leader's call
             followed = await asyncio.shield(pending)
             if isinstance(followed, dict) and "answer" in followed:
-                cached_result = followed
+                cached_result, cache_match = followed, "exact"
         if cached_result is None:
             leader = asyncio.get_running_loop().create_future()
             _INFLIGHT[cache_key] = leader
@@ -357,11 +379,9 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
     if cached_result is not None:
         await points.refund(charge, "cached answer – no compute cost")
         charge = None
-    elif cache_key:
-        try:
-            await cache_service.set_json(cache_key, result, ttl=ANSWER_CACHE_TTL)
-        except Exception as exc:
-            logger.debug(f"answer cache write skipped: {exc}")
+    elif reuse_key and not result.get("fell_back"):
+        # an answer built from the whole workspace is outside the scope's content key
+        await answer_reuse.store(body.question, reuse_key, body.language, result, validator_model)
 
     credits_left: Optional[int] = None
     if session:
@@ -371,15 +391,19 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         await repo.save_rag_messages(session_id or "", history)
 
     charged_amount = charge.amount if charge and charge.charged else 0
-    conversation_id = await _store_exchange(
+    conversation_id, message_id = await _store_exchange(
         uid, body, result, scope_label, bool(notebook_ids), charged_amount,
         session_id if session else None, credits_left,
         cached=cached_result is not None,
+        cache_match=cache_match,
     )
 
     return {
         "conversation_id": conversation_id,
+        "message_id": message_id,
         "cached": cached_result is not None,
+        "cache_match": cache_match,
+        "web_offer": bool(result.get("web_offer")),
         "answer": result["answer"],
         "citations": result["citations"],
         "web_sources": result.get("web_sources", []),
@@ -394,3 +418,57 @@ async def ask(body: AskBody, user: User = Depends(get_current_user)) -> Dict[str
         "charged": charge.amount if charge and charge.charged else 0,
         "balance": await points.get_balance(uid),
     }
+
+
+# Messages whose web step is running right now (one press per answer).
+_WEB_RUNNING: set[int] = set()
+
+
+@router.post("/ask/web")
+async def ask_web(body: AskWebBody, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """
+    "ค้นเว็บเพิ่ม": add information from KMITL websites under one stored answer
+    the library covered only partly. Free, once per answer (the answer itself
+    was already paid for), so it is not counted by the ask spam guard - a
+    3-second cooldown there would refuse the button right after an answer.
+    """
+    uid = _uid(user)
+    if not await repo.get_conversation(body.conversation_id, uid):
+        raise HTTPException(status_code=404, detail="ไม่พบบทสนทนานี้")
+    message = await repo.get_message(body.conversation_id, body.message_id)
+    if not message or message.get("role") != "assistant":
+        raise HTTPException(status_code=404, detail="ไม่พบคำตอบนี้")
+    meta = dict(message.get("meta") or {})
+    if not meta.get("web_offer") or meta.get("web_added") or body.message_id in _WEB_RUNNING:
+        raise HTTPException(status_code=409, detail="คำตอบนี้ค้นเว็บเพิ่มไปแล้ว หรือไม่ต้องค้นเว็บเพิ่ม")
+
+    _WEB_RUNNING.add(body.message_id)
+    try:
+        question = ""
+        for m in await repo.list_messages(body.conversation_id):
+            if m.get("role") == "user" and int(m.get("id") or 0) < body.message_id:
+                question = str(m.get("content") or "")
+        language = str(meta.get("language") or "th")
+        try:
+            web = await web_step(
+                topic=str(meta.get("missing") or "") or question,
+                language=language,
+                owner_id=_owner(user),
+                model_id=None,
+            )
+        except (throttle.ProviderBusy, RateLimitError):
+            raise
+        except Exception as exc:
+            raise _internal_error(exc, "ask web step failed")
+        heading = _HEADINGS.get(language[:2].lower(), _HEADINGS["en"])[1]
+        content = f"{message.get('content') or ''}\n\n**{heading}**\n\n{web['text']}".strip()
+        meta.update(
+            web_added=True,
+            web_sources=web["sources"],
+            web_used=bool(web["sources"]),
+            web_queries=web["queries"],
+        )
+        await repo.update_message(body.message_id, content, meta)
+    finally:
+        _WEB_RUNNING.discard(body.message_id)
+    return {"message_id": body.message_id, "answer": content, "web_sources": web["sources"]}

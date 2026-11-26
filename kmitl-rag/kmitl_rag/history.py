@@ -17,7 +17,6 @@ from sqlalchemy import text
 from siet_platform.db import _author, _naive_utc, _per_day, _points_spent, _row, _rows
 from siet_platform.users import _mariadb_session
 
-
 # ---------------------------------------------------------------------------
 # RAG quick-ask sessions
 # ---------------------------------------------------------------------------
@@ -195,13 +194,14 @@ async def list_messages(conversation_id: str) -> List[Dict[str, Any]]:
     return out
 
 
-async def append_messages(conversation_id: str, messages: List[Dict[str, Any]]) -> None:
-    """Add a user/assistant pair (or more) and bump the header's counters."""
+async def append_messages(conversation_id: str, messages: List[Dict[str, Any]]) -> List[int]:
+    """Add a user/assistant pair (or more), bump the header's counters; returns the new message ids."""
     if not messages:
-        return
+        return []
+    ids: List[int] = []
     async with _mariadb_session() as session:
         for m in messages:
-            await session.execute(
+            inserted = await session.execute(
                 text(
                     "INSERT INTO rag_messages (conversation_id, role, content, answer_meta) "
                     "VALUES (:cid, :role, :content, :meta)"
@@ -213,12 +213,45 @@ async def append_messages(conversation_id: str, messages: List[Dict[str, Any]]) 
                     "meta": json.dumps(m.get("meta") or {}, ensure_ascii=False),
                 },
             )
+            ids.append(int(inserted.lastrowid or 0))
         await session.execute(
             text(
                 "UPDATE rag_conversations SET message_count = message_count + :n, "
                 "updated_at = CURRENT_TIMESTAMP WHERE id = :cid"
             ),
             {"n": len(messages), "cid": conversation_id},
+        )
+    return ids
+
+
+async def get_message(conversation_id: str, message_id: int) -> Optional[Dict[str, Any]]:
+    """One message of a conversation (the caller checks who owns the conversation)."""
+    async with _mariadb_session() as session:
+        row = (
+            await session.execute(
+                text(
+                    "SELECT id, conversation_id, role, content, answer_meta AS meta, created_at "
+                    "FROM rag_messages WHERE id = :id AND conversation_id = :cid"
+                ),
+                {"id": int(message_id), "cid": conversation_id},
+            )
+        ).first()
+    if not row:
+        return None
+    data = _row(row)
+    try:
+        data["meta"] = json.loads(data.get("meta") or "{}")
+    except (TypeError, ValueError):
+        data["meta"] = {}
+    return data
+
+
+async def update_message(message_id: int, content: str, meta: Dict[str, Any]) -> None:
+    """Replace one stored message's text and metadata (the web part added by "ค้นเว็บเพิ่ม")."""
+    async with _mariadb_session() as session:
+        await session.execute(
+            text("UPDATE rag_messages SET content = :content, answer_meta = :meta WHERE id = :id"),
+            {"id": int(message_id), "content": content, "meta": json.dumps(meta or {}, ensure_ascii=False)},
         )
 
 
