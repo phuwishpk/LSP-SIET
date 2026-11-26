@@ -7,7 +7,7 @@
  * one document. The choice itself lives in the page (see source-choice.ts).
  */
 
-import { useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   BookOpen,
   ChevronRight,
@@ -93,6 +93,8 @@ export function SourcePicker({ value, onChange, notebooks, myDocs, seesEverythin
       {value.tab === 'mine' && <MyFilesPanel value={value} onChange={onChange} myDocs={myDocs} />}
       {(value.tab === 'course' || value.tab === 'staff' || value.tab === 'users') && (
         <NotebookPanel
+          // one panel per tab: search text and expanded rows belong to that tab
+          key={value.tab}
           tab={value.tab}
           value={value}
           onChange={onChange}
@@ -239,11 +241,13 @@ function NotebookPanel({
   const [q, setQ] = useState('')
   const picked = value.tab === tab ? value : null
   const pickedSource = picked && 'sourceId' in picked ? picked.sourceId : undefined
-  const [open, setOpen] = useState<Set<string>>(() => {
-    // the notebook holding a deep-linked document starts expanded
-    const holder = notebooks.find((nb) => pickedSource && nb.sources.some((s) => s.id === pickedSource))
-    return new Set(holder ? [holder.id] : [])
-  })
+  const [open, setOpen] = useState<Set<string>>(() => new Set())
+  // The notebook holding a picked document is expanded, also when the list
+  // arrives after the pick (a deep link opened before the knowledge list loaded).
+  const holderId = pickedSource ? notebooks.find((nb) => nb.sources.some((s) => s.id === pickedSource))?.id : undefined
+  useEffect(() => {
+    if (holderId) setOpen((prev) => (prev.has(holderId) ? prev : new Set(prev).add(holderId)))
+  }, [holderId])
 
   const shown = useMemo(
     () =>

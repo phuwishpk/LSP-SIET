@@ -105,4 +105,22 @@ describe('SourcePicker', () => {
     fireEvent.click(screen.getByRole('radio', { name: /สรุปของฉัน.pdf/ }))
     expect(onChange).toHaveBeenCalledWith({ tab: 'mine', docId: 12 })
   })
+
+  it('search text does not leak into another tab', () => {
+    const many = Array.from({ length: 7 }, (_, i) => course(i + 1, `Course ${i + 1}`))
+    const staff: KnowledgeNotebook = { ...course(99, 'คู่มือนักศึกษา'), kind: 'staff', course_id: null }
+    const props = { onChange: vi.fn(), notebooks: [...many, staff], myDocs: MY_DOCS, seesEverything: false }
+    const { rerender } = render(<SourcePicker {...props} value={{ tab: 'course', courseId: null }} />)
+    fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'math' } })
+    rerender(<SourcePicker {...props} value={{ tab: 'staff', notebookId: null }} />)
+    expect(screen.getByRole('radio', { name: /คู่มือนักศึกษา/ })).toBeInTheDocument()
+  })
+
+  it('a deep-linked document shows up checked once the list arrives', () => {
+    const props = { onChange: vi.fn(), myDocs: MY_DOCS, seesEverything: false }
+    const value = { tab: 'course' as const, courseId: 7, sourceId: 'source:7' }
+    const { rerender } = render(<SourcePicker {...props} notebooks={[]} value={value} />)
+    rerender(<SourcePicker {...props} notebooks={[course(7, '03206107 Programming')]} value={value} />)
+    expect(screen.getByRole('radio', { name: /เอกสาร 7/ })).toHaveAttribute('aria-checked', 'true')
+  })
 })
