@@ -15,12 +15,10 @@ import {
   Globe2,
   GraduationCap,
   Lock,
-  Plus,
   Search,
   ShieldCheck,
   type LucideIcon,
 } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import type { KnowledgeNotebook, LibraryDocument } from '@/lib/api/library'
 import { cn } from '@/lib/utils'
 import {
@@ -56,10 +54,9 @@ interface SourcePickerProps {
   myDocs: readonly Pick<LibraryDocument, 'id' | 'title'>[]
   /** Admins also get the "ของผู้ใช้" tab. */
   seesEverything: boolean
-  onAdd: () => void
 }
 
-export function SourcePicker({ value, onChange, notebooks, myDocs, seesEverything, onAdd }: SourcePickerProps) {
+export function SourcePicker({ value, onChange, notebooks, myDocs, seesEverything }: SourcePickerProps) {
   // Coming back to a tab restores what was picked there.
   const lastByTab = useRef<Partial<Record<SourceTab, SourceChoice>>>({})
   lastByTab.current[value.tab] = value
@@ -93,14 +90,13 @@ export function SourcePicker({ value, onChange, notebooks, myDocs, seesEverythin
         })}
       </div>
 
-      {value.tab === 'mine' && <MyFilesPanel value={value} onChange={onChange} myDocs={myDocs} onAdd={onAdd} />}
+      {value.tab === 'mine' && <MyFilesPanel value={value} onChange={onChange} myDocs={myDocs} />}
       {(value.tab === 'course' || value.tab === 'staff' || value.tab === 'users') && (
         <NotebookPanel
           tab={value.tab}
           value={value}
           onChange={onChange}
           notebooks={notebooks.filter((nb) => tabOf(nb) === value.tab)}
-          onAdd={onAdd}
         />
       )}
     </div>
@@ -131,6 +127,7 @@ function RadioRow({
       type="button"
       role="radio"
       aria-checked={checked}
+      title={title}
       disabled={disabled}
       onClick={onSelect}
       className={cn(
@@ -159,14 +156,14 @@ function RadioRow({
   )
 }
 
-function EmptyTab({ text, onAdd }: { text: string; onAdd: () => void }) {
+// The card's own "เพิ่มเนื้อหาให้ AI อ่าน" button sits right below the picker.
+function EmptyTab({ text }: { text: string }) {
   return (
-    <div className="space-y-2 rounded-lg border border-dashed px-3 py-3 text-center">
-      <p className="text-[11px] text-muted-foreground">{text}</p>
-      <Button variant="outline" size="sm" className="h-7 gap-1 text-xs" onClick={onAdd}>
-        <Plus className="h-3.5 w-3.5" /> เพิ่มเนื้อหาให้ AI อ่าน
-      </Button>
-    </div>
+    <p className="rounded-lg border border-dashed px-3 py-3 text-center text-[11px] leading-relaxed text-muted-foreground">
+      {text}
+      <br />
+      เพิ่มได้จากปุ่ม “เพิ่มเนื้อหาให้ AI อ่าน” ด้านล่าง
+    </p>
   )
 }
 
@@ -194,15 +191,13 @@ function MyFilesPanel({
   value,
   onChange,
   myDocs,
-  onAdd,
 }: {
   value: Extract<SourceChoice, { tab: 'mine' }>
   onChange: (c: SourceChoice) => void
   myDocs: SourcePickerProps['myDocs']
-  onAdd: () => void
 }) {
   const [q, setQ] = useState('')
-  if (myDocs.length === 0) return <EmptyTab text={EMPTY_TEXT.mine} onAdd={onAdd} />
+  if (myDocs.length === 0) return <EmptyTab text={EMPTY_TEXT.mine} />
   const shown = q ? myDocs.filter((d) => matches(d.title, q)) : myDocs
   return (
     <div className="space-y-1.5">
@@ -235,13 +230,11 @@ function NotebookPanel({
   value,
   onChange,
   notebooks,
-  onAdd,
 }: {
   tab: NotebookTab
   value: SourceChoice
   onChange: (c: SourceChoice) => void
   notebooks: readonly KnowledgeNotebook[]
-  onAdd: () => void
 }) {
   const [q, setQ] = useState('')
   const picked = value.tab === tab ? value : null
@@ -262,7 +255,7 @@ function NotebookPanel({
     [notebooks, q]
   )
 
-  if (notebooks.length === 0) return <EmptyTab text={EMPTY_TEXT[tab]} onAdd={onAdd} />
+  if (notebooks.length === 0) return <EmptyTab text={EMPTY_TEXT[tab]} />
 
   const choose = (nb: KnowledgeNotebook, sourceId?: string): SourceChoice => {
     const narrow = sourceId ? { sourceId } : {}

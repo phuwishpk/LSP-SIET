@@ -23,7 +23,6 @@ const MY_DOCS = [{ id: 12, title: 'สรุปของฉัน.pdf' } as Libr
 
 function setup(props: Partial<Parameters<typeof SourcePicker>[0]> = {}) {
   const onChange = vi.fn()
-  const onAdd = vi.fn()
   render(
     <SourcePicker
       value={{ tab: 'course', courseId: null }}
@@ -31,11 +30,10 @@ function setup(props: Partial<Parameters<typeof SourcePicker>[0]> = {}) {
       notebooks={[course(7, '03206107 Programming')]}
       myDocs={MY_DOCS}
       seesEverything={false}
-      onAdd={onAdd}
       {...props}
     />
   )
-  return { onChange, onAdd }
+  return { onChange }
 }
 
 describe('SourcePicker', () => {
@@ -90,10 +88,15 @@ describe('SourcePicker', () => {
     expect(screen.queryByRole('searchbox')).toBeNull()
   })
 
-  it('an empty tab offers to add content', () => {
-    const { onAdd } = setup({ value: { tab: 'staff', notebookId: null } })
-    fireEvent.click(screen.getByRole('button', { name: /เพิ่มเนื้อหาให้ AI อ่าน/ }))
-    expect(onAdd).toHaveBeenCalled()
+  it('an empty tab says why and points at the add button below (no second button)', () => {
+    setup({ value: { tab: 'staff', notebookId: null } })
+    expect(screen.getByText(/ยังไม่มี notebook ที่อาจารย์หรือผู้ดูแลแชร์ไว้/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /เพิ่มเนื้อหาให้ AI อ่าน/ })).toBeNull()
+  })
+
+  it('a cut-off name can still be read on hover', () => {
+    setup()
+    expect(screen.getByRole('radio', { name: /03206107 Programming/ })).toHaveAttribute('title', '03206107 Programming')
   })
 
   it('my files: all of them or one', () => {

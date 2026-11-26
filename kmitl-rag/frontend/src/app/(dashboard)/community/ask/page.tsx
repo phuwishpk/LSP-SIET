@@ -358,7 +358,6 @@ function AskContent() {
                   notebooks={sharedNotebooks}
                   myDocs={myDocs}
                   seesEverything={knowledge?.sees_everything ?? false}
-                  onAdd={() => setAddOpen(true)}
                 />
 
                 <p
