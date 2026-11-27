@@ -1,6 +1,7 @@
-import { useMemo, useState } from 'react'
-import { BookOpen, ChevronRight, FileText, Globe2, GraduationCap, Lock, Search, Sparkles } from 'lucide-react'
-import { ALL_MINE, AUTO, NONE } from '@/lib/knowledge'
+import { useEffect, useMemo, useState } from 'react'
+import { BookOpen, ChevronRight, Eye, FileText, Globe2, GraduationCap, Lock, Search, Sparkles } from 'lucide-react'
+import { ws } from '@/lib/api'
+import { ALL_MINE, AUTO, autoGroups, NONE } from '@/lib/knowledge'
 
 /**
  * "แหล่งความรู้" of the create form, split by where a source comes from (as on
@@ -27,8 +28,8 @@ export function tabDefault(tab) {
 const SEARCH_FROM = 7
 const matches = (text, q) => String(text || '').toLowerCase().includes(q.trim().toLowerCase())
 
-function Row({ kind, checked, disabled, onChange, icon: Icon, label, meta, indent, name }) {
-  return (
+function Row({ kind, checked, disabled, onChange, icon: Icon, label, meta, indent, name, onPreview }) {
+  const row = (
     <label className={`src-row ${checked ? 'src-row-on' : ''} ${indent ? 'src-row-indent' : ''} ${disabled ? 'src-row-off' : ''}`} title={label}>
       <input type={kind} name={name} checked={checked} disabled={disabled} onChange={onChange} />
       <Icon aria-hidden="true" className="src-row-icon" />
@@ -38,9 +39,54 @@ function Row({ kind, checked, disabled, onChange, icon: Icon, label, meta, inden
       </span>
     </label>
   )
+  if (!onPreview) return row
+  return (
+    <div className="src-row-wrap">
+      {row}
+      <button type="button" className="icon-button src-peek" onClick={onPreview} aria-label={`ดูเนื้อหา ${label}`} title="ดูเนื้อหา">
+        <Eye aria-hidden="true" />
+      </button>
+    </div>
+  )
 }
 
-function Group({ item, pickedSet, covered, onTick, filesFull, disabled, icon, children, q }) {
+/** "อัตโนมัติ": the libraries the AI will search, by name (nothing to tick). */
+function AutoList() {
+  const [items, setItems] = useState(null)
+  useEffect(() => {
+    let alive = true
+    ws('community/knowledge/auto')
+      .then((data) => alive && setItems(data.items || []))
+      .catch(() => alive && setItems([]))
+    return () => {
+      alive = false
+    }
+  }, [])
+  if (items === null) return <p className="src-empty">กำลังดูว่าคุณเข้าถึงคลังไหนได้บ้าง…</p>
+  const groups = autoGroups(items)
+  if (!groups.length) return <p className="src-empty">ยังไม่มีคลังความรู้ที่คุณเข้าถึงได้ AI จะใช้เว็บและความรู้ทั่วไปแทน</p>
+  return (
+    <div className="src-auto">
+      <p className="src-auto-lead">AI จะค้นจาก {items.length} คลังนี้ และเลือกเฉพาะส่วนที่ตรงกับเป้าหมาย</p>
+      {groups.map((group) => (
+        <div key={group.kind} className="src-auto-group">
+          <p className="panel-label">{group.title}</p>
+          <div className="chips">
+            {group.shown.map((item) => (
+              <span key={item.id} className="chip" title={item.label}>
+                {item.label}
+              </span>
+            ))}
+            {group.more > 0 && <span className="chip">และอีก {group.more}</span>}
+          </div>
+        </div>
+      ))}
+      <p className="hint">อยากเปิดดูไฟล์ในคลังไหน ไปที่แท็บ ไฟล์ของฉัน / รายวิชา / จากอาจารย์ แล้วกดรูปตา</p>
+    </div>
+  )
+}
+
+function Group({ item, pickedSet, covered, onTick, onPreview, filesFull, disabled, icon, children, q }) {
   const [open, setOpen] = useState(false)
   const shown = q && !matches(item.label, q) ? children.filter((c) => matches(c.label, q)) : children
   const expanded = open || (Boolean(q) && !matches(item.label, q) && shown.length > 0)
@@ -86,6 +132,7 @@ function Group({ item, pickedSet, covered, onTick, filesFull, disabled, icon, ch
               icon={FileText}
               label={child.label}
               meta={inWhole ? 'รวมอยู่แล้ว' : child.ready === false ? 'ยังไม่พร้อมใช้' : undefined}
+              onPreview={child.ready === false ? undefined : () => onPreview(child)}
             />
           )
         })}
@@ -93,7 +140,7 @@ function Group({ item, pickedSet, covered, onTick, filesFull, disabled, icon, ch
   )
 }
 
-export default function SourceTabs({ tab, onTab, groups, picked, covered, onTick, filesFull, disabled }) {
+export default function SourceTabs({ tab, onTab, groups, picked, covered, onTick, onPreview, filesFull, disabled, parked }) {
   const [q, setQ] = useState('')
   const pickedSet = useMemo(() => new Set(picked), [picked])
 
@@ -124,6 +171,10 @@ export default function SourceTabs({ tab, onTab, groups, picked, covered, onTick
         ))}
       </div>
 
+      {parked}
+      {tab === 'auto' && <AutoList />}
+      {tab === 'none' && <p className="src-empty">ไม่ใช้คลังความรู้ AI วางแผนจากเว็บและความรู้ทั่วไป</p>}
+
       {tab === 'mine' &&
         (groups.mine.length === 0 ? (
           <p className="src-empty">ยังไม่มีไฟล์ในคลังของคุณ แนบไฟล์ใหม่ได้จากปุ่มด้านล่าง</p>
@@ -152,6 +203,7 @@ export default function SourceTabs({ tab, onTab, groups, picked, covered, onTick
                   icon={FileText}
                   label={doc.label}
                   meta={inWhole ? 'รวมอยู่แล้ว' : undefined}
+                  onPreview={() => onPreview(doc)}
                 />
               )
             })}
@@ -191,6 +243,7 @@ export default function SourceTabs({ tab, onTab, groups, picked, covered, onTick
                   pickedSet={pickedSet}
                   covered={covered}
                   onTick={onTick}
+                  onPreview={onPreview}
                   filesFull={filesFull}
                   disabled={disabled}
                   icon={tab === 'course' ? GraduationCap : BookOpen}

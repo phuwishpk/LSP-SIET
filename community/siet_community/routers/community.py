@@ -1992,6 +1992,41 @@ async def list_library(
     }
 
 
+@router.get("/knowledge/preview")
+async def preview_knowledge(
+    doc_id: Optional[int] = None, source_id: Optional[str] = None, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """The start of one file's text (library document or notebook source), to check it before ticking it."""
+    if (doc_id is None) == (source_id is None):
+        raise HTTPException(status_code=400, detail="ระบุไฟล์ที่ต้องการดู 1 ไฟล์")
+    if doc_id is not None:
+        doc = await library.get_document(doc_id)
+        if not doc or not await library.can_read_document(user, doc):
+            raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้")
+        download = f"/api/community/library/{doc['id']}/download" if doc.get("kind") == "file" else None
+        if not doc.get("source_id"):
+            return {"title": doc["title"], "text": "", "chars": 0, "truncated": False, "download_url": download}
+        preview = await library.source_text_preview(str(doc["source_id"]))
+        return {**preview, "title": doc["title"], "download_url": download}
+    try:
+        await library.resolve_knowledge_pick(user, source_ids=[source_id])
+        preview = await library.source_text_preview(str(source_id))
+    except library.LibraryError:
+        raise HTTPException(status_code=404, detail="ไม่พบเอกสารนี้ หรือคุณไม่มีสิทธิ์อ่าน")
+    return {**preview, "download_url": None}
+
+
+@router.get("/knowledge/auto")
+async def knowledge_auto(user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Every library the "อัตโนมัติ" scope searches for this user, by name."""
+    try:
+        ids = await library.notebook_ids_for_scope(user, scope="auto", course_id=None)
+    except library.LibraryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    items = await library.describe_notebooks(user, ids)
+    return {"items": items[:200], "total": len(items)}
+
+
 @router.get("/library/{doc_id}")
 async def get_library_document(
     doc_id: int, user: User = Depends(get_current_user)

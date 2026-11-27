@@ -2544,3 +2544,89 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
     border-radius: 999px;
   }
 }
+
+/* File rows with "ดูเนื้อหา" (eye) next to the tick. */
+.src-row-wrap {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.src-row-wrap .src-row {
+  flex: 1;
+}
+
+.src-peek {
+  width: 40px;
+  height: 40px;
+}
+
+/* "อัตโนมัติ": what the AI will search. */
+.src-auto {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+}
+
+.src-auto-lead {
+  margin: 0;
+  font-weight: 600;
+  color: var(--text-strong);
+}
+
+.src-auto-group .panel-label {
+  margin: 0 0 6px;
+}
+
+.src-auto .chip {
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ticks kept while "อัตโนมัติ"/"ไม่ใช้คลัง" is on. */
+.src-parked {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 10px 0;
+  padding: 10px 12px;
+  border: 1px dashed var(--warn-line);
+  border-radius: 12px;
+  background: var(--warn-bg);
+  color: var(--warn-text);
+  font-size: 13px;
+}
+
+/* "ดูเนื้อหา" dialog. */
+.preview-text {
+  max-height: min(50vh, 420px);
+  overflow: auto;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--card);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.preview-text:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.preview-loading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}

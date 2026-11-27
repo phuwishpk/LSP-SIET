@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AUTO, ALL_MINE, FILES, MAX_PICKED_COURSES, MAX_PICKED_FILES, NONE, PERSONAL,
-  coveredValues, groupKnowledge, pickedFileCount, scopeFields, sourceSummary, togglePick,
+  autoGroups, coveredValues, groupKnowledge, pickedFileCount, previewQuery, scopeFields, sourceSummary, togglePick,
 } from './knowledge-core.js'
 
 const ROOMS = [
@@ -126,4 +126,26 @@ test('the summary names what was ticked', () => {
 test('single files are counted apart from whole sources', () => {
   assert.equal(pickedFileCount(['doc:1', 'src:s', 'course:2', 'nb:x', ALL_MINE]), 2)
   assert.equal(pickedFileCount([]), 0)
+})
+
+test('a file row knows how to ask for its preview', () => {
+  assert.equal(previewQuery('doc:10'), 'doc_id=10')
+  assert.equal(previewQuery('src:source:s1'), 'source_id=source%3As1')
+  assert.equal(previewQuery('course:2'), null)
+  assert.equal(previewQuery(ALL_MINE), null)
+})
+
+test('what auto reads is grouped by where it comes from, longest lists cut short', () => {
+  const items = [
+    { id: 'notebook:me', kind: 'personal', label: 'ไฟล์ของฉัน' },
+    ...Array.from({ length: 14 }, (_, i) => ({ id: `notebook:c${i}`, kind: 'course', label: `C${i}` })),
+    { id: 'notebook:s', kind: 'staff', label: 'คู่มือ' },
+  ]
+  const groups = autoGroups(items, 12)
+  assert.deepEqual(groups.map((g) => [g.kind, g.title, g.shown.length, g.more]), [
+    ['personal', 'ไฟล์ของฉัน', 1, 0],
+    ['course', 'คลังรายวิชา', 12, 2],
+    ['staff', 'notebook จากอาจารย์/ผู้ดูแล', 1, 0],
+  ])
+  assert.deepEqual(autoGroups([], 12), [])
 })

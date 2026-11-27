@@ -605,6 +605,56 @@ async def source_ids_of_notebooks(notebook_ids: Sequence[str]) -> List[str]:
     return list(dict.fromkeys(str(r.get("source")) for r in rows or [] if r.get("source")))
 
 
+PREVIEW_CHARS = 4000
+
+
+async def source_text_preview(source_id: str, limit: int = PREVIEW_CHARS) -> Dict[str, Any]:
+    """
+    The start of a source's text, for "ดูเนื้อหา" before a learner ticks it.
+    The caller checks that the user may read the source.
+    """
+    if not is_valid_record_id(source_id, "source"):
+        raise LibraryError("ไม่พบเอกสารนี้")
+    rows = await repo_query(
+        "SELECT title, string::slice(full_text ?? '', 0, $n) AS text, string::len(full_text ?? '') AS chars FROM $id",
+        {"id": ensure_record_id(source_id), "n": int(limit)},
+    )
+    row = (rows or [{}])[0] or {}
+    chars = int(row.get("chars") or 0)
+    return {"title": str(row.get("title") or ""), "text": str(row.get("text") or ""), "chars": chars, "truncated": chars > limit}
+
+
+async def describe_notebooks(user: User, notebook_ids: Sequence[str]) -> List[Dict[str, Any]]:
+    """
+    Name the notebooks a scope resolved to: ``[{id, kind: personal|course|staff, label}]``,
+    so "อัตโนมัติ" can show what it will search.
+    """
+    ids = [str(n) for n in dict.fromkeys(notebook_ids or [])]
+    if not ids:
+        return []
+    personal = str(user.library_notebook_id) if user.library_notebook_id else None
+    placeholders = ", ".join(f":n{i}" for i in range(len(ids)))
+    async with _mariadb_session() as session:
+        rows = (
+            await session.execute(
+                text(f"SELECT code, name, library_notebook_id FROM rooms WHERE library_notebook_id IN ({placeholders})"),
+                {f"n{i}": v for i, v in enumerate(ids)},
+            )
+        ).all()
+    courses = {str(r[2]): f"{r[0] or ''} {r[1] or ''}".strip() for r in rows}
+    shared = {str(nb["id"]): nb["name"] for nb in await list_shared_notebooks(with_sources=False, viewer=user)}
+    items: List[Dict[str, Any]] = []
+    for nb_id in ids:
+        if nb_id == personal:
+            items.append({"id": nb_id, "kind": "personal", "label": "ไฟล์ของฉัน"})
+        elif nb_id in courses:
+            items.append({"id": nb_id, "kind": "course", "label": courses[nb_id] or "รายวิชา"})
+        elif nb_id in shared:
+            items.append({"id": nb_id, "kind": "staff", "label": shared[nb_id]})
+    order = {"personal": 0, "course": 1, "staff": 2}
+    return sorted(items, key=lambda item: (order[item["kind"]], item["label"]))
+
+
 async def resolve_knowledge_pick(
     user: User,
     *,

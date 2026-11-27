@@ -68,3 +68,24 @@ export async function ws(path, { method = 'GET', json, form, signal } = {}) {
 
 /** Path segment for a record id such as `roadmap_session:abc`. */
 export const seg = (value) => encodeURIComponent(String(value))
+
+/**
+ * Open a file the API serves only to signed-in users (e.g. `/api/community/library/7/download`)
+ * in a new tab. It is fetched with the Authorization header, so the token never goes into a URL.
+ */
+export async function openProtectedFile(apiPath) {
+  const tab = window.open('', '_blank')
+  try {
+    const token = getToken()
+    const response = await fetch(`${BASE_PATH}/api/ws/${apiPath.replace(/^\/?api\//, '')}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    })
+    if (!response.ok) throw new ApiError(response.status, 'เปิดไฟล์ไม่สำเร็จ')
+    const url = URL.createObjectURL(await response.blob())
+    if (tab) tab.location.href = url
+    else window.location.href = url
+  } catch (error) {
+    tab?.close()
+    throw error
+  }
+}

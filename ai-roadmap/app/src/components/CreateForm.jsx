@@ -18,6 +18,8 @@ import {
 } from '@/lib/knowledge'
 import { clearLaunchContext, communityUrl, launchContext, sessionCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
+import Dialog from './Dialog'
+import PreviewDialog from './PreviewDialog'
 import SourceTabs, { tabDefault } from './SourceTabs'
 
 // null = the AI decides how big the plan is; a number asks for exactly that many.
@@ -86,6 +88,9 @@ export default function CreateForm() {
   const [groups, setGroups] = useState(EMPTY_GROUPS)
   const [picked, setPicked] = useState([])
   const [web, setWeb] = useState('auto')
+  const [lastLibraryTab, setLastLibraryTab] = useState('mine')
+  const [previewing, setPreviewing] = useState(null)
+  const [confirmClear, setConfirmClear] = useState(false)
   const [level, setLevel] = useState(null)
   const [duration, setDuration] = useState(null)
   const [focus, setFocus] = useState(null)
@@ -132,22 +137,22 @@ export default function CreateForm() {
     ? `ใช้ไฟล์ที่แนบ${picked.length ? ` · ${sourceSummary(FILES, picked, groups).replace(/^ใช้(เฉพาะ)? /, '')}` : ''}`
     : sourceSummary(choice, picked, groups)
 
+  const libraryTab = (name) => name !== 'auto' && name !== 'none'
+
   const changeTab = (next) => {
     setTab(next)
-    // Ticks stay across the tabs (several sources together); "อัตโนมัติ"/"ไม่ใช้คลัง" read none of them.
-    if (next === 'auto' || next === 'none') {
-      setPicked([])
-      setFile(null)
-      setChoice(tabDefault(next))
-    } else if (choice !== FILES) {
-      setChoice(tabDefault(next))
-    }
+    if (libraryTab(next)) setLastLibraryTab(next)
+    // Ticks are kept in every tab. "อัตโนมัติ"/"ไม่ใช้คลัง" just do not read them,
+    // and going back to a library tab uses them again.
+    if (!libraryTab(next)) setChoice(tabDefault(next))
+    else setChoice(picked.length > 0 || file ? FILES : tabDefault(next))
   }
 
-  const choose = (value) => {
+  const clearPicks = () => {
     setPicked([])
     setFile(null)
-    setChoice(value)
+    setChoice(tabDefault(tab))
+    setConfirmClear(false)
   }
 
   const tick = (value) => {
@@ -164,12 +169,13 @@ export default function CreateForm() {
     setStage('กำลังเตรียม…')
     try {
       const scope = scopeFields(choice, picked)
-      if (file && pickedFileCount(picked) + 1 > MAX_PICKED_FILES) {
+      const useFile = Boolean(file) && choice === FILES
+      if (useFile && pickedFileCount(picked) + 1 > MAX_PICKED_FILES) {
         toast.info(`เลือกไฟล์ได้สูงสุด ${MAX_PICKED_FILES} ไฟล์ รวมไฟล์ที่แนบ`)
         setStage(null)
         return
       }
-      if (file) {
+      if (useFile) {
         // The new file joins whatever was ticked (attaching one switches to FILES).
         const doc = await uploadToMyLibrary(file, { onStage: setStage })
         scope.document_ids = [...(scope.document_ids || []), doc.id]
@@ -249,7 +255,22 @@ export default function CreateForm() {
             picked={picked}
             covered={covered}
             onTick={tick}
+            onPreview={setPreviewing}
             filesFull={filesFull}
+            parked={
+              !libraryTab(tab) && (picked.length > 0 || file) ? (
+                <div className="src-parked" role="status">
+                  <span>
+                    ที่ติ๊กไว้ยังอยู่ ({file ? 'ไฟล์ที่แนบ' : ''}
+                    {file && picked.length ? ' · ' : ''}
+                    {picked.length ? sourceSummary(FILES, picked, groups).replace(/^ใช้(เฉพาะ)? /, '') : ''}) แต่โหมดนี้ไม่ได้ใช้
+                  </span>
+                  <button type="button" className="link-button" onClick={() => changeTab(lastLibraryTab)}>
+                    กลับไปใช้ที่ติ๊กไว้
+                  </button>
+                </div>
+              ) : null
+            }
           />
           {file && (
             <div className="attached">
@@ -270,8 +291,8 @@ export default function CreateForm() {
           )}
           <p className="summary" aria-live="polite">
             {summary}
-            {picked.length > 0 && (
-              <button type="button" className="link-button" onClick={() => choose(tabDefault(tab))}>
+            {libraryTab(tab) && (picked.length > 0 || file) && (
+              <button type="button" className="link-button" onClick={() => setConfirmClear(true)}>
                 ล้างที่เลือก
               </button>
             )}
@@ -384,6 +405,34 @@ export default function CreateForm() {
           ขาดอีก {missing} แต้ม · ได้แต้มเพิ่มจากการโพสต์สรุปหรือเมื่อมีคนกดถูกใจโพสต์ของคุณใน{' '}
           <a href={communityUrl()}>Community</a>
         </p>
+      )}
+      {previewing && (
+        <PreviewDialog
+          item={previewing}
+          ticked={picked.includes(previewing.value)}
+          covered={covered.has(previewing.value)}
+          onToggle={() => tick(previewing.value)}
+          onClose={() => setPreviewing(null)}
+        />
+      )}
+      {confirmClear && (
+        <Dialog
+          title="ล้างแหล่งความรู้ที่ติ๊กไว้?"
+          subtitle={summary}
+          onClose={() => setConfirmClear(false)}
+          footer={
+            <>
+              <button type="button" className="btn" onClick={() => setConfirmClear(false)}>
+                ยกเลิก
+              </button>
+              <button type="button" className="btn btn-danger-solid" onClick={clearPicks}>
+                ล้างทั้งหมด
+              </button>
+            </>
+          }
+        >
+          <p className="body">ที่ติ๊กไว้ทุกแท็บ{file ? ' และไฟล์ที่แนบ' : ''}จะถูกเอาออก</p>
+        </Dialog>
       )}
     </form>
   )

@@ -158,3 +158,22 @@ export function sourceSummary(choice, picked, groups) {
   }
   return 'ติ๊กเลือกแหล่งความรู้ที่ต้องการก่อน (เลือกได้หลายวิชา หลาย notebook และหลายไฟล์พร้อมกัน)'
 }
+
+/** Query string of GET community/knowledge/preview for a file row, or null for a whole library. */
+export function previewQuery(value) {
+  if (value.startsWith('doc:')) return `doc_id=${encodeURIComponent(value.slice(4))}`
+  if (value.startsWith('src:')) return `source_id=${encodeURIComponent(value.slice(4))}`
+  return null
+}
+
+const AUTO_TITLES = { personal: 'ไฟล์ของฉัน', course: 'คลังรายวิชา', staff: 'notebook จากอาจารย์/ผู้ดูแล' }
+
+/** GET community/knowledge/auto items -> sections for "AI จะค้นจาก", each cut to `limit` names. */
+export function autoGroups(items, limit = 12) {
+  return ['personal', 'course', 'staff']
+    .map((kind) => {
+      const all = (items || []).filter((item) => item.kind === kind)
+      return { kind, title: AUTO_TITLES[kind], shown: all.slice(0, limit), more: Math.max(0, all.length - limit) }
+    })
+    .filter((group) => group.shown.length > 0)
+}
