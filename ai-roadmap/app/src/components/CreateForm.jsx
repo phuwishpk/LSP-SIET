@@ -126,7 +126,7 @@ export default function CreateForm() {
   if (busy) {
     return (
       <section className="generating" role="status" aria-live="polite">
-        <PinkOwlMascot mood="study" size={150} label="น้องฮูกกำลังวางแผนการเรียนให้" />
+        <PinkOwlMascot mood="map" size={150} label="น้องฮูกกำลังวางแผนการเรียนให้" />
         <h2 className="h2">กำลังสร้างแผนการเรียน</h2>
         <p className="generating-topic">“{topic.trim()}”</p>
         <div className="progress-bar" aria-hidden="true" />
@@ -138,7 +138,7 @@ export default function CreateForm() {
   return (
     <form className="form" onSubmit={submit}>
       <header className="form-head">
-        <PinkOwlMascot mood="wave" size={72} />
+        <PinkOwlMascot mood="map" size={72} />
         <div>
           <h1 className="h1">สร้างแผนการเรียน</h1>
           <p className="muted">บอกเป้าหมาย เลือกแหล่งความรู้ แล้วให้ AI วางลำดับหัวข้อให้</p>

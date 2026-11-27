@@ -93,7 +93,7 @@ export default function MyRoadmaps() {
       )}
       {items?.length === 0 && (
         <div className="empty-state">
-          <PinkOwlMascot mood="idle" size={96} />
+          <PinkOwlMascot mood="point" size={96} />
           <p className="h3">ยังไม่มี Roadmap</p>
           <p className="muted">กรอกเป้าหมายในแบบฟอร์ม แล้วให้น้องฮูกช่วยวางแผนแรกให้</p>
         </div>

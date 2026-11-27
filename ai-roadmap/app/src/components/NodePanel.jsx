@@ -97,7 +97,7 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
         </section>
         <PlanGrounding grounding={roadmap?.grounding} />
         <div className="panel-owl-hint" role="status">
-          <PinkOwlMascot mood="idle" size={56} />
+          <PinkOwlMascot mood="point" size={56} />
           <span>กดที่หัวข้อในแผนเพื่อดูคำอธิบาย ที่มา และแหล่งความรู้ที่เกี่ยวข้อง</span>
         </div>
       </aside>
@@ -146,7 +146,7 @@ export default function NodePanel({ roadmap, node, mainIndex, childCount, expand
           </button>
           {expand.busy ? (
             <div className="panel-owl-hint" role="status">
-              <PinkOwlMascot mood="study" size={56} label="น้องฮูกกำลังแตกหัวข้อย่อย" />
+              <PinkOwlMascot mood="map" size={56} label="น้องฮูกกำลังแตกหัวข้อย่อย" />
               <span>AI กำลังค้นแหล่งความรู้และแตกหัวข้อย่อย ใช้เวลาประมาณครึ่งนาที</span>
             </div>
           ) : (

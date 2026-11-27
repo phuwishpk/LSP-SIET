@@ -34,7 +34,7 @@ export default function EditPanel({ cost, exempt, balance, busy, canUndo, undoin
 
       {busy ? (
         <div className="edit-panel-busy" role="status" aria-live="polite">
-          <PinkOwlMascot mood="study" size={64} label="น้องฮูกกำลังแก้ Roadmap" />
+          <PinkOwlMascot mood="map" size={64} label="น้องฮูกกำลังแก้ Roadmap" />
           <div>
             <p className="body">“{text.trim()}”</p>
             <p className="hint">AI กำลังแก้ Roadmap เฉพาะส่วนที่สั่ง ใช้เวลาประมาณครึ่งนาที</p>

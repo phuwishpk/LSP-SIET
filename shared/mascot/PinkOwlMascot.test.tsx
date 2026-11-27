@@ -42,4 +42,13 @@ describe('PinkOwlMascot', () => {
     expect(css).toContain('prefers-reduced-motion: reduce')
     expect(css).toContain('.owl-still')
   })
+
+  it('has the roadmap poses: holding a map and pointing the way', () => {
+    const map = render(<PinkOwlMascot mood="map" />).container
+    expect(map.querySelector('.action-map')).not.toBeNull()
+    expect(map.querySelector('#roadMap')).not.toBeNull()
+    const point = render(<PinkOwlMascot mood="point" />).container
+    expect(point.querySelector('.action-point')).not.toBeNull()
+    expect(point.querySelector('#rightWingPoint')).not.toBeNull()
+  })
 })

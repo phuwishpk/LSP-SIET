@@ -201,7 +201,7 @@ export default function RoadmapPage() {
   if (!roadmap) {
     return (
       <main className="center-screen" role="status">
-        <PinkOwlMascot mood="study" size={120} label="น้องฮูกกำลังเปิด Roadmap" />
+        <PinkOwlMascot mood="map" size={120} label="น้องฮูกกำลังเปิด Roadmap" />
         <p className="muted">กำลังโหลด Roadmap…</p>
       </main>
     )

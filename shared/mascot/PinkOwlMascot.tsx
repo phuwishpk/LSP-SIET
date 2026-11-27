@@ -2,7 +2,8 @@
 
 import React, { useId } from 'react';
 
-export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate';
+/** idle · wave · study (reading) · celebrate · map (holding a route map) · point (pointing the way) */
+export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate' | 'map' | 'point';
 
 export interface PinkOwlMascotProps {
   mood?: OwlMood;
@@ -72,6 +73,8 @@ export function PinkOwlMascot({
         /* --- Elements Default Visibility --- */
         #rightEyeWink { display: none; }
         #readingBook { display: none; opacity: 0; }
+        #roadMap { display: none; }
+        #rightWingPoint { display: none; }
 
         /* ========================================================
            1. ACTION: โบกมือทักทาย (Wave & Wink)
@@ -135,6 +138,72 @@ export function PinkOwlMascot({
         @keyframes bookSway {
           0%, 100% { transform: translateY(0); }
           50% { transform: translateY(2px); }
+        }
+
+        /* ========================================================
+           3. ACTION: กางแผนที่เส้นทาง (Roadmap)
+           ======================================================== */
+        .action-map .owl-whole {
+          animation: mapLean 3s ease-in-out infinite;
+        }
+        @keyframes mapLean {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(2px) rotate(-1.2deg); }
+        }
+        .action-map #leftEyeGroup,
+        .action-map #rightEyePupil {
+          transform: translateY(5px);
+        }
+        .action-map #leftWingDefault,
+        .action-map #rightWingDefault { display: none; }
+        .action-map #roadMap {
+          display: inline;
+          transform-origin: 150px 270px;
+          animation: mapFlutter 3s ease-in-out infinite;
+        }
+        @keyframes mapFlutter {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(1.5deg); }
+        }
+        .action-map .map-route {
+          animation: routeDraw 3s linear infinite;
+        }
+        @keyframes routeDraw {
+          to { stroke-dashoffset: -28; }
+        }
+        .action-map .map-pin {
+          transform-origin: 186px 252px;
+          animation: pinHop 1.5s ease-in-out infinite;
+        }
+        @keyframes pinHop {
+          0%, 100% { transform: translateY(0); }
+          40% { transform: translateY(-6px); }
+          60% { transform: translateY(-6px); }
+        }
+
+        /* ========================================================
+           4. ACTION: ชี้ทาง (Point the way)
+           ======================================================== */
+        .action-point .owl-whole {
+          animation: pointLean 2.6s ease-in-out infinite;
+        }
+        @keyframes pointLean {
+          0%, 100% { transform: rotate(0deg); }
+          50% { transform: rotate(2deg); }
+        }
+        .action-point #leftEyeGroup,
+        .action-point #rightEyePupil {
+          transform: translate(6px, -1px);
+        }
+        .action-point #rightWingDefault { display: none; }
+        .action-point #rightWingPoint {
+          display: inline;
+          transform-origin: 226px 196px;
+          animation: wingPoint 1.3s ease-in-out infinite alternate;
+        }
+        @keyframes wingPoint {
+          0% { transform: rotate(0deg) translateX(0); }
+          100% { transform: rotate(-6deg) translateX(4px); }
         }
 
         /* หยุดนิ่ง: คงท่าไว้ แต่ไม่ขยับ */
@@ -268,6 +337,28 @@ export function PinkOwlMascot({
               <line x1="186" y1="254" x2="162" y2="259" stroke="#cbd5e1" strokeWidth="2.5" strokeLinecap="round"/>
               <path d="M 178 226 L 188 238 L 194 232 L 184 220 Z" fill="#f97316"/>
               <path d="M 174 223 L 178 226 L 184 220 Z" fill="#fde047"/>
+            </g>
+
+            {/* แผนที่เส้นทาง (พับสามทบ) + ปีกสองข้างจับขอบแผนที่ */}
+            <g id="roadMap">
+              <path d="M 96 232 L 132 224 L 168 232 L 204 224 L 204 278 L 168 286 L 132 278 L 96 286 Z" fill="#fef3c7" stroke="#d97706" strokeWidth="2" strokeLinejoin="round"/>
+              <path d="M 132 224 L 168 232 L 168 286 L 132 278 Z" fill="#fde68a"/>
+              <line x1="132" y1="224" x2="132" y2="278" stroke="#d97706" strokeWidth="1.5" opacity="0.6"/>
+              <line x1="168" y1="232" x2="168" y2="286" stroke="#d97706" strokeWidth="1.5" opacity="0.6"/>
+              <circle cx="110" cy="268" r="4.5" fill="#0d9488"/>
+              <path className="map-route" d="M 110 268 C 124 250 140 274 152 258 C 162 246 172 262 186 252" fill="none" stroke="#e11d48" strokeWidth="3.5" strokeLinecap="round" strokeDasharray="7 7"/>
+              <g className="map-pin">
+                <path d="M 186 252 C 178 242 178 232 186 230 C 194 232 194 242 186 252 Z" fill="#e11d48" stroke="#9f1239" strokeWidth="1.2"/>
+                <circle cx="186" cy="237" r="3" fill="#ffffff"/>
+              </g>
+              <path d="M 70 200 C 60 225 72 252 100 262 C 106 250 100 232 88 210 Z" fill="#e11d48"/>
+              <path d="M 230 200 C 240 225 228 252 200 262 C 194 250 200 232 212 210 Z" fill="#e11d48"/>
+            </g>
+
+            {/* ปีกขวาชี้ทาง */}
+            <g id="rightWingPoint">
+              <path d="M 226 188 C 250 180 272 178 290 182 C 296 184 296 192 290 194 C 272 198 252 210 230 222 Z" fill="#e11d48"/>
+              <path d="M 276 183 L 294 186 L 278 192 Z" fill="#be123c"/>
             </g>
 
             {/* หมวกรับปริญญา 3D */}
