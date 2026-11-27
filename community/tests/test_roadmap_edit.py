@@ -304,3 +304,16 @@ def test_edit_still_saves_when_cache_is_down(ai, monkeypatch):
     ai["replies"] = [ADD_DOCKER]
     _edit(session)
     assert session.saves == 1
+
+
+def test_old_roadmaps_with_english_stages_keep_their_lanes():
+    legacy = [
+        {"id": f"node-{i}", "label": label, "description": "", "category": cat, "parent": None, "level": 0, "order": i, "sources": []}
+        for i, (label, cat) in enumerate([("a", "planning"), ("b", "development"), ("c", "testing"), ("d", "launch")], start=1)
+    ]
+    nodes, _ = roadmap_edit.apply_edit_ops(
+        legacy, [{"op": "add", "label": "PR", "after": "node-2", "stage": "แนวคิดหลัก"}]
+    )
+    new = next(n for n in nodes if n["label"] == "PR")
+    assert new["category"] == "development"
+    assert [n["label"] for n in sorted((n for n in nodes if not n["parent"]), key=lambda n: n["order"])] == ["a", "b", "PR", "c", "d"]

@@ -138,8 +138,11 @@ class _Tree:
 
 
 def _stage_for_main(tree: _Tree, op: Dict[str, Any], after: Any) -> Any:
+    # Older roadmaps name their lanes in English (planning, development…): a
+    # new main node joins its neighbour's lane there instead of opening a new one.
+    staged = all(stage_of(tree.by_id[m].get("category")) for m in tree.kids.get(None, []))
     stage = stage_of(op.get("stage") or op.get("category"))
-    if stage:
+    if stage and staged:
         return stage
     if isinstance(after, str) and after in tree.by_id:
         return tree.by_id[after].get("category")
