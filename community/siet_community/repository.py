@@ -1255,12 +1255,12 @@ async def roadmap_point_stats(since: datetime) -> Dict[str, int]:
                     """
                     SELECT
                       (SELECT COALESCE(SUM(-t.delta), 0) FROM point_transactions t
-                        WHERE t.kind IN ('roadmap_generate', 'roadmap_expand')
+                        WHERE t.kind IN ('roadmap_generate', 'roadmap_expand', 'roadmap_edit')
                           AND t.created_at >= :since) AS charged,
                       (SELECT COALESCE(SUM(r.delta), 0) FROM point_transactions r
                          JOIN point_transactions t
                            ON r.ref_type = 'point_transaction' AND r.ref_id = CAST(t.id AS CHAR)
-                        WHERE r.kind = 'refund' AND t.kind IN ('roadmap_generate', 'roadmap_expand')
+                        WHERE r.kind = 'refund' AND t.kind IN ('roadmap_generate', 'roadmap_expand', 'roadmap_edit')
                           AND t.created_at >= :since) AS refunded,
                       (SELECT COUNT(*) FROM point_transactions t
                         WHERE t.kind = 'roadmap_expand'

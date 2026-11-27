@@ -8,6 +8,7 @@ Rates (override any of them with ``POINTS_*`` environment variables):
 * ``quiz_generate``     8 pt  – generate one AI quiz set
 * ``roadmap_generate`` 15 pt  – generate one AI roadmap
 * ``roadmap_expand``    2 pt  – break one roadmap node into 3-5 sub-nodes
+* ``roadmap_edit``      3 pt  – change a roadmap from a typed instruction
 * ``quiz_import``       1 pt  – copy a friend's shared quiz into your library
 
 Rewards:
@@ -51,6 +52,7 @@ COSTS: Dict[str, int] = {
     "quiz_generate": _env_int("POINTS_COST_QUIZ_GENERATE", 8),
     "roadmap_generate": _env_int("POINTS_COST_ROADMAP_GENERATE", 15),
     "roadmap_expand": _env_int("POINTS_COST_ROADMAP_EXPAND", 2),
+    "roadmap_edit": _env_int("POINTS_COST_ROADMAP_EDIT", 3),
     "quiz_import": _env_int("POINTS_COST_QUIZ_IMPORT", 1),
 }
 

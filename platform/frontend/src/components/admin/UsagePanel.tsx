@@ -28,6 +28,7 @@ const FEATURE_LABEL: Record<string, string> = {
   quiz: 'สร้าง Quiz',
   roadmap: 'สร้าง Roadmap',
   roadmap_expand: 'ขยาย Roadmap',
+  roadmap_edit: 'แก้ Roadmap ด้วย AI',
   ingest: 'ทำดัชนีเอกสาร',
   direct: 'ตอบโดยตรง',
   embedding: 'Embedding',

@@ -1488,7 +1488,7 @@ async def my_roadmap(session_id: str, user: User = Depends(get_current_user)) ->
 
 
 async def _roadmap_detail(session: RoadmapSession, shared: Dict[str, int]) -> Dict[str, Any]:
-    from siet_community import roadmap_plan
+    from siet_community import roadmap_edit, roadmap_plan
 
     # The post keeps its own copy; after an expansion it lags behind until the
     # author pushes the new version.
@@ -1504,11 +1504,16 @@ async def _roadmap_detail(session: RoadmapSession, shared: Dict[str, int]) -> Di
         "edges": session.edges or [],
         "settings": session.settings,
         "post_outdated": outdated,
+        "can_undo": await roadmap_edit.can_undo(session),
     }
 
 
 class RoadmapExpandBody(BaseModel):
     node_id: str = Field(..., min_length=1, max_length=64)
+
+
+class RoadmapEditBody(BaseModel):
+    instruction: str = Field(..., min_length=1, max_length=500)
 
 
 async def _expansion_scope(user: User, session: RoadmapSession) -> tuple[List[str], Optional[List[str]]]:
@@ -1588,6 +1593,77 @@ async def expand_my_roadmap(
         "charged": charge.amount,
         "balance": await points.get_balance(uid),
     }
+
+
+async def _sync_roadmap_post(uid: int, session: RoadmapSession) -> tuple[Dict[str, int], Optional[int]]:
+    """A roadmap already in the feed shows its new version right away (as expansion does)."""
+    shared = await repo.roadmap_posts_for_author(uid, [str(session.id)])
+    synced_post_id = shared.get(str(session.id))
+    if synced_post_id:
+        await repo.update_post_snapshot(int(synced_post_id), _roadmap_snapshot(session))
+    return shared, synced_post_id
+
+
+@router.post("/roadmaps/mine/{session_id}/edit")
+async def edit_my_roadmap(
+    session_id: str, body: RoadmapEditBody, user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Change the roadmap as the typed instruction asks ("สั่งแก้ด้วย AI"); one undo is kept."""
+    from siet_community import roadmap_edit
+
+    uid = _uid(user)
+    session = await _my_roadmap_or_404(session_id, user)
+    notebook_ids, source_ids = await _expansion_scope(user, session)
+    try:
+        charge = await points.charge(user, "roadmap_edit", ref_type="roadmap_session", ref_id=str(session.id))
+    except points.InsufficientPoints as exc:
+        raise _insufficient(exc)
+
+    try:
+        changes = await roadmap_edit.edit_roadmap(
+            session=session,
+            instruction=body.instruction,
+            notebook_ids=notebook_ids,
+            source_ids=source_ids,
+            web_mode=(session.settings or {}).get("web") or "auto",
+        )
+    except (InvalidInputError, ConfigurationError) as exc:
+        await points.refund(charge, "roadmap edit failed")
+        raise HTTPException(status_code=400, detail=str(exc))
+    except ExternalServiceError as exc:
+        await points.refund(charge, "roadmap edit failed")
+        raise HTTPException(status_code=502, detail=str(exc))
+    except (throttle.ProviderBusy, RateLimitError):
+        await points.refund(charge, "roadmap edit failed")
+        raise
+    except Exception as exc:
+        await points.refund(charge, "roadmap edit failed")
+        raise _internal_error(exc, "roadmap edit failed")
+
+    shared, synced_post_id = await _sync_roadmap_post(uid, session)
+    return {
+        **await _roadmap_detail(session, shared),
+        "changes": {key: changes[key] for key in ("added", "removed", "updated")},
+        "summary": changes.get("summary") or "",
+        "synced_post_id": synced_post_id,
+        "charged": charge.amount,
+        "balance": await points.get_balance(uid),
+    }
+
+
+@router.post("/roadmaps/mine/{session_id}/edit/undo")
+async def undo_my_roadmap_edit(session_id: str, user: User = Depends(get_current_user)) -> Dict[str, Any]:
+    """Put back the version before the last AI edit (free; only while nothing changed since)."""
+    from siet_community import roadmap_edit
+
+    uid = _uid(user)
+    session = await _my_roadmap_or_404(session_id, user)
+    try:
+        await roadmap_edit.undo_edit(session)
+    except InvalidInputError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
+    shared, synced_post_id = await _sync_roadmap_post(uid, session)
+    return {**await _roadmap_detail(session, shared), "synced_post_id": synced_post_id}
 
 
 @router.delete("/roadmaps/mine/{session_id}")
