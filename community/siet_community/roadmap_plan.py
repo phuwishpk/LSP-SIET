@@ -690,6 +690,7 @@ async def generate_plan(
     settings: Optional[Dict[str, Any]] = None,
     report: Optional[Dict[str, Any]] = None,
     preferences: Optional[Dict[str, str]] = None,
+    files_only: Optional[bool] = None,
 ) -> RoadmapSession:
     """
     Generate, ground and store a learning plan for ``owner_id``.
@@ -712,7 +713,7 @@ async def generate_plan(
         found = await rag.retrieve(
             description, list(notebook_ids), allow_global_fallback=False, source_ids=source_ids
         )
-        passages = relevant_passages(found, picked=bool(source_ids))
+        passages = relevant_passages(found, picked=bool(source_ids) if files_only is None else files_only)
 
     prompt_hash = _hash_prompt(
         {
@@ -951,6 +952,7 @@ async def expand_node(
     notebook_ids: Optional[Sequence[str]] = None,
     source_ids: Optional[Sequence[str]] = None,
     web_mode: str = grounding.WEB_AUTO,
+    files_only: Optional[bool] = None,
 ) -> List[Dict[str, Any]]:
     """
     Break ``node_id`` into sub-nodes and save the roadmap. Returns the new nodes.
@@ -975,7 +977,7 @@ async def expand_node(
             allow_global_fallback=False,
             source_ids=source_ids,
         )
-        passages = relevant_passages(found, picked=bool(source_ids))
+        passages = relevant_passages(found, picked=bool(source_ids) if files_only is None else files_only)
 
     children = await _draft_children(session, nodes, parent, passages)
     meta = await library.source_metadata([p["id"] for p in passages])

@@ -10,6 +10,7 @@ import {
   FILES,
   loadKnowledge,
   MAX_PICKED_FILES,
+  pickedFileCount,
   scopeFields,
   sourceSummary,
   togglePick,
@@ -125,10 +126,10 @@ export default function CreateForm() {
   const noFilesYet = choice === FILES && picked.length === 0 && !file
   const canSubmit = topic.trim().length >= 3 && !busy && missing === 0 && choice !== null && !noFilesYet
   // An attached file is sent as one more document, inside the same limit.
-  const filesFull = picked.filter((v) => v.startsWith('doc:') || v.startsWith('src:')).length + (file ? 1 : 0) >= MAX_PICKED_FILES
+  const filesFull = pickedFileCount(picked) + (file ? 1 : 0) >= MAX_PICKED_FILES
   const covered = coveredValues(picked, groups)
   const summary = file && choice === FILES
-    ? `ใช้ไฟล์ที่แนบ${picked.length ? ` และอีก ${picked.length} ไฟล์ที่เลือก` : ''}`
+    ? `ใช้ไฟล์ที่แนบ${picked.length ? ` · ${sourceSummary(FILES, picked, groups).replace(/^ใช้(เฉพาะ)? /, '')}` : ''}`
     : sourceSummary(choice, picked, groups)
 
   const changeTab = (next) => {
@@ -163,6 +164,11 @@ export default function CreateForm() {
     setStage('กำลังเตรียม…')
     try {
       const scope = scopeFields(choice, picked)
+      if (file && pickedFileCount(picked) + 1 > MAX_PICKED_FILES) {
+        toast.info(`เลือกไฟล์ได้สูงสุด ${MAX_PICKED_FILES} ไฟล์ รวมไฟล์ที่แนบ`)
+        setStage(null)
+        return
+      }
       if (file) {
         // The new file joins whatever was ticked (attaching one switches to FILES).
         const doc = await uploadToMyLibrary(file, { onStage: setStage })
@@ -287,7 +293,13 @@ export default function CreateForm() {
                 event.target.value = ''
               }}
             />
-            <button type="button" className="btn btn-tonal" onClick={() => fileInput.current?.click()}>
+            <button
+              type="button"
+              className="btn btn-tonal"
+              onClick={() => fileInput.current?.click()}
+              disabled={busy || (!file && pickedFileCount(picked) >= MAX_PICKED_FILES)}
+              title={!file && pickedFileCount(picked) >= MAX_PICKED_FILES ? `เลือกไฟล์ครบ ${MAX_PICKED_FILES} ไฟล์แล้ว` : undefined}
+            >
               <Paperclip aria-hidden="true" />
               แนบไฟล์ใหม่
             </button>
@@ -341,7 +353,7 @@ export default function CreateForm() {
 
         <fieldset className="field">
           <legend>จำนวนหัวข้อ</legend>
-          <div className="segmented" role="group">
+          <div className="segmented segmented-wrap" role="group">
             {NODE_COUNTS.map((count) => (
               <button
                 key={count ?? 'auto'}

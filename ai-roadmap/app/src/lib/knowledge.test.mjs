@@ -3,7 +3,7 @@ import { test } from 'node:test'
 import assert from 'node:assert/strict'
 import {
   AUTO, ALL_MINE, FILES, MAX_PICKED_COURSES, MAX_PICKED_FILES, NONE, PERSONAL,
-  coveredValues, groupKnowledge, scopeFields, sourceSummary, togglePick,
+  coveredValues, groupKnowledge, pickedFileCount, scopeFields, sourceSummary, togglePick,
 } from './knowledge-core.js'
 
 const ROOMS = [
@@ -121,4 +121,9 @@ test('the summary names what was ticked', () => {
     'ใช้ 2 วิชา · notebook “คู่มือ” · ไฟล์ทั้งหมดของฉัน · 1 ไฟล์ที่เลือก',
   )
   assert.equal(sourceSummary(FILES, ['doc:10', 'doc:20'], g), 'ใช้เฉพาะ 2 ไฟล์ที่เลือก')
+})
+
+test('single files are counted apart from whole sources', () => {
+  assert.equal(pickedFileCount(['doc:1', 'src:s', 'course:2', 'nb:x', ALL_MINE]), 2)
+  assert.equal(pickedFileCount([]), 0)
 })

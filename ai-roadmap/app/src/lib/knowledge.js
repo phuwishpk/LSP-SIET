@@ -10,6 +10,7 @@ export {
   NONE,
   PERSONAL,
   coveredValues,
+  pickedFileCount,
   groupKnowledge,
   scopeFields,
   sourceSummary,

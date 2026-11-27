@@ -2524,8 +2524,13 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
   }
 }
 
-/* Option rows with 4-5 choices: one connected row on wide screens, separate pills on a phone. */
-@media (max-width: 520px) {
+/* Option rows with 4-5 choices: one connected row when the card is wide, separate pills when it is narrow
+   (a phone, or the two-column home layout on a mid-size screen). */
+.form-card {
+  container-type: inline-size;
+}
+
+@container (max-width: 600px) {
   .segmented-wrap {
     flex-wrap: wrap;
     gap: 6px;

@@ -1578,6 +1578,7 @@ async def expand_my_roadmap(
             notebook_ids=notebook_ids,
             source_ids=source_ids,
             web_mode=(session.settings or {}).get("web") or "auto",
+            files_only=_files_only(session.settings or {}),
         )
     except (InvalidInputError, ConfigurationError) as exc:
         await points.refund(charge, "roadmap expansion failed")
@@ -1638,6 +1639,7 @@ async def edit_my_roadmap(
             notebook_ids=notebook_ids,
             source_ids=source_ids,
             web_mode=(session.settings or {}).get("web") or "auto",
+            files_only=_files_only(session.settings or {}),
         )
     except (InvalidInputError, ConfigurationError) as exc:
         await points.refund(charge, "roadmap edit failed")
@@ -2303,9 +2305,11 @@ async def _study_scope(
         body.document_ids or body.notebook_ids or body.source_ids or course_ids or personal
     ):
         raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อน")
+    # Roadmap requests only (the quiz form picks one kind of source at a time).
+    mixed = hasattr(body, "course_ids") and bool(body.notebook_ids and (body.document_ids or body.source_ids))
+    if course_ids or personal or mixed:
+        return await _combined_scope(user, body, course_ids, personal)
     pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
-    if course_ids or personal:
-        return await _combined_scope(user, course_ids, personal, pick, body)
     if pick is not None:
         return pick
     notebook_ids, label, _fallback = await _resolve_scope(
@@ -2314,35 +2318,68 @@ async def _study_scope(
     return notebook_ids, None, label
 
 
+def _files_only(picks: Any) -> bool:
+    """
+    True when the learner picked single files only (no whole course, notebook
+    or "all my files"): those files are read as they are, without the
+    similarity floor that keeps off-topic passages of a whole library out.
+    """
+    get = picks.get if isinstance(picks, dict) else (lambda key: getattr(picks, key, None))
+    whole = get("course_ids") or get("include_personal") or get("notebook_ids")
+    return bool((get("document_ids") or get("source_ids")) and not whole)
+
+
 async def _combined_scope(
-    user: User,
-    course_ids: List[int],
-    personal: bool,
-    pick: Optional[tuple[List[str], Optional[List[str]], str]],
-    body: Any,
+    user: User, body: Any, course_ids: List[int], personal: bool
 ) -> tuple[List[str], Optional[List[str]], str]:
     """
-    Whole courses and/or all my files, plus whatever single picks came with them.
+    Whole libraries (courses, staff notebooks, all my files) together with single files.
 
     Whole libraries are searched whole. When single files were picked as well,
     the search is narrowed to those files plus every source of the whole
-    libraries, so a picked file never opens up the rest of its notebook.
+    libraries, so a picked file never opens up the rest of its own notebook.
+    An old library row without a source can only be read with its notebook.
     """
     whole: List[str] = []
+    singles: List[str] = []
+    single_notebooks: List[str] = []
+    parts = 0
     try:
         for course_id in course_ids:
             whole += await library.notebook_ids_for_scope(user, scope="course", course_id=course_id)
+            parts += 1
         if personal:
             whole += await library.notebook_ids_for_scope(user, scope="personal", course_id=None)
+            parts += 1
+        if body.notebook_ids:
+            picked = await library.resolve_knowledge_pick(user, notebook_ids=body.notebook_ids)
+            whole += picked["notebook_ids"]
+            parts += len(picked["notebook_ids"])
+        if body.source_ids:
+            picked = await library.resolve_knowledge_pick(user, source_ids=body.source_ids)
+            singles += picked["source_ids"] or []
+            single_notebooks += picked["notebook_ids"]
+            parts += len(picked["source_ids"] or [])
+        if body.document_ids:
+            docs = await library.scope_for_documents(user, body.document_ids)
+            if docs["source_ids"] is None:
+                whole += docs["notebook_ids"]
+            else:
+                singles += docs["source_ids"]
+                single_notebooks += docs["notebook_ids"]
+            parts += len(docs["source_ids"] or docs["notebook_ids"])
     except library.LibraryError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     whole = list(dict.fromkeys(whole))
-    notebooks = list(dict.fromkeys(whole + (pick[0] if pick else [])))
+    if not whole and not singles:
+        raise HTTPException(status_code=400, detail="แหล่งความรู้ที่เลือกยังไม่มีเอกสาร เลือกแหล่งอื่นหรือแนบไฟล์ก่อน")
+    notebooks = list(dict.fromkeys(whole + single_notebooks))
     sources: Optional[List[str]] = None
-    if pick and pick[1] is not None:
-        sources = list(dict.fromkeys(pick[1] + await library.source_ids_of_notebooks(whole)))
-    count = len(course_ids) + int(personal) + len(body.document_ids) + len(body.notebook_ids) + len(body.source_ids)
-    return notebooks, sources, f"แหล่งความรู้ที่เลือก {count} แหล่ง"
+    if singles and not set(single_notebooks) <= set(whole):
+        sources = list(dict.fromkeys(singles + await library.source_ids_of_notebooks(whole)))
+    elif singles:
+        sources = None  # every picked file sits inside a library that is read whole anyway
+    return notebooks, sources, f"แหล่งความรู้ที่เลือก {parts} แหล่ง"
 
 
 @router.post("/study/roadmap")
@@ -2375,6 +2412,7 @@ async def study_roadmap(
             web_mode=body.web,
             scope_label=label,
             preferences=body.preferences(),
+            files_only=_files_only(body),
             # Kept with the roadmap so "expand" can reuse the same sources.
             settings={
                 "scope": body.scope,

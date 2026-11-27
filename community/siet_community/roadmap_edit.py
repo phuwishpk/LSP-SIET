@@ -339,6 +339,7 @@ async def edit_roadmap(
     notebook_ids: Optional[Sequence[str]] = None,
     source_ids: Optional[Sequence[str]] = None,
     web_mode: str = grounding.WEB_AUTO,
+    files_only: Optional[bool] = None,
 ) -> Dict[str, Any]:
     """
     Change ``session`` as the instruction asks, save it, and keep the previous
@@ -359,7 +360,7 @@ async def edit_roadmap(
         found = await rag.retrieve(
             instruction, list(notebook_ids), allow_global_fallback=False, source_ids=source_ids
         )
-        passages = relevant_passages(found, picked=bool(source_ids))
+        passages = relevant_passages(found, picked=bool(source_ids) if files_only is None else files_only)
 
     raw = await _invoke_chat(
         prompt=_edit_prompt(session, nodes, instruction, passages),

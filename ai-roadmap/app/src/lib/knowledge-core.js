@@ -26,6 +26,9 @@ const isFile = (value) => value.startsWith('doc:') || value.startsWith('src:')
 const isCourse = (value) => value.startsWith('course:')
 const isNotebook = (value) => value.startsWith('nb:')
 
+/** How many single files (not whole courses / notebooks / all my files) are ticked. */
+export const pickedFileCount = (picked) => picked.filter(isFile).length
+
 /** Single files that a ticked whole (course, notebook, all my files) already includes. */
 export function coveredValues(picked, groups) {
   const covered = new Set()

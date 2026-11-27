@@ -863,7 +863,7 @@ def can_manage_document(
 
 
 async def list_documents_by_ids(user: User, ids: Sequence[int]) -> List[Dict[str, Any]]:
-    clean = [int(i) for i in ids][:20]
+    clean = [int(i) for i in ids][:MAX_PICKED_SOURCES]
     if not clean:
         return []
     placeholders = ", ".join(f":id{i}" for i in range(len(clean)))
