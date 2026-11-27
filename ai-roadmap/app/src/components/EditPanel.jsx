@@ -7,14 +7,14 @@ import { Close } from './icons'
  * "สั่งแก้ด้วย AI": the learner types what to change and the AI edits this
  * roadmap in place. `onSubmit(text)` resolves true when the edit was saved.
  */
-export default function EditPanel({ cost, exempt, balance, busy, canUndo, undoing, onSubmit, onUndo, onClose }) {
+export default function EditPanel({ cost, exempt, balance, busy, canUndo, undoing, lockedReason, onSubmit, onUndo, onClose }) {
   const [text, setText] = useState('')
   const boxRef = useRef(null)
   useEffect(() => {
     boxRef.current?.focus()
   }, [])
 
-  const blocked = editBlockedReason({ text, cost, balance, exempt })
+  const blocked = lockedReason || editBlockedReason({ text, cost, balance, exempt })
   const submit = async (event) => {
     event.preventDefault()
     if (blocked || busy) return
@@ -71,7 +71,7 @@ export default function EditPanel({ cost, exempt, balance, busy, canUndo, undoin
             </span>
             <div className="edit-panel-actions">
               {canUndo && (
-                <button type="button" className="btn" onClick={onUndo} disabled={undoing}>
+                <button type="button" className="btn" onClick={onUndo} disabled={undoing || Boolean(lockedReason)}>
                   {undoing ? 'กำลังย้อน…' : 'ย้อนการแก้ล่าสุด'}
                 </button>
               )}
@@ -80,7 +80,7 @@ export default function EditPanel({ cost, exempt, balance, busy, canUndo, undoin
               </button>
             </div>
           </div>
-          {blocked && text.trim() && <p className="hint">{blocked}</p>}
+          {blocked && (text.trim() || lockedReason) && <p className="hint">{blocked}</p>}
         </form>
       )}
     </section>

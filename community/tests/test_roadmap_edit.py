@@ -206,6 +206,13 @@ def ai(monkeypatch):
     monkeypatch.setattr(roadmap_edit, "_invoke_chat", fake_chat)
     monkeypatch.setattr(roadmap_plan, "research_on_web", fake_research)
     monkeypatch.setattr(roadmap_edit, "cache_service", state["cache"])
+    state["concurrent"] = []
+
+    async def fake_current(session):
+        # what the database holds right before saving: the loaded nodes plus anything saved meanwhile
+        return list(session.nodes) + state["concurrent"]
+
+    monkeypatch.setattr(roadmap_edit, "_current_nodes", fake_current)
     return state
 
 
@@ -317,3 +324,52 @@ def test_old_roadmaps_with_english_stages_keep_their_lanes():
     new = next(n for n in nodes if n["label"] == "PR")
     assert new["category"] == "development"
     assert [n["label"] for n in sorted((n for n in nodes if not n["parent"]), key=lambda n: n["order"])] == ["a", "b", "PR", "c", "d"]
+
+
+def test_an_expansion_saved_during_the_edit_is_not_overwritten(ai):
+    session = _session()
+    ai["replies"] = [ADD_DOCKER]
+    ai["concurrent"] = [{"id": "n9", "label": "ขยายระหว่างนั้น", "parent": "n1"}]
+    with pytest.raises(InvalidInputError):
+        _edit(session)
+    assert not getattr(session, "saves", 0) and ai["cache"].store == {}
+
+
+def test_renaming_keeps_the_description_the_model_echoed_back():
+    long = "บรรทัดแรกของคำอธิบายที่ยาวมาก " * 8 + "\n\nโน้ตจากเว็บ: แหล่งเรียนฟรี"
+    base = _nodes()
+    base[0]["description"] = long
+    shown = roadmap_edit._one_line(long, roadmap_edit.DESCRIPTION_IN_PROMPT)
+    assert shown.endswith("…")
+    for echoed in (shown, " ".join(long.split())):
+        nodes, changes = roadmap_edit.apply_edit_ops(
+            base, [{"op": "update", "id": "n1", "label": "Python เบื้องต้น", "description": echoed}]
+        )
+        n1 = _by_id(nodes)["n1"]
+        assert n1["label"] == "Python เบื้องต้น" and n1["description"] == long
+        assert changes["updated"] == ["n1"]
+
+
+def test_a_real_new_description_still_replaces_the_old_one():
+    nodes, _ = roadmap_edit.apply_edit_ops(_nodes(), [{"op": "update", "id": "n1", "description": "คำอธิบายใหม่"}])
+    assert _by_id(nodes)["n1"]["description"] == "คำอธิบายใหม่"
+
+
+def test_update_ops_say_label_and_description_are_optional():
+    assert "optional" in roadmap_edit.EDIT_SYSTEM_PROMPT.lower()
+
+
+@pytest.mark.parametrize(
+    "ops",
+    [
+        [{"op": "add", "ref": "a1", "label": "x", "parent": "n2"}, {"op": "remove", "id": "n2"},
+         {"op": "add", "ref": "a2", "label": "y", "parent": "a1"}, {"op": "update", "id": "n1", "label": "ใหม่"}],
+        [{"op": "add", "ref": "a1", "label": "x"}, {"op": "remove", "id": "a1"}, {"op": "update", "id": "a1", "label": "z"},
+         {"op": "update", "id": "n1", "label": "ใหม่"}],
+        [{"op": "add", "ref": "a1", "label": "x"}, {"op": "remove", "id": "a1"}, {"op": "remove", "id": "a1"},
+         {"op": "move", "id": "a1", "parent": None}, {"op": "update", "id": "n1", "label": "ใหม่"}],
+    ],
+)
+def test_a_ref_to_a_node_removed_earlier_is_skipped(ops):
+    nodes, changes = roadmap_edit.apply_edit_ops(_nodes(), ops)
+    assert _by_id(nodes)["n1"]["label"] == "ใหม่" and "n1" in changes["updated"]

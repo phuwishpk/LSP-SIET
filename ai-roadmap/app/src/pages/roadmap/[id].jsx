@@ -83,6 +83,8 @@ export default function RoadmapPage() {
     if (depthOf(nodes, selected) >= MAX_DEPTH) expandBlocked = 'หัวข้อนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากหัวข้อหลัก)'
     else if (nodes.length >= MAX_NODES) expandBlocked = `Roadmap นี้มีครบ ${MAX_NODES} หัวข้อแล้ว`
     else if (!exempt && balance < expandCost) expandBlocked = `ขาดอีก ${expandCost - balance} แต้ม`
+    // One change at a time: an expansion saved during an AI edit would be lost.
+    else if (editBusy || undoing) expandBlocked = 'รอให้การแก้ด้วย AI เสร็จก่อน'
   }
 
   const expand = async () => {
@@ -281,6 +283,7 @@ export default function RoadmapPage() {
             busy={editBusy}
             canUndo={Boolean(roadmap.can_undo)}
             undoing={undoing}
+            lockedReason={expanding ? 'รอให้การขยายหัวข้อเสร็จก่อน' : null}
             onSubmit={editWithAi}
             onUndo={undoEdit}
             onClose={() => setEditing(false)}

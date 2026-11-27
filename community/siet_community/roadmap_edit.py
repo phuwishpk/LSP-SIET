@@ -50,6 +50,8 @@ UNREADABLE = "AI ตอบกลับในรูปแบบที่อ่า
 NO_INSTRUCTION = "พิมพ์สิ่งที่อยากให้แก้ก่อน"
 NOTHING_TO_UNDO = "ไม่มีการแก้ที่ย้อนได้ (ย้อนได้เฉพาะการแก้ล่าสุด และต้องยังไม่ได้แก้หรือขยายต่อ)"
 
+CHANGED_MEANWHILE = "Roadmap นี้ถูกแก้หรือขยายระหว่างที่ AI ทำงาน จึงไม่บันทึกทับ ลองสั่งใหม่อีกครั้ง (คืนแต้มแล้ว)"
+
 UNDO_TTL = 7 * 24 * 3600
 DESCRIPTION_IN_PROMPT = 160
 
@@ -58,7 +60,8 @@ EDIT_SYSTEM_PROMPT = (
     'object and nothing else, shaped as {"summary": str, "ops": [op, ...]}, where each op is '
     'one of: {"op": "add", "ref": str, "label": str, "description": str, "parent": id or null, '
     '"after": id or null, "stage": str, "refs": [int], "from_library": bool}; '
-    '{"op": "remove", "id": str}; {"op": "update", "id": str, "label": str, "description": str}; '
+    '{"op": "remove", "id": str}; {"op": "update", "id": str, "label": str (optional), '
+    '"description": str (optional)}; '
     '{"op": "move", "id": str, "parent": id or null, "after": id or null, "stage": str}.'
 )
 
@@ -137,6 +140,20 @@ class _Tree:
         return out
 
 
+def _echoes(new: Any, old: Any) -> bool:
+    """
+    True when ``new`` is only the node's description as the prompt showed it
+    (one line, cut at DESCRIPTION_IN_PROMPT): a model renaming a node often
+    copies it back, which must not cut the real description short.
+    """
+    shown = " ".join(str(new or "").split())
+    full = " ".join(str(old or "").split())
+    if not full or shown == full or shown == _one_line(old, DESCRIPTION_IN_PROMPT):
+        return True if full else not shown
+    stem = shown.rstrip("…").rstrip()
+    return shown.endswith("…") and bool(stem) and full.startswith(stem)
+
+
 def _stage_for_main(tree: _Tree, op: Dict[str, Any], after: Any) -> Any:
     # Older roadmaps name their lanes in English (planning, development…): a
     # new main node joins its neighbour's lane there instead of opening a new one.
@@ -174,7 +191,9 @@ def apply_edit_ops(
         key = str(value).strip()
         if key in tree.by_id:
             return key
-        return refs.get(key, _MISSING)
+        # A node added earlier in this answer may already be gone again (removed itself or with its parent).
+        node_id = refs.get(key)
+        return node_id if node_id in tree.by_id else _MISSING
 
     def mark_updated(node_id: str) -> None:
         if node_id not in added and node_id not in updated:
@@ -234,7 +253,7 @@ def apply_edit_ops(
                 label = _one_line(op["label"], MAX_LABEL_CHARS)
                 if label and label != node.get("label"):
                     node["label"], changed = label, True
-            if op.get("description") is not None:
+            if op.get("description") is not None and not _echoes(op["description"], node.get("description")):
                 description = _clip(op["description"], MAX_DESCRIPTION_CHARS)
                 if description != (node.get("description") or ""):
                     node["description"], changed = description, True
@@ -302,6 +321,8 @@ def _edit_prompt(session: Any, nodes: Sequence[Dict[str, Any]], instruction: str
         "ops may use as its parent or after.\n"
         "- parent null makes a main node; give a main node a stage from the list above. A main node "
         f"may have sub-nodes and those may have details: at most {MAX_DEPTH} levels below a main node.\n"
+        "- update: give only the fields that change. To rename a node send just its label; never "
+        "copy a description back (the descriptions above are shortened).\n"
         "- after = the sibling it comes right after (null puts it last among its siblings).\n"
         f"- remove also removes the node's sub-nodes. Keep at least {MIN_MAIN_NODES} main nodes.\n"
         f"- Write labels (at most 40 characters) and descriptions (1-3 sentences) in language code {language}.\n"
@@ -382,6 +403,11 @@ async def edit_roadmap(
         known_urls = {p.get("url") for p in info.get("web_sources") or []}
         info["web_sources"] = (info.get("web_sources") or []) + [p for p in pages if p.get("url") not in known_urls]
 
+    # The model took about half a minute; an expansion or another edit may have
+    # been saved meanwhile. Saving now would silently drop it.
+    if graph_fingerprint(await _current_nodes(session)) != graph_fingerprint(nodes):
+        raise InvalidInputError(CHANGED_MEANWHILE)
+
     previous = {"nodes": nodes, "edges": list(session.edges or []), "grounding": session.grounding}
     session.nodes, session.edges = rebuild(new_nodes)
     session.grounding = info
@@ -396,6 +422,14 @@ async def edit_roadmap(
         f"roadmap: edited {session.id}: +{len(changes['added'])} -{len(changes['removed'])} ~{len(changes['updated'])}"
     )
     return {**changes, "summary": _one_line(payload.get("summary"), 200)}
+
+
+async def _current_nodes(session: Any) -> List[Dict[str, Any]]:
+    """The roadmap's nodes as stored right now."""
+    from siet_roadmap.domain import RoadmapSession
+
+    fresh = await RoadmapSession.get_for_owner(session_id=str(session.id), owner_id=session.owner_id)
+    return list(fresh.nodes or [])
 
 
 # ---------------------------------------------------------------------------
