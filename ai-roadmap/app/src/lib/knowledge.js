@@ -2,7 +2,19 @@ import { ws } from './api'
 
 import { groupKnowledge } from './knowledge-core'
 
-export { AUTO, FILES, MAX_PICKED_FILES, NONE, PERSONAL, groupKnowledge, scopeFields, sourceSummary } from './knowledge-core'
+export {
+  ALL_MINE,
+  AUTO,
+  FILES,
+  MAX_PICKED_FILES,
+  NONE,
+  PERSONAL,
+  coveredValues,
+  groupKnowledge,
+  scopeFields,
+  sourceSummary,
+  togglePick,
+} from './knowledge-core'
 
 /**
  * Load the picker's lists (see knowledge-core.js); a list that fails to load is

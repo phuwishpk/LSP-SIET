@@ -2523,3 +2523,19 @@ h1, h2, h3, .h1, .h2, .h3, .card-title {
     width: 100%;
   }
 }
+
+/* Option rows with 4-5 choices: one connected row on wide screens, separate pills on a phone. */
+@media (max-width: 520px) {
+  .segmented-wrap {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .segmented-wrap .segment,
+  .segmented-wrap .segment:first-child,
+  .segmented-wrap .segment:last-child {
+    flex: 1 1 auto;
+    margin-left: 0;
+    border-radius: 999px;
+  }
+}

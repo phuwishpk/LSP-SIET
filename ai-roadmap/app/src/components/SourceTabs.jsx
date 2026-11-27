@@ -1,12 +1,12 @@
 import { useMemo, useState } from 'react'
 import { BookOpen, ChevronRight, FileText, Globe2, GraduationCap, Lock, Search, Sparkles } from 'lucide-react'
-import { AUTO, NONE, PERSONAL } from '@/lib/knowledge'
+import { ALL_MINE, AUTO, NONE } from '@/lib/knowledge'
 
 /**
  * "แหล่งความรู้" of the create form, split by where a source comes from (as on
- * the KMITL RAG AI page). One choice per form - AI decides / my files / a whole
- * course / a whole notebook / no library - or several ticked files (FILES),
- * which may come from any tab.
+ * the KMITL RAG AI page). "อัตโนมัติ" and "ไม่ใช้คลัง" are one choice each; in
+ * the other tabs everything is ticked: whole courses, whole notebooks, all my
+ * files and single files, from any tab and together (FILES).
  */
 
 export const TABS = [
@@ -17,11 +17,10 @@ export const TABS = [
   { id: 'none', label: 'ไม่ใช้คลัง', icon: Globe2 },
 ]
 
-/** The choice a tab starts with (null = the user still has to pick in it). */
+/** The choice a tab starts with (null = the user still has to tick something). */
 export function tabDefault(tab) {
   if (tab === 'auto') return AUTO
   if (tab === 'none') return NONE
-  if (tab === 'mine') return PERSONAL
   return null
 }
 
@@ -41,7 +40,7 @@ function Row({ kind, checked, disabled, onChange, icon: Icon, label, meta, inden
   )
 }
 
-function Group({ item, choice, pickedSet, onChoice, onTick, atLimit, disabled, icon, children, q }) {
+function Group({ item, pickedSet, covered, onTick, filesFull, disabled, icon, children, q }) {
   const [open, setOpen] = useState(false)
   const shown = q && !matches(item.label, q) ? children.filter((c) => matches(c.label, q)) : children
   const expanded = open || (Boolean(q) && !matches(item.label, q) && shown.length > 0)
@@ -63,11 +62,10 @@ function Group({ item, choice, pickedSet, onChoice, onTick, atLimit, disabled, i
           <span className="src-toggle-spacer" />
         )}
         <Row
-          kind="radio"
-          name="src-whole"
-          checked={choice === item.value}
+          kind="checkbox"
+          checked={pickedSet.has(item.value)}
           disabled={disabled}
-          onChange={() => onChoice(item.value)}
+          onChange={() => onTick(item.value)}
           icon={icon}
           label={item.label}
           meta={item.meta}
@@ -75,18 +73,19 @@ function Group({ item, choice, pickedSet, onChoice, onTick, atLimit, disabled, i
       </div>
       {expanded &&
         shown.map((child) => {
-          const on = pickedSet.has(child.value)
+          const inWhole = covered.has(child.value)
+          const on = inWhole || pickedSet.has(child.value)
           return (
             <Row
               key={child.value}
               kind="checkbox"
               indent
               checked={on}
-              disabled={disabled || child.ready === false || (!on && atLimit)}
+              disabled={disabled || inWhole || child.ready === false || (!on && filesFull)}
               onChange={() => onTick(child.value)}
               icon={FileText}
               label={child.label}
-              meta={child.ready === false ? 'ยังไม่พร้อมใช้' : undefined}
+              meta={inWhole ? 'รวมอยู่แล้ว' : child.ready === false ? 'ยังไม่พร้อมใช้' : undefined}
             />
           )
         })}
@@ -94,10 +93,9 @@ function Group({ item, choice, pickedSet, onChoice, onTick, atLimit, disabled, i
   )
 }
 
-export default function SourceTabs({ tab, onTab, groups, choice, onChoice, picked, onTick, pickLimit, disabled }) {
+export default function SourceTabs({ tab, onTab, groups, picked, covered, onTick, filesFull, disabled }) {
   const [q, setQ] = useState('')
   const pickedSet = useMemo(() => new Set(picked), [picked])
-  const atLimit = picked.length >= pickLimit
 
   const list = tab === 'course' ? groups.courses : tab === 'staff' ? groups.staff : []
   const shownList = q
@@ -132,27 +130,28 @@ export default function SourceTabs({ tab, onTab, groups, choice, onChoice, picke
         ) : (
           <div className="src-list" role="group" aria-label="ไฟล์ของฉัน">
             <Row
-              kind="radio"
-              name="src-whole"
-              checked={choice === PERSONAL}
+              kind="checkbox"
+              checked={pickedSet.has(ALL_MINE)}
               disabled={disabled}
-              onChange={() => onChoice(PERSONAL)}
+              onChange={() => onTick(ALL_MINE)}
               icon={Lock}
               label="ไฟล์ทั้งหมดของฉัน"
               meta={`${groups.mine.length} ไฟล์ · หรือติ๊กเลือกเฉพาะบางไฟล์ด้านล่าง`}
             />
             {groups.mine.map((doc) => {
-              const on = pickedSet.has(doc.value)
+              const inWhole = covered.has(doc.value)
+              const on = inWhole || pickedSet.has(doc.value)
               return (
                 <Row
                   key={doc.value}
                   kind="checkbox"
                   indent
                   checked={on}
-                  disabled={disabled || (!on && atLimit)}
+                  disabled={disabled || inWhole || (!on && filesFull)}
                   onChange={() => onTick(doc.value)}
                   icon={FileText}
                   label={doc.label}
+                  meta={inWhole ? 'รวมอยู่แล้ว' : undefined}
                 />
               )
             })}
@@ -189,11 +188,10 @@ export default function SourceTabs({ tab, onTab, groups, choice, onChoice, picke
                       ? { ...item, meta: `${item.joined ? 'เข้าร่วมแล้ว' : 'ห้องเปิด'}${item.docs.length ? ` · ${item.docs.length} เอกสาร` : ''}` }
                       : { ...item, meta: `${item.meta ? `${item.meta} · ` : ''}${item.sources.length} เอกสาร` }
                   }
-                  choice={choice}
                   pickedSet={pickedSet}
-                  onChoice={onChoice}
+                  covered={covered}
                   onTick={onTick}
-                  atLimit={atLimit}
+                  filesFull={filesFull}
                   disabled={disabled}
                   icon={tab === 'course' ? GraduationCap : BookOpen}
                   q={q}

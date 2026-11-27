@@ -4,7 +4,17 @@ import { toast } from 'react-toastify'
 import { Paperclip, X } from 'lucide-react'
 import { PinkOwlMascot } from '@shared/mascot'
 import { ws } from '@/lib/api'
-import { AUTO, FILES, loadKnowledge, MAX_PICKED_FILES, scopeFields, sourceSummary, uploadToMyLibrary } from '@/lib/knowledge'
+import {
+  AUTO,
+  coveredValues,
+  FILES,
+  loadKnowledge,
+  MAX_PICKED_FILES,
+  scopeFields,
+  sourceSummary,
+  togglePick,
+  uploadToMyLibrary,
+} from '@/lib/knowledge'
 import { clearLaunchContext, communityUrl, launchContext, sessionCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
 import SourceTabs, { tabDefault } from './SourceTabs'
@@ -16,7 +26,51 @@ const WEB_MODES = [
   { value: 'always', label: 'เสริมเสมอ', hint: 'เสริมเนื้อหาจากเว็บทุกหัวข้อ แม้คลังความรู้จะครอบคลุมแล้ว' },
   { value: 'off', label: 'ไม่ใช้เว็บ', hint: 'ใช้เฉพาะคลังความรู้ หัวข้อที่คลังไม่มีจะมาจากความรู้ทั่วไปของ AI' },
 ]
+// What the learner tells the AI about themselves (null = not given).
+const LEVELS = [
+  { value: null, label: 'ไม่ระบุ' },
+  { value: 'beginner', label: 'เริ่มจากศูนย์', hint: 'เริ่มจากพื้นฐานที่สุด อธิบายศัพท์ใหม่ทุกคำ' },
+  { value: 'intermediate', label: 'มีพื้นฐานบ้าง', hint: 'ข้ามเรื่องพื้นฐานไปเร็วๆ แล้วลงลึกขึ้น' },
+  { value: 'advanced', label: 'ลงลึก', hint: 'ข้ามพื้นฐาน เน้นหัวข้อขั้นสูงและรายละเอียด' },
+]
+const DURATIONS = [
+  { value: null, label: 'ไม่ระบุ' },
+  { value: '1w', label: '1 สัปดาห์' },
+  { value: '2w', label: '2 สัปดาห์' },
+  { value: '1m', label: '1 เดือน' },
+  { value: 'semester', label: '1 ภาคเรียน' },
+]
+const FOCUSES = [
+  { value: null, label: 'สมดุล' },
+  { value: 'theory', label: 'เข้าใจทฤษฎี', hint: 'เน้นเข้าใจแนวคิดและที่มา' },
+  { value: 'practice', label: 'ฝึกลงมือ', hint: 'มีแบบฝึกหรืองานเล็กๆ ทุกขั้น' },
+  { value: 'project', label: 'ทำโปรเจกต์', hint: 'สร้างโปรเจกต์หนึ่งชิ้นทีละขั้น ทุกหัวข้อหลักต่อยอดกัน' },
+  { value: 'exam', label: 'เตรียมสอบ', hint: 'เน้นหัวข้อที่ออกสอบ แบบฝึก และการทบทวน' },
+]
 const FILE_TYPES = '.pdf,.docx,.pptx,.xlsx,.csv,.md,.txt'
+
+/** A row of connected buttons that picks one value (null allowed). */
+function Segments({ legend, options, value, onChange, hint }) {
+  return (
+    <fieldset className="field">
+      <legend>{legend}</legend>
+      <div className="segmented segmented-wrap" role="group">
+        {options.map((option) => (
+          <button
+            key={option.value ?? 'none'}
+            type="button"
+            className={`segment ${option.value === value ? 'segment-on' : ''}`}
+            aria-pressed={option.value === value}
+            onClick={() => onChange(option.value)}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
+      {hint && <p className="hint">{hint}</p>}
+    </fieldset>
+  )
+}
 const EMPTY_GROUPS = { mine: [], courses: [], staff: [] }
 
 /** The "create a learning plan" form. */
@@ -31,6 +85,9 @@ export default function CreateForm() {
   const [groups, setGroups] = useState(EMPTY_GROUPS)
   const [picked, setPicked] = useState([])
   const [web, setWeb] = useState('auto')
+  const [level, setLevel] = useState(null)
+  const [duration, setDuration] = useState(null)
+  const [focus, setFocus] = useState(null)
   const [file, setFile] = useState(null)
   const [stage, setStage] = useState(null)
   const busy = stage !== null
@@ -54,7 +111,8 @@ export default function CreateForm() {
       }
       if (context.course && loaded.courses.some((c) => c.id === context.course)) {
         setTab('course')
-        setChoice(`course:${context.course}`)
+        setChoice(FILES)
+        setPicked([`course:${context.course}`])
       }
     })
     return () => {
@@ -67,14 +125,15 @@ export default function CreateForm() {
   const noFilesYet = choice === FILES && picked.length === 0 && !file
   const canSubmit = topic.trim().length >= 3 && !busy && missing === 0 && choice !== null && !noFilesYet
   // An attached file is sent as one more document, inside the same limit.
-  const pickLimit = MAX_PICKED_FILES - (file ? 1 : 0)
+  const filesFull = picked.filter((v) => v.startsWith('doc:') || v.startsWith('src:')).length + (file ? 1 : 0) >= MAX_PICKED_FILES
+  const covered = coveredValues(picked, groups)
   const summary = file && choice === FILES
     ? `ใช้ไฟล์ที่แนบ${picked.length ? ` และอีก ${picked.length} ไฟล์ที่เลือก` : ''}`
     : sourceSummary(choice, picked, groups)
 
   const changeTab = (next) => {
     setTab(next)
-    // Ticked files stay ticked across the file tabs; "อัตโนมัติ"/"ไม่ใช้คลัง" read no picked files.
+    // Ticks stay across the tabs (several sources together); "อัตโนมัติ"/"ไม่ใช้คลัง" read none of them.
     if (next === 'auto' || next === 'none') {
       setPicked([])
       setFile(null)
@@ -91,7 +150,8 @@ export default function CreateForm() {
   }
 
   const tick = (value) => {
-    const next = picked.includes(value) ? picked.filter((item) => item !== value) : picked.length >= pickLimit ? picked : [...picked, value]
+    const { picked: next, reason } = togglePick(picked, value, groups, { extraFiles: file ? 1 : 0 })
+    if (reason) toast.info(reason)
     setPicked(next)
     if (next.length > 0) setChoice(FILES)
     else if (!file) setChoice(tabDefault(tab))
@@ -111,7 +171,16 @@ export default function CreateForm() {
       setStage('AI กำลังอ่านแหล่งความรู้และวางแผน ใช้เวลาประมาณครึ่งนาทีถึงหนึ่งนาที')
       const result = await ws('community/study/roadmap', {
         method: 'POST',
-        json: { description: topic.trim(), ...(nodeCount ? { node_count: nodeCount } : {}), language: 'th', web, ...scope },
+        json: {
+          description: topic.trim(),
+          ...(nodeCount ? { node_count: nodeCount } : {}),
+          ...(level ? { level } : {}),
+          ...(duration ? { duration } : {}),
+          ...(focus ? { focus } : {}),
+          language: 'th',
+          web,
+          ...scope,
+        },
       })
       clearLaunchContext()
       refresh().catch(() => {})
@@ -171,11 +240,10 @@ export default function CreateForm() {
             tab={tab}
             onTab={changeTab}
             groups={groups}
-            choice={choice}
-            onChoice={choose}
             picked={picked}
+            covered={covered}
             onTick={tick}
-            pickLimit={pickLimit}
+            filesFull={filesFull}
           />
           {file && (
             <div className="attached">
@@ -197,7 +265,7 @@ export default function CreateForm() {
           <p className="summary" aria-live="polite">
             {summary}
             {picked.length > 0 && (
-              <button type="button" className="link-button" onClick={() => choose(tabDefault(tab) ?? AUTO)}>
+              <button type="button" className="link-button" onClick={() => choose(tabDefault(tab))}>
                 ล้างที่เลือก
               </button>
             )}
@@ -232,6 +300,27 @@ export default function CreateForm() {
         <p className="field-title">
           <span className="step">3</span>ตัวเลือกเพิ่มเติม
         </p>
+        <Segments
+          legend="พื้นฐานของฉัน"
+          options={LEVELS}
+          value={level}
+          onChange={setLevel}
+          hint={LEVELS.find((o) => o.value === level)?.hint || 'AI ดูจากเป้าหมายแล้วเดาระดับให้เอง'}
+        />
+        <Segments
+          legend="เวลาที่มี"
+          options={DURATIONS}
+          value={duration}
+          onChange={setDuration}
+          hint={duration ? 'AI จัดขนาดแผนให้ทันเวลา และบอกในแต่ละหัวข้อหลักว่าควรทำช่วงไหน' : 'ไม่จำกัดเวลา'}
+        />
+        <Segments
+          legend="อยากเน้นแบบไหน"
+          options={FOCUSES}
+          value={focus}
+          onChange={setFocus}
+          hint={FOCUSES.find((o) => o.value === focus)?.hint || 'ผสมทั้งทฤษฎีและการลงมือทำ'}
+        />
         <fieldset className="field">
           <legend>ข้อมูลจากเว็บ</legend>
           <div className="segmented" role="group">

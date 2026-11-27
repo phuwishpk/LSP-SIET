@@ -1,7 +1,10 @@
 // Run from the repo root: node --test ai-roadmap/app/src/lib/*.test.mjs (pure functions, no bundler)
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { AUTO, FILES, NONE, PERSONAL, groupKnowledge, scopeFields, sourceSummary } from './knowledge-core.js'
+import {
+  AUTO, ALL_MINE, FILES, MAX_PICKED_COURSES, MAX_PICKED_FILES, NONE, PERSONAL,
+  coveredValues, groupKnowledge, scopeFields, sourceSummary, togglePick,
+} from './knowledge-core.js'
 
 const ROOMS = [
   { id: 1, code: 'CS301', name: 'OS', kind: 'course', joined: true },
@@ -72,5 +75,50 @@ test('sourceSummary says what the AI will read', () => {
   assert.equal(sourceSummary('course:2', [], g), 'ใช้เอกสารทั้งหมดในวิชา DEMO101 Programming')
   assert.equal(sourceSummary('nb:notebook:s', [], g), 'ใช้ทั้ง notebook “คู่มือ”')
   assert.equal(sourceSummary(FILES, ['doc:10', 'doc:20'], g), 'ใช้เฉพาะ 2 ไฟล์ที่เลือก')
-  assert.equal(sourceSummary(null, [], g), 'เลือกวิชาหรือ notebook ที่ต้องการก่อน')
+  assert.equal(sourceSummary(null, [], g), 'ติ๊กเลือกแหล่งความรู้ที่ต้องการก่อน (เลือกได้หลายวิชา หลาย notebook และหลายไฟล์พร้อมกัน)')
+})
+
+test('whole courses, notebooks and all my files can be ticked together', () => {
+  assert.deepEqual(scopeFields(FILES, ['course:1', 'course:2', 'nb:notebook:s', ALL_MINE, 'doc:10', 'src:source:s1']), {
+    scope: 'document',
+    document_ids: [10],
+    source_ids: ['source:s1'],
+    notebook_ids: ['notebook:s'],
+    course_ids: [1, 2],
+    include_personal: true,
+  })
+})
+
+test('ticking a whole course drops its single files, which it already covers', () => {
+  const g = groupKnowledge(ROOMS, LIBRARY, KNOWLEDGE)
+  const { picked } = togglePick(['doc:20', 'doc:10'], 'course:2', g)
+  assert.deepEqual(picked, ['doc:10', 'course:2'])
+  assert.deepEqual([...coveredValues(picked, g)].sort(), ['doc:20'])
+  assert.deepEqual([...coveredValues(['nb:notebook:s', ALL_MINE], g)].sort(), ['doc:10', 'src:source:s1'])
+  // and unticking takes it out again
+  assert.deepEqual(togglePick(picked, 'course:2', g).picked, ['doc:10'])
+})
+
+test('limits: 50 files, 10 courses', () => {
+  const g = groupKnowledge(ROOMS, LIBRARY, KNOWLEDGE)
+  const files = Array.from({ length: MAX_PICKED_FILES }, (_, i) => `doc:${100 + i}`)
+  assert.equal(MAX_PICKED_FILES, 50)
+  const full = togglePick(files, 'doc:999', g)
+  assert.deepEqual(full.picked, files)
+  assert.equal(full.reason, 'เลือกไฟล์ได้สูงสุด 50 ไฟล์')
+  // an attached file counts as one of the 50
+  assert.equal(togglePick(files.slice(1), 'doc:999', g, { extraFiles: 1 }).reason, 'เลือกไฟล์ได้สูงสุด 50 ไฟล์')
+  const courses = Array.from({ length: MAX_PICKED_COURSES }, (_, i) => `course:${50 + i}`)
+  assert.equal(togglePick(courses, 'course:99', g).reason, 'เลือกรายวิชาได้สูงสุด 10 วิชา')
+  assert.equal(togglePick([], 'course:1', g).reason, null)
+})
+
+test('the summary names what was ticked', () => {
+  const g = groupKnowledge(ROOMS, LIBRARY, KNOWLEDGE)
+  assert.equal(sourceSummary(FILES, ['course:2'], g), 'ใช้ วิชา DEMO101 Programming')
+  assert.equal(
+    sourceSummary(FILES, ['course:1', 'course:2', 'nb:notebook:s', ALL_MINE, 'doc:20'], g),
+    'ใช้ 2 วิชา · notebook “คู่มือ” · ไฟล์ทั้งหมดของฉัน · 1 ไฟล์ที่เลือก',
+  )
+  assert.equal(sourceSummary(FILES, ['doc:10', 'doc:20'], g), 'ใช้เฉพาะ 2 ไฟล์ที่เลือก')
 })
