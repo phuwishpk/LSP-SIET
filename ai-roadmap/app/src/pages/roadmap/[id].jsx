@@ -4,11 +4,14 @@ import Link from 'next/link'
 import { useRouter } from 'next/router'
 import { toast } from 'react-toastify'
 import { PinkOwlMascot } from '@shared/mascot'
+import EditPanel from '@/components/EditPanel'
 import NodePanel from '@/components/NodePanel'
 import RoadmapGraph from '@/components/RoadmapGraph'
 import ShareDialog from '@/components/ShareDialog'
+import { Sparkles } from 'lucide-react'
 import { ChevronLeft, Download, Share } from '@/components/icons'
 import { seg, ws } from '@/lib/api'
+import { changeSummary, changedIds } from '@/lib/roadmap-edit'
 import { communityUrl, sessionIdFromCode } from '@/lib/workspace'
 import { useWorkspace } from '@/lib/workspace-context'
 
@@ -47,6 +50,11 @@ export default function RoadmapPage() {
   const [sharing, setSharing] = useState(false)
   const [expanding, setExpanding] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [editing, setEditing] = useState(false)
+  const [editBusy, setEditBusy] = useState(false)
+  const [undoing, setUndoing] = useState(false)
+  // Nodes the last AI edit added or changed, outlined on the map until the next action.
+  const [changed, setChanged] = useState(() => new Set())
 
   useEffect(() => {
     if (!isReady || !query.id) return
@@ -69,6 +77,7 @@ export default function RoadmapPage() {
   const childCount = selected ? nodes.filter((node) => String(node.parent) === String(selected.id)).length : 0
 
   const expandCost = Number(costs.roadmap_expand ?? 2)
+  const editCost = Number(costs.roadmap_edit ?? 3)
   let expandBlocked = null
   if (selected) {
     if (depthOf(nodes, selected) >= MAX_DEPTH) expandBlocked = 'หัวข้อนี้อยู่ชั้นลึกสุดแล้ว (ขยายได้ 2 ชั้นจากหัวข้อหลัก)'
@@ -84,12 +93,65 @@ export default function RoadmapPage() {
         json: { node_id: selected.id },
       })
       setRoadmap(result)
+      setChanged(new Set(result.added.map(String)))
       toast.success(result.synced_post_id ? `เพิ่ม ${result.added.length} หัวข้อย่อยแล้ว และอัปเดตโพสต์ในฟีดให้แล้ว` : `เพิ่ม ${result.added.length} หัวข้อย่อยแล้ว`)
     } catch (err) {
       toast.error(err?.message || 'ขยายหัวข้อไม่สำเร็จ')
     } finally {
       refresh().catch(() => {})
       setExpanding(false)
+    }
+  }
+
+  const select = (id) => {
+    setSelectedId(id)
+    setChanged(new Set())
+  }
+
+  const editWithAi = async (instruction) => {
+    setEditBusy(true)
+    try {
+      const result = await ws(`community/roadmaps/mine/${seg(roadmap.id)}/edit`, {
+        method: 'POST',
+        json: { instruction },
+      })
+      setRoadmap(result)
+      const ids = changedIds(result.changes)
+      setChanged(ids)
+      // Bring the first changed node into view: it may be far down a long roadmap.
+      if (ids.size) {
+        requestAnimationFrame(() => {
+          const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+          document.querySelector('.node-changed')?.scrollIntoView({ behavior: reduce ? 'auto' : 'smooth', block: 'center' })
+        })
+      }
+      if (selectedId && !result.nodes.some((node) => String(node.id) === selectedId)) setSelectedId(null)
+      const summary = changeSummary(result.changes)
+      toast.success(
+        `แก้ Roadmap แล้ว: ${summary}${result.summary ? ` (${result.summary})` : ''}${result.synced_post_id ? ' และอัปเดตโพสต์ในฟีดให้แล้ว' : ''}`,
+      )
+      return true
+    } catch (err) {
+      toast.error(err?.message || 'แก้ Roadmap ไม่สำเร็จ')
+      return false
+    } finally {
+      refresh().catch(() => {})
+      setEditBusy(false)
+    }
+  }
+
+  const undoEdit = async () => {
+    setUndoing(true)
+    try {
+      const result = await ws(`community/roadmaps/mine/${seg(roadmap.id)}/edit/undo`, { method: 'POST' })
+      setRoadmap(result)
+      setChanged(new Set())
+      if (selectedId && !result.nodes.some((node) => String(node.id) === selectedId)) setSelectedId(null)
+      toast.success('ย้อนกลับเป็นแบบก่อนแก้แล้ว')
+    } catch (err) {
+      toast.error(err?.message || 'ย้อนการแก้ไม่สำเร็จ')
+    } finally {
+      setUndoing(false)
     }
   }
 
@@ -169,6 +231,16 @@ export default function RoadmapPage() {
           </div>
         </div>
         <div className="viewer-actions">
+          <button
+            type="button"
+            className={`btn ${editing ? 'btn-outline-accent' : ''}`}
+            onClick={() => setEditing((open) => !open)}
+            aria-expanded={editing}
+            aria-controls="edit-panel"
+          >
+            <Sparkles aria-hidden="true" />
+            สั่งแก้ด้วย AI
+          </button>
           <button type="button" className="btn" onClick={download}>
             <Download />
             ดาวน์โหลด PNG
@@ -200,8 +272,24 @@ export default function RoadmapPage() {
         </div>
       </div>
 
+      {editing && (
+        <div id="edit-panel">
+          <EditPanel
+            cost={editCost}
+            exempt={exempt}
+            balance={balance}
+            busy={editBusy}
+            canUndo={Boolean(roadmap.can_undo)}
+            undoing={undoing}
+            onSubmit={editWithAi}
+            onUndo={undoEdit}
+            onClose={() => setEditing(false)}
+          />
+        </div>
+      )}
+
       <div className="viewer-body">
-        <RoadmapGraph ref={graphRef} nodes={nodes} selectedId={selectedId} onSelect={setSelectedId} />
+        <RoadmapGraph ref={graphRef} nodes={nodes} selectedId={selectedId} changedIds={changed} onSelect={select} />
         <NodePanel
           roadmap={roadmap}
           node={selected}

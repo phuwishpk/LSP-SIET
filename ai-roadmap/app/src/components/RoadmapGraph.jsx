@@ -16,7 +16,7 @@ function shorten(points) {
  */
 const MAX_SCALE = 1.6
 
-const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSelect }, ref) {
+const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, changedIds, onSelect }, ref) {
   const layout = useMemo(() => layoutRoadmap(nodes), [nodes])
 
   // Grow the map to fill the space it has (never shrink below 1:1). The scale
@@ -75,7 +75,7 @@ const RoadmapGraph = forwardRef(function RoadmapGraph({ nodes, selectedId, onSel
           <button
             key={box.id}
             type="button"
-            className={`node node-${box.kind} ${box.id === selectedId ? 'node-selected' : ''}`}
+            className={`node node-${box.kind} ${box.id === selectedId ? 'node-selected' : ''} ${changedIds?.has(String(box.id)) ? 'node-changed' : ''}`}
             style={{ left: box.x, top: box.y, width: box.w, height: box.h }}
             onClick={() => onSelect?.(box.id)}
             aria-pressed={box.id === selectedId}
