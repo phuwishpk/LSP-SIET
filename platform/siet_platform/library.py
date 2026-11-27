@@ -587,6 +587,24 @@ async def visible_notebook_ids(user: User) -> List[str]:
     return [nb["id"] for nb in await list_shared_notebooks(with_sources=False, viewer=user)]
 
 
+# How many notebooks / single sources one request may pick (the AI Roadmap form
+# lets a learner tick whole courses, notebooks and single files together).
+MAX_PICKED_NOTEBOOKS = 20
+MAX_PICKED_SOURCES = 50
+
+
+async def source_ids_of_notebooks(notebook_ids: Sequence[str]) -> List[str]:
+    """Every source in these notebooks (already checked as readable by the caller)."""
+    ids = [n for n in dict.fromkeys(notebook_ids or []) if is_valid_record_id(n, "notebook")]
+    if not ids:
+        return []
+    rows = await repo_query(
+        "SELECT in AS source FROM reference WHERE out IN $nbs",
+        {"nbs": [ensure_record_id(n) for n in ids]},
+    )
+    return list(dict.fromkeys(str(r.get("source")) for r in rows or [] if r.get("source")))
+
+
 async def resolve_knowledge_pick(
     user: User,
     *,
@@ -605,8 +623,8 @@ async def resolve_knowledge_pick(
     Returns ``{"notebook_ids": [...], "source_ids": [...] | None, "label": str}``.
     ``source_ids`` is ``None`` when whole notebooks were picked.
     """
-    wanted_nbs = [n for n in (notebook_ids or []) if is_valid_record_id(n, "notebook")][:20]
-    wanted_srcs = [s for s in (source_ids or []) if is_valid_record_id(s, "source")][:20]
+    wanted_nbs = [n for n in (notebook_ids or []) if is_valid_record_id(n, "notebook")][:MAX_PICKED_NOTEBOOKS]
+    wanted_srcs = [s for s in (source_ids or []) if is_valid_record_id(s, "source")][:MAX_PICKED_SOURCES]
     if not wanted_nbs and not wanted_srcs:
         raise LibraryError("ยังไม่ได้เลือก notebook หรือเอกสาร")
 

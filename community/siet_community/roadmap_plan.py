@@ -376,8 +376,46 @@ def _passage_block(passages: Sequence[Dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
+LEVELS = {
+    "beginner": "a complete beginner: start from the very basics and explain every new term",
+    "intermediate": "knows the basics already: keep the first steps short and go deeper",
+    "advanced": "already competent: skip the basics and focus on advanced topics, depth and edge cases",
+}
+DURATIONS = {
+    "1w": "one week",
+    "2w": "two weeks",
+    "1m": "one month (about 4 weeks)",
+    "semester": "one semester (about 16 weeks)",
+}
+FOCUSES = {
+    "theory": "understanding the concepts and the theory behind them",
+    "practice": "hands-on practice: exercises and small tasks at every step",
+    "project": "building one project step by step, each main node adding to it",
+    "exam": "preparing for an exam: key topics, practice questions and review",
+}
+
+
+def _preference_lines(preferences: Optional[Dict[str, str]]) -> str:
+    prefs = preferences or {}
+    lines = []
+    if prefs.get("level") in LEVELS:
+        lines.append(f"- Learner's level: {LEVELS[prefs['level']]}.")
+    if prefs.get("duration") in DURATIONS:
+        lines.append(
+            f"- Time available: {DURATIONS[prefs['duration']]}. Size the plan so it fits that time, and start "
+            "each main node's description with when to do it (e.g. week 1, or days 1-2)."
+        )
+    if prefs.get("focus") in FOCUSES:
+        lines.append(f"- Emphasis: {FOCUSES[prefs['focus']]}.")
+    return ("About the learner:\n" + "\n".join(lines) + "\n") if lines else ""
+
+
 def _plan_prompt(
-    description: str, language: str, node_count: Optional[int], passages: Sequence[Dict[str, Any]]
+    description: str,
+    language: str,
+    node_count: Optional[int],
+    passages: Sequence[Dict[str, Any]],
+    preferences: Optional[Dict[str, str]] = None,
 ) -> str:
     if node_count:
         mains = max(MIN_MAIN_NODES, min(node_count, round(node_count * 0.6)))
@@ -394,7 +432,8 @@ def _plan_prompt(
         )
     return (
         f"Learner's goal:\n{description}\n\n"
-        f"Write everything in language code {language}.\n"
+        + _preference_lines(preferences)
+        + f"Write everything in language code {language}.\n"
         + size +
         "- Main nodes have parent null and are listed in learning order. Each main node's "
         f"category is exactly one of: {', '.join(STAGES)}. Move through those stages in that "
@@ -650,6 +689,7 @@ async def generate_plan(
     scope_label: str = "",
     settings: Optional[Dict[str, Any]] = None,
     report: Optional[Dict[str, Any]] = None,
+    preferences: Optional[Dict[str, str]] = None,
 ) -> RoadmapSession:
     """
     Generate, ground and store a learning plan for ``owner_id``.
@@ -684,6 +724,7 @@ async def generate_plan(
             "scope": sorted(notebook_ids or []),
             "sources": sorted(source_ids or []),
             "passages": [content_key(p["snippet"]) for p in passages],
+            "prefs": sorted((preferences or {}).items()),
         }
     )
     cache_key = f"features:learning-plan:{owner_id}:{prompt_hash}"
@@ -694,7 +735,7 @@ async def generate_plan(
             report["cached"] = True
     else:
         raw = await _invoke_chat(
-            prompt=_plan_prompt(description, language, node_count, passages),
+            prompt=_plan_prompt(description, language, node_count, passages, preferences),
             system=SYSTEM_PROMPT,
             owner_id=owner_id,
             max_tokens=_plan_max_tokens(),

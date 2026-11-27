@@ -266,13 +266,23 @@ class StudyRoadmapBody(BaseModel):
     # (per ``web``) and the model's own knowledge.
     scope: Literal["auto", "course", "personal", "document", "notebook", "none"] = "auto"
     course_id: Optional[int] = None
-    # Several documents may be picked at once, together with notebook sources.
-    document_ids: List[int] = Field(default_factory=list, max_length=20)
+    # Several documents may be picked at once, together with notebook sources,
+    # whole courses and all of the learner's own files.
+    document_ids: List[int] = Field(default_factory=list, max_length=50)
     notebook_ids: List[str] = Field(default_factory=list, max_length=20)
-    source_ids: List[str] = Field(default_factory=list, max_length=20)
+    source_ids: List[str] = Field(default_factory=list, max_length=50)
+    course_ids: List[int] = Field(default_factory=list, max_length=10)
+    include_personal: bool = False
     # Web support: "auto" = web text only where the library has nothing (every node
     # still gets reading links), "always" = web text everywhere, "off" = no web.
     web: Literal["auto", "always", "off"] = "auto"
+    # What the learner says about themselves (None = not given).
+    level: Optional[Literal["beginner", "intermediate", "advanced"]] = None
+    duration: Optional[Literal["1w", "2w", "1m", "semester"]] = None
+    focus: Optional[Literal["theory", "practice", "project", "exam"]] = None
+
+    def preferences(self) -> Dict[str, str]:
+        return {k: v for k, v in (("level", self.level), ("duration", self.duration), ("focus", self.focus)) if v}
 
 
 class NotificationsRead(BaseModel):
@@ -1530,6 +1540,8 @@ async def _expansion_scope(user: User, session: RoadmapSession) -> tuple[List[st
             document_ids=saved.get("document_ids") or [],
             notebook_ids=saved.get("notebook_ids") or [],
             source_ids=saved.get("source_ids") or [],
+            course_ids=saved.get("course_ids") or [],
+            include_personal=bool(saved.get("include_personal")),
         )
         notebook_ids, source_ids, _label = await _study_scope(user, body)
         return notebook_ids, source_ids
@@ -2285,17 +2297,52 @@ async def _study_scope(
     """The knowledge a quiz or roadmap request may read: ``(notebook_ids, source_ids, label)``."""
     if body.scope == "none":
         return [], None, "ไม่ใช้คลังความรู้"
+    course_ids = list(dict.fromkeys(getattr(body, "course_ids", None) or []))
+    personal = bool(getattr(body, "include_personal", False))
     if body.scope in ("document", "notebook") and not (
-        body.document_ids or body.notebook_ids or body.source_ids
+        body.document_ids or body.notebook_ids or body.source_ids or course_ids or personal
     ):
         raise HTTPException(status_code=400, detail="เลือก notebook หรือเอกสารก่อน")
     pick = await _resolve_pick(user, body.document_ids, body.notebook_ids, body.source_ids)
+    if course_ids or personal:
+        return await _combined_scope(user, course_ids, personal, pick, body)
     if pick is not None:
         return pick
     notebook_ids, label, _fallback = await _resolve_scope(
         user, body.scope, body.course_id, body.document_ids
     )
     return notebook_ids, None, label
+
+
+async def _combined_scope(
+    user: User,
+    course_ids: List[int],
+    personal: bool,
+    pick: Optional[tuple[List[str], Optional[List[str]], str]],
+    body: Any,
+) -> tuple[List[str], Optional[List[str]], str]:
+    """
+    Whole courses and/or all my files, plus whatever single picks came with them.
+
+    Whole libraries are searched whole. When single files were picked as well,
+    the search is narrowed to those files plus every source of the whole
+    libraries, so a picked file never opens up the rest of its notebook.
+    """
+    whole: List[str] = []
+    try:
+        for course_id in course_ids:
+            whole += await library.notebook_ids_for_scope(user, scope="course", course_id=course_id)
+        if personal:
+            whole += await library.notebook_ids_for_scope(user, scope="personal", course_id=None)
+    except library.LibraryError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    whole = list(dict.fromkeys(whole))
+    notebooks = list(dict.fromkeys(whole + (pick[0] if pick else [])))
+    sources: Optional[List[str]] = None
+    if pick and pick[1] is not None:
+        sources = list(dict.fromkeys(pick[1] + await library.source_ids_of_notebooks(whole)))
+    count = len(course_ids) + int(personal) + len(body.document_ids) + len(body.notebook_ids) + len(body.source_ids)
+    return notebooks, sources, f"แหล่งความรู้ที่เลือก {count} แหล่ง"
 
 
 @router.post("/study/roadmap")
@@ -2327,6 +2374,7 @@ async def study_roadmap(
             source_ids=source_ids,
             web_mode=body.web,
             scope_label=label,
+            preferences=body.preferences(),
             # Kept with the roadmap so "expand" can reuse the same sources.
             settings={
                 "scope": body.scope,
@@ -2334,7 +2382,10 @@ async def study_roadmap(
                 "document_ids": body.document_ids,
                 "notebook_ids": body.notebook_ids,
                 "source_ids": body.source_ids,
+                "course_ids": body.course_ids,
+                "include_personal": body.include_personal,
                 "web": body.web,
+                "preferences": body.preferences(),
             },
             report=report,
         )
