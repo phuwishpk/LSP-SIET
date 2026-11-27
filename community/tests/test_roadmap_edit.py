@@ -3,8 +3,8 @@
 import copy
 
 import pytest
-
 from siet_community import roadmap_edit
+
 from siet_core.exceptions import InvalidInputError
 
 
@@ -145,3 +145,162 @@ def test_node_ceiling():
     assert len(many) == 200
     with pytest.raises(InvalidInputError):
         roadmap_edit.apply_edit_ops(many, [{"op": "add", "label": "one more", "after": "n3"}])
+
+
+# ---------------------------------------------------------------------------
+# The AI call, grounding of new nodes, and the one-step undo
+# ---------------------------------------------------------------------------
+
+import asyncio
+import json
+from types import SimpleNamespace
+
+from siet_community import roadmap_plan
+
+from siet_core.exceptions import ExternalServiceError
+
+
+class _Cache:
+    def __init__(self, fail=False):
+        self.store, self.ttls, self.fail = {}, {}, fail
+
+    async def get_json(self, key):
+        if self.fail:
+            raise RuntimeError("redis down")
+        return self.store.get(key)
+
+    async def set_json(self, key, value, ttl=None):
+        if self.fail:
+            raise RuntimeError("redis down")
+        self.store[key], self.ttls[key] = json.loads(json.dumps(value)), ttl
+        return True
+
+    async def delete(self, key):
+        self.store.pop(key, None)
+        return True
+
+
+class _Session(SimpleNamespace):
+    async def save_graph(self):
+        self.saves = getattr(self, "saves", 0) + 1
+
+
+def _session():
+    nodes = [{k: v for k, v in n.items() if k not in ("refs", "from_library")} for n in _nodes()]
+    return _Session(id="roadmap_session:r1", owner_id="7", title="Python", language="th", nodes=nodes,
+                    edges=roadmap_plan.derive_edges(nodes), grounding={"library": False, "web": True, "label": "อ้างอิง: เว็บ", "web_sources": []})
+
+
+@pytest.fixture
+def ai(monkeypatch):
+    state = {"replies": [], "prompts": [], "topics": None, "cache": _Cache()}
+
+    async def fake_chat(*, prompt, system, owner_id, max_tokens=None):
+        state["prompts"].append(prompt)
+        return state["replies"].pop(0)
+
+    async def fake_research(*, title, language, topics, owner_id):
+        state["topics"] = [t["id"] for t in topics]
+        return {"available": True, "notes": {}, "sources": []}
+
+    monkeypatch.setattr(roadmap_edit, "_invoke_chat", fake_chat)
+    monkeypatch.setattr(roadmap_plan, "research_on_web", fake_research)
+    monkeypatch.setattr(roadmap_edit, "cache_service", state["cache"])
+    return state
+
+
+def _edit(session, instruction="เพิ่มเรื่อง Docker หลังลูป", **kw):
+    return asyncio.run(roadmap_edit.edit_roadmap(session=session, instruction=instruction, **kw))
+
+
+ADD_DOCKER = json.dumps({"summary": "เพิ่ม Docker", "ops": [{"op": "add", "ref": "a1", "label": "Docker", "after": "n2"}]})
+
+
+def test_edit_saves_new_graph_and_snapshot(ai):
+    session = _session()
+    old_nodes = [dict(n) for n in session.nodes]
+    ai["replies"] = [ADD_DOCKER]
+    result = _edit(session)
+    assert result["added"] == ["n6"] and result["summary"] == "เพิ่ม Docker"
+    assert session.saves == 1 and any(n["label"] == "Docker" for n in session.nodes)
+    assert {"source": "n2", "target": "n6"} in session.edges
+    snap = ai["cache"].store["roadmap:undo:roadmap_session:r1"]
+    assert snap["nodes"] == old_nodes and snap["after"] == roadmap_plan.graph_fingerprint(session.nodes)
+    assert ai["cache"].ttls["roadmap:undo:roadmap_session:r1"] == roadmap_edit.UNDO_TTL == 604800
+
+
+def test_prompt_lists_nodes_and_instruction(ai):
+    ai["replies"] = [ADD_DOCKER]
+    _edit(_session(), instruction="ตัดเรื่องสอบออก")
+    prompt = ai["prompts"][0]
+    assert "n2 | - | แนวคิดหลัก | ลูป" in prompt and "n4 | n2 |" in prompt
+    assert "ตัดเรื่องสอบออก" in prompt and all(stage in prompt for stage in roadmap_plan.STAGES)
+
+
+def test_new_nodes_get_web_research_only_they(ai):
+    ai["replies"] = [ADD_DOCKER]
+    session = _session()
+    _edit(session)
+    assert ai["topics"] == ["n6"]
+    assert next(n for n in session.nodes if n["id"] == "n6")["sources"] == []
+
+
+def test_web_off_skips_research(ai):
+    ai["replies"] = [ADD_DOCKER]
+    _edit(_session(), web_mode="off")
+    assert ai["topics"] is None
+
+
+@pytest.mark.parametrize("reply", ["no json at all", json.dumps({"ops": "x"}), json.dumps(["a"])])
+def test_malformed_answer_raises_external_error(ai, reply):
+    session = _session()
+    ai["replies"] = [reply]
+    with pytest.raises(ExternalServiceError):
+        _edit(session)
+    assert not getattr(session, "saves", 0) and ai["cache"].store == {}
+
+
+def test_blank_instruction_is_refused(ai):
+    with pytest.raises(InvalidInputError):
+        _edit(_session(), instruction="   ")
+    assert ai["prompts"] == []
+
+
+def test_undo_restores_and_clears(ai):
+    session = _session()
+    before = [dict(n) for n in session.nodes]
+    ai["replies"] = [ADD_DOCKER]
+    _edit(session)
+    assert asyncio.run(roadmap_edit.can_undo(session)) is True
+    asyncio.run(roadmap_edit.undo_edit(session))
+    assert session.nodes == before and session.saves == 2
+    assert asyncio.run(roadmap_edit.can_undo(session)) is False
+
+
+def test_undo_after_expansion_is_refused(ai):
+    session = _session()
+    ai["replies"] = [ADD_DOCKER]
+    _edit(session)
+    session.nodes = session.nodes + [{"id": "n7", "label": "ขยาย", "parent": "n1"}]  # an expansion
+    assert asyncio.run(roadmap_edit.can_undo(session)) is False
+    with pytest.raises(InvalidInputError):
+        asyncio.run(roadmap_edit.undo_edit(session))
+    assert session.saves == 1
+
+
+def test_undo_with_nothing_is_refused(ai):
+    with pytest.raises(InvalidInputError):
+        asyncio.run(roadmap_edit.undo_edit(_session()))
+
+
+def test_can_undo_false_when_cache_fails(ai, monkeypatch):
+    monkeypatch.setattr(roadmap_edit, "cache_service", _Cache(fail=True))
+    assert asyncio.run(roadmap_edit.can_undo(_session())) is False
+
+
+def test_edit_still_saves_when_cache_is_down(ai, monkeypatch):
+    monkeypatch.setattr(roadmap_edit, "cache_service", _Cache(fail=True))
+    session = _session()
+    ai["replies"] = [ADD_DOCKER]
+    _edit(session)
+    assert session.saves == 1
