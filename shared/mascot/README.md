@@ -35,5 +35,13 @@ import { PinkOwlMascot } from '@/components/mascot';
 
 // 3. ท่าอ่านหนังสือ/ตั้งใจทำโจทย์ (Study)
 <PinkOwlMascot mood="study" size={160} />
+
+// 4. ท่าเฉพาะ Roadmap: กางแผนที่ (Map) · ชี้ทาง (Point)
+<PinkOwlMascot mood="map" size={160} />
+<PinkOwlMascot mood="point" size={160} />
+
+// 5. ท่าเฉพาะ KMITL RAG AI: ส่องแว่นขยายค้นเอกสาร (Search) · ปิ๊งไอเดียได้คำตอบ (Idea)
+<PinkOwlMascot mood="search" size={160} />
+<PinkOwlMascot mood="idea" size={160} />
 ```
 

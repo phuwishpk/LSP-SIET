@@ -20,7 +20,7 @@ export function AskWebButton({ pending, webAdded, onAsk }: AskWebButtonProps) {
   if (webAdded) return null
   return (
     <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-dashed px-3 py-2">
-      {pending && <PinkOwlMascot mood="study" size={28} label="น้องฮูกกำลังคิดคำตอบ" className="shrink-0" />}
+      {pending && <PinkOwlMascot mood="search" size={28} label="น้องฮูกกำลังค้นเว็บ" className="shrink-0" />}
       <p className="min-w-0 flex-1 text-[11px] text-muted-foreground">
         {pending
           ? 'กำลังค้นจากเว็บไซต์ของ สจล. และตรวจว่าทุกลิงก์เปิดได้จริง…'

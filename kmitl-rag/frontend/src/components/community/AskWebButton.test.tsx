@@ -13,7 +13,7 @@ describe('AskWebButton', () => {
 
   it('shows the studying owl and cannot be pressed again while searching', () => {
     render(<AskWebButton pending webAdded={false} onAsk={vi.fn()} />)
-    expect(screen.getByRole('img', { name: 'น้องฮูกกำลังคิดคำตอบ' })).toBeInTheDocument()
+    expect(screen.getByRole('img', { name: 'น้องฮูกกำลังค้นเว็บ' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /ค้นเว็บเพิ่ม/ })).toBeDisabled()
   })
 

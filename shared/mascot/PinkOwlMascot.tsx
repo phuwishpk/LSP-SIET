@@ -2,8 +2,11 @@
 
 import React, { useId } from 'react';
 
-/** idle · wave · study (reading) · celebrate · map (holding a route map) · point (pointing the way) */
-export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate' | 'map' | 'point';
+/**
+ * idle · wave · study (reading) · celebrate · map (holding a route map) · point (pointing the way)
+ * · search (magnifying glass over a page: searching the library) · idea (lightbulb: has the answer)
+ */
+export type OwlMood = 'idle' | 'wave' | 'study' | 'celebrate' | 'map' | 'point' | 'search' | 'idea';
 
 export interface PinkOwlMascotProps {
   mood?: OwlMood;
@@ -75,6 +78,10 @@ export function PinkOwlMascot({
         #readingBook { display: none; opacity: 0; }
         #roadMap { display: none; }
         #rightWingPoint { display: none; }
+        #searchPage { display: none; }
+        #searchGlass { display: none; }
+        #ideaBulb { display: none; }
+        #leftWingIdea { display: none; }
 
         /* ========================================================
            1. ACTION: โบกมือทักทาย (Wave & Wink)
@@ -204,6 +211,87 @@ export function PinkOwlMascot({
         @keyframes wingPoint {
           0% { transform: rotate(0deg) translateX(0); }
           100% { transform: rotate(-6deg) translateX(4px); }
+        }
+
+        /* ========================================================
+           5. ACTION: ส่องแว่นขยายหาในเอกสาร (RAG: ค้นคลังความรู้)
+           ======================================================== */
+        .action-search .owl-whole {
+          animation: searchLean 2.2s ease-in-out infinite;
+        }
+        @keyframes searchLean {
+          0%, 100% { transform: translateY(0) rotate(0deg); }
+          50% { transform: translateY(2px) rotate(1deg); }
+        }
+        .action-search #leftEyeGroup,
+        .action-search #rightEyePupil {
+          transform: translate(0, 6px);
+          animation: eyeScan 2.2s ease-in-out infinite;
+        }
+        @keyframes eyeScan {
+          0%, 100% { transform: translate(-4px, 6px); }
+          50% { transform: translate(4px, 6px); }
+        }
+        .action-search #leftWingDefault,
+        .action-search #rightWingDefault { display: none; }
+        .action-search #searchPage { display: inline; }
+        .action-search #searchGlass {
+          display: inline;
+          transform-origin: 228px 200px;
+          animation: glassSweep 2.2s ease-in-out infinite;
+        }
+        @keyframes glassSweep {
+          0%, 100% { transform: rotate(8deg); }
+          50% { transform: rotate(-10deg); }
+        }
+        .action-search .glass-glint {
+          animation: glint 2.2s ease-in-out infinite;
+        }
+        @keyframes glint {
+          0%, 100% { opacity: 0.9; }
+          50% { opacity: 0.35; }
+        }
+
+        /* ========================================================
+           6. ACTION: ปิ๊งไอเดีย (RAG: ได้คำตอบแล้ว)
+           ======================================================== */
+        .action-idea .owl-whole {
+          animation: ideaHop 2.8s ease-in-out infinite;
+        }
+        @keyframes ideaHop {
+          0%, 70%, 100% { transform: translateY(0); }
+          80% { transform: translateY(-8px); }
+          90% { transform: translateY(0); }
+        }
+        .action-idea #leftEyeGroup,
+        .action-idea #rightEyePupil {
+          transform: translate(-5px, -4px);
+        }
+        .action-idea #leftWingDefault { display: none; }
+        .action-idea #leftWingIdea {
+          display: inline;
+          transform-origin: 80px 188px;
+          animation: ideaWing 2.8s ease-in-out infinite;
+        }
+        @keyframes ideaWing {
+          0%, 70%, 100% { transform: rotate(0deg); }
+          80% { transform: rotate(-6deg); }
+        }
+        .action-idea #ideaBulb { display: inline; }
+        .action-idea .bulb-glow {
+          transform-origin: 50px 74px;
+          animation: bulbGlow 2.8s ease-in-out infinite;
+        }
+        @keyframes bulbGlow {
+          0%, 60%, 100% { opacity: 0.28; transform: scale(0.9); }
+          80% { opacity: 0.6; transform: scale(1.12); }
+        }
+        .action-idea .bulb-rays {
+          animation: bulbRays 2.8s ease-in-out infinite;
+        }
+        @keyframes bulbRays {
+          0%, 60%, 100% { opacity: 0.55; }
+          80% { opacity: 1; }
         }
 
         /* หยุดนิ่ง: คงท่าไว้ แต่ไม่ขยับ */
@@ -359,6 +447,44 @@ export function PinkOwlMascot({
             <g id="rightWingPoint">
               <path d="M 226 188 C 250 180 272 178 290 182 C 296 184 296 192 290 194 C 272 198 252 210 230 222 Z" fill="#e11d48"/>
               <path d="M 276 183 L 294 186 L 278 192 Z" fill="#be123c"/>
+            </g>
+
+            {/* แผ่นเอกสาร + ปีกซ้ายจับ (ท่า search) */}
+            <g id="searchPage">
+              <path d="M 98 230 L 162 222 L 170 282 L 106 290 Z" fill="#ffffff" stroke="#cbd5e1" strokeWidth="2" strokeLinejoin="round"/>
+              <path d="M 150 223.5 L 162 222 L 163.5 234 Z" fill="#fecdd3"/>
+              <line x1="110" y1="244" x2="150" y2="239" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round"/>
+              <line x1="112" y1="256" x2="156" y2="250.5" stroke="#fda4af" strokeWidth="3" strokeLinecap="round"/>
+              <line x1="113" y1="268" x2="146" y2="264" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round"/>
+              <line x1="115" y1="279" x2="152" y2="274.5" stroke="#cbd5e1" strokeWidth="3" strokeLinecap="round"/>
+              <path d="M 70 200 C 58 228 72 258 106 268 C 112 254 104 234 90 210 Z" fill="#e11d48"/>
+            </g>
+
+            {/* แว่นขยาย + ปีกขวาถือด้าม (ท่า search) */}
+            <g id="searchGlass">
+              <line x1="190" y1="264" x2="214" y2="288" stroke="#92400e" strokeWidth="9" strokeLinecap="round"/>
+              <line x1="190" y1="264" x2="214" y2="288" stroke="#b45309" strokeWidth="5" strokeLinecap="round"/>
+              <circle cx="174" cy="248" r="22" fill="#e0f2fe" fillOpacity="0.45" stroke="#1f2937" strokeWidth="5.5"/>
+              <path className="glass-glint" d="M 162 240 Q 166 232 175 231" fill="none" stroke="#ffffff" strokeWidth="3.5" strokeLinecap="round"/>
+              <path d="M 232 196 C 252 222 242 268 210 288 C 197 294 186 285 193 274 C 210 256 218 230 212 204 Z" fill="#e11d48"/>
+            </g>
+
+            {/* ปีกซ้ายยกขึ้น + หลอดไฟปิ๊งไอเดีย (ท่า idea) */}
+            <path id="leftWingIdea" d="M 82 188 C 58 176 38 150 37 116 C 37 104 52 100 57 110 C 64 136 80 160 99 178 Z" fill="#e11d48"/>
+            <g id="ideaBulb">
+              <circle className="bulb-glow" cx="50" cy="74" r="28" fill="#fde047"/>
+              <g className="bulb-rays" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round">
+                <line x1="50" y1="34" x2="50" y2="24"/>
+                <line x1="22" y1="48" x2="15" y2="41"/>
+                <line x1="78" y1="48" x2="85" y2="41"/>
+                <line x1="12" y1="76" x2="3" y2="76"/>
+                <line x1="88" y1="76" x2="97" y2="76"/>
+              </g>
+              <path d="M 50 54 C 38 54 30 63 30 74 C 30 82 35 87 40 92 L 40 98 L 60 98 L 60 92 C 65 87 70 82 70 74 C 70 63 62 54 50 54 Z" fill="#fef08a" stroke="#d97706" strokeWidth="2.5" strokeLinejoin="round"/>
+              <path d="M 44 86 L 47 76 L 50 84 L 53 76 L 56 86" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <rect x="40" y="98" width="20" height="5" rx="1.5" fill="#94a3b8"/>
+              <rect x="42" y="103" width="16" height="4" rx="1.5" fill="#64748b"/>
+              <path d="M 38 66 Q 40 60 46 58" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round"/>
             </g>
 
             {/* หมวกรับปริญญา 3D */}

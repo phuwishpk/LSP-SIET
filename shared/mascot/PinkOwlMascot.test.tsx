@@ -51,4 +51,14 @@ describe('PinkOwlMascot', () => {
     expect(point.querySelector('.action-point')).not.toBeNull()
     expect(point.querySelector('#rightWingPoint')).not.toBeNull()
   })
+
+  it('has the RAG poses: searching with a magnifying glass and a lightbulb idea', () => {
+    const search = render(<PinkOwlMascot mood="search" />).container
+    expect(search.querySelector('.action-search')).not.toBeNull()
+    expect(search.querySelector('#searchGlass')).not.toBeNull()
+    expect(search.querySelector('#searchPage')).not.toBeNull()
+    const idea = render(<PinkOwlMascot mood="idea" still />).container
+    expect(idea.querySelector('.action-idea.owl-still')).not.toBeNull()
+    expect(idea.querySelector('#ideaBulb')).not.toBeNull()
+  })
 })

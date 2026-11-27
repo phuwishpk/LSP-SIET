@@ -372,7 +372,7 @@ function AskContent() {
             <ArrowLeft className="h-4 w-4" /> กลับไปฟีด
           </Button>
           <div className="flex items-center gap-2">
-            <PinkOwlMascot mood={ask.isPending ? 'study' : 'idle'} size={40} className="shrink-0" />
+            <PinkOwlMascot mood={ask.isPending ? 'search' : 'idea'} size={40} className="shrink-0" />
             <div>
               <h1 className="text-base font-semibold leading-tight">KMITL RAG AI</h1>
               <p className="text-xs text-muted-foreground">
@@ -526,7 +526,7 @@ function AskContent() {
                 )}
                 {messages.length === 0 && !ask.isPending && !(conversationId && stored.isLoading) && (
                   <div className="flex h-full flex-col items-center justify-center gap-4 py-8 text-center">
-                    <PinkOwlMascot mood="wave" size={120} label="น้องฮูก ผู้ช่วย AI" />
+                    <PinkOwlMascot mood="idea" size={120} label="น้องฮูก ผู้ช่วย AI" />
                     <div>
                       <p className="text-sm font-medium">เริ่มถามได้เลย</p>
                       <p className="mx-auto mt-1 max-w-md text-xs text-muted-foreground">
@@ -553,7 +553,7 @@ function AskContent() {
                   <div key={`${m.at}-${i}`} className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}>
                     {m.role === 'assistant' && (
                       <PinkOwlMascot
-                        mood="idle"
+                        mood="idea"
                         size={36}
                         label="น้องฮูก ผู้ช่วย AI"
                         still={avatarIsStill(i, messages)}
@@ -613,9 +613,9 @@ function AskContent() {
                 {ask.isPending && (
                   <div className="flex justify-start">
                     <PinkOwlMascot
-                      mood="study"
+                      mood="search"
                       size={36}
-                      label="น้องฮูกกำลังคิดคำตอบ"
+                      label="น้องฮูกกำลังค้นคลังความรู้"
                       className="mr-2 mt-1 shrink-0 self-start"
                     />
                     <div className="rounded-2xl border bg-background px-4 py-2.5 text-sm text-muted-foreground">
