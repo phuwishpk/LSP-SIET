@@ -81,7 +81,6 @@ export function PinkOwlMascot({
         #searchPage { display: none; }
         #searchGlass { display: none; }
         #ideaBulb { display: none; }
-        #leftWingIdea { display: none; }
 
         /* ========================================================
            1. ACTION: โบกมือทักทาย (Wave & Wink)
@@ -265,21 +264,31 @@ export function PinkOwlMascot({
         }
         .action-idea #leftEyeGroup,
         .action-idea #rightEyePupil {
-          transform: translate(-5px, -4px);
-        }
-        .action-idea #leftWingDefault { display: none; }
-        .action-idea #leftWingIdea {
-          display: inline;
-          transform-origin: 80px 188px;
-          animation: ideaWing 2.8s ease-in-out infinite;
-        }
-        @keyframes ideaWing {
-          0%, 70%, 100% { transform: rotate(0deg); }
-          80% { transform: rotate(-6deg); }
+          transform: translate(-3px, -5px);
         }
         .action-idea #ideaBulb { display: inline; }
+        /* ปีกขวายกขึ้น "อ๋อ!" ขยับตามจังหวะไฟติด */
+        .action-idea #rightWingDefault { display: none; }
+        .action-idea #rightWingWave {
+          display: inline !important;
+          transform-origin: 228px 185px;
+          transform: rotate(-12deg);
+          animation: ahaWing 2.8s ease-in-out infinite;
+        }
+        @keyframes ahaWing {
+          0%, 60%, 100% { transform: rotate(-12deg); }
+          80% { transform: rotate(-26deg) translateY(-3px); }
+        }
+        .action-idea .bulb-float {
+          animation: bulbFloat 2.8s ease-in-out infinite;
+        }
+        @keyframes bulbFloat {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
         .action-idea .bulb-glow {
-          transform-origin: 50px 74px;
+          transform-box: fill-box;
+          transform-origin: center;
           animation: bulbGlow 2.8s ease-in-out infinite;
         }
         @keyframes bulbGlow {
@@ -469,22 +478,21 @@ export function PinkOwlMascot({
               <path d="M 232 196 C 252 222 242 268 210 288 C 197 294 186 285 193 274 C 210 256 218 230 212 204 Z" fill="#e11d48"/>
             </g>
 
-            {/* ปีกซ้ายยกขึ้น + หลอดไฟปิ๊งไอเดีย (ท่า idea) */}
-            <path id="leftWingIdea" d="M 82 188 C 58 176 38 150 37 116 C 37 104 52 100 57 110 C 64 136 80 160 99 178 Z" fill="#e11d48"/>
-            <g id="ideaBulb">
+            {/* หลอดไฟปิ๊งไอเดียลอยเหนือหัว (ท่า idea) */}
+            <g id="ideaBulb" transform="translate(40 42) scale(0.76) translate(-50 -74)">
+              <g className="bulb-float">
               <circle className="bulb-glow" cx="50" cy="74" r="28" fill="#fde047"/>
               <g className="bulb-rays" stroke="#f59e0b" strokeWidth="3.5" strokeLinecap="round">
                 <line x1="50" y1="34" x2="50" y2="24"/>
                 <line x1="22" y1="48" x2="15" y2="41"/>
                 <line x1="78" y1="48" x2="85" y2="41"/>
-                <line x1="12" y1="76" x2="3" y2="76"/>
-                <line x1="88" y1="76" x2="97" y2="76"/>
               </g>
               <path d="M 50 54 C 38 54 30 63 30 74 C 30 82 35 87 40 92 L 40 98 L 60 98 L 60 92 C 65 87 70 82 70 74 C 70 63 62 54 50 54 Z" fill="#fef08a" stroke="#d97706" strokeWidth="2.5" strokeLinejoin="round"/>
               <path d="M 44 86 L 47 76 L 50 84 L 53 76 L 56 86" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               <rect x="40" y="98" width="20" height="5" rx="1.5" fill="#94a3b8"/>
               <rect x="42" y="103" width="16" height="4" rx="1.5" fill="#64748b"/>
               <path d="M 38 66 Q 40 60 46 58" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round"/>
+              </g>
             </g>
 
             {/* หมวกรับปริญญา 3D */}
